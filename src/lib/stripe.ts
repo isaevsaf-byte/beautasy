@@ -5,9 +5,7 @@ function getStripe() {
   if (!key) {
     throw new Error("STRIPE_SECRET_KEY is not set in environment variables");
   }
-  return new Stripe(key, {
-    typescript: true,
-  });
+  return new Stripe(key);
 }
 
 // Lazy initialization — only creates the instance when actually used (at runtime),
