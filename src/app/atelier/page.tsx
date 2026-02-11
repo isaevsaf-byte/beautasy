@@ -1,177 +1,471 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Scissors, Heart, Sparkles, ArrowRight, MapPin, Clock, Phone } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Scissors,
+  ArrowRight,
+  MapPin,
+  Clock,
+  Phone,
+  Info,
+  CalendarCheck,
+  Ruler,
+  SparkleIcon,
+} from "lucide-react";
 import Link from "next/link";
 /* eslint-disable @next/next/no-img-element */
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 
-const services = [
+/* ─────────────── Data ─────────────── */
+
+interface PriceItem {
+  name: string;
+  price: string;
+}
+
+interface ServiceCategory {
+  id: string;
+  label: string;
+  items: PriceItem[];
+}
+
+const pricingCategories: ServiceCategory[] = [
   {
-    icon: Scissors,
-    title: "Custom Sewing",
-    description:
-      "Bespoke pieces tailored exactly to your measurements and desires. From lingerie to dresses, we bring your vision to life.",
-    details: ["Made-to-measure fitting", "Fabric consultation", "Design collaboration", "2–4 week turnaround"],
+    id: "denim",
+    label: "Denim & Trousers",
+    items: [
+      { name: "Shorten Jeans (Standard)", price: "£15.50" },
+      { name: "Shorten Jeans (Keep Original Hem)", price: "£17.00" },
+      { name: "Waist Adjustment", price: "£22.00" },
+      { name: "Replace Zip", price: "£18.00" },
+    ],
   },
   {
-    icon: Heart,
-    title: "Repairs",
-    description:
-      "Breathe new life into your favourite garments with careful, invisible repair work.",
-    details: ["Seam repairs", "Zipper replacement", "Patching & mending", "1–2 week turnaround"],
+    id: "dresses",
+    label: "Dresses & Skirts",
+    items: [
+      { name: "Day Dress Shorten", price: "from £25.00" },
+      { name: "Evening / Prom Dress Shorten", price: "from £30.00" },
+      { name: "Take in Sides (Resize)", price: "from £28.00" },
+      { name: "Strap Adjustments", price: "£20.00" },
+    ],
   },
   {
-    icon: Sparkles,
-    title: "Alterations",
-    description:
-      "Perfect fit adjustments for ready-to-wear and cherished pieces. Because every body is different.",
-    details: ["Taking in / letting out", "Hemming", "Bodice adjustments", "1–2 week turnaround"],
+    id: "coats",
+    label: "Coats & Jackets",
+    items: [
+      { name: "Shorten Sleeves", price: "£36.00" },
+      { name: "New Zip (Coat)", price: "from £45.00" },
+      { name: "Relining", price: "from £80.00" },
+    ],
+  },
+  {
+    id: "home",
+    label: "Home Textiles",
+    items: [
+      { name: "Curtain Hemming (per panel)", price: "from £20.00" },
+      { name: "Cushion Cover (custom)", price: "from £25.00" },
+      { name: "Table Runner / Napkins", price: "from £18.00" },
+    ],
   },
 ];
 
-const process = [
-  { step: "01", title: "Consultation", description: "Tell us about your project — in person, by phone, or online." },
-  { step: "02", title: "Design & Fabric", description: "We help you choose the perfect fabric and finalise the design." },
-  { step: "03", title: "Crafting", description: "Your piece is carefully handmade in our Southampton atelier." },
-  { step: "04", title: "Fitting & Finish", description: "Final adjustments to ensure a perfect fit, then it's yours." },
+const steps = [
+  {
+    icon: CalendarCheck,
+    step: "01",
+    title: "Book or Visit",
+    subtitle: "Southampton",
+    description:
+      "Drop by our atelier or book an appointment online. We&apos;ll discuss your needs over a cup of tea.",
+  },
+  {
+    icon: Ruler,
+    step: "02",
+    title: "Fitting & Pinning",
+    description:
+      "We take precise measurements and pin your garment to visualise the perfect result together.",
+  },
+  {
+    icon: SparkleIcon,
+    step: "03",
+    title: "Collection",
+    subtitle: "Perfect Fit",
+    description:
+      "Your beautifully altered piece is ready. Try it on, smile, and take it home.",
+  },
 ];
+
+/* ─────────────── Components ─────────────── */
+
+function PriceLine({ item, index }: { item: PriceItem; index: number }) {
+  return (
+    <motion.div
+      variants={fadeUp}
+      custom={index}
+      className="flex items-end gap-2 py-3 group"
+    >
+      <span className="text-[15px] text-charcoal whitespace-nowrap">
+        {item.name}
+      </span>
+      <span className="flex-1 border-b border-dotted border-charcoal/15 mb-1.5 group-hover:border-lavender/50 transition-colors" />
+      <span className="text-[15px] font-medium text-charcoal whitespace-nowrap">
+        {item.price}
+      </span>
+    </motion.div>
+  );
+}
+
+/* ═════════════════════════════════════════════════════
+   PAGE
+   ═════════════════════════════════════════════════════ */
 
 export default function AtelierPage() {
+  const [activeTab, setActiveTab] = useState("denim");
+
+  const activeCategory = pricingCategories.find((c) => c.id === activeTab)!;
+
   return (
     <>
       <Header />
       <main className="pt-24">
-        {/* Hero */}
-        <section className="py-16 md:py-24 bg-lavender-bg">
-          <div className="max-w-6xl mx-auto px-6">
+        {/* ──── Hero ──── */}
+        <section className="relative py-20 md:py-28 overflow-hidden">
+          {/* Background image */}
+          <div className="absolute inset-0 z-0">
+            <img
+              src="https://placehold.co/1920x900/DCD0FF/4A4A4A?text=Atelier+%E2%80%93+Hands+%26+Fabric"
+              alt="Hands working with delicate fabric in the Beautasy atelier"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#FDFBF7]/95 via-[#FDFBF7]/80 to-[#FDFBF7]/40" />
+          </div>
+
+          <div className="relative z-10 max-w-6xl mx-auto px-6">
             <motion.div
               initial="hidden"
               animate="visible"
               variants={stagger}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"
-            >
-              <div>
-                <motion.p
-                  variants={fadeUp}
-                  custom={0}
-                  className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-                >
-                  The Atelier
-                </motion.p>
-                <motion.h2
-                  variants={fadeUp}
-                  custom={1}
-                  className="font-serif text-4xl sm:text-5xl leading-tight mb-6"
-                >
-                  Local Services
-                  <br />
-                  <span className="italic text-lavender">in Southampton</span>
-                </motion.h2>
-                <motion.p
-                  variants={fadeUp}
-                  custom={2}
-                  className="text-lg text-charcoal-light max-w-md leading-relaxed mb-10"
-                >
-                  From custom sewing to careful repairs and perfect-fit alterations — our atelier is
-                  your go-to place for garments that feel truly yours.
-                </motion.p>
-
-                <motion.div variants={fadeUp} custom={3} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <MapPin size={18} className="text-lavender" />
-                    <p className="text-sm text-charcoal-light">Southampton, Hampshire, UK</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Clock size={18} className="text-lavender" />
-                    <p className="text-sm text-charcoal-light">Mon–Sat: 9am – 6pm</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Phone size={18} className="text-lavender" />
-                    <p className="text-sm text-charcoal-light">By appointment</p>
-                  </div>
-                </motion.div>
-              </div>
-
-              <motion.div variants={fadeIn} className="relative">
-                <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-soft/40">
-                  <img
-                    src="https://placehold.co/800x1000/DCD0FF/4A4A4A?text=Atelier"
-                    alt="Beautasy Atelier — Custom Sewing"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                </div>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 1 }}
-                  className="absolute -bottom-4 -right-4 bg-white/90 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-lg shadow-lavender/10 border border-lavender-soft/50"
-                >
-                  <div className="flex items-center gap-2">
-                    <MapPin size={14} className="text-lavender" />
-                    <p className="text-xs tracking-wider uppercase text-charcoal-light">
-                      Southampton, UK
-                    </p>
-                  </div>
-                </motion.div>
-              </motion.div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Services */}
-        <section className="py-24 md:py-32">
-          <div className="max-w-6xl mx-auto px-6">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-80px" }}
-              variants={stagger}
-              className="text-center mb-16"
+              className="max-w-xl"
             >
               <motion.p
                 variants={fadeUp}
                 custom={0}
                 className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
               >
-                What We Offer
+                The Atelier
               </motion.p>
-              <motion.h3
+              <motion.h1
                 variants={fadeUp}
                 custom={1}
-                className="font-serif text-3xl sm:text-4xl"
+                className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] leading-tight mb-6"
               >
-                Our Services
-              </motion.h3>
-            </motion.div>
+                Give Your Wardrobe
+                <br />
+                <span className="italic text-lavender">a Second Life</span>
+              </motion.h1>
+              <motion.p
+                variants={fadeUp}
+                custom={2}
+                className="text-lg text-charcoal-light leading-relaxed mb-8 max-w-md"
+              >
+                Expert alterations and repairs, done by hand in our Southampton
+                studio. Because every garment deserves to fit perfectly.
+              </motion.p>
 
+              <motion.div
+                variants={fadeUp}
+                custom={3}
+                className="flex flex-wrap gap-6"
+              >
+                <div className="flex items-center gap-2.5">
+                  <MapPin size={16} className="text-lavender" />
+                  <span className="text-sm text-charcoal-light">
+                    Southampton, UK
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Clock size={16} className="text-lavender" />
+                  <span className="text-sm text-charcoal-light">
+                    Mon–Sat: 9am – 6pm
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Phone size={16} className="text-lavender" />
+                  <span className="text-sm text-charcoal-light">
+                    By appointment
+                  </span>
+                </div>
+              </motion.div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ──── How It Works ──── */}
+        <section className="py-20 md:py-28 bg-lavender-bg">
+          <div className="max-w-5xl mx-auto px-6">
             <motion.div
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: "-80px" }}
               variants={stagger}
-              className="grid grid-cols-1 md:grid-cols-3 gap-8"
+              className="text-center mb-14"
             >
-              {services.map((service, i) => (
+              <motion.p
+                variants={fadeUp}
+                custom={0}
+                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
+              >
+                Simple & Personal
+              </motion.p>
+              <motion.h2
+                variants={fadeUp}
+                custom={1}
+                className="font-serif text-3xl sm:text-4xl"
+              >
+                How It Works
+              </motion.h2>
+            </motion.div>
+
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-60px" }}
+              variants={stagger}
+              className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6"
+            >
+              {steps.map((s, i) => (
+                <motion.div
+                  key={s.step}
+                  variants={fadeUp}
+                  custom={i}
+                  className="relative text-center bg-white/70 backdrop-blur-sm rounded-3xl px-8 py-10 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-all duration-500"
+                >
+                  {/* Step number */}
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-lavender text-charcoal w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold tracking-wide">
+                    {s.step}
+                  </div>
+
+                  <div className="w-14 h-14 rounded-2xl bg-lavender/15 flex items-center justify-center mx-auto mb-5">
+                    <s.icon size={26} className="text-charcoal" />
+                  </div>
+                  <h3 className="font-serif text-xl mb-1">{s.title}</h3>
+                  {s.subtitle && (
+                    <p className="text-sm text-lavender font-medium mb-3">
+                      {s.subtitle}
+                    </p>
+                  )}
+                  <p className="text-sm text-charcoal-light leading-relaxed">
+                    {s.description}
+                  </p>
+
+                  {/* Connector arrow (desktop only) */}
+                  {i < steps.length - 1 && (
+                    <div className="hidden md:block absolute top-1/2 -right-4 -translate-y-1/2 text-lavender/30">
+                      <ArrowRight size={20} />
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ──── Pricing with Tabs ──── */}
+        <section className="py-20 md:py-28">
+          <div className="max-w-3xl mx-auto px-6">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-80px" }}
+              variants={stagger}
+              className="text-center mb-12"
+            >
+              <motion.p
+                variants={fadeUp}
+                custom={0}
+                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
+              >
+                Services & Pricing
+              </motion.p>
+              <motion.h2
+                variants={fadeUp}
+                custom={1}
+                className="font-serif text-3xl sm:text-4xl"
+              >
+                Our Price Guide
+              </motion.h2>
+            </motion.div>
+
+            {/* Tabs */}
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+              custom={0}
+              className="mb-10"
+            >
+              <div className="flex flex-wrap justify-center gap-2">
+                {pricingCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveTab(cat.id)}
+                    className={`px-5 py-2.5 rounded-full text-sm tracking-wide transition-all duration-300 ${
+                      activeTab === cat.id
+                        ? "bg-lavender text-charcoal font-medium shadow-md shadow-lavender/20"
+                        : "bg-cream-soft text-charcoal-light hover:bg-lavender/15 hover:text-charcoal"
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Price List */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="bg-white/60 backdrop-blur-sm border border-lavender-soft/30 rounded-3xl px-8 sm:px-10 py-8"
+              >
+                {/* Category header */}
+                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-lavender-soft/30">
+                  <div className="w-9 h-9 rounded-xl bg-lavender/20 flex items-center justify-center">
+                    <Scissors size={18} className="text-charcoal" />
+                  </div>
+                  <h3 className="font-serif text-xl">{activeCategory.label}</h3>
+                </div>
+
+                {/* Items */}
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={stagger}
+                  className="divide-y divide-transparent"
+                >
+                  {activeCategory.items.map((item, i) => (
+                    <PriceLine key={item.name} item={item} index={i} />
+                  ))}
+                </motion.div>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* ──── Disclaimer ──── */}
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+              custom={0}
+              className="mt-8 flex gap-3 items-start bg-cream-soft rounded-2xl px-6 py-5"
+            >
+              <Info
+                size={18}
+                className="text-charcoal/30 flex-shrink-0 mt-0.5"
+              />
+              <p className="text-[13px] italic text-charcoal/45 leading-relaxed">
+                Please note: These prices are a guide for standard materials.
+                The final quote will be provided upon inspection, as delicate
+                fabrics (like silk, velvet, or leather) or complex construction
+                may require additional time and care.
+              </p>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ──── Service Cards ──── */}
+        <section className="py-20 md:py-28 bg-lavender-bg">
+          <div className="max-w-6xl mx-auto px-6">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-80px" }}
+              variants={stagger}
+              className="text-center mb-14"
+            >
+              <motion.p
+                variants={fadeUp}
+                custom={0}
+                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
+              >
+                Beyond Alterations
+              </motion.p>
+              <motion.h2
+                variants={fadeUp}
+                custom={1}
+                className="font-serif text-3xl sm:text-4xl"
+              >
+                Full Atelier Services
+              </motion.h2>
+            </motion.div>
+
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-60px" }}
+              variants={stagger}
+              className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            >
+              {[
+                {
+                  title: "Custom Sewing",
+                  description:
+                    "Bespoke pieces tailored exactly to your measurements and desires. From lingerie to dresses, we bring your vision to life.",
+                  details: [
+                    "Made-to-measure fitting",
+                    "Fabric consultation",
+                    "Design collaboration",
+                    "2–4 week turnaround",
+                  ],
+                },
+                {
+                  title: "Repairs",
+                  description:
+                    "Breathe new life into your favourite garments with careful, invisible repair work.",
+                  details: [
+                    "Seam repairs",
+                    "Zipper replacement",
+                    "Patching & mending",
+                    "1–2 week turnaround",
+                  ],
+                },
+                {
+                  title: "Alterations",
+                  description:
+                    "Perfect fit adjustments for ready-to-wear and cherished pieces. Because every body is different.",
+                  details: [
+                    "Taking in / letting out",
+                    "Hemming",
+                    "Bodice adjustments",
+                    "1–2 week turnaround",
+                  ],
+                },
+              ].map((service, i) => (
                 <motion.div
                   key={service.title}
                   variants={fadeUp}
                   custom={i}
-                  className="bg-cream-soft rounded-3xl p-8 hover:shadow-lg hover:shadow-lavender/10 transition-shadow duration-300"
+                  className="bg-white/70 backdrop-blur-sm rounded-3xl p-8 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-all duration-500"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-lavender/30 flex items-center justify-center mb-6">
-                    <service.icon size={22} className="text-charcoal" />
-                  </div>
                   <h4 className="font-serif text-xl mb-3">{service.title}</h4>
                   <p className="text-sm text-charcoal-light leading-relaxed mb-6">
                     {service.description}
                   </p>
-                  <ul className="space-y-2">
+                  <ul className="space-y-2.5">
                     {service.details.map((detail) => (
-                      <li key={detail} className="flex items-center gap-2 text-sm text-charcoal-light">
-                        <span className="w-1 h-1 rounded-full bg-lavender flex-shrink-0" />
+                      <li
+                        key={detail}
+                        className="flex items-center gap-2.5 text-sm text-charcoal-light"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-lavender flex-shrink-0" />
                         {detail}
                       </li>
                     ))}
@@ -182,84 +476,58 @@ export default function AtelierPage() {
           </div>
         </section>
 
-        {/* Process */}
-        <section className="py-24 md:py-32 bg-lavender-bg">
+        {/* ──── CTA ──── */}
+        <section className="py-20 md:py-28">
           <div className="max-w-6xl mx-auto px-6">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-80px" }}
-              variants={stagger}
-              className="text-center mb-16"
-            >
-              <motion.p
-                variants={fadeUp}
-                custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-              >
-                How It Works
-              </motion.p>
-              <motion.h3
-                variants={fadeUp}
-                custom={1}
-                className="font-serif text-3xl sm:text-4xl"
-              >
-                Our Process
-              </motion.h3>
-            </motion.div>
-
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-80px" }}
-              variants={stagger}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
-            >
-              {process.map((step, i) => (
-                <motion.div key={step.step} variants={fadeUp} custom={i} className="text-center">
-                  <p className="font-serif text-4xl text-lavender/40 mb-4">{step.step}</p>
-                  <h4 className="font-medium text-lg mb-2">{step.title}</h4>
-                  <p className="text-sm text-charcoal-light leading-relaxed">{step.description}</p>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </section>
-
-        {/* CTA */}
-        <section className="py-16 md:py-24">
-          <div className="max-w-6xl mx-auto px-6 text-center">
             <motion.div
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
               variants={stagger}
+              className="relative bg-lavender/10 rounded-[2rem] px-8 sm:px-16 py-14 text-center overflow-hidden"
             >
-              <motion.h3
-                variants={fadeUp}
-                custom={0}
-                className="font-serif text-3xl sm:text-4xl mb-6"
-              >
-                Ready to get started?
-              </motion.h3>
-              <motion.p
-                variants={fadeUp}
-                custom={1}
-                className="text-charcoal-light max-w-md mx-auto mb-8 leading-relaxed"
-              >
-                Book a consultation or drop by our atelier. We&apos;d love to hear about your project.
-              </motion.p>
-              <motion.div variants={fadeUp} custom={2}>
-                <Link
-                  href="/contact"
-                  className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+              {/* Decorative blobs */}
+              <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-lavender/10 blur-3xl" />
+              <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-[#FFF0F5]/40 blur-3xl" />
+
+              <motion.div className="relative z-10" variants={fadeIn}>
+                <motion.h2
+                  variants={fadeUp}
+                  custom={0}
+                  className="font-serif text-3xl sm:text-4xl mb-4"
                 >
-                  Book a Consultation
-                  <ArrowRight
-                    size={16}
-                    className="group-hover:translate-x-1 transition-transform"
-                  />
-                </Link>
+                  Ready for the perfect fit?
+                </motion.h2>
+                <motion.p
+                  variants={fadeUp}
+                  custom={1}
+                  className="text-charcoal-light max-w-md mx-auto mb-8 leading-relaxed"
+                >
+                  Book a fitting appointment at our Southampton atelier or get in
+                  touch to discuss your project.
+                </motion.p>
+                <motion.div
+                  variants={fadeUp}
+                  custom={2}
+                  className="flex flex-col sm:flex-row items-center justify-center gap-4"
+                >
+                  <Link
+                    href="/contact"
+                    className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                  >
+                    Book a Fitting Appointment
+                    <ArrowRight
+                      size={16}
+                      className="group-hover:translate-x-1 transition-transform"
+                    />
+                  </Link>
+                  <Link
+                    href="/shop"
+                    className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+                  >
+                    Browse Shop
+                  </Link>
+                </motion.div>
               </motion.div>
             </motion.div>
           </div>
