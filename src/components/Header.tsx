@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import Cart from "@/components/Cart";
 
 const navLinks = [
   { label: "Shop", href: "/shop" },
@@ -63,10 +64,13 @@ export default function Header() {
               {link.label}
             </Link>
           ))}
+          <Cart />
         </nav>
 
-        {/* Spacer for mobile */}
-        <div className="md:hidden w-6" />
+        {/* Cart for mobile */}
+        <div className="md:hidden">
+          <Cart />
+        </div>
       </div>
 
       {/* Mobile nav */}
