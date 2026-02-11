@@ -1,51 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-  Scissors,
-  Package,
-  MapPin,
-  Globe,
-  Heart,
-  Sparkles,
-  ArrowRight,
-  Menu,
-  X,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 /* eslint-disable @next/next/no-img-element */
-import { useState } from "react";
-
-/* ─────────────── Animation Variants ─────────────── */
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.12, duration: 0.7, ease: "easeOut" as const },
-  }),
-};
-
-const fadeIn = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { duration: 0.8, ease: "easeOut" as const },
-  },
-};
-
-const stagger = {
-  visible: { transition: { staggerChildren: 0.15 } },
-};
+import Link from "next/link";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import { fadeUp, fadeIn, stagger } from "@/components/animations";
+import { Scissors, Heart, Sparkles, MapPin } from "lucide-react";
 
 /* ─────────────── Data ─────────────── */
-
-const navLinks = [
-  { label: "Shop", href: "#shop" },
-  { label: "Mini", href: "#mini" },
-  { label: "Atelier", href: "#atelier" },
-  { label: "Contact", href: "#contact" },
-];
 
 const categories = [
   {
@@ -58,6 +22,7 @@ const categories = [
     subtitle: "Kids",
     image: "https://placehold.co/600x700/FFF0F5/4A4A4A?text=Kids",
     description: "Gentle comfort for little ones",
+    href: "/mini",
   },
   {
     title: "Accessories & Bags",
@@ -88,91 +53,6 @@ const services = [
     description: "Perfect fit adjustments for ready-to-wear and cherished pieces.",
   },
 ];
-
-/* ═════════════════════════════════════════════════════
-   HEADER
-   ═════════════════════════════════════════════════════ */
-
-function Header() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  return (
-    <motion.header
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
-      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-[#FDFBF7]/80 border-b border-[#E6E6FA]/40"
-    >
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        {/* Mobile menu button */}
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden text-charcoal p-1"
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-
-        {/* Nav left (desktop) */}
-        <nav className="hidden md:flex items-center gap-8">
-          {navLinks.slice(0, 2).map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className="text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors duration-300"
-            >
-              {link.label}
-            </a>
-          ))}
-        </nav>
-
-        {/* Logo center */}
-        <a href="#" className="absolute left-1/2 -translate-x-1/2">
-          <h1 className="font-serif text-2xl md:text-3xl tracking-[0.3em] text-charcoal">
-            BEAUTASY
-          </h1>
-        </a>
-
-        {/* Nav right (desktop) */}
-        <nav className="hidden md:flex items-center gap-8">
-          {navLinks.slice(2).map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className="text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors duration-300"
-            >
-              {link.label}
-            </a>
-          ))}
-        </nav>
-
-        {/* Spacer for mobile */}
-        <div className="md:hidden w-6" />
-      </div>
-
-      {/* Mobile nav */}
-      {mobileOpen && (
-        <motion.nav
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="md:hidden bg-cream border-t border-lavender-soft/40 px-6 pb-6"
-        >
-          {navLinks.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              onClick={() => setMobileOpen(false)}
-              className="block py-3 text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors"
-            >
-              {link.label}
-            </a>
-          ))}
-        </motion.nav>
-      )}
-    </motion.header>
-  );
-}
 
 /* ═════════════════════════════════════════════════════
    HERO
@@ -220,8 +100,8 @@ function Hero() {
             custom={3}
             className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start"
           >
-            <a
-              href="#shop"
+            <Link
+              href="/shop"
               className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
             >
               Shop Collection
@@ -229,13 +109,13 @@ function Hero() {
                 size={16}
                 className="group-hover:translate-x-1 transition-transform"
               />
-            </a>
-            <a
-              href="#atelier"
+            </Link>
+            <Link
+              href="/atelier"
               className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
             >
               Book Alterations
-            </a>
+            </Link>
           </motion.div>
         </motion.div>
 
@@ -276,7 +156,7 @@ function Hero() {
 
 function CategoryGrid() {
   return (
-    <section id="shop" className="py-24 md:py-32">
+    <section className="py-24 md:py-32">
       <div className="max-w-6xl mx-auto px-6">
         {/* Section heading */}
         <motion.div
@@ -311,36 +191,48 @@ function CategoryGrid() {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
         >
           {categories.map((cat, i) => (
-            <motion.a
+            <motion.div
               key={cat.title}
-              href="#"
               variants={fadeUp}
               custom={i}
               whileHover={{ y: -8 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
               className="group block"
             >
-              <div className="relative aspect-[6/7] rounded-2xl overflow-hidden mb-4 bg-cream-soft">
-                <img
-                  src={cat.image}
-                  alt={cat.title}
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                />
-                {/* Overlay on hover */}
-                <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
-              </div>
-              <h4 className="font-serif text-lg mb-1">
-                {cat.title}
-                {cat.subtitle && (
-                  <span className="text-sm font-sans text-charcoal-light ml-2">
-                    ({cat.subtitle})
-                  </span>
-                )}
-              </h4>
-              <p className="text-sm text-charcoal-light">{cat.description}</p>
-            </motion.a>
+              <Link href={cat.href || "/shop"}>
+                <div className="relative aspect-[6/7] rounded-2xl overflow-hidden mb-4 bg-cream-soft">
+                  <img
+                    src={cat.image}
+                    alt={cat.title}
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                  />
+                  {/* Overlay on hover */}
+                  <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
+                </div>
+                <h4 className="font-serif text-lg mb-1">
+                  {cat.title}
+                  {cat.subtitle && (
+                    <span className="text-sm font-sans text-charcoal-light ml-2">
+                      ({cat.subtitle})
+                    </span>
+                  )}
+                </h4>
+                <p className="text-sm text-charcoal-light">{cat.description}</p>
+              </Link>
+            </motion.div>
           ))}
         </motion.div>
+
+        {/* View All link */}
+        <div className="text-center mt-12">
+          <Link
+            href="/shop"
+            className="group inline-flex items-center gap-2 text-sm tracking-wider uppercase text-charcoal-light hover:text-charcoal transition-colors"
+          >
+            View All Collections
+            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+          </Link>
+        </div>
       </div>
     </section>
   );
@@ -352,7 +244,7 @@ function CategoryGrid() {
 
 function AtelierSection() {
   return (
-    <section id="atelier" className="py-24 md:py-32 bg-lavender-bg">
+    <section className="py-24 md:py-32 bg-lavender-bg">
       <div className="max-w-6xl mx-auto px-6">
         <motion.div
           initial="hidden"
@@ -410,18 +302,18 @@ function AtelierSection() {
               ))}
             </div>
 
-            <motion.a
-              variants={fadeUp}
-              custom={6}
-              href="#contact"
-              className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
-            >
-              Visit Our Atelier
-              <ArrowRight
-                size={16}
-                className="group-hover:translate-x-1 transition-transform"
-              />
-            </motion.a>
+            <motion.div variants={fadeUp} custom={6}>
+              <Link
+                href="/atelier"
+                className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+              >
+                Visit Our Atelier
+                <ArrowRight
+                  size={16}
+                  className="group-hover:translate-x-1 transition-transform"
+                />
+              </Link>
+            </motion.div>
           </div>
 
           {/* Right — image */}
@@ -455,81 +347,6 @@ function AtelierSection() {
         </motion.div>
       </div>
     </section>
-  );
-}
-
-/* ═════════════════════════════════════════════════════
-   FOOTER
-   ═════════════════════════════════════════════════════ */
-
-function Footer() {
-  return (
-    <footer id="contact" className="py-16 md:py-20 border-t border-lavender-soft/40">
-      <div className="max-w-6xl mx-auto px-6">
-        {/* Top row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
-          {/* Brand */}
-          <div>
-            <h4 className="font-serif text-2xl tracking-[0.2em] mb-4">BEAUTASY</h4>
-            <p className="text-sm text-charcoal-light leading-relaxed max-w-xs">
-              Handmade lingerie, kids&apos; clothing, and accessories crafted with love in
-              Southampton, UK.
-            </p>
-          </div>
-
-          {/* Quick Links */}
-          <div>
-            <h5 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
-              Quick Links
-            </h5>
-            <ul className="space-y-3">
-              {navLinks.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-charcoal-light hover:text-charcoal transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Shipping Info */}
-          <div>
-            <h5 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
-              Delivery
-            </h5>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Globe size={16} className="text-lavender flex-shrink-0" />
-                <p className="text-sm text-charcoal-light">Worldwide Shipping</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <MapPin size={16} className="text-lavender flex-shrink-0" />
-                <p className="text-sm text-charcoal-light">Local Pickup Available</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Package size={16} className="text-lavender flex-shrink-0" />
-                <p className="text-sm text-charcoal-light">Careful Gift Packaging</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t border-lavender-soft/30 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-charcoal-light">
-            © {new Date().getFullYear()} Beautasy. All rights reserved.
-          </p>
-          <p className="text-xs text-charcoal-light flex items-center gap-1">
-            Made with <Heart size={12} className="text-lavender fill-lavender" /> in
-            Southampton
-          </p>
-        </div>
-      </div>
-    </footer>
   );
 }
 
