@@ -16,23 +16,26 @@ const categories = [
     title: "Lingerie",
     image: "https://placehold.co/600x700/E6E6FA/4A4A4A?text=Lingerie",
     description: "Delicate pieces crafted with love",
+    href: "/shop/lingerie",
   },
   {
     title: "Mini Beautasy",
     subtitle: "Kids",
     image: "https://placehold.co/600x700/FFF0F5/4A4A4A?text=Kids",
     description: "Gentle comfort for little ones",
-    href: "/mini",
+    href: "/shop/kids",
   },
   {
     title: "Accessories & Bags",
     image: "https://placehold.co/600x700/F5F0FF/4A4A4A?text=Accessories",
     description: "Handmade finishing touches",
+    href: "/shop/accessories",
   },
   {
     title: "Home Decor",
     image: "https://placehold.co/600x700/FDFBF7/4A4A4A?text=Home+Decor",
     description: "Beauty for your space",
+    href: "/shop/home",
   },
 ];
 
@@ -111,7 +114,7 @@ function Hero() {
               />
             </Link>
             <Link
-              href="/atelier"
+              href="/alterations"
               className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
             >
               Book Alterations
@@ -304,10 +307,10 @@ function AtelierSection() {
 
             <motion.div variants={fadeUp} custom={6}>
               <Link
-                href="/atelier"
+                href="/alterations"
                 className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
               >
-                Visit Our Atelier
+                Alterations Services
                 <ArrowRight
                   size={16}
                   className="group-hover:translate-x-1 transition-transform"

@@ -159,13 +159,13 @@ export default function ContactPage() {
                     Browse Shop
                   </Link>
                   <Link
-                    href="/atelier"
+                    href="/alterations"
                     className="px-5 py-2.5 bg-cream-soft rounded-full text-sm text-charcoal-light hover:bg-lavender/20 transition-colors"
                   >
-                    Atelier Services
+                    Alterations Services
                   </Link>
                   <Link
-                    href="/mini"
+                    href="/shop/kids"
                     className="px-5 py-2.5 bg-cream-soft rounded-full text-sm text-charcoal-light hover:bg-lavender/20 transition-colors"
                   >
                     Mini Beautasy
