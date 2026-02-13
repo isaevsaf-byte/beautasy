@@ -8,6 +8,8 @@ import {
   MapPin,
   Clock,
   Phone,
+  Mail,
+  MessageCircle,
   Info,
   CalendarCheck,
   Ruler,
@@ -125,6 +127,8 @@ function PriceLine({ item, index }: { item: PriceItem; index: number }) {
 
 export default function AtelierPage() {
   const [activeTab, setActiveTab] = useState("denim");
+  const whatsappLink = "https://wa.me/447729741116";
+  const emailLink = "mailto:safkirsti@gmail.com";
 
   const activeCategory = pricingCategories.find((c) => c.id === activeTab)!;
 
@@ -134,14 +138,12 @@ export default function AtelierPage() {
       <main className="pt-24">
         {/* ──── Hero ──── */}
         <section className="relative py-20 md:py-28 overflow-hidden">
-          {/* Background image */}
+          {/* Background (no placeholder text overlay) */}
           <div className="absolute inset-0 z-0">
-            <img
-              src="https://placehold.co/1920x900/DCD0FF/4A4A4A?text=Atelier+%E2%80%93+Hands+%26+Fabric"
-              alt="Hands working with delicate fabric in the Beautasy atelier"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#FDFBF7]/95 via-[#FDFBF7]/80 to-[#FDFBF7]/40" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FDFBF7] via-[#F3ECFF] to-[#E8DEFF]" />
+            <div className="absolute -top-28 -right-24 w-[420px] h-[420px] rounded-full bg-white/45 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 w-[340px] h-[340px] rounded-full bg-[#FFFFFF]/35 blur-3xl" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#FDFBF7]/96 via-[#FDFBF7]/84 to-[#FDFBF7]/30" />
           </div>
 
           <div className="relative z-10 max-w-6xl mx-auto px-6">
@@ -179,7 +181,7 @@ export default function AtelierPage() {
               <motion.div
                 variants={fadeUp}
                 custom={3}
-                className="flex flex-wrap gap-6"
+                className="flex flex-wrap gap-5"
               >
                 <div className="flex items-center gap-2.5">
                   <MapPin size={16} className="text-lavender" />
@@ -193,12 +195,31 @@ export default function AtelierPage() {
                     Mon–Sat: 9am – 6pm
                   </span>
                 </div>
-                <div className="flex items-center gap-2.5">
+                <a
+                  href={emailLink}
+                  className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
+                >
+                  <Mail size={16} className="text-lavender" />
+                  safkirsti@gmail.com
+                </a>
+                <a
+                  href={whatsappLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
+                >
+                  <MessageCircle size={16} className="text-lavender" />
+                  WhatsApp: +44 7729 741116
+                </a>
+                <a
+                  href={whatsappLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
+                >
                   <Phone size={16} className="text-lavender" />
-                  <span className="text-sm text-charcoal-light">
-                    By appointment
-                  </span>
-                </div>
+                  By appointment
+                </a>
               </motion.div>
             </motion.div>
           </div>
