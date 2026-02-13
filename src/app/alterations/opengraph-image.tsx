@@ -28,7 +28,6 @@ export default function OpengraphImage() {
           style={{
             display: "inline-flex",
             alignItems: "center",
-            width: "fit-content",
             padding: "10px 18px",
             borderRadius: "999px",
             background: "rgba(255,255,255,0.7)",
