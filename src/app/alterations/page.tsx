@@ -15,7 +15,7 @@ import Footer from "@/components/Footer";
 const pageTitle = "Clothing Alterations in Southampton | Beautasy";
 const pageDescription =
   "Expert alterations and repairs in Southampton. From hems and resizing to dress adjustments, Beautasy helps your clothes fit beautifully.";
-const pageUrl = "https://beautasy.co.uk/alterations";
+const pageUrl = "https://www.beautasy.co.uk/alterations";
 const previewImageUrl = `${pageUrl}/opengraph-image`;
 
 export const metadata: Metadata = {
