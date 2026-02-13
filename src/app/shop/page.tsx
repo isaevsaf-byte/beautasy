@@ -18,63 +18,63 @@ const fallbackProducts = [
     _id: "ling-bralette-01",
     name: "Silk Bralette",
     price: 3499,
-    image: "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Bralette",
+    images: ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Bralette"],
     category: "Lingerie",
   },
   {
     _id: "ling-bodysuit-01",
     name: "Lace Bodysuit",
     price: 4999,
-    image: "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Bodysuit",
+    images: ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Bodysuit"],
     category: "Lingerie",
   },
   {
     _id: "ling-sleepset-01",
     name: "Cotton Sleep Set",
     price: 3999,
-    image: "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Sleepwear",
+    images: ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Sleepwear"],
     category: "Lingerie",
   },
   {
     _id: "acc-tote-01",
     name: "Linen Tote Bag",
     price: 2499,
-    image: "https://placehold.co/400x500/F5F0FF/4A4A4A?text=Tote",
+    images: ["https://placehold.co/400x500/F5F0FF/4A4A4A?text=Tote"],
     category: "Accessories",
   },
   {
     _id: "acc-scrunchie-01",
     name: "Silk Scrunchie Set",
     price: 1299,
-    image: "https://placehold.co/400x500/F5F0FF/4A4A4A?text=Scrunchies",
+    images: ["https://placehold.co/400x500/F5F0FF/4A4A4A?text=Scrunchies"],
     category: "Accessories",
   },
   {
     _id: "acc-pouch-01",
     name: "Embroidered Pouch",
     price: 1899,
-    image: "https://placehold.co/400x500/F5F0FF/4A4A4A?text=Pouch",
+    images: ["https://placehold.co/400x500/F5F0FF/4A4A4A?text=Pouch"],
     category: "Accessories",
   },
   {
     _id: "home-cushion-01",
     name: "Lavender Cushion Cover",
     price: 2999,
-    image: "https://placehold.co/400x500/FDFBF7/4A4A4A?text=Cushion",
+    images: ["https://placehold.co/400x500/FDFBF7/4A4A4A?text=Cushion"],
     category: "Home",
   },
   {
     _id: "home-runner-01",
     name: "Linen Table Runner",
     price: 3499,
-    image: "https://placehold.co/400x500/FDFBF7/4A4A4A?text=Runner",
+    images: ["https://placehold.co/400x500/FDFBF7/4A4A4A?text=Runner"],
     category: "Home",
   },
   {
     _id: "home-sachet-01",
     name: "Lavender Sachet Set",
     price: 999,
-    image: "https://placehold.co/400x500/FDFBF7/4A4A4A?text=Sachets",
+    images: ["https://placehold.co/400x500/FDFBF7/4A4A4A?text=Sachets"],
     category: "Home",
   },
 ];
@@ -90,7 +90,7 @@ export default async function ShopPage() {
     if (sanityProducts && sanityProducts.length > 0) {
       // Map Sanity products to the format our components expect
       products = sanityProducts.map(
-        (p: {
+                (p: {
           _id: string;
           name: string;
           price: number;
@@ -100,10 +100,12 @@ export default async function ShopPage() {
           _id: p._id,
           name: p.name,
           price: p.price,
-          image:
+          images:
             p.images && p.images.length > 0
-              ? urlFor(p.images[0]).width(800).height(1000).url()
-              : "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product",
+              ? p.images.map((image) =>
+                  urlFor(image).width(800).height(1000).url()
+                )
+              : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"],
           category: p.category,
         })
       );

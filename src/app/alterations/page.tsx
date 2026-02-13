@@ -6,9 +6,8 @@ import {
   CalendarCheck,
   Ruler,
   Sparkles,
-  MessageCircle,
-  Send,
 } from "lucide-react";
+import BeautasyLogo from "@/components/BeautasyLogo";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -16,7 +15,7 @@ const pageTitle = "Clothing Alterations in Southampton | Beautasy";
 const pageDescription =
   "Expert alterations and repairs in Southampton. From hems and resizing to dress adjustments, Beautasy helps your clothes fit beautifully.";
 const pageUrl = "https://www.beautasy.co.uk/alterations";
-const previewImageUrl = `${pageUrl}/opengraph-image`;
+const previewImageUrl = "https://www.beautasy.co.uk/beautasy-share-logo.jpg";
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -120,7 +119,7 @@ export default function AlterationsPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-100 text-emerald-900 rounded-full text-sm hover:bg-emerald-200 transition-colors"
                 >
-                  <MessageCircle size={15} />
+                  <BeautasyLogo size={18} />
                   Share on WhatsApp
                 </a>
                 <a
@@ -129,7 +128,7 @@ export default function AlterationsPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-100 text-sky-900 rounded-full text-sm hover:bg-sky-200 transition-colors"
                 >
-                  <Send size={15} />
+                  <BeautasyLogo size={18} />
                   Share on Telegram
                 </a>
               </div>

@@ -9,12 +9,12 @@ import {
   Clock,
   Phone,
   Mail,
-  MessageCircle,
   Info,
   CalendarCheck,
   Ruler,
   SparkleIcon,
 } from "lucide-react";
+import BeautasyLogo from "@/components/BeautasyLogo";
 import Link from "next/link";
 /* eslint-disable @next/next/no-img-element */
 import Header from "@/components/Header";
@@ -208,7 +208,7 @@ export default function AtelierPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
                 >
-                  <MessageCircle size={16} className="text-lavender" />
+                  <BeautasyLogo size={18} />
                   WhatsApp: +44 7729 741116
                 </a>
                 <a

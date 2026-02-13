@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -13,40 +14,53 @@ interface Product {
   _id: string;
   name: string;
   price: number;
-  image: string;
+  images: string[];
   category: string;
 }
 
 const categories = [
   {
+    slug: "lingerie",
     title: "Lingerie",
     image: "https://placehold.co/600x700/E6E6FA/4A4A4A?text=Lingerie",
     description: "Delicate pieces crafted with love",
+    href: "/shop/lingerie",
     items: ["Bralettes", "Bodysuits", "Sleepwear", "Sets"],
   },
   {
+    slug: "kids",
     title: "Mini Beautasy",
     subtitle: "Kids",
     image: "https://placehold.co/600x700/FFF0F5/4A4A4A?text=Kids",
     description: "Gentle comfort for little ones",
-    href: "/mini",
+    href: "/shop/kids",
     items: ["Dresses", "Rompers", "Accessories", "Pyjamas"],
   },
   {
+    slug: "accessories",
     title: "Accessories & Bags",
     image: "https://placehold.co/600x700/F5F0FF/4A4A4A?text=Accessories",
     description: "Handmade finishing touches",
+    href: "/shop/accessories",
     items: ["Tote Bags", "Scrunchies", "Hair Accessories", "Pouches"],
   },
   {
+    slug: "home",
     title: "Home Decor",
     image: "https://placehold.co/600x700/FDFBF7/4A4A4A?text=Home+Decor",
     description: "Beauty for your space",
+    href: "/shop/home",
     items: ["Cushion Covers", "Table Runners", "Napkins", "Lavender Sachets"],
   },
 ];
 
-export default function ShopContent({ products }: { products: Product[] }) {
+export default function ShopContent({
+  products,
+  activeCategory,
+}: {
+  products: Product[];
+  activeCategory?: string;
+}) {
   return (
     <>
       <Header />
@@ -101,7 +115,11 @@ export default function ShopContent({ products }: { products: Product[] }) {
                   key={cat.title}
                   variants={fadeUp}
                   custom={i}
-                  className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
+                  className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center p-6 rounded-3xl transition-colors ${activeCategory &&
+                      cat.slug === activeCategory.toLowerCase()
+                      ? "bg-lavender/10 border border-lavender/20"
+                      : ""
+                    }`}
                 >
                   {/* Image */}
                   <div className={`${i % 2 === 1 ? "lg:order-2" : ""}`}>
@@ -206,40 +224,7 @@ export default function ShopContent({ products }: { products: Product[] }) {
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
             >
               {products.map((product, i) => (
-                <motion.div
-                  key={product._id}
-                  variants={fadeUp}
-                  custom={i}
-                  whileHover={{ y: -6 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="group"
-                >
-                  <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                    />
-                    <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
-                      <p className="text-xs text-charcoal-light">
-                        {product.category}
-                      </p>
-                    </div>
-                  </div>
-
-                  <h4 className="font-serif text-lg mb-1">{product.name}</h4>
-                  <p className="text-charcoal-light text-sm mb-4">
-                    £{(product.price / 100).toFixed(2)}
-                  </p>
-
-                  <AddToCartButton
-                    id={product._id}
-                    name={product.name}
-                    price={product.price}
-                    image={product.image}
-                  />
-                </motion.div>
+                <ProductCard key={product._id} product={product} index={i} />
               ))}
             </motion.div>
           </div>
@@ -247,5 +232,74 @@ export default function ShopContent({ products }: { products: Product[] }) {
       </main>
       <Footer />
     </>
+  );
+}
+
+function ProductCard({ product, index }: { product: Product; index: number }) {
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  const availableImages =
+    product.images.length > 0
+      ? product.images
+      : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"];
+
+  const activeImage = availableImages[activeImageIndex] ?? availableImages[0];
+
+  return (
+    <motion.div
+      variants={fadeUp}
+      custom={index}
+      whileHover={{ y: -6 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="group"
+    >
+      <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60">
+        <img
+          src={activeImage}
+          alt={product.name}
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+        />
+        <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
+        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
+          <p className="text-xs text-charcoal-light">{product.category}</p>
+        </div>
+      </div>
+
+      {availableImages.length > 1 && (
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+          {availableImages.map((image, i) => (
+            <button
+              key={`${product._id}-image-${i}`}
+              type="button"
+              onClick={() => setActiveImageIndex(i)}
+              className={`relative w-14 h-14 shrink-0 rounded-lg overflow-hidden border transition-colors ${
+                i === activeImageIndex
+                  ? "border-lavender"
+                  : "border-transparent hover:border-lavender/40"
+              }`}
+              aria-label={`Show image ${i + 1} for ${product.name}`}
+            >
+              <img
+                src={image}
+                alt={`${product.name} thumbnail ${i + 1}`}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
+      <h4 className="font-serif text-lg mb-1">{product.name}</h4>
+      <p className="text-charcoal-light text-sm mb-4">
+        £{(product.price / 100).toFixed(2)}
+      </p>
+
+      <AddToCartButton
+        id={product._id}
+        name={product.name}
+        price={product.price}
+        image={activeImage}
+      />
+    </motion.div>
   );
 }
