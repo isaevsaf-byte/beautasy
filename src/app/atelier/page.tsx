@@ -15,6 +15,7 @@ import {
   SparkleIcon,
 } from "lucide-react";
 import BeautasyLogo from "@/components/BeautasyLogo";
+import Image from "next/image";
 import Link from "next/link";
 /* eslint-disable @next/next/no-img-element */
 import Header from "@/components/Header";
@@ -147,82 +148,102 @@ export default function AtelierPage() {
           </div>
 
           <div className="relative z-10 max-w-6xl mx-auto px-6">
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={stagger}
-              className="max-w-xl"
-            >
-              <motion.p
-                variants={fadeUp}
-                custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-              >
-                The Atelier
-              </motion.p>
-              <motion.h1
-                variants={fadeUp}
-                custom={1}
-                className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] leading-tight mb-6"
-              >
-                The Perfect Fit,
-                <br />
-                <span className="italic text-lavender">Tailored Just For You.</span>
-              </motion.h1>
-              <motion.p
-                variants={fadeUp}
-                custom={2}
-                className="text-lg text-charcoal-light leading-relaxed mb-8 max-w-md"
-              >
-                Expert alterations and repairs, crafted by hand in our
-                Southampton atelier. Every stitch made with care, so your
-                clothes feel as good as you do.
-              </motion.p>
-
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+              {/* Left — Text */}
               <motion.div
-                variants={fadeUp}
-                custom={3}
-                className="flex flex-wrap gap-5"
+                initial="hidden"
+                animate="visible"
+                variants={stagger}
+                className="max-w-xl"
               >
-                <div className="flex items-center gap-2.5">
-                  <MapPin size={16} className="text-lavender" />
-                  <span className="text-sm text-charcoal-light">
-                    Southampton, UK
-                  </span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <Clock size={16} className="text-lavender" />
-                  <span className="text-sm text-charcoal-light">
-                    Mon–Sat: 9am – 6pm
-                  </span>
-                </div>
-                <a
-                  href={emailLink}
-                  className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
+                <motion.p
+                  variants={fadeUp}
+                  custom={0}
+                  className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
                 >
-                  <Mail size={16} className="text-lavender" />
-                  safkirsti@gmail.com
-                </a>
-                <a
-                  href={whatsappLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
+                  The Atelier
+                </motion.p>
+                <motion.h1
+                  variants={fadeUp}
+                  custom={1}
+                  className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] leading-tight mb-6"
                 >
-                  <BeautasyLogo size={18} />
-                  WhatsApp: +44 7729 741116
-                </a>
-                <a
-                  href={whatsappLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
+                  The Perfect Fit,
+                  <br />
+                  <span className="italic text-lavender">Tailored Just For You.</span>
+                </motion.h1>
+                <motion.p
+                  variants={fadeUp}
+                  custom={2}
+                  className="text-lg text-charcoal-light leading-relaxed mb-8 max-w-md"
                 >
-                  <Phone size={16} className="text-lavender" />
-                  By appointment
-                </a>
+                  Expert alterations and repairs, crafted by hand in our
+                  Southampton atelier. Every stitch made with care, so your
+                  clothes feel as good as you do.
+                </motion.p>
+
+                <motion.div
+                  variants={fadeUp}
+                  custom={3}
+                  className="flex flex-wrap gap-5"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <MapPin size={16} className="text-lavender" />
+                    <span className="text-sm text-charcoal-light">
+                      Southampton, UK
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Clock size={16} className="text-lavender" />
+                    <span className="text-sm text-charcoal-light">
+                      Mon–Sat: 9am – 6pm
+                    </span>
+                  </div>
+                  <a
+                    href={emailLink}
+                    className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
+                  >
+                    <Mail size={16} className="text-lavender" />
+                    safkirsti@gmail.com
+                  </a>
+                  <a
+                    href={whatsappLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
+                  >
+                    <BeautasyLogo size={18} />
+                    WhatsApp: +44 7729 741116
+                  </a>
+                  <a
+                    href={whatsappLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
+                  >
+                    <Phone size={16} className="text-lavender" />
+                    By appointment
+                  </a>
+                </motion.div>
               </motion.div>
-            </motion.div>
+
+              {/* Right — Atelier Logo */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
+                className="hidden lg:flex items-center justify-center"
+              >
+                <Image
+                  src="/beautasy-atelier-logo.png"
+                  alt="Beautasy Alterations — Scissors, needle and measuring tape"
+                  width={800}
+                  height={686}
+                  className="w-[340px] xl:w-[400px] h-auto object-contain drop-shadow-xl"
+                  priority
+                />
+              </motion.div>
+            </div>
           </div>
         </section>
 

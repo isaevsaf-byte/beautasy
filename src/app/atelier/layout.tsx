@@ -16,10 +16,10 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: `${siteUrl}/beautasy-icon.png`,
+        url: `${siteUrl}/beautasy-atelier-og.jpg`,
         width: 1200,
-        height: 630,
-        alt: "Beautasy Atelier — Clothing Alterations in Southampton",
+        height: 1029,
+        alt: "Beautasy Alterations — Scissors, needle, thread and measuring tape with gold Beautasy logo",
       },
     ],
   },
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     title: "Beautasy Atelier | Alterations & Tailoring",
     description:
       "Expert clothing alterations, custom sewing, and repairs in Southampton. Book a fitting today.",
-    images: [`${siteUrl}/beautasy-icon.png`],
+    images: [`${siteUrl}/beautasy-atelier-og.jpg`],
   },
 };
 
