@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, X, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
@@ -287,6 +287,7 @@ export default function ShopContent({
 
 function ProductCard({ product, index }: { product: Product; index: number }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const availableImages =
     product.images.length > 0
@@ -295,61 +296,193 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
 
   const activeImage = availableImages[activeImageIndex] ?? availableImages[0];
 
-  return (
-    <motion.div
-      variants={fadeUp}
-      custom={index}
-      whileHover={{ y: -6 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className="group"
-    >
-      <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60">
-        <img
-          src={activeImage}
-          alt={product.name}
-          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-        />
-        <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
-        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
-          <p className="text-xs text-charcoal-light">{product.category}</p>
-        </div>
-      </div>
+  const goNext = useCallback(() => {
+    setActiveImageIndex((prev) =>
+      prev < availableImages.length - 1 ? prev + 1 : 0
+    );
+  }, [availableImages.length]);
 
-      {availableImages.length > 1 && (
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-          {availableImages.map((image, i) => (
+  const goPrev = useCallback(() => {
+    setActiveImageIndex((prev) =>
+      prev > 0 ? prev - 1 : availableImages.length - 1
+    );
+  }, [availableImages.length]);
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowLeft") goPrev();
+    };
+    window.addEventListener("keydown", handleKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = "";
+    };
+  }, [lightboxOpen, goNext, goPrev]);
+
+  return (
+    <>
+      <motion.div
+        variants={fadeUp}
+        custom={index}
+        whileHover={{ y: -6 }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        className="group"
+      >
+        {/* Main product image — click to open lightbox */}
+        <button
+          type="button"
+          onClick={() => setLightboxOpen(true)}
+          className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 w-full cursor-zoom-in"
+        >
+          <img
+            src={activeImage}
+            alt={product.name}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+          />
+          <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
+          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
+            <p className="text-xs text-charcoal-light">{product.category}</p>
+          </div>
+        </button>
+
+        {availableImages.length > 1 && (
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+            {availableImages.map((image, i) => (
+              <button
+                key={`${product._id}-image-${i}`}
+                type="button"
+                onClick={() => setActiveImageIndex(i)}
+                className={`relative w-14 h-14 shrink-0 rounded-lg overflow-hidden border transition-colors ${
+                  i === activeImageIndex
+                    ? "border-lavender"
+                    : "border-transparent hover:border-lavender/40"
+                }`}
+                aria-label={`Show image ${i + 1} for ${product.name}`}
+              >
+                <img
+                  src={image}
+                  alt={`${product.name} thumbnail ${i + 1}`}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        )}
+
+        <h4 className="font-serif text-lg mb-1">{product.name}</h4>
+        <p className="text-charcoal-light text-sm mb-4">
+          £{(product.price / 100).toFixed(2)}
+        </p>
+
+        <AddToCartButton
+          id={product._id}
+          name={product.name}
+          price={product.price}
+          image={activeImage}
+        />
+      </motion.div>
+
+      {/* ──── Lightbox Modal ──── */}
+      <AnimatePresence>
+        {lightboxOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => setLightboxOpen(false)}
+          >
+            {/* Close button */}
             <button
-              key={`${product._id}-image-${i}`}
               type="button"
-              onClick={() => setActiveImageIndex(i)}
-              className={`relative w-14 h-14 shrink-0 rounded-lg overflow-hidden border transition-colors ${
-                i === activeImageIndex
-                  ? "border-lavender"
-                  : "border-transparent hover:border-lavender/40"
-              }`}
-              aria-label={`Show image ${i + 1} for ${product.name}`}
+              onClick={() => setLightboxOpen(false)}
+              className="absolute top-5 right-5 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+              aria-label="Close lightbox"
+            >
+              <X size={22} />
+            </button>
+
+            {/* Previous button */}
+            {availableImages.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); goPrev(); }}
+                className="absolute left-4 sm:left-6 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+                aria-label="Previous image"
+              >
+                <ChevronLeft size={22} />
+              </button>
+            )}
+
+            {/* Image */}
+            <motion.div
+              key={activeImageIndex}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="relative max-w-[90vw] max-h-[85vh]"
+              onClick={(e) => e.stopPropagation()}
             >
               <img
-                src={image}
-                alt={`${product.name} thumbnail ${i + 1}`}
-                className="absolute inset-0 w-full h-full object-cover"
+                src={availableImages[activeImageIndex]}
+                alt={`${product.name} — image ${activeImageIndex + 1}`}
+                className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
               />
-            </button>
-          ))}
-        </div>
-      )}
+              {/* Image counter */}
+              {availableImages.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-full px-4 py-1.5">
+                  <p className="text-white text-xs tracking-wider">
+                    {activeImageIndex + 1} / {availableImages.length}
+                  </p>
+                </div>
+              )}
+            </motion.div>
 
-      <h4 className="font-serif text-lg mb-1">{product.name}</h4>
-      <p className="text-charcoal-light text-sm mb-4">
-        £{(product.price / 100).toFixed(2)}
-      </p>
+            {/* Next button */}
+            {availableImages.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); goNext(); }}
+                className="absolute right-4 sm:right-6 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+                aria-label="Next image"
+              >
+                <ChevronRight size={22} />
+              </button>
+            )}
 
-      <AddToCartButton
-        id={product._id}
-        name={product.name}
-        price={product.price}
-        image={activeImage}
-      />
-    </motion.div>
+            {/* Thumbnail strip */}
+            {availableImages.length > 1 && (
+              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
+                {availableImages.map((image, i) => (
+                  <button
+                    key={`lightbox-thumb-${i}`}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setActiveImageIndex(i); }}
+                    className={`relative w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
+                      i === activeImageIndex
+                        ? "border-white scale-110 shadow-lg"
+                        : "border-white/30 hover:border-white/60"
+                    }`}
+                  >
+                    <img
+                      src={image}
+                      alt={`Thumbnail ${i + 1}`}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

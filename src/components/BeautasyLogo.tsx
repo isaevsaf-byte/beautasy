@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 
-const LOGO_SRC = "/beautasy-logo.png";
+const LOGO_SRC = "/beautasy-icon.png";
 
 interface BeautasyLogoProps {
   /** Size in pixels (used for both width and height) */
