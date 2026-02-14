@@ -165,17 +165,18 @@ export default function AtelierPage() {
                 custom={1}
                 className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] leading-tight mb-6"
               >
-                Give Your Wardrobe
+                The Perfect Fit,
                 <br />
-                <span className="italic text-lavender">a Second Life</span>
+                <span className="italic text-lavender">Tailored Just For You.</span>
               </motion.h1>
               <motion.p
                 variants={fadeUp}
                 custom={2}
                 className="text-lg text-charcoal-light leading-relaxed mb-8 max-w-md"
               >
-                Expert alterations and repairs, done by hand in our Southampton
-                studio. Because every garment deserves to fit perfectly.
+                Expert alterations and repairs, crafted by hand in our
+                Southampton atelier. Every stitch made with care, so your
+                clothes feel as good as you do.
               </motion.p>
 
               <motion.div

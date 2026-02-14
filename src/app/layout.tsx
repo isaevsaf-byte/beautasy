@@ -17,9 +17,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "BEAUTASY — Handmade Lingerie & Accessories | Southampton",
   icons: {
-    icon: "/beautasy-logo.png",
-    shortcut: "/beautasy-logo.png",
-    apple: "/beautasy-logo.png",
+    icon: "/beautasy-icon.png",
+    shortcut: "/beautasy-icon.png",
+    apple: "/beautasy-icon.png",
   },
   description:
     "Handmade lingerie, kids' clothing, and accessories tailored with love in Southampton, UK. Made to feel, not just wear.",
@@ -34,10 +34,10 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/alterations/opengraph-image",
+        url: "/beautasy-icon.png",
         width: 1200,
         height: 630,
-        alt: "Beautasy logo",
+        alt: "Beautasy — Handmade Lingerie & Accessories",
       },
     ],
   },
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     title: "BEAUTASY — Handmade Lingerie & Accessories | Southampton",
     description:
       "Handmade lingerie, kids' clothing, and accessories tailored with love in Southampton, UK. Made to feel, not just wear.",
-    images: ["/alterations/opengraph-image"],
+    images: ["/beautasy-icon.png"],
   },
 };
 
