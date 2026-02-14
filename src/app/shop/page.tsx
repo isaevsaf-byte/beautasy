@@ -1,6 +1,15 @@
 import { sanityClient, urlFor } from "@/lib/sanity";
 import ShopContent from "./ShopContent";
 
+/* ─── Safe image URL builder (won't crash on incomplete data) ─── */
+function safeImageUrl(image: unknown): string | null {
+  try {
+    return urlFor(image).width(800).height(1000).url();
+  } catch {
+    return null;
+  }
+}
+
 /* ─── Sanity GROQ query ─── */
 const PRODUCTS_QUERY = `*[_type == "product"] | order(_createdAt desc) {
   _id,
@@ -90,24 +99,31 @@ export default async function ShopPage() {
     if (sanityProducts && sanityProducts.length > 0) {
       // Map Sanity products to the format our components expect
       products = sanityProducts.map(
-                (p: {
+        (p: {
           _id: string;
           name: string;
           price: number;
-          images?: { asset: { _ref: string } }[];
+          images?: { asset?: { _ref: string } }[];
           category: string;
-        }) => ({
-          _id: p._id,
-          name: p.name,
-          price: p.price,
-          images:
+        }) => {
+          const resolvedImages =
             p.images && p.images.length > 0
-              ? p.images.map((image) =>
-                  urlFor(image).width(800).height(1000).url()
-                )
-              : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"],
-          category: p.category,
-        })
+              ? p.images
+                  .map((image) => safeImageUrl(image))
+                  .filter((url): url is string => url !== null)
+              : [];
+
+          return {
+            _id: p._id,
+            name: p.name,
+            price: p.price,
+            images:
+              resolvedImages.length > 0
+                ? resolvedImages
+                : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"],
+            category: p.category,
+          };
+        }
       );
     } else {
       products = fallbackProducts;

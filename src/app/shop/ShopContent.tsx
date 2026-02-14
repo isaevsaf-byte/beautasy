@@ -54,6 +54,15 @@ const categories = [
   },
 ];
 
+// Human-friendly category name mapping
+const categoryLabels: Record<string, string> = {
+  lingerie: "Lingerie",
+  kids: "Mini Beautasy",
+  accessories: "Accessories & Bags",
+  home: "Home Decor",
+  mini: "Mini Beautasy",
+};
+
 export default function ShopContent({
   products,
   activeCategory,
@@ -216,17 +225,51 @@ export default function ShopContent({
               </motion.h3>
             </motion.div>
 
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-80px" }}
-              variants={stagger}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
-            >
-              {products.map((product, i) => (
-                <ProductCard key={product._id} product={product} index={i} />
-              ))}
-            </motion.div>
+            {products.length > 0 ? (
+              <motion.div
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "-80px" }}
+                variants={stagger}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
+              >
+                {products.map((product, i) => (
+                  <ProductCard key={product._id} product={product} index={i} />
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                variants={fadeUp}
+                custom={0}
+                className="text-center py-16"
+              >
+                <div className="w-20 h-20 rounded-full bg-lavender/15 flex items-center justify-center mx-auto mb-6">
+                  <span className="text-3xl">✨</span>
+                </div>
+                <h4 className="font-serif text-2xl mb-3">
+                  {activeCategory
+                    ? `${categoryLabels[activeCategory] || "This"} Collection Coming Soon`
+                    : "New Collection Coming Soon"}
+                </h4>
+                <p className="text-charcoal-light max-w-md mx-auto leading-relaxed mb-8">
+                  We&apos;re handcrafting new pieces for this collection. Check
+                  back soon or get in touch to request something custom.
+                </p>
+                <Link
+                  href="/contact"
+                  className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                >
+                  Request Custom Order
+                  <ArrowRight
+                    size={16}
+                    className="group-hover:translate-x-1 transition-transform"
+                  />
+                </Link>
+              </motion.div>
+            )}
           </div>
         </section>
       </main>

@@ -7,7 +7,6 @@ import {
   Ruler,
   Sparkles,
 } from "lucide-react";
-import BeautasyLogo from "@/components/BeautasyLogo";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -15,7 +14,7 @@ const pageTitle = "Clothing Alterations in Southampton | Beautasy";
 const pageDescription =
   "Expert alterations and repairs in Southampton. From hems and resizing to dress adjustments, Beautasy helps your clothes fit beautifully.";
 const pageUrl = "https://www.beautasy.co.uk/alterations";
-const previewImageUrl = "https://www.beautasy.co.uk/beautasy-share-logo.jpg";
+const previewImageUrl = "https://www.beautasy.co.uk/beautasy-icon.png";
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -46,15 +45,6 @@ export const metadata: Metadata = {
     images: [previewImageUrl],
   },
 };
-
-const shareText =
-  "Beautasy Alterations in Southampton - expert clothing repairs and perfect-fit tailoring.";
-const whatsappShareUrl = `https://wa.me/?text=${encodeURIComponent(
-  `${shareText} ${pageUrl}`
-)}`;
-const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(
-  pageUrl
-)}&text=${encodeURIComponent(shareText)}`;
 
 const services = [
   {
@@ -112,26 +102,6 @@ export default function AlterationsPage() {
                 </Link>
               </div>
 
-              <div className="flex flex-wrap gap-3">
-                <a
-                  href={whatsappShareUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-100 text-emerald-900 rounded-full text-sm hover:bg-emerald-200 transition-colors"
-                >
-                  <BeautasyLogo size={18} />
-                  Share on WhatsApp
-                </a>
-                <a
-                  href={telegramShareUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-100 text-sky-900 rounded-full text-sm hover:bg-sky-200 transition-colors"
-                >
-                  <BeautasyLogo size={18} />
-                  Share on Telegram
-                </a>
-              </div>
             </div>
 
             <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-soft/30">
@@ -147,7 +117,7 @@ export default function AlterationsPage() {
         <section className="py-16 md:py-20 bg-lavender-bg">
           <div className="max-w-6xl mx-auto px-6">
             <h2 className="font-serif text-3xl sm:text-4xl mb-10 text-center">
-              Why Clients Share This Page
+              Why Clients Choose Us
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {services.map((service) => (

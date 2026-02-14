@@ -6,6 +6,7 @@ import Link from "next/link";
 const navLinks = [
   { label: "Shop", href: "/shop" },
   { label: "Mini", href: "/shop/kids" },
+  { label: "Atelier", href: "/atelier" },
   { label: "Alterations", href: "/alterations" },
   { label: "Contact", href: "/contact" },
 ];
