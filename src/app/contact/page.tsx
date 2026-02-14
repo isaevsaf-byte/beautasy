@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { MapPin, Mail, ArrowRight } from "lucide-react";
 import Link from "next/link";
-/* eslint-disable @next/next/no-img-element */
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { fadeUp, stagger } from "@/components/animations";

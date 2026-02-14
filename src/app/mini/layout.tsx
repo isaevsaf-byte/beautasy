@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+const siteUrl = "https://beautasy.vercel.app";
+
 export const metadata: Metadata = {
   title: "Mini Beautasy — Handmade Kids' Clothing",
   description:
@@ -8,9 +10,13 @@ export const metadata: Metadata = {
     title: "Mini Beautasy — Handmade Kids' Clothing",
     description:
       "Gentle, handmade clothing for little ones. Made with love in Southampton.",
+    url: `${siteUrl}/mini`,
+    siteName: "Beautasy",
+    locale: "en_GB",
+    type: "website",
     images: [
       {
-        url: "/beautasy-icon.png",
+        url: `${siteUrl}/beautasy-icon.png`,
         width: 1200,
         height: 630,
         alt: "Mini Beautasy — Kids Collection",
@@ -22,7 +28,7 @@ export const metadata: Metadata = {
     title: "Mini Beautasy — Handmade Kids' Clothing",
     description:
       "Gentle, handmade clothing for little ones. Made with love in Southampton.",
-    images: ["/beautasy-icon.png"],
+    images: [`${siteUrl}/beautasy-icon.png`],
   },
 };
 

@@ -1,28 +1,34 @@
 import type { Metadata } from "next";
 
+const siteUrl = "https://beautasy.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Beautasy Atelier — Alterations & Tailoring in Southampton",
+  title: "Beautasy Atelier | Clothing Alterations & Tailoring in Southampton",
   description:
-    "Professional clothing repairs and tailoring in Southampton. Expert alterations, custom sewing, and repairs — book a fitting today.",
+    "Expert clothing alterations, custom sewing, and repairs at our Southampton atelier. Dresses, trousers, coats & home textiles — book a fitting today.",
   openGraph: {
-    title: "Beautasy Atelier — Alterations & Tailoring in Southampton",
+    title: "Beautasy Atelier | Alterations & Tailoring",
     description:
-      "Professional clothing repairs and tailoring in Southampton. Book a fitting.",
+      "Expert clothing alterations, custom sewing, and repairs in Southampton. From hems to full resizing — every stitch made with care. Book a fitting today.",
+    url: `${siteUrl}/atelier`,
+    siteName: "Beautasy",
+    locale: "en_GB",
+    type: "website",
     images: [
       {
-        url: "/beautasy-icon.png",
+        url: `${siteUrl}/beautasy-icon.png`,
         width: 1200,
         height: 630,
-        alt: "Beautasy Atelier",
+        alt: "Beautasy Atelier — Clothing Alterations in Southampton",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Beautasy Atelier — Alterations & Tailoring",
+    title: "Beautasy Atelier | Alterations & Tailoring",
     description:
-      "Professional clothing repairs and tailoring in Southampton. Book a fitting.",
-    images: ["/beautasy-icon.png"],
+      "Expert clothing alterations, custom sewing, and repairs in Southampton. Book a fitting today.",
+    images: [`${siteUrl}/beautasy-icon.png`],
   },
 };
 

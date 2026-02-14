@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+const siteUrl = "https://beautasy.vercel.app";
+
 export const metadata: Metadata = {
   title: "Contact Beautasy — Get in Touch",
   description:
@@ -8,9 +10,13 @@ export const metadata: Metadata = {
     title: "Contact Beautasy — Get in Touch",
     description:
       "Reach out via Email, WhatsApp, or Telegram. Southampton, UK.",
+    url: `${siteUrl}/contact`,
+    siteName: "Beautasy",
+    locale: "en_GB",
+    type: "website",
     images: [
       {
-        url: "/beautasy-icon.png",
+        url: `${siteUrl}/beautasy-icon.png`,
         width: 1200,
         height: 630,
         alt: "Contact Beautasy",
@@ -22,7 +28,7 @@ export const metadata: Metadata = {
     title: "Contact Beautasy — Get in Touch",
     description:
       "Reach out via Email, WhatsApp, or Telegram. Southampton, UK.",
-    images: ["/beautasy-icon.png"],
+    images: [`${siteUrl}/beautasy-icon.png`],
   },
 };
 

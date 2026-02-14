@@ -1,5 +1,38 @@
+import type { Metadata } from "next";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import ShopContent from "./ShopContent";
+
+const siteUrl = "https://beautasy.vercel.app";
+
+export const metadata: Metadata = {
+  title: "Beautasy Shop — Handmade Lingerie & Accessories",
+  description:
+    "Handmade silk lingerie, accessories, kids' clothing, and home decor. Every piece crafted with love in Southampton.",
+  openGraph: {
+    title: "Beautasy Shop — Handmade Lingerie & Accessories",
+    description:
+      "Handmade silk lingerie and accessories crafted in Southampton.",
+    url: `${siteUrl}/shop`,
+    siteName: "Beautasy",
+    locale: "en_GB",
+    type: "website",
+    images: [
+      {
+        url: `${siteUrl}/beautasy-icon.png`,
+        width: 1200,
+        height: 630,
+        alt: "Beautasy Shop",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Beautasy Shop — Handmade Lingerie & Accessories",
+    description:
+      "Handmade silk lingerie and accessories crafted in Southampton.",
+    images: [`${siteUrl}/beautasy-icon.png`],
+  },
+};
 
 /* ─── Safe image URL builder (won't crash on incomplete data) ─── */
 function safeImageUrl(image: unknown): string | null {

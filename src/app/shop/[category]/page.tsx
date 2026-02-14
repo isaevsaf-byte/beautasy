@@ -12,6 +12,8 @@ function safeImageUrl(image: unknown): string | null {
     }
 }
 
+const siteUrl = "https://beautasy.vercel.app";
+
 export const revalidate = 60; // revalidate every 60 seconds
 
 // Map URL slugs to Sanity category values
@@ -65,7 +67,7 @@ export async function generateMetadata({
         openGraph: {
             title: meta.title,
             description: meta.description,
-            images: [{ url: "/beautasy-icon.png", width: 1200, height: 630, alt: meta.title }],
+            images: [{ url: `${siteUrl}/beautasy-icon.png`, width: 1200, height: 630, alt: meta.title }],
         },
     };
 }
