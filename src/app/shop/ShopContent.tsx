@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -22,7 +23,8 @@ const categories = [
   {
     slug: "lingerie",
     title: "Lingerie",
-    image: "https://placehold.co/600x700/E6E6FA/4A4A4A?text=Lingerie",
+    image: "/beautasy-logo-gold.png",
+    bgClass: "bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF]",
     description: "Delicate pieces crafted with love",
     href: "/shop/lingerie",
     items: ["Bralettes", "Bodysuits", "Sleepwear", "Sets"],
@@ -31,7 +33,8 @@ const categories = [
     slug: "kids",
     title: "Mini Beautasy",
     subtitle: "Kids",
-    image: "https://placehold.co/600x700/FFF0F5/4A4A4A?text=Kids",
+    image: "/beautasy-kids-logo.png",
+    bgClass: "bg-gradient-to-br from-[#FFF5F8] via-[#FFF0F5] to-[#FFE8EF]",
     description: "Gentle comfort for little ones",
     href: "/shop/kids",
     items: ["Dresses", "Rompers", "Accessories", "Pyjamas"],
@@ -39,7 +42,8 @@ const categories = [
   {
     slug: "accessories",
     title: "Accessories & Bags",
-    image: "https://placehold.co/600x700/F5F0FF/4A4A4A?text=Accessories",
+    image: "/beautasy-accessories-logo.png",
+    bgClass: "bg-gradient-to-br from-[#F5F0FF] via-[#EDE5FF] to-[#E5DBFF]",
     description: "Handmade finishing touches",
     href: "/shop/accessories",
     items: ["Tote Bags", "Scrunchies", "Hair Accessories", "Pouches"],
@@ -47,7 +51,8 @@ const categories = [
   {
     slug: "home",
     title: "Home Decor",
-    image: "https://placehold.co/600x700/FDFBF7/4A4A4A?text=Home+Decor",
+    image: "/beautasy-home-logo.png",
+    bgClass: "bg-gradient-to-br from-[#FDFBF7] via-[#F8F3ED] to-[#F3ECDF]",
     description: "Beauty for your space",
     href: "/shop/home",
     items: ["Cushion Covers", "Table Runners", "Napkins", "Lavender Sachets"],
@@ -132,11 +137,13 @@ export default function ShopContent({
                 >
                   {/* Image */}
                   <div className={`${i % 2 === 1 ? "lg:order-2" : ""}`}>
-                    <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-cream-soft">
-                      <img
+                    <div className={`relative aspect-[4/5] rounded-3xl overflow-hidden flex items-center justify-center ${cat.bgClass || "bg-cream-soft"}`}>
+                      <Image
                         src={cat.image}
                         alt={cat.title}
-                        className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700 ease-out"
+                        width={600}
+                        height={600}
+                        className="w-[60%] h-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-700 ease-out"
                       />
                     </div>
                   </div>

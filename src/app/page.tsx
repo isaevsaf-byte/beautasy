@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-/* eslint-disable @next/next/no-img-element */
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
@@ -15,26 +14,30 @@ import { Scissors, Heart, Sparkles, MapPin } from "lucide-react";
 const categories = [
   {
     title: "Lingerie",
-    image: "https://placehold.co/600x700/E6E6FA/4A4A4A?text=Lingerie",
+    image: "/beautasy-logo-gold.png",
+    bgClass: "bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF]",
     description: "Delicate pieces crafted with love",
     href: "/shop/lingerie",
   },
   {
     title: "Mini Beautasy",
     subtitle: "Kids",
-    image: "https://placehold.co/600x700/FFF0F5/4A4A4A?text=Kids",
+    image: "/beautasy-kids-logo.png",
+    bgClass: "bg-gradient-to-br from-[#FFF5F8] via-[#FFF0F5] to-[#FFE8EF]",
     description: "Gentle comfort for little ones",
     href: "/shop/kids",
   },
   {
     title: "Accessories & Bags",
-    image: "https://placehold.co/600x700/F5F0FF/4A4A4A?text=Accessories",
+    image: "/beautasy-accessories-logo.png",
+    bgClass: "bg-gradient-to-br from-[#F5F0FF] via-[#EDE5FF] to-[#E5DBFF]",
     description: "Handmade finishing touches",
     href: "/shop/accessories",
   },
   {
     title: "Home Decor",
-    image: "https://placehold.co/600x700/FDFBF7/4A4A4A?text=Home+Decor",
+    image: "/beautasy-home-logo.png",
+    bgClass: "bg-gradient-to-br from-[#FDFBF7] via-[#F8F3ED] to-[#F3ECDF]",
     description: "Beauty for your space",
     href: "/shop/home",
   },
@@ -115,7 +118,7 @@ function Hero() {
               />
             </Link>
             <Link
-              href="/alterations"
+              href="/atelier"
               className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
             >
               Book Alterations
@@ -207,11 +210,13 @@ function CategoryGrid() {
               className="group block"
             >
               <Link href={cat.href || "/shop"}>
-                <div className="relative aspect-[6/7] rounded-2xl overflow-hidden mb-4 bg-cream-soft">
-                  <img
+                <div className={`relative aspect-[6/7] rounded-2xl overflow-hidden mb-4 flex items-center justify-center ${cat.bgClass || "bg-cream-soft"}`}>
+                  <Image
                     src={cat.image}
                     alt={cat.title}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                    width={600}
+                    height={600}
+                    className="w-[65%] h-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-700 ease-out"
                   />
                   {/* Overlay on hover */}
                   <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
@@ -311,10 +316,10 @@ function AtelierSection() {
 
             <motion.div variants={fadeUp} custom={6}>
               <Link
-                href="/alterations"
+                href="/atelier"
                 className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
               >
-                Alterations Services
+                Atelier Services
                 <ArrowRight
                   size={16}
                   className="group-hover:translate-x-1 transition-transform"
@@ -328,11 +333,13 @@ function AtelierSection() {
             variants={fadeIn}
             className="relative"
           >
-            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-soft/40">
-              <img
-                src="https://placehold.co/800x1000/DCD0FF/4A4A4A?text=Atelier"
-                alt="Beautasy Atelier — Custom Sewing"
-                className="absolute inset-0 w-full h-full object-cover"
+            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF] flex items-center justify-center">
+              <Image
+                src="/beautasy-atelier-logo.png"
+                alt="Beautasy Atelier — Custom Sewing & Alterations"
+                width={800}
+                height={686}
+                className="w-[65%] h-auto object-contain drop-shadow-lg"
               />
             </div>
             {/* Decorative badge */}
