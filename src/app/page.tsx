@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 /* eslint-disable @next/next/no-img-element */
+import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -122,18 +123,21 @@ function Hero() {
           </motion.div>
         </motion.div>
 
-        {/* Image */}
+        {/* Logo Image */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
           className="order-1 lg:order-2 relative"
         >
-          <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-soft/30">
-            <img
-              src="https://placehold.co/800x1000/E6E6FA/4A4A4A?text=BEAUTASY"
-              alt="Beautasy — Handmade lingerie"
-              className="absolute inset-0 w-full h-full object-cover"
+          <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF] flex items-center justify-center">
+            <Image
+              src="/beautasy-logo-gold.png"
+              alt="Beautasy - Handmade Lingerie & Alterations Logo"
+              width={600}
+              height={600}
+              className="w-[250px] sm:w-[280px] lg:w-[300px] h-auto object-contain drop-shadow-lg"
+              priority
             />
           </div>
           {/* Decorative floating badge */}
