@@ -14,7 +14,7 @@ function safeImageUrl(image: unknown): string | null {
 
 const siteUrl = "https://beautasy.vercel.app";
 
-export const revalidate = 60; // revalidate every 60 seconds
+export const revalidate = 30; // revalidate every 30 seconds
 
 // Map URL slugs to Sanity category values
 const categoryMap: Record<string, string> = {
