@@ -93,14 +93,18 @@ export default function ShopContent({
                 custom={0}
                 className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
               >
-                Our Collections
+                {activeCategory
+                  ? categoryLabels[activeCategory] || "Collection"
+                  : "Our Collections"}
               </motion.p>
               <motion.h2
                 variants={fadeUp}
                 custom={1}
                 className="font-serif text-4xl sm:text-5xl mb-6"
               >
-                Browse the Shelves
+                {activeCategory
+                  ? categoryLabels[activeCategory] || "Shop"
+                  : "Browse the Shelves"}
               </motion.h2>
               <motion.p
                 variants={fadeUp}
@@ -108,75 +112,75 @@ export default function ShopContent({
                 className="text-lg text-charcoal-light max-w-lg mx-auto leading-relaxed"
               >
                 Every piece is handmade with care in our Southampton atelier.
-                Explore our collections and find something made just for you.
+                {activeCategory
+                  ? " Explore our handpicked selection below."
+                  : " Explore our collections and find something made just for you."}
               </motion.p>
             </motion.div>
           </div>
         </section>
 
-        {/* Category Overview */}
-        <section className="pb-16">
-          <div className="max-w-6xl mx-auto px-6">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-80px" }}
-              variants={stagger}
-              className="space-y-20"
-            >
-              {categories.map((cat, i) => (
-                <motion.div
-                  key={cat.title}
-                  variants={fadeUp}
-                  custom={i}
-                  className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center p-6 rounded-3xl transition-colors ${activeCategory &&
-                      cat.slug === activeCategory.toLowerCase()
-                      ? "bg-lavender/10 border border-lavender/20"
-                      : ""
-                    }`}
-                >
-                  {/* Image */}
-                  <div className={`${i % 2 === 1 ? "lg:order-2" : ""}`}>
-                    <div className={`relative aspect-[4/5] rounded-3xl overflow-hidden flex items-center justify-center ${cat.bgClass || "bg-cream-soft"}`}>
-                      <Image
-                        src={cat.image}
-                        alt={cat.title}
-                        width={600}
-                        height={600}
-                        className="w-[60%] h-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-700 ease-out"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Text */}
-                  <div className={`${i % 2 === 1 ? "lg:order-1" : ""}`}>
-                    <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-3">
-                      Collection
-                    </p>
-                    <h3 className="font-serif text-3xl sm:text-4xl mb-2">
-                      {cat.title}
-                      {cat.subtitle && (
-                        <span className="text-lg font-sans text-charcoal-light ml-3">
-                          ({cat.subtitle})
-                        </span>
-                      )}
-                    </h3>
-                    <p className="text-charcoal-light leading-relaxed mb-8 max-w-md">
-                      {cat.description}
-                    </p>
-
-                    <div className="flex flex-wrap gap-2 mb-8">
-                      {cat.items.map((item) => (
-                        <span
-                          key={item}
-                          className="px-4 py-2 bg-lavender-bg rounded-full text-sm text-charcoal-light"
-                        >
-                          {item}
-                        </span>
-                      ))}
+        {/* Category Overview — only show when browsing ALL products (no active category) */}
+        {!activeCategory && (
+          <section className="pb-16">
+            <div className="max-w-6xl mx-auto px-6">
+              <motion.div
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "-80px" }}
+                variants={stagger}
+                className="space-y-20"
+              >
+                {categories.map((cat, i) => (
+                  <motion.div
+                    key={cat.title}
+                    variants={fadeUp}
+                    custom={i}
+                    className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center p-6 rounded-3xl transition-colors"
+                  >
+                    {/* Image */}
+                    <div className={`${i % 2 === 1 ? "lg:order-2" : ""}`}>
+                      <Link href={cat.href}>
+                        <div className={`relative aspect-[4/5] rounded-3xl overflow-hidden flex items-center justify-center cursor-pointer ${cat.bgClass || "bg-cream-soft"}`}>
+                          <Image
+                            src={cat.image}
+                            alt={cat.title}
+                            width={600}
+                            height={600}
+                            className="w-[60%] h-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-700 ease-out"
+                          />
+                        </div>
+                      </Link>
                     </div>
 
-                    {cat.href ? (
+                    {/* Text */}
+                    <div className={`${i % 2 === 1 ? "lg:order-1" : ""}`}>
+                      <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-3">
+                        Collection
+                      </p>
+                      <h3 className="font-serif text-3xl sm:text-4xl mb-2">
+                        {cat.title}
+                        {cat.subtitle && (
+                          <span className="text-lg font-sans text-charcoal-light ml-3">
+                            ({cat.subtitle})
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-charcoal-light leading-relaxed mb-8 max-w-md">
+                        {cat.description}
+                      </p>
+
+                      <div className="flex flex-wrap gap-2 mb-8">
+                        {cat.items.map((item) => (
+                          <span
+                            key={item}
+                            className="px-4 py-2 bg-lavender-bg rounded-full text-sm text-charcoal-light"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+
                       <Link
                         href={cat.href}
                         className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
@@ -187,27 +191,16 @@ export default function ShopContent({
                           className="group-hover:translate-x-1 transition-transform"
                         />
                       </Link>
-                    ) : (
-                      <a
-                        href="#products"
-                        className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
-                      >
-                        Shop {cat.title}
-                        <ArrowRight
-                          size={16}
-                          className="group-hover:translate-x-1 transition-transform"
-                        />
-                      </a>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </section>
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </div>
+          </section>
+        )}
 
         {/* Products Grid */}
-        <section className="py-24 md:py-32 bg-lavender-bg" id="products">
+        <section className={`py-24 md:py-32 ${activeCategory ? "" : "bg-lavender-bg"}`} id="products">
           <div className="max-w-6xl mx-auto px-6">
             <motion.div
               initial="hidden"
