@@ -3,28 +3,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
+import { useUser, SignInButton } from "@clerk/nextjs";
 import StarRating from "./StarRating";
 import { fadeUp, stagger } from "./animations";
-
-const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-// Conditionally import Clerk hooks — only used when Clerk is configured
-let useUser: () => {
-  user: { firstName?: string | null; username?: string | null; emailAddresses?: { emailAddress: string }[] } | null | undefined;
-  isSignedIn: boolean | undefined;
-  isLoaded: boolean;
-};
-let SignInButton: React.ComponentType<{ mode: string; children: React.ReactNode }>;
-
-if (clerkEnabled) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const clerk = require("@clerk/nextjs");
-  useUser = clerk.useUser;
-  SignInButton = clerk.SignInButton;
-} else {
-  useUser = () => ({ user: null, isSignedIn: false, isLoaded: true });
-  SignInButton = ({ children }: { mode: string; children: React.ReactNode }) => <>{children}</>;
-}
 
 interface Review {
   _id: string;
