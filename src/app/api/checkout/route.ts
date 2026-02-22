@@ -55,6 +55,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Early check: make sure STRIPE_SECRET_KEY is configured
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error("STRIPE_SECRET_KEY is not set. Add it in Vercel → Project → Settings → Environment Variables.");
+      return NextResponse.json(
+        { error: "Payment system is not configured. Please contact support." },
+        { status: 500 }
+      );
+    }
+
     const origin = req.headers.get("origin") || "http://localhost:3000";
 
     const stripe = getStripeInstance();
