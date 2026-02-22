@@ -70,6 +70,45 @@ export const product = defineType({
       initialValue: 0,
       validation: (Rule) => Rule.required().min(0),
     }),
+    defineField({
+      name: "careInstructions",
+      title: "Care Instructions",
+      type: "array",
+      of: [{ type: "block" }],
+      description:
+        "How to care for this product (washing, drying, storage, etc.)",
+    }),
+    defineField({
+      name: "shippingInfo",
+      title: "Shipping Information",
+      type: "array",
+      of: [{ type: "block" }],
+      description:
+        "Delivery timelines, methods, and costs specific to this product",
+    }),
+    defineField({
+      name: "packagingInfo",
+      title: "Packaging & Gift Options",
+      type: "array",
+      of: [{ type: "block" }],
+      description: "How this product is packaged and presented",
+    }),
+    defineField({
+      name: "giftBoxAvailable",
+      title: "Gift Box Available",
+      type: "boolean",
+      initialValue: false,
+      description: "Can this product be gift-wrapped in a Beautasy gift box?",
+    }),
+    defineField({
+      name: "giftBoxPrice",
+      title: "Gift Box Price",
+      type: "number",
+      description: "Price in pence for gift box option (e.g. 500 = £5.00)",
+      hidden: ({ parent }: { parent?: { giftBoxAvailable?: boolean } }) =>
+        !parent?.giftBoxAvailable,
+      validation: (Rule) => Rule.min(0),
+    }),
   ],
   preview: {
     select: {

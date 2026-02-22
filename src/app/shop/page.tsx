@@ -59,6 +59,7 @@ const fallbackProducts = [
   {
     _id: "ling-bralette-01",
     name: "Silk Bralette",
+    slug: "silk-bralette",
     price: 3499,
     images: ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Bralette"],
     category: "Lingerie",
@@ -66,6 +67,7 @@ const fallbackProducts = [
   {
     _id: "ling-bodysuit-01",
     name: "Lace Bodysuit",
+    slug: "lace-bodysuit",
     price: 4999,
     images: ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Bodysuit"],
     category: "Lingerie",
@@ -73,6 +75,7 @@ const fallbackProducts = [
   {
     _id: "ling-sleepset-01",
     name: "Cotton Sleep Set",
+    slug: "cotton-sleep-set",
     price: 3999,
     images: ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Sleepwear"],
     category: "Lingerie",
@@ -80,6 +83,7 @@ const fallbackProducts = [
   {
     _id: "acc-tote-01",
     name: "Linen Tote Bag",
+    slug: "linen-tote-bag",
     price: 2499,
     images: ["https://placehold.co/400x500/F5F0FF/4A4A4A?text=Tote"],
     category: "Accessories",
@@ -87,6 +91,7 @@ const fallbackProducts = [
   {
     _id: "acc-scrunchie-01",
     name: "Silk Scrunchie Set",
+    slug: "silk-scrunchie-set",
     price: 1299,
     images: ["https://placehold.co/400x500/F5F0FF/4A4A4A?text=Scrunchies"],
     category: "Accessories",
@@ -94,6 +99,7 @@ const fallbackProducts = [
   {
     _id: "acc-pouch-01",
     name: "Embroidered Pouch",
+    slug: "embroidered-pouch",
     price: 1899,
     images: ["https://placehold.co/400x500/F5F0FF/4A4A4A?text=Pouch"],
     category: "Accessories",
@@ -101,6 +107,7 @@ const fallbackProducts = [
   {
     _id: "home-cushion-01",
     name: "Lavender Cushion Cover",
+    slug: "lavender-cushion-cover",
     price: 2999,
     images: ["https://placehold.co/400x500/FDFBF7/4A4A4A?text=Cushion"],
     category: "Home",
@@ -108,6 +115,7 @@ const fallbackProducts = [
   {
     _id: "home-runner-01",
     name: "Linen Table Runner",
+    slug: "linen-table-runner",
     price: 3499,
     images: ["https://placehold.co/400x500/FDFBF7/4A4A4A?text=Runner"],
     category: "Home",
@@ -115,6 +123,7 @@ const fallbackProducts = [
   {
     _id: "home-sachet-01",
     name: "Lavender Sachet Set",
+    slug: "lavender-sachet-set",
     price: 999,
     images: ["https://placehold.co/400x500/FDFBF7/4A4A4A?text=Sachets"],
     category: "Home",
@@ -135,6 +144,7 @@ export default async function ShopPage() {
         (p: {
           _id: string;
           name: string;
+          slug?: string;
           price: number;
           images?: { asset?: { _ref: string } }[];
           category: string;
@@ -149,6 +159,7 @@ export default async function ShopPage() {
           return {
             _id: p._id,
             name: p.name,
+            slug: p.slug || p._id,
             price: p.price,
             images:
               resolvedImages.length > 0

@@ -24,6 +24,13 @@ export const sanityConfig = {
 // Main client — use this in Server Components, API routes, etc.
 export const sanityClient = createClient(sanityConfig);
 
+// Write client — server-side only, for creating reviews etc.
+export const sanityWriteClient = createClient({
+  ...sanityConfig,
+  useCdn: false,
+  token: process.env.SANITY_API_WRITE_TOKEN,
+});
+
 // Image URL builder
 const builder = createImageUrlBuilder(sanityConfig);
 

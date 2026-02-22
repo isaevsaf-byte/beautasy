@@ -2,18 +2,20 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AddToCartButton from "@/components/AddToCartButton";
+import WishlistButton from "@/components/WishlistButton";
 import { fadeUp, stagger } from "@/components/animations";
 
 interface Product {
   _id: string;
   name: string;
+  slug: string;
   price: number;
   images: string[];
   category: string;
@@ -326,11 +328,10 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
         className="group"
       >
-        {/* Main product image — click to open lightbox */}
-        <button
-          type="button"
-          onClick={() => setLightboxOpen(true)}
-          className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 w-full cursor-zoom-in"
+        {/* Main product image — click to go to PDP */}
+        <Link
+          href={`/shop/${product.slug}`}
+          className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 w-full block"
         >
           <img
             src={activeImage}
@@ -341,7 +342,29 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
             <p className="text-xs text-charcoal-light">{product.category}</p>
           </div>
-        </button>
+          {/* Wishlist heart */}
+          <div className="absolute top-4 right-4 z-10">
+            <WishlistButton
+              product={{
+                id: product._id,
+                name: product.name,
+                price: product.price,
+                image: activeImage,
+                slug: product.slug,
+              }}
+              className="bg-white/80 backdrop-blur-sm shadow-sm"
+            />
+          </div>
+          {/* Zoom icon */}
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLightboxOpen(true); }}
+            className="absolute bottom-4 right-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100"
+            aria-label="Quick view"
+          >
+            <Search size={16} />
+          </button>
+        </Link>
 
         {availableImages.length > 1 && (
           <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
@@ -367,7 +390,9 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           </div>
         )}
 
-        <h4 className="font-serif text-lg mb-1">{product.name}</h4>
+        <Link href={`/shop/${product.slug}`} className="block">
+          <h4 className="font-serif text-lg mb-1 hover:text-charcoal/70 transition-colors">{product.name}</h4>
+        </Link>
         <p className="text-charcoal-light text-sm mb-4">
           £{(product.price / 100).toFixed(2)}
         </p>

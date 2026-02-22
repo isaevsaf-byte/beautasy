@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.38.1",
     "@portabletext/react": "^6.0.2",
     "@sanity/image-url": "^2.0.3",
     "@sanity/vision": "^5.9.0",

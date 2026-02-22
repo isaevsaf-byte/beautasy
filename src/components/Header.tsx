@@ -1,10 +1,14 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Gift, Crown, ChevronRight } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { Menu, X, Gift, Crown, ChevronRight, Heart } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Cart from "@/components/Cart";
+import { useWishlist } from "@/store/useWishlist";
+import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
+
+const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 /* ------------------------------------------------------------------ */
 /*  Mega-menu data                                                     */
@@ -209,7 +213,11 @@ function MegaMenu({ data }: { data: MegaMenuData }) {
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeMega, setActiveMega] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wishlistCount = useWishlist((s) => s.items.length);
+
+  useEffect(() => setHydrated(true), []);
 
   const openMega = useCallback((label: string) => {
     if (closeTimeout.current) clearTimeout(closeTimeout.current);
@@ -295,11 +303,60 @@ export default function Header() {
               {link.label}
             </Link>
           ))}
+          {clerkEnabled && (
+            <>
+              <SignedIn>
+                <UserButton
+                  afterSignOutUrl="/"
+                  appearance={{ variables: { colorPrimary: "#DCD0FF" } }}
+                />
+              </SignedIn>
+              <SignedOut>
+                <SignInButton mode="modal">
+                  <button className="text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors duration-300">
+                    Sign In
+                  </button>
+                </SignInButton>
+              </SignedOut>
+            </>
+          )}
+          <Link
+            href="/wishlist"
+            className="relative p-1 text-charcoal/70 hover:text-charcoal transition-colors duration-300"
+            aria-label="Wishlist"
+          >
+            <Heart size={20} />
+            {hydrated && wishlistCount > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 bg-lavender text-charcoal text-[10px] font-medium rounded-full flex items-center justify-center"
+              >
+                {wishlistCount}
+              </motion.span>
+            )}
+          </Link>
           <Cart />
         </nav>
 
-        {/* Cart for mobile */}
-        <div className="md:hidden">
+        {/* Cart + Wishlist for mobile */}
+        <div className="md:hidden flex items-center gap-3">
+          <Link
+            href="/wishlist"
+            className="relative p-1 text-charcoal/70 hover:text-charcoal transition-colors"
+            aria-label="Wishlist"
+          >
+            <Heart size={18} />
+            {hydrated && wishlistCount > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-lavender text-charcoal text-[9px] font-medium rounded-full flex items-center justify-center"
+              >
+                {wishlistCount}
+              </motion.span>
+            )}
+          </Link>
           <Cart />
         </div>
       </div>

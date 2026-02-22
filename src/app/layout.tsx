@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 
@@ -50,12 +51,14 @@ export const metadata: Metadata = {
   },
 };
 
+const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
+  const body = (
     <html lang="en" className="scroll-smooth">
       <body
         className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7] text-[#4A4A4A]`}
@@ -64,4 +67,18 @@ export default function RootLayout({
       </body>
     </html>
   );
+
+  if (clerkEnabled) {
+    return (
+      <ClerkProvider
+        appearance={{
+          variables: { colorPrimary: "#DCD0FF" },
+        }}
+      >
+        {body}
+      </ClerkProvider>
+    );
+  }
+
+  return body;
 }

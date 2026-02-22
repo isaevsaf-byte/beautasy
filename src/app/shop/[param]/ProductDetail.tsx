@@ -1,0 +1,479 @@
+"use client";
+
+import { useState, useCallback, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  X,
+  Gift,
+  Truck,
+  Sparkles,
+  Package,
+  Search,
+} from "lucide-react";
+import Link from "next/link";
+import { PortableText } from "@portabletext/react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import AddToCartButton from "@/components/AddToCartButton";
+import dynamic from "next/dynamic";
+import WishlistButton from "@/components/WishlistButton";
+import { useCart } from "@/store/useCart";
+
+// Client-only: ReviewSection uses Clerk's useUser hook which can't run during SSG
+const ReviewSection = dynamic(() => import("@/components/ReviewSection"), {
+  ssr: false,
+});
+import { fadeUp, stagger } from "@/components/animations";
+
+/* eslint-disable @next/next/no-img-element */
+
+/* ─── Types ─── */
+interface ProductProps {
+  _id: string;
+  name: string;
+  slug: string;
+  price: number;
+  images: string[];
+  description: unknown[];
+  category: string;
+  stock: number;
+  careInstructions: unknown[] | null;
+  shippingInfo: unknown[] | null;
+  packagingInfo: unknown[] | null;
+  giftBoxAvailable: boolean;
+  giftBoxPrice: number;
+}
+
+/* ─── Accordion Component ─── */
+function Accordion({
+  title,
+  icon,
+  content,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  content: unknown[] | null;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!content || content.length === 0) return null;
+
+  return (
+    <div className="border-t border-lavender-soft/40">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between py-4 text-left group"
+      >
+        <span className="flex items-center gap-3 text-sm tracking-wider uppercase font-medium text-charcoal group-hover:text-charcoal/80 transition-colors">
+          {icon}
+          {title}
+        </span>
+        <motion.span
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <ChevronDown size={16} className="text-charcoal-light" />
+        </motion.span>
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="pb-5 text-sm text-charcoal-light leading-relaxed prose prose-sm max-w-none">
+              <PortableText value={content as Parameters<typeof PortableText>[0]["value"]} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ─── Category label mapping ─── */
+const categorySlugMap: Record<string, string> = {
+  Lingerie: "lingerie",
+  Kids: "kids",
+  Accessories: "accessories",
+  Home: "home",
+};
+
+/* ─── Main Component ─── */
+export default function ProductDetail({ product }: { product: ProductProps }) {
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [giftBoxChecked, setGiftBoxChecked] = useState(false);
+  const addItem = useCart((state) => state.addItem);
+
+  const images = product.images;
+  const activeImage = images[activeImageIndex] ?? images[0];
+  const categorySlug = categorySlugMap[product.category] || "lingerie";
+
+  const goNext = useCallback(() => {
+    setActiveImageIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+  }, [images.length]);
+
+  const goPrev = useCallback(() => {
+    setActiveImageIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+  }, [images.length]);
+
+  // Keyboard nav for lightbox
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowLeft") goPrev();
+    };
+    window.addEventListener("keydown", handleKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = "";
+    };
+  }, [lightboxOpen, goNext, goPrev]);
+
+  function handleAddToCart() {
+    addItem({
+      id: product._id,
+      name: product.name,
+      price: product.price,
+      image: activeImage,
+    });
+
+    // Add gift box as separate line item
+    if (giftBoxChecked && product.giftBoxAvailable && product.giftBoxPrice > 0) {
+      addItem({
+        id: `${product._id}-giftbox`,
+        name: `Gift Box — ${product.name}`,
+        price: product.giftBoxPrice,
+        image: activeImage,
+      });
+    }
+  }
+
+  return (
+    <>
+      <Header />
+      <main className="pt-24">
+        {/* ── Breadcrumb ── */}
+        <div className="max-w-6xl mx-auto px-6 py-6">
+          <nav className="flex items-center gap-2 text-sm text-charcoal-light">
+            <Link
+              href="/shop"
+              className="hover:text-charcoal transition-colors"
+            >
+              Shop
+            </Link>
+            <span>/</span>
+            <Link
+              href={`/shop/${categorySlug}`}
+              className="hover:text-charcoal transition-colors"
+            >
+              {product.category}
+            </Link>
+            <span>/</span>
+            <span className="text-charcoal">{product.name}</span>
+          </nav>
+        </div>
+
+        {/* ── Product Layout ── */}
+        <section className="max-w-6xl mx-auto px-6 pb-24">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={stagger}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16"
+          >
+            {/* ──── Left: Image Gallery ──── */}
+            <motion.div variants={fadeUp} custom={0}>
+              {/* Main Image */}
+              <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white/60 mb-4">
+                <img
+                  src={activeImage}
+                  alt={product.name}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                {/* Zoom button */}
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-colors shadow-md"
+                  aria-label="Zoom image"
+                >
+                  <Search size={18} />
+                </button>
+
+                {/* Nav arrows */}
+                {images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={goPrev}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/70 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-colors"
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goNext}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/70 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-colors"
+                      aria-label="Next image"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Thumbnails */}
+              {images.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {images.map((image, i) => (
+                    <button
+                      key={`thumb-${i}`}
+                      type="button"
+                      onClick={() => setActiveImageIndex(i)}
+                      className={`relative w-16 h-16 shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                        i === activeImageIndex
+                          ? "border-lavender shadow-md"
+                          : "border-transparent hover:border-lavender/40"
+                      }`}
+                      aria-label={`Show image ${i + 1}`}
+                    >
+                      <img
+                        src={image}
+                        alt={`${product.name} thumbnail ${i + 1}`}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+
+            {/* ──── Right: Product Info ──── */}
+            <motion.div variants={fadeUp} custom={1} className="flex flex-col">
+              {/* Category + Stock */}
+              <div className="flex items-center gap-3 mb-3">
+                <span className="px-3 py-1 bg-lavender-bg rounded-full text-xs tracking-wider uppercase text-charcoal-light">
+                  {product.category}
+                </span>
+                {product.stock > 0 ? (
+                  <span className="text-xs text-green-600 font-medium">
+                    In Stock
+                  </span>
+                ) : (
+                  <span className="text-xs text-amber-600 font-medium">
+                    Made to Order
+                  </span>
+                )}
+              </div>
+
+              {/* Name + Price */}
+              <h1 className="font-serif text-3xl sm:text-4xl mb-2">
+                {product.name}
+              </h1>
+              <p className="font-serif text-2xl text-charcoal mb-6">
+                £{(product.price / 100).toFixed(2)}
+              </p>
+
+              {/* Description */}
+              {product.description && product.description.length > 0 && (
+                <div className="text-charcoal-light leading-relaxed mb-8 prose prose-sm max-w-none">
+                  <PortableText value={product.description as Parameters<typeof PortableText>[0]["value"]} />
+                </div>
+              )}
+
+              {/* Gift Box Option */}
+              {product.giftBoxAvailable && product.giftBoxPrice > 0 && (
+                <label className="flex items-center gap-3 p-4 rounded-xl bg-lavender-bg/50 border border-lavender-soft/30 mb-6 cursor-pointer group hover:bg-lavender-bg transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={giftBoxChecked}
+                    onChange={(e) => setGiftBoxChecked(e.target.checked)}
+                    className="w-4 h-4 rounded accent-lavender"
+                  />
+                  <Gift
+                    size={18}
+                    className="text-lavender shrink-0"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-charcoal">
+                      Add Gift Box
+                    </p>
+                    <p className="text-xs text-charcoal-light">
+                      Beautifully wrapped in a Beautasy gift box
+                    </p>
+                  </div>
+                  <span className="text-sm font-medium text-charcoal">
+                    +£{(product.giftBoxPrice / 100).toFixed(2)}
+                  </span>
+                </label>
+              )}
+
+              {/* Add to Cart + Wishlist */}
+              <div className="flex items-center gap-3 mb-8">
+                <button
+                  onClick={handleAddToCart}
+                  className="flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                >
+                  Add to Bag — £
+                  {(
+                    (product.price +
+                      (giftBoxChecked ? product.giftBoxPrice : 0)) /
+                    100
+                  ).toFixed(2)}
+                </button>
+                <WishlistButton
+                  product={{
+                    id: product._id,
+                    name: product.name,
+                    price: product.price,
+                    image: images[0],
+                    slug: product.slug,
+                  }}
+                />
+              </div>
+
+              {/* Accordion Sections */}
+              <div className="border-b border-lavender-soft/40">
+                <Accordion
+                  title="Care Instructions"
+                  icon={<Sparkles size={16} />}
+                  content={product.careInstructions}
+                />
+                <Accordion
+                  title="Shipping"
+                  icon={<Truck size={16} />}
+                  content={product.shippingInfo}
+                />
+                <Accordion
+                  title="Packaging & Gifting"
+                  icon={<Package size={16} />}
+                  content={product.packagingInfo}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        </section>
+
+        {/* ── Reviews ── */}
+        <section className="max-w-6xl mx-auto px-6 pb-16">
+          <ReviewSection productId={product._id} />
+        </section>
+      </main>
+
+      {/* ──── Lightbox ──── */}
+      <AnimatePresence>
+        {lightboxOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              className="absolute top-5 right-5 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+              aria-label="Close"
+            >
+              <X size={22} />
+            </button>
+
+            {images.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goPrev();
+                }}
+                className="absolute left-4 sm:left-6 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+                aria-label="Previous"
+              >
+                <ChevronLeft size={22} />
+              </button>
+            )}
+
+            <motion.div
+              key={activeImageIndex}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="relative max-w-[90vw] max-h-[85vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={images[activeImageIndex]}
+                alt={`${product.name} — image ${activeImageIndex + 1}`}
+                className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+              />
+              {images.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-full px-4 py-1.5">
+                  <p className="text-white text-xs tracking-wider">
+                    {activeImageIndex + 1} / {images.length}
+                  </p>
+                </div>
+              )}
+            </motion.div>
+
+            {images.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goNext();
+                }}
+                className="absolute right-4 sm:right-6 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+                aria-label="Next"
+              >
+                <ChevronRight size={22} />
+              </button>
+            )}
+
+            {images.length > 1 && (
+              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
+                {images.map((image, i) => (
+                  <button
+                    key={`lb-thumb-${i}`}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveImageIndex(i);
+                    }}
+                    className={`relative w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
+                      i === activeImageIndex
+                        ? "border-white scale-110 shadow-lg"
+                        : "border-white/30 hover:border-white/60"
+                    }`}
+                  >
+                    <img
+                      src={image}
+                      alt={`Thumbnail ${i + 1}`}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Footer />
+    </>
+  );
+}
