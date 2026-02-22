@@ -51,12 +51,16 @@ const shopMenu: MegaMenuData = {
           href: "/shop",
           highlight: true,
         },
+        {
+          label: "Gift Boxes",
+          href: "/gift-boxes",
+        },
       ],
     },
   ],
   featured: {
     label: "Gift Finder",
-    href: "/shop",
+    href: "/gift-boxes",
     description: "Find the perfect handmade gift for someone special.",
     icon: <Gift size={20} />,
   },
@@ -106,6 +110,7 @@ const megaMenus: Record<string, MegaMenuData> = {
 const navLinks = [
   { label: "Shop", href: "/shop" },
   { label: "Mini", href: "/shop/kids" },
+  { label: "Gift Boxes", href: "/gift-boxes" },
   { label: "Atelier", href: "/atelier" },
   { label: "Contact", href: "/contact" },
 ];
