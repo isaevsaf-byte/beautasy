@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, X, Plus, Minus, Trash2, Loader2 } from "lucide-react";
 /* eslint-disable @next/next/no-img-element */
@@ -13,11 +13,40 @@ export default function Cart() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const count = totalItems();
+  // Fix Zustand hydration: the store hydrates from localStorage after SSR,
+  // so we track when the client has mounted to avoid hydration mismatches.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+
+  const count = hydrated ? totalItems() : 0;
 
   async function handleCheckout() {
     setIsLoading(true);
     setError(null);
+
+    // Validate items before sending to Stripe
+    if (!items || items.length === 0) {
+      setError("Your bag is empty. Add some items before checking out.");
+      setIsLoading(false);
+      return;
+    }
+
+    const invalidItems = items.filter(
+      (item) =>
+        !item.name ||
+        !item.price ||
+        item.price < 1 ||
+        !item.quantity ||
+        item.quantity < 1
+    );
+
+    if (invalidItems.length > 0) {
+      setError(
+        "Some items in your bag have invalid data. Please remove them and try again."
+      );
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/checkout", {
@@ -34,6 +63,9 @@ export default function Cart() {
 
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        // Stripe returned OK but no URL — should never happen, but handle it
+        throw new Error("Could not create checkout session. Please try again.");
       }
     } catch (err: unknown) {
       const message =
@@ -137,6 +169,11 @@ export default function Cart() {
                           {item.size && (
                             <p className="text-xs text-charcoal-light mt-0.5">
                               Size: {item.size}
+                            </p>
+                          )}
+                          {item.color && (
+                            <p className="text-xs text-charcoal-light mt-0.5">
+                              Colour: {item.color}
                             </p>
                           )}
                           <p className="text-sm font-medium mt-1">

@@ -7,6 +7,7 @@ export interface CartItem {
   price: number; // price in pence (e.g. 2999 = £29.99)
   image: string;
   size?: string;
+  color?: string;
   quantity: number;
 }
 
