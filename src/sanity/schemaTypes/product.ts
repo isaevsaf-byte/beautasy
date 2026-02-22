@@ -40,7 +40,7 @@ export const product = defineType({
       title: "Price in GBP",
       type: "number",
       description: "Price in pence (e.g. 2999 = £29.99)",
-      validation: (Rule) => Rule.required().min(0),
+      validation: (Rule) => Rule.required().min(1),
     }),
     defineField({
       name: "description",

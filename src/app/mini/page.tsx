@@ -160,9 +160,12 @@ export default function MiniPage() {
                   custom={i}
                   whileHover={{ y: -8 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="group cursor-pointer"
+                  className="group"
                 >
-                  <div className="relative aspect-[5/6] rounded-2xl overflow-hidden mb-4 bg-cream-soft">
+                  <Link
+                    href="/shop/kids"
+                    className="block relative aspect-[5/6] rounded-2xl overflow-hidden mb-4 bg-cream-soft"
+                  >
                     <img
                       src={product.image}
                       alt={product.title}
@@ -173,8 +176,10 @@ export default function MiniPage() {
                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
                       <p className="text-xs text-charcoal-light">{product.ages}</p>
                     </div>
-                  </div>
-                  <h4 className="font-serif text-lg mb-1">{product.title}</h4>
+                  </Link>
+                  <Link href="/shop/kids">
+                    <h4 className="font-serif text-lg mb-1 hover:text-charcoal/70 transition-colors">{product.title}</h4>
+                  </Link>
                   <p className="text-sm text-charcoal-light">{product.description}</p>
                 </motion.div>
               ))}

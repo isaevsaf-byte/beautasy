@@ -73,7 +73,13 @@ export default function WishlistPage() {
                   variants={stagger}
                   className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
                 >
-                  {wishlistItems.map((item, i) => (
+                  {wishlistItems.map((item, i) => {
+                    // Gift box slugs already include their path prefix (e.g. "gift-boxes/slug")
+                    const itemHref = item.slug.includes("/")
+                      ? `/${item.slug}`
+                      : `/shop/${item.slug}`;
+
+                    return (
                     <motion.div
                       key={item.id}
                       variants={fadeUp}
@@ -81,7 +87,7 @@ export default function WishlistPage() {
                       className="group"
                     >
                       <Link
-                        href={`/shop/${item.slug}`}
+                        href={itemHref}
                         className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 block"
                       >
                         <img
@@ -94,7 +100,7 @@ export default function WishlistPage() {
 
                       <h4 className="font-serif text-lg mb-1">
                         <Link
-                          href={`/shop/${item.slug}`}
+                          href={itemHref}
                           className="hover:text-charcoal/70 transition-colors"
                         >
                           {item.name}
@@ -121,7 +127,8 @@ export default function WishlistPage() {
                         </button>
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </motion.div>
 
                 <div className="text-center mt-12">

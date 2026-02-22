@@ -58,27 +58,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const body = (
+  const content = clerkEnabled ? (
+    <ClerkProvider
+      appearance={{
+        variables: { colorPrimary: "#DCD0FF" },
+      }}
+    >
+      {children}
+    </ClerkProvider>
+  ) : (
+    children
+  );
+
+  return (
     <html lang="en" className="scroll-smooth">
       <body
         className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7] text-[#4A4A4A]`}
       >
-        {children}
+        {content}
       </body>
     </html>
   );
-
-  if (clerkEnabled) {
-    return (
-      <ClerkProvider
-        appearance={{
-          variables: { colorPrimary: "#DCD0FF" },
-        }}
-      >
-        {body}
-      </ClerkProvider>
-    );
-  }
-
-  return body;
 }

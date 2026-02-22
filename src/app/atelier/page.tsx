@@ -83,7 +83,7 @@ const steps = [
     title: "Book or Visit",
     subtitle: "Southampton",
     description:
-      "Drop by our atelier or book an appointment online. We&apos;ll discuss your needs over a cup of tea.",
+      "Drop by our atelier or book an appointment online. We\u2019ll discuss your needs over a cup of tea.",
   },
   {
     icon: Ruler,
@@ -129,7 +129,7 @@ function PriceLine({ item, index }: { item: PriceItem; index: number }) {
 export default function AtelierPage() {
   const [activeTab, setActiveTab] = useState("denim");
   const whatsappLink = "https://wa.me/447729741116";
-  const emailLink = "mailto:safkirsti@gmail.com";
+  const emailLink = "mailto:safkristi@gmail.com";
 
   const activeCategory = pricingCategories.find((c) => c.id === activeTab)!;
 
@@ -204,7 +204,7 @@ export default function AtelierPage() {
                     className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
                   >
                     <Mail size={16} className="text-lavender" />
-                    safkirsti@gmail.com
+                    safkristi@gmail.com
                   </a>
                   <a
                     href={whatsappLink}
