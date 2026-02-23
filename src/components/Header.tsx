@@ -110,7 +110,7 @@ const megaMenus: Record<string, MegaMenuData> = {
 const navLinks = [
   { label: "Shop", href: "/shop" },
   { label: "Mini", href: "/shop/kids" },
-  { label: "Gift Boxes", href: "/gift-boxes" },
+  { label: "Gifts", href: "/gift-boxes" },
   { label: "Atelier", href: "/atelier" },
   { label: "Contact", href: "/contact" },
 ];
