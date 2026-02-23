@@ -256,8 +256,8 @@ export default function Header() {
         </button>
 
         {/* Nav left (desktop) */}
-        <nav className="hidden md:flex items-center gap-8">
-          {navLinks.slice(0, 2).map((link) => {
+        <nav className="hidden md:flex items-center gap-6">
+          {navLinks.slice(0, 3).map((link) => {
             const hasMega = link.label in megaMenus;
             return (
               <div
@@ -297,8 +297,8 @@ export default function Header() {
         </Link>
 
         {/* Nav right (desktop) */}
-        <nav className="hidden md:flex items-center gap-8">
-          {navLinks.slice(2).map((link) => (
+        <nav className="hidden md:flex items-center gap-6">
+          {navLinks.slice(3).map((link) => (
             <Link
               key={link.label}
               href={link.href}
