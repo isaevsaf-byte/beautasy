@@ -51,7 +51,8 @@ const PRODUCTS_QUERY = `*[_type == "product"] | order(_createdAt desc) {
   images,
   price,
   category,
-  stock
+  stock,
+  availableSizes
 }`;
 
 /* ─── Fallback products (used when Sanity has no data yet) ─── */
@@ -63,6 +64,7 @@ const fallbackProducts = [
     price: 3499,
     images: ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Bralette"],
     category: "Lingerie",
+    availableSizes: [] as string[],
   },
   {
     _id: "ling-bodysuit-01",
@@ -71,6 +73,7 @@ const fallbackProducts = [
     price: 4999,
     images: ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Bodysuit"],
     category: "Lingerie",
+    availableSizes: [] as string[],
   },
   {
     _id: "ling-sleepset-01",
@@ -79,6 +82,7 @@ const fallbackProducts = [
     price: 3999,
     images: ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Sleepwear"],
     category: "Lingerie",
+    availableSizes: [] as string[],
   },
   {
     _id: "acc-tote-01",
@@ -87,6 +91,7 @@ const fallbackProducts = [
     price: 2499,
     images: ["https://placehold.co/400x500/F5F0FF/4A4A4A?text=Tote"],
     category: "Accessories",
+    availableSizes: [] as string[],
   },
   {
     _id: "acc-scrunchie-01",
@@ -95,6 +100,7 @@ const fallbackProducts = [
     price: 1299,
     images: ["https://placehold.co/400x500/F5F0FF/4A4A4A?text=Scrunchies"],
     category: "Accessories",
+    availableSizes: [] as string[],
   },
   {
     _id: "acc-pouch-01",
@@ -103,6 +109,7 @@ const fallbackProducts = [
     price: 1899,
     images: ["https://placehold.co/400x500/F5F0FF/4A4A4A?text=Pouch"],
     category: "Accessories",
+    availableSizes: [] as string[],
   },
   {
     _id: "home-cushion-01",
@@ -111,6 +118,7 @@ const fallbackProducts = [
     price: 2999,
     images: ["https://placehold.co/400x500/FDFBF7/4A4A4A?text=Cushion"],
     category: "Home",
+    availableSizes: [] as string[],
   },
   {
     _id: "home-runner-01",
@@ -119,6 +127,7 @@ const fallbackProducts = [
     price: 3499,
     images: ["https://placehold.co/400x500/FDFBF7/4A4A4A?text=Runner"],
     category: "Home",
+    availableSizes: [] as string[],
   },
   {
     _id: "home-sachet-01",
@@ -127,6 +136,7 @@ const fallbackProducts = [
     price: 999,
     images: ["https://placehold.co/400x500/FDFBF7/4A4A4A?text=Sachets"],
     category: "Home",
+    availableSizes: [] as string[],
   },
 ];
 
@@ -148,6 +158,7 @@ export default async function ShopPage() {
           price: number;
           images?: { asset?: { _ref: string } }[];
           category: string;
+          availableSizes?: string[];
         }) => {
           const resolvedImages =
             p.images && p.images.length > 0
@@ -166,6 +177,7 @@ export default async function ShopPage() {
                 ? resolvedImages
                 : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"],
             category: p.category,
+            availableSizes: p.availableSizes || [],
           };
         }
       );
