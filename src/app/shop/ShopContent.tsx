@@ -19,6 +19,7 @@ interface Product {
   price: number;
   images: string[];
   category: string;
+  availableSizes: string[];
 }
 
 const categories = [
@@ -397,12 +398,24 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           £{(product.price / 100).toFixed(2)}
         </p>
 
-        <AddToCartButton
-          id={product._id}
-          name={product.name}
-          price={product.price}
-          image={activeImage}
-        />
+        {product.availableSizes && product.availableSizes.length > 0 ? (
+          /* Product has sizes → send customer to PDP to choose */
+          <Link
+            href={`/shop/${product.slug}`}
+            className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+          >
+            Choose Size
+            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+          </Link>
+        ) : (
+          /* No sizes (accessories, home etc.) → add directly */
+          <AddToCartButton
+            id={product._id}
+            name={product.name}
+            price={product.price}
+            image={activeImage}
+          />
+        )}
       </motion.div>
 
       {/* ──── Lightbox Modal ──── */}

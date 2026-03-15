@@ -62,7 +62,8 @@ const CATEGORY_PRODUCTS_QUERY = `*[_type == "product" && category == $cat] | ord
   images,
   price,
   category,
-  stock
+  stock,
+  availableSizes
 }`;
 
 const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0] {
@@ -74,6 +75,7 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
   description,
   category,
   stock,
+  availableSizes,
   careInstructions,
   shippingInfo,
   packagingInfo,
@@ -181,6 +183,7 @@ export default async function ShopParamPage({
       price: number;
       images: string[];
       category: string;
+      availableSizes: string[];
     }[] = [];
 
     try {
@@ -197,6 +200,7 @@ export default async function ShopParamPage({
             price: number;
             images?: { asset?: { _ref: string } }[];
             category: string;
+            availableSizes?: string[];
           }) => {
             const resolvedImages =
               p.images && p.images.length > 0
@@ -217,6 +221,7 @@ export default async function ShopParamPage({
                       "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product",
                     ],
               category: p.category,
+              availableSizes: p.availableSizes || [],
             };
           }
         );
@@ -256,6 +261,7 @@ export default async function ShopParamPage({
         description: product.description || [],
         category: product.category,
         stock: product.stock ?? 0,
+        availableSizes: product.availableSizes || [],
         careInstructions: product.careInstructions || null,
         shippingInfo: product.shippingInfo || null,
         packagingInfo: product.packagingInfo || null,

@@ -40,6 +40,7 @@ interface ProductProps {
   description: unknown[];
   category: string;
   stock: number;
+  availableSizes: string[];
   careInstructions: unknown[] | null;
   shippingInfo: unknown[] | null;
   packagingInfo: unknown[] | null;
@@ -111,7 +112,11 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [giftBoxChecked, setGiftBoxChecked] = useState(false);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [sizeError, setSizeError] = useState(false);
   const addItem = useCart((state) => state.addItem);
+
+  const hasSizes = product.availableSizes && product.availableSizes.length > 0;
 
   const images = product.images;
   const activeImage = images[activeImageIndex] ?? images[0];
@@ -142,11 +147,20 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
   }, [lightboxOpen, goNext, goPrev]);
 
   function handleAddToCart() {
+    // Require a size if this product has sizes configured
+    if (hasSizes && !selectedSize) {
+      setSizeError(true);
+      // Auto-clear the error after 2.5 s
+      setTimeout(() => setSizeError(false), 2500);
+      return;
+    }
+
     addItem({
       id: product._id,
       name: product.name,
       price: product.price,
       image: activeImage,
+      ...(selectedSize ? { size: selectedSize } : {}),
     });
 
     // Add gift box as separate line item
@@ -294,6 +308,55 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                 </div>
               )}
 
+              {/* ── Size Selector ── */}
+              {hasSizes && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm tracking-wider uppercase font-medium text-charcoal">
+                      Size
+                      {selectedSize && (
+                        <span className="ml-2 font-normal text-charcoal-light normal-case tracking-normal">
+                          — {selectedSize}
+                        </span>
+                      )}
+                    </p>
+                    {sizeError && (
+                      <motion.p
+                        initial={{ opacity: 0, x: 6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="text-xs text-rose-500 font-medium"
+                      >
+                        Please select a size
+                      </motion.p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {product.availableSizes.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSize(size);
+                          setSizeError(false);
+                        }}
+                        className={`min-w-[52px] px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                          selectedSize === size
+                            ? "bg-lavender border-lavender text-charcoal shadow-sm scale-105"
+                            : sizeError
+                            ? "bg-white border-rose-300 text-charcoal hover:border-lavender"
+                            : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
+                        }`}
+                        aria-pressed={selectedSize === size}
+                        aria-label={`Size ${size}`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Gift Box Option */}
               {product.giftBoxAvailable && product.giftBoxPrice > 0 && (
                 <label className="flex items-center gap-3 p-4 rounded-xl bg-lavender-bg/50 border border-lavender-soft/30 mb-6 cursor-pointer group hover:bg-lavender-bg transition-colors">
@@ -325,14 +388,19 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
               <div className="flex items-center gap-3 mb-8">
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                  className={`flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm tracking-wider uppercase font-medium transition-all duration-300 ${
+                    hasSizes && !selectedSize
+                      ? "bg-lavender/40 text-charcoal/50 cursor-not-allowed"
+                      : "bg-lavender text-charcoal hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                  }`}
                 >
-                  Add to Bag — £
-                  {(
-                    (product.price +
-                      (giftBoxChecked ? product.giftBoxPrice : 0)) /
-                    100
-                  ).toFixed(2)}
+                  {hasSizes && !selectedSize
+                    ? "Select a Size"
+                    : `Add to Bag — £${(
+                        (product.price +
+                          (giftBoxChecked ? product.giftBoxPrice : 0)) /
+                        100
+                      ).toFixed(2)}`}
                 </button>
                 <WishlistButton
                   product={{

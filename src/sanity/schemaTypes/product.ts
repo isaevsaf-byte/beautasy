@@ -94,6 +94,36 @@ export const product = defineType({
       description: "How this product is packaged and presented",
     }),
     defineField({
+      name: "availableSizes",
+      title: "Available Sizes",
+      type: "array",
+      of: [{ type: "string" }],
+      options: {
+        list: [
+          // ── Adult sizes ──
+          { title: "XXS", value: "XXS" },
+          { title: "XS", value: "XS" },
+          { title: "S", value: "S" },
+          { title: "M", value: "M" },
+          { title: "L", value: "L" },
+          { title: "XL", value: "XL" },
+          { title: "XXL", value: "XXL" },
+          { title: "XXXL", value: "XXXL" },
+          // ── Kids sizes ──
+          { title: "1–1.5 Years", value: "1-1.5Y" },
+          { title: "2–3 Years", value: "2-3Y" },
+          { title: "4–5 Years", value: "4-5Y" },
+          { title: "6–7 Years", value: "6-7Y" },
+          { title: "8–9 Years", value: "8-9Y" },
+          { title: "10–11 Years", value: "10-11Y" },
+          { title: "12–13 Years", value: "12-13Y" },
+        ],
+        layout: "grid",
+      },
+      description:
+        "Tick every size available for this product. Leave empty for accessories or one-size items.",
+    }),
+    defineField({
       name: "giftBoxAvailable",
       title: "Gift Box Available",
       type: "boolean",
