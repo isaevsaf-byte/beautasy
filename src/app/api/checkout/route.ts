@@ -74,6 +74,30 @@ export async function POST(req: NextRequest) {
       shipping_address_collection: {
         allowed_countries: ["GB", "US", "CA", "FR", "DE", "IT", "ES", "AU"],
       },
+      shipping_options: [
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: { amount: 300, currency: "gbp" },
+            display_name: "UK Delivery",
+            delivery_estimate: {
+              minimum: { unit: "business_day", value: 3 },
+              maximum: { unit: "business_day", value: 5 },
+            },
+          },
+        },
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: { amount: 1200, currency: "gbp" },
+            display_name: "International Delivery",
+            delivery_estimate: {
+              minimum: { unit: "business_day", value: 7 },
+              maximum: { unit: "business_day", value: 14 },
+            },
+          },
+        },
+      ],
       line_items: items.map((item) => {
         // Build a descriptive product name including size and colour
         let productName = item.name;

@@ -230,9 +230,10 @@ export default function Cart() {
                     £{(totalPrice() / 100).toFixed(2)}
                   </p>
                 </div>
-                <p className="text-xs text-charcoal-light">
-                  Shipping calculated at checkout
-                </p>
+                <div className="text-xs text-charcoal-light space-y-0.5">
+                  <p>Delivery: UK £3.00 · International £12.00</p>
+                  <p>Selected at checkout</p>
+                </div>
 
                 {/* Error message */}
                 {error && (
