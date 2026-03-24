@@ -36,11 +36,12 @@ const shopMenu: MegaMenuData = {
       ],
     },
     {
-      heading: "Categories",
+      heading: "Lingerie",
       links: [
-        { label: "Lingerie", href: "/shop/lingerie" },
-        { label: "Accessories & Bags", href: "/shop/accessories" },
-        { label: "Home & Living", href: "/shop/home" },
+        { label: "Bralettes", href: "/shop/lingerie?category=bralettes" },
+        { label: "Panties", href: "/shop/lingerie?category=panties" },
+        { label: "Sets", href: "/shop/lingerie?category=sets" },
+        { label: "Sleepwear", href: "/shop/lingerie?category=sleepwear" },
       ],
     },
     {
@@ -78,9 +79,11 @@ const miniMenu: MegaMenuData = {
     {
       heading: "Categories",
       links: [
-        { label: "Girls", href: "/shop/kids" },
-        { label: "Boys", href: "/shop/kids" },
-        { label: "Baby", href: "/shop/kids" },
+        { label: "Blanket", href: "/shop/kids?category=blanket" },
+        { label: "Muslin Cloths", href: "/shop/kids?category=muslin-cloths" },
+        { label: "Bibs", href: "/shop/kids?category=bibs" },
+        { label: "Pyjama", href: "/shop/kids?category=pyjama" },
+        { label: "Accessories", href: "/shop/kids?category=accessories" },
       ],
     },
     {
