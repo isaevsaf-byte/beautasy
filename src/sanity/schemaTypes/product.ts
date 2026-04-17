@@ -124,6 +124,50 @@ export const product = defineType({
         "Tick every size available for this product. Leave empty for accessories or one-size items.",
     }),
     defineField({
+      name: "sizePrices",
+      title: "Size-Based Pricing",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          fields: [
+            defineField({
+              name: "size",
+              title: "Size",
+              type: "string",
+              options: {
+                list: [
+                  { title: "S", value: "S" },
+                  { title: "M", value: "M" },
+                  { title: "L", value: "L" },
+                  { title: "XL", value: "XL" },
+                ],
+              },
+              validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: "price",
+              title: "Price (pence)",
+              type: "number",
+              description: "Price in pence (e.g. 1500 = £15.00)",
+              validation: (Rule) => Rule.required().min(1),
+            }),
+          ],
+          preview: {
+            select: { title: "size", subtitle: "price" },
+            prepare({ title, subtitle }: { title?: string; subtitle?: number }) {
+              return {
+                title: `Size ${title ?? "?"}`,
+                subtitle: subtitle ? `£${(subtitle / 100).toFixed(2)}` : "No price set",
+              };
+            },
+          },
+        },
+      ],
+      description:
+        "Optional: set a different price per size (e.g. S cheaper than XL). Leave empty to use the base price for all sizes.",
+    }),
+    defineField({
       name: "giftBoxAvailable",
       title: "Gift Box Available",
       type: "boolean",
