@@ -132,7 +132,10 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
   const hasSizePricing = Object.keys(sizePriceMap).length > 0;
 
   // Use size-specific price when available, else fall back to base price
-  const currentPrice = (selectedSize && sizePriceMap[selectedSize]) ?? product.price;
+  const currentPrice: number =
+    selectedSize != null && sizePriceMap[selectedSize] != null
+      ? sizePriceMap[selectedSize]
+      : product.price;
 
   const images = product.images;
   const activeImage = images[activeImageIndex] ?? images[0];
