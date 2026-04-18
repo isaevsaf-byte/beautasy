@@ -124,14 +124,10 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
 
   const hasSizes = product.availableSizes && product.availableSizes.length > 0;
 
-  // Build a lookup map from sizePrices array
-  const sizePriceMap = (product.sizePrices || []).reduce<Record<string, number>>(
-    (acc, sp) => { acc[sp.size] = sp.price; return acc; },
-    {}
-  );
-  const hasSizePricing = Object.keys(sizePriceMap).length > 0;
-
-  // Use size-specific price when available, else fall back to base price
+  const sizePriceMap: Record<string, number> = {};
+  for (const sp of product.sizePrices ?? []) {
+    sizePriceMap[sp.size] = sp.price;
+  }
   const currentPrice: number =
     selectedSize != null && sizePriceMap[selectedSize] != null
       ? sizePriceMap[selectedSize]
@@ -318,11 +314,6 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
               </h1>
               <p className="font-serif text-2xl text-charcoal mb-6">
                 £{(currentPrice / 100).toFixed(2)}
-                {hasSizePricing && !selectedSize && (
-                  <span className="ml-2 text-sm font-sans text-charcoal-light normal-case tracking-normal">
-                    — from £{(Math.min(...Object.values(sizePriceMap)) / 100).toFixed(2)}
-                  </span>
-                )}
               </p>
 
               {/* Description */}
@@ -356,35 +347,27 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {product.availableSizes.map((size) => {
-                      const sizePrice = sizePriceMap[size];
-                      return (
-                        <button
-                          key={size}
-                          type="button"
-                          onClick={() => {
-                            setSelectedSize(size);
-                            setSizeError(false);
-                          }}
-                          className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
-                            selectedSize === size
-                              ? "bg-lavender border-lavender text-charcoal shadow-sm scale-105"
-                              : sizeError
-                              ? "bg-white border-rose-300 text-charcoal hover:border-lavender"
-                              : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
-                          }`}
-                          aria-pressed={selectedSize === size}
-                          aria-label={`Size ${size}`}
-                        >
-                          <span>{size}</span>
-                          {sizePrice && (
-                            <span className="block text-xs font-normal text-charcoal-light mt-0.5">
-                              £{(sizePrice / 100).toFixed(2)}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
+                    {product.availableSizes.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSize(size);
+                          setSizeError(false);
+                        }}
+                        className={`min-w-[52px] px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                          selectedSize === size
+                            ? "bg-lavender border-lavender text-charcoal shadow-sm scale-105"
+                            : sizeError
+                            ? "bg-white border-rose-300 text-charcoal hover:border-lavender"
+                            : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
+                        }`}
+                        aria-pressed={selectedSize === size}
+                        aria-label={`Size ${size}`}
+                      >
+                        {size}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}

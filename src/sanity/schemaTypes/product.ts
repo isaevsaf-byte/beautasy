@@ -94,6 +94,27 @@ export const product = defineType({
       description: "How this product is packaged and presented",
     }),
     defineField({
+      name: "subcategory",
+      title: "Subcategory",
+      type: "string",
+      options: {
+        list: [
+          { title: "Bralettes (Lingerie)", value: "bralettes" },
+          { title: "Panties (Lingerie)", value: "panties" },
+          { title: "Sets (Lingerie)", value: "sets" },
+          { title: "Sleepwear (Lingerie)", value: "sleepwear" },
+          { title: "Blanket (Kids)", value: "blanket" },
+          { title: "Muslin Cloths (Kids)", value: "muslin-cloths" },
+          { title: "Bibs (Kids)", value: "bibs" },
+          { title: "Pyjama (Kids)", value: "pyjama" },
+          { title: "Accessories (Kids)", value: "accessories" },
+        ],
+        layout: "radio",
+      },
+      description:
+        "Subcategory used for filtered navigation links in the menu.",
+    }),
+    defineField({
       name: "availableSizes",
       title: "Available Sizes",
       type: "array",
@@ -137,10 +158,21 @@ export const product = defineType({
               type: "string",
               options: {
                 list: [
+                  { title: "XXS", value: "XXS" },
+                  { title: "XS", value: "XS" },
                   { title: "S", value: "S" },
                   { title: "M", value: "M" },
                   { title: "L", value: "L" },
                   { title: "XL", value: "XL" },
+                  { title: "XXL", value: "XXL" },
+                  { title: "XXXL", value: "XXXL" },
+                  { title: "1–1.5 Years", value: "1-1.5Y" },
+                  { title: "2–3 Years", value: "2-3Y" },
+                  { title: "4–5 Years", value: "4-5Y" },
+                  { title: "6–7 Years", value: "6-7Y" },
+                  { title: "8–9 Years", value: "8-9Y" },
+                  { title: "10–11 Years", value: "10-11Y" },
+                  { title: "12–13 Years", value: "12-13Y" },
                 ],
               },
               validation: (Rule) => Rule.required(),
@@ -165,7 +197,7 @@ export const product = defineType({
         },
       ],
       description:
-        "Optional: set a different price per size (e.g. S cheaper than XL). Leave empty to use the base price for all sizes.",
+        "Optional: set a different price per size. Leave empty to use the base price for all sizes.",
     }),
     defineField({
       name: "giftBoxAvailable",
