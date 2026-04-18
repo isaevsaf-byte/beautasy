@@ -19,6 +19,7 @@ interface Product {
   price: number;
   images: string[];
   category: string;
+  subcategory?: string;
   availableSizes: string[];
 }
 
@@ -71,13 +72,31 @@ const categoryLabels: Record<string, string> = {
   mini: "Mini Beautasy",
 };
 
+const subcategoryLabels: Record<string, string> = {
+  bralettes: "Bralettes",
+  panties: "Panties",
+  sets: "Sets",
+  sleepwear: "Sleepwear",
+  blanket: "Blanket",
+  "muslin-cloths": "Muslin Cloths",
+  bibs: "Bibs",
+  pyjama: "Pyjama",
+  accessories: "Accessories",
+};
+
 export default function ShopContent({
   products,
   activeCategory,
+  activeSubcategory,
 }: {
   products: Product[];
   activeCategory?: string;
+  activeSubcategory?: string;
 }) {
+  const displayedProducts = activeSubcategory
+    ? products.filter((p) => p.subcategory === activeSubcategory)
+    : products;
+
   return (
     <>
       <Header />
@@ -96,7 +115,9 @@ export default function ShopContent({
                 custom={0}
                 className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
               >
-                {activeCategory
+                {activeSubcategory
+                  ? `${categoryLabels[activeCategory ?? ""] || "Collection"} — ${subcategoryLabels[activeSubcategory] || activeSubcategory}`
+                  : activeCategory
                   ? categoryLabels[activeCategory] || "Collection"
                   : "Our Collections"}
               </motion.p>
@@ -105,7 +126,9 @@ export default function ShopContent({
                 custom={1}
                 className="font-serif text-4xl sm:text-5xl mb-6"
               >
-                {activeCategory
+                {activeSubcategory
+                  ? subcategoryLabels[activeSubcategory] || activeSubcategory
+                  : activeCategory
                   ? categoryLabels[activeCategory] || "Shop"
                   : "Browse the Shelves"}
               </motion.h2>
@@ -228,7 +251,7 @@ export default function ShopContent({
               </motion.h3>
             </motion.div>
 
-            {products.length > 0 ? (
+            {displayedProducts.length > 0 ? (
               <motion.div
                 initial="hidden"
                 whileInView="visible"
@@ -236,7 +259,7 @@ export default function ShopContent({
                 variants={stagger}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
               >
-                {products.map((product, i) => (
+                {displayedProducts.map((product, i) => (
                   <ProductCard key={product._id} product={product} index={i} />
                 ))}
               </motion.div>
@@ -253,7 +276,9 @@ export default function ShopContent({
                   <span className="text-3xl">✨</span>
                 </div>
                 <h4 className="font-serif text-2xl mb-3">
-                  {activeCategory
+                  {activeSubcategory
+                    ? `${subcategoryLabels[activeSubcategory] || activeSubcategory} Coming Soon`
+                    : activeCategory
                     ? `${categoryLabels[activeCategory] || "This"} Collection Coming Soon`
                     : "New Collection Coming Soon"}
                 </h4>

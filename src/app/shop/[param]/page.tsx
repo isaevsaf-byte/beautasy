@@ -62,6 +62,7 @@ const CATEGORY_PRODUCTS_QUERY = `*[_type == "product" && category == $cat] | ord
   images,
   price,
   category,
+  subcategory,
   stock,
   availableSizes
 }`;
@@ -168,10 +169,13 @@ export async function generateStaticParams() {
 /* ─── Page component ─── */
 export default async function ShopParamPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ param: string }>;
+  searchParams: Promise<{ category?: string }>;
 }) {
   const { param } = await params;
+  const { category: subcategoryParam } = await searchParams;
   const key = param.toLowerCase();
 
   /* ── Category route ── */
@@ -184,6 +188,7 @@ export default async function ShopParamPage({
       price: number;
       images: string[];
       category: string;
+      subcategory?: string;
       availableSizes: string[];
     }[] = [];
 
@@ -201,6 +206,7 @@ export default async function ShopParamPage({
             price: number;
             images?: { asset?: { _ref: string } }[];
             category: string;
+            subcategory?: string;
             availableSizes?: string[];
           }) => {
             const resolvedImages =
@@ -222,6 +228,7 @@ export default async function ShopParamPage({
                       "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product",
                     ],
               category: p.category,
+              subcategory: p.subcategory,
               availableSizes: p.availableSizes || [],
             };
           }
@@ -231,7 +238,13 @@ export default async function ShopParamPage({
       console.error("Error fetching products:", error);
     }
 
-    return <ShopContent products={products} activeCategory={key} />;
+    return (
+      <ShopContent
+        products={products}
+        activeCategory={key}
+        activeSubcategory={subcategoryParam}
+      />
+    );
   }
 
   /* ── Product detail route ── */
