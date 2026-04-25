@@ -52,7 +52,9 @@ export default function GiftBoxDetail({
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [added, setAdded] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
   const addItem = useCart((state) => state.addItem);
+  const GIFT_MESSAGE_MAX = 200;
 
   const images = giftBox.images;
   const activeImage = images[activeImageIndex] ?? images[0];
@@ -82,11 +84,13 @@ export default function GiftBoxDetail({
   }, [lightboxOpen, goNext, goPrev]);
 
   function handleAddToCart() {
+    const trimmedMessage = giftMessage.trim();
     addItem({
       id: giftBox._id,
       name: giftBox.name,
       price: giftBox.price,
       image: activeImage,
+      ...(trimmedMessage ? { giftMessage: trimmedMessage } : {}),
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
@@ -246,6 +250,32 @@ export default function GiftBoxDetail({
                   />
                 </div>
               )}
+
+              {/* Optional gift card message */}
+              <div className="mb-4 p-4 rounded-xl bg-white border border-lavender-soft/40">
+                <label
+                  htmlFor="giftbox-message"
+                  className="block text-xs tracking-wider uppercase font-medium text-charcoal mb-2"
+                >
+                  Gift card message{" "}
+                  <span className="text-charcoal-light normal-case tracking-normal font-normal">
+                    (optional)
+                  </span>
+                </label>
+                <textarea
+                  id="giftbox-message"
+                  value={giftMessage}
+                  onChange={(e) =>
+                    setGiftMessage(e.target.value.slice(0, GIFT_MESSAGE_MAX))
+                  }
+                  rows={3}
+                  placeholder="Write a short note to include with the gift card…"
+                  className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20 resize-none"
+                />
+                <p className="text-[11px] text-charcoal-light mt-1.5 text-right">
+                  {giftMessage.length} / {GIFT_MESSAGE_MAX}
+                </p>
+              </div>
 
               {/* Add to Cart + Wishlist */}
               <div className="flex items-center gap-3 mb-8">

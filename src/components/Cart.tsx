@@ -139,9 +139,16 @@ export default function Cart() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {items.map((item) => (
+                  {items.map((item) => {
+                    const key = {
+                      id: item.id,
+                      size: item.size,
+                      color: item.color,
+                      giftMessage: item.giftMessage,
+                    };
+                    return (
                     <motion.div
-                      key={`${item.id}-${item.size}`}
+                      key={`${item.id}-${item.size ?? ""}-${item.color ?? ""}-${item.giftMessage ?? ""}`}
                       layout
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -172,6 +179,16 @@ export default function Cart() {
                             Colour: {item.color}
                           </p>
                         )}
+                        {item.giftMessage && (
+                          <div className="mt-1.5 px-2 py-1.5 rounded-lg bg-lavender-bg/60 border border-lavender-soft/40">
+                            <p className="text-[10px] tracking-wider uppercase text-charcoal-light mb-0.5">
+                              Gift card
+                            </p>
+                            <p className="text-xs text-charcoal italic break-words">
+                              &ldquo;{item.giftMessage}&rdquo;
+                            </p>
+                          </div>
+                        )}
                         <p className="text-sm font-medium mt-1">
                           £{(item.price / 100).toFixed(2)}
                         </p>
@@ -179,13 +196,7 @@ export default function Cart() {
                         {/* Quantity controls */}
                         <div className="flex items-center gap-3 mt-2">
                           <button
-                            onClick={() =>
-                              updateQuantity(
-                                item.id,
-                                item.quantity - 1,
-                                item.size
-                              )
-                            }
+                            onClick={() => updateQuantity(key, item.quantity - 1)}
                             className="w-7 h-7 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
                           >
                             <Minus size={14} />
@@ -194,20 +205,14 @@ export default function Cart() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() =>
-                              updateQuantity(
-                                item.id,
-                                item.quantity + 1,
-                                item.size
-                              )
-                            }
+                            onClick={() => updateQuantity(key, item.quantity + 1)}
                             className="w-7 h-7 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
                           >
                             <Plus size={14} />
                           </button>
 
                           <button
-                            onClick={() => removeItem(item.id, item.size)}
+                            onClick={() => removeItem(key)}
                             className="ml-auto p-1.5 text-charcoal-light hover:text-red-400 transition-colors"
                           >
                             <Trash2 size={14} />
@@ -215,7 +220,8 @@ export default function Cart() {
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -8,14 +8,26 @@ export interface CartItem {
   image: string;
   size?: string;
   color?: string;
+  giftMessage?: string;
   quantity: number;
+}
+
+type ItemKey = { id: string; size?: string; color?: string; giftMessage?: string };
+
+function sameLine(a: ItemKey, b: ItemKey): boolean {
+  return (
+    a.id === b.id &&
+    (a.size ?? "") === (b.size ?? "") &&
+    (a.color ?? "") === (b.color ?? "") &&
+    (a.giftMessage ?? "") === (b.giftMessage ?? "")
+  );
 }
 
 interface CartState {
   items: CartItem[];
   addItem: (item: Omit<CartItem, "quantity"> & { quantity?: number }) => void;
-  removeItem: (id: string, size?: string) => void;
-  updateQuantity: (id: string, quantity: number, size?: string) => void;
+  removeItem: (key: ItemKey) => void;
+  updateQuantity: (key: ItemKey, quantity: number) => void;
   clearCart: () => void;
   totalItems: () => number;
   totalPrice: () => number;
@@ -28,14 +40,12 @@ export const useCart = create<CartState>()(
 
       addItem: (item) => {
         set((state) => {
-          const existing = state.items.find(
-            (i) => i.id === item.id && i.size === item.size
-          );
+          const existing = state.items.find((i) => sameLine(i, item));
 
           if (existing) {
             return {
               items: state.items.map((i) =>
-                i.id === item.id && i.size === item.size
+                sameLine(i, item)
                   ? { ...i, quantity: i.quantity + (item.quantity || 1) }
                   : i
               ),
@@ -48,22 +58,20 @@ export const useCart = create<CartState>()(
         });
       },
 
-      removeItem: (id, size) => {
+      removeItem: (key) => {
         set((state) => ({
-          items: state.items.filter(
-            (i) => !(i.id === id && i.size === size)
-          ),
+          items: state.items.filter((i) => !sameLine(i, key)),
         }));
       },
 
-      updateQuantity: (id, quantity, size) => {
+      updateQuantity: (key, quantity) => {
         if (quantity <= 0) {
-          get().removeItem(id, size);
+          get().removeItem(key);
           return;
         }
         set((state) => ({
           items: state.items.map((i) =>
-            i.id === id && i.size === size ? { ...i, quantity } : i
+            sameLine(i, key) ? { ...i, quantity } : i
           ),
         }));
       },

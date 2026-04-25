@@ -200,6 +200,42 @@ export const product = defineType({
         "Optional: set a different price per size. Leave empty to use the base price for all sizes.",
     }),
     defineField({
+      name: "availableColors",
+      title: "Available Colours",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          fields: [
+            defineField({
+              name: "name",
+              title: "Colour Name",
+              type: "string",
+              description: "e.g. Cream, Sage, Peach, Burgundy",
+              validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: "hex",
+              title: "Swatch Hex (optional)",
+              type: "string",
+              description:
+                "Hex code shown as a swatch on the product page (e.g. #F5E8D0). Leave empty to show the name only.",
+              validation: (Rule) =>
+                Rule.regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, {
+                  name: "hex",
+                  invert: false,
+                }).warning("Use a valid hex code like #F5E8D0"),
+            }),
+          ],
+          preview: {
+            select: { title: "name", subtitle: "hex" },
+          },
+        },
+      ],
+      description:
+        "Add colour options for products like scrunchies. Leave empty if the product has only one colour.",
+    }),
+    defineField({
       name: "giftBoxAvailable",
       title: "Gift Box Available",
       type: "boolean",

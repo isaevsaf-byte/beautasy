@@ -10,6 +10,7 @@ interface CheckoutItem {
   image: string;
   size?: string;
   color?: string;
+  giftMessage?: string;
   quantity: number;
 }
 
@@ -102,11 +103,17 @@ export async function POST(req: NextRequest) {
         // Build a descriptive product name including size and colour
         let productName = item.name;
         const metaParts: string[] = [];
-        if (item.size) metaParts.push(item.size);
-        if (item.color) metaParts.push(item.color);
+        if (item.size) metaParts.push(`Size: ${item.size}`);
+        if (item.color) metaParts.push(`Colour: ${item.color}`);
         if (metaParts.length > 0) {
           productName += ` — ${metaParts.join(", ")}`;
         }
+
+        // Stripe shows `description` on the checkout line and on the receipt,
+        // so this is where the gift card message becomes visible to merchant + buyer.
+        const description = item.giftMessage
+          ? `🎁 Gift card: "${item.giftMessage}"`
+          : undefined;
 
         // Only include images that are valid absolute HTTPS URLs
         const images: string[] = [];
@@ -121,12 +128,19 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        const metadata: Record<string, string> = {};
+        if (item.size) metadata.size = item.size;
+        if (item.color) metadata.color = item.color;
+        if (item.giftMessage) metadata.gift_message = item.giftMessage;
+
         return {
           price_data: {
             currency: "gbp",
             product_data: {
               name: productName,
+              ...(description ? { description } : {}),
               ...(images.length > 0 ? { images } : {}),
+              ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
             },
             unit_amount: item.price,
           },

@@ -36,6 +36,11 @@ interface SizePrice {
   price: number;
 }
 
+interface ColorOption {
+  name: string;
+  hex?: string;
+}
+
 interface ProductProps {
   _id: string;
   name: string;
@@ -47,12 +52,15 @@ interface ProductProps {
   stock: number;
   availableSizes: string[];
   sizePrices: SizePrice[];
+  availableColors: ColorOption[];
   careInstructions: unknown[] | null;
   shippingInfo: unknown[] | null;
   packagingInfo: unknown[] | null;
   giftBoxAvailable: boolean;
   giftBoxPrice: number;
 }
+
+const GIFT_MESSAGE_MAX = 200;
 
 /* ─── Accordion Component ─── */
 function Accordion({
@@ -118,11 +126,16 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [giftBoxChecked, setGiftBoxChecked] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [sizeError, setSizeError] = useState(false);
+  const [colorError, setColorError] = useState(false);
   const addItem = useCart((state) => state.addItem);
 
   const hasSizes = product.availableSizes && product.availableSizes.length > 0;
+  const hasColors =
+    product.availableColors && product.availableColors.length > 0;
 
   const sizePriceMap: Record<string, number> = {};
   for (const sp of product.sizePrices ?? []) {
@@ -162,13 +175,22 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
   }, [lightboxOpen, goNext, goPrev]);
 
   function handleAddToCart() {
+    let blocked = false;
     // Require a size if this product has sizes configured
     if (hasSizes && !selectedSize) {
       setSizeError(true);
-      // Auto-clear the error after 2.5 s
       setTimeout(() => setSizeError(false), 2500);
-      return;
+      blocked = true;
     }
+    // Require a colour if this product has colours configured
+    if (hasColors && !selectedColor) {
+      setColorError(true);
+      setTimeout(() => setColorError(false), 2500);
+      blocked = true;
+    }
+    if (blocked) return;
+
+    const trimmedMessage = giftMessage.trim();
 
     addItem({
       id: product._id,
@@ -176,15 +198,17 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
       price: currentPrice,
       image: activeImage,
       ...(selectedSize ? { size: selectedSize } : {}),
+      ...(selectedColor ? { color: selectedColor } : {}),
     });
 
-    // Add gift box as separate line item
+    // Add gift box as separate line item, attaching the optional gift card message
     if (giftBoxChecked && product.giftBoxAvailable && product.giftBoxPrice > 0) {
       addItem({
         id: `${product._id}-giftbox`,
         name: `Gift Box — ${product.name}`,
         price: product.giftBoxPrice,
         image: activeImage,
+        ...(trimmedMessage ? { giftMessage: trimmedMessage } : {}),
       });
     }
   }
@@ -372,51 +396,162 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                 </div>
               )}
 
+              {/* ── Colour Selector ── */}
+              {hasColors && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm tracking-wider uppercase font-medium text-charcoal">
+                      Colour
+                      {selectedColor && (
+                        <span className="ml-2 font-normal text-charcoal-light normal-case tracking-normal">
+                          — {selectedColor}
+                        </span>
+                      )}
+                    </p>
+                    {colorError && (
+                      <motion.p
+                        initial={{ opacity: 0, x: 6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="text-xs text-rose-500 font-medium"
+                      >
+                        Please select a colour
+                      </motion.p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {product.availableColors.map((color) => {
+                      const active = selectedColor === color.name;
+                      return (
+                        <button
+                          key={color.name}
+                          type="button"
+                          onClick={() => {
+                            setSelectedColor(color.name);
+                            setColorError(false);
+                          }}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-full border text-sm font-medium transition-all duration-200 ${
+                            active
+                              ? "bg-lavender border-lavender text-charcoal shadow-sm scale-105"
+                              : colorError
+                              ? "bg-white border-rose-300 text-charcoal hover:border-lavender"
+                              : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
+                          }`}
+                          aria-pressed={active}
+                          aria-label={`Colour ${color.name}`}
+                        >
+                          {color.hex && (
+                            <span
+                              className="inline-block w-4 h-4 rounded-full border border-charcoal/15 shadow-sm"
+                              style={{ backgroundColor: color.hex }}
+                            />
+                          )}
+                          {color.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Gift Box Option */}
               {product.giftBoxAvailable && product.giftBoxPrice > 0 && (
-                <label className="flex items-center gap-3 p-4 rounded-xl bg-lavender-bg/50 border border-lavender-soft/30 mb-6 cursor-pointer group hover:bg-lavender-bg transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={giftBoxChecked}
-                    onChange={(e) => setGiftBoxChecked(e.target.checked)}
-                    className="w-4 h-4 rounded accent-lavender"
-                  />
-                  <Gift
-                    size={18}
-                    className="text-lavender shrink-0"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-charcoal">
-                      Add Gift Box
-                    </p>
-                    <p className="text-xs text-charcoal-light">
-                      Beautifully wrapped in a Beautasy gift box
-                    </p>
-                  </div>
-                  <span className="text-sm font-medium text-charcoal">
-                    +£{(product.giftBoxPrice / 100).toFixed(2)}
-                  </span>
-                </label>
+                <div className="mb-6">
+                  <label className="flex items-center gap-3 p-4 rounded-xl bg-lavender-bg/50 border border-lavender-soft/30 cursor-pointer group hover:bg-lavender-bg transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={giftBoxChecked}
+                      onChange={(e) => setGiftBoxChecked(e.target.checked)}
+                      className="w-4 h-4 rounded accent-lavender"
+                    />
+                    <Gift size={18} className="text-lavender shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-charcoal">
+                        Add Gift Box
+                      </p>
+                      <p className="text-xs text-charcoal-light">
+                        Beautifully wrapped in a Beautasy gift box
+                      </p>
+                    </div>
+                    <span className="text-sm font-medium text-charcoal">
+                      +£{(product.giftBoxPrice / 100).toFixed(2)}
+                    </span>
+                  </label>
+
+                  <AnimatePresence>
+                    {giftBoxChecked && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 p-4 rounded-xl bg-white border border-lavender-soft/40">
+                          <label
+                            htmlFor="gift-message"
+                            className="block text-xs tracking-wider uppercase font-medium text-charcoal mb-2"
+                          >
+                            Gift card message{" "}
+                            <span className="text-charcoal-light normal-case tracking-normal font-normal">
+                              (optional)
+                            </span>
+                          </label>
+                          <textarea
+                            id="gift-message"
+                            value={giftMessage}
+                            onChange={(e) =>
+                              setGiftMessage(
+                                e.target.value.slice(0, GIFT_MESSAGE_MAX)
+                              )
+                            }
+                            rows={3}
+                            placeholder="Write a short note to include with the gift card…"
+                            className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20 resize-none"
+                          />
+                          <p className="text-[11px] text-charcoal-light mt-1.5 text-right">
+                            {giftMessage.length} / {GIFT_MESSAGE_MAX}
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               )}
 
               {/* Add to Cart + Wishlist */}
               <div className="flex items-center gap-3 mb-8">
-                <button
-                  onClick={handleAddToCart}
-                  className={`flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm tracking-wider uppercase font-medium transition-all duration-300 ${
-                    hasSizes && !selectedSize
-                      ? "bg-lavender/40 text-charcoal/50 cursor-not-allowed"
-                      : "bg-lavender text-charcoal hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
-                  }`}
-                >
-                  {hasSizes && !selectedSize
-                    ? "Select a Size"
-                    : `Add to Bag — £${(
-                        (currentPrice +
-                          (giftBoxChecked ? product.giftBoxPrice : 0)) /
-                        100
-                      ).toFixed(2)}`}
-                </button>
+                {(() => {
+                  const missingSize = hasSizes && !selectedSize;
+                  const missingColor = hasColors && !selectedColor;
+                  const disabled = missingSize || missingColor;
+                  let label: string;
+                  if (missingSize && missingColor) {
+                    label = "Select Size & Colour";
+                  } else if (missingSize) {
+                    label = "Select a Size";
+                  } else if (missingColor) {
+                    label = "Select a Colour";
+                  } else {
+                    label = `Add to Bag — £${(
+                      (currentPrice +
+                        (giftBoxChecked ? product.giftBoxPrice : 0)) /
+                      100
+                    ).toFixed(2)}`;
+                  }
+                  return (
+                    <button
+                      onClick={handleAddToCart}
+                      className={`flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm tracking-wider uppercase font-medium transition-all duration-300 ${
+                        disabled
+                          ? "bg-lavender/40 text-charcoal/50 cursor-not-allowed"
+                          : "bg-lavender text-charcoal hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })()}
                 <WishlistButton
                   product={{
                     id: product._id,
