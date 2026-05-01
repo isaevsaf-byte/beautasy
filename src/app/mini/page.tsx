@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Star, Heart } from "lucide-react";
 import Link from "next/link";
 /* eslint-disable @next/next/no-img-element */
-import Header from "@/components/Header";
+import Header from "@/components/HeaderWrapper";
 import Footer from "@/components/Footer";
 import { fadeUp, stagger } from "@/components/animations";
 

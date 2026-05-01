@@ -64,11 +64,40 @@ export const product = defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
+      name: "productBadges",
+      title: "Product Badges",
+      type: "array",
+      of: [{ type: "string" }],
+      options: {
+        list: [
+          { title: "New In", value: "new-in" },
+          { title: "Best Seller", value: "best-seller" },
+          { title: "Limited Edition", value: "limited-edition" },
+        ],
+        layout: "grid",
+      },
+      description: "Badges shown on the product page and shop grid (e.g. Best Seller).",
+    }),
+    defineField({
       name: "stock",
       title: "Stock Quantity",
       type: "number",
       initialValue: 0,
       validation: (Rule) => Rule.required().min(0),
+    }),
+    defineField({
+      name: "handmadeDisclaimer",
+      title: "Handmade Disclaimer",
+      type: "string",
+      placeholder: "Handcrafted specifically for you in our Southampton studio. Please allow 3–5 days for production.",
+      description: "Short note shown below the Add to Bag button. Leave empty to hide.",
+    }),
+    defineField({
+      name: "productionTime",
+      title: "Production Time",
+      type: "string",
+      description: "e.g. '2–3 days', '5–7 days'. Shown as an info badge on the product page.",
+      placeholder: "3–5 days",
     }),
     defineField({
       name: "careInstructions",
@@ -113,6 +142,20 @@ export const product = defineType({
       },
       description:
         "Subcategory used for filtered navigation links in the menu.",
+    }),
+    defineField({
+      name: "collection",
+      title: "Collection",
+      type: "reference",
+      to: [{ type: "collection" }],
+      description: "Optional: link this product to a named collection (e.g. Aria, Heritage).",
+    }),
+    defineField({
+      name: "sizeGuide",
+      title: "Size Guide",
+      type: "reference",
+      to: [{ type: "sizeGuide" }],
+      description: "Optional: attach a reusable size guide to this product.",
     }),
     defineField({
       name: "availableSizes",
@@ -219,21 +262,29 @@ export const product = defineType({
               title: "Swatch Hex (optional)",
               type: "string",
               description:
-                "Hex code shown as a swatch on the product page (e.g. #F5E8D0). Leave empty to show the name only.",
+                "Hex code shown as a colour dot (e.g. #F5E8D0). Leave empty to show name only.",
               validation: (Rule) =>
                 Rule.regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, {
                   name: "hex",
                   invert: false,
                 }).warning("Use a valid hex code like #F5E8D0"),
             }),
+            defineField({
+              name: "variantImage",
+              title: "Variant Image (optional)",
+              type: "image",
+              options: { hotspot: true },
+              description:
+                "When a customer clicks this colour, the main product image switches to this photo automatically.",
+            }),
           ],
           preview: {
-            select: { title: "name", subtitle: "hex" },
+            select: { title: "name", subtitle: "hex", media: "variantImage" },
           },
         },
       ],
       description:
-        "Add colour options for products like scrunchies. Leave empty if the product has only one colour.",
+        "Add colour options (e.g. scrunchies). Leave empty if the product has only one colour. Each colour can have its own photo — clicking the swatch switches the main image.",
     }),
     defineField({
       name: "giftBoxAvailable",

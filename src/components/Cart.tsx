@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingBag, X, Plus, Minus, Trash2, Loader2 } from "lucide-react";
+import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package } from "lucide-react";
 /* eslint-disable @next/next/no-img-element */
 import { useCart } from "@/store/useCart";
+import { DEFAULT_FREE_THRESHOLD } from "@/lib/siteSettings";
 
-export default function Cart() {
+export default function Cart({ freeShippingThreshold = DEFAULT_FREE_THRESHOLD }: { freeShippingThreshold?: number }) {
   const { items, removeItem, updateQuantity, totalItems, totalPrice, clearCart } =
     useCart();
   const [isOpen, setIsOpen] = useState(false);
@@ -229,6 +230,40 @@ export default function Cart() {
             {/* Footer */}
             {items.length > 0 && (
               <div className="border-t border-lavender-soft/40 px-6 py-5 space-y-4 shrink-0">
+                {/* Free shipping progress */}
+                {freeShippingThreshold > 0 && (() => {
+                  const spent = totalPrice();
+                  const remaining = freeShippingThreshold - spent;
+                  const pct = Math.min((spent / freeShippingThreshold) * 100, 100);
+                  return (
+                    <div>
+                      {remaining > 0 ? (
+                        <p className="text-xs text-charcoal-light mb-1.5 flex items-center gap-1">
+                          <Package size={12} className="text-lavender" />
+                          Add{" "}
+                          <span className="font-medium text-charcoal">
+                            £{(remaining / 100).toFixed(2)}
+                          </span>{" "}
+                          more for free UK delivery
+                        </p>
+                      ) : (
+                        <p className="text-xs text-green-600 font-medium mb-1.5 flex items-center gap-1">
+                          <Package size={12} />
+                          You qualify for free UK delivery! 🎉
+                        </p>
+                      )}
+                      <div className="h-1.5 w-full bg-lavender-bg rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-lavender rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.4, ease: "easeOut" }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Total */}
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-charcoal-light">Subtotal</p>
@@ -237,8 +272,7 @@ export default function Cart() {
                   </p>
                 </div>
                 <div className="text-xs text-charcoal-light space-y-0.5">
-                  <p>Delivery: UK £3.00 · International £12.00</p>
-                  <p>Selected at checkout</p>
+                  <p>Delivery selected at checkout</p>
                 </div>
 
                 {/* Error message */}

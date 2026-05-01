@@ -218,7 +218,7 @@ function MegaMenu({ data }: { data: MegaMenuData }) {
 /*  Header                                                             */
 /* ------------------------------------------------------------------ */
 
-export default function Header() {
+export default function Header({ freeShippingThreshold }: { freeShippingThreshold?: number }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeMega, setActiveMega] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -344,7 +344,7 @@ export default function Header() {
               </motion.span>
             )}
           </Link>
-          <Cart />
+          <Cart freeShippingThreshold={freeShippingThreshold} />
         </nav>
 
         {/* Cart + Wishlist for mobile */}
@@ -365,7 +365,7 @@ export default function Header() {
               </motion.span>
             )}
           </Link>
-          <Cart />
+          <Cart freeShippingThreshold={freeShippingThreshold} />
         </div>
       </div>
 

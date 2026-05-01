@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripeInstance } from "@/lib/stripe";
+import { getSiteSettings, DEFAULT_UK_RATE, DEFAULT_INT_RATE } from "@/lib/siteSettings";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,11 @@ export async function POST(req: NextRequest) {
 
     const stripe = getStripeInstance();
 
+    // Fetch live shipping rates from Sanity (falls back to defaults if not set)
+    const siteSettings = await getSiteSettings();
+    const ukRate = siteSettings.shipping?.ukRate ?? DEFAULT_UK_RATE;
+    const intRate = siteSettings.shipping?.internationalRate ?? DEFAULT_INT_RATE;
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       currency: "gbp",
@@ -79,7 +85,7 @@ export async function POST(req: NextRequest) {
         {
           shipping_rate_data: {
             type: "fixed_amount",
-            fixed_amount: { amount: 300, currency: "gbp" },
+            fixed_amount: { amount: ukRate, currency: "gbp" },
             display_name: "UK Delivery",
             delivery_estimate: {
               minimum: { unit: "business_day", value: 3 },
@@ -90,7 +96,7 @@ export async function POST(req: NextRequest) {
         {
           shipping_rate_data: {
             type: "fixed_amount",
-            fixed_amount: { amount: 1200, currency: "gbp" },
+            fixed_amount: { amount: intRate, currency: "gbp" },
             display_name: "International Delivery",
             delivery_estimate: {
               minimum: { unit: "business_day", value: 7 },

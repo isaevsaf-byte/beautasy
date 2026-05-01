@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Heart, ArrowRight, ShoppingBag, Trash2 } from "lucide-react";
 import Link from "next/link";
-import Header from "@/components/Header";
+import Header from "@/components/HeaderWrapper";
 import Footer from "@/components/Footer";
 import { useWishlist } from "@/store/useWishlist";
 import { useCart } from "@/store/useCart";

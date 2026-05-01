@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Heart, ArrowRight, CheckCircle } from "lucide-react";
 import Link from "next/link";
-import Header from "@/components/Header";
+import Header from "@/components/HeaderWrapper";
 import Footer from "@/components/Footer";
 import { fadeUp, stagger } from "@/components/animations";
 import { useCart } from "@/store/useCart";

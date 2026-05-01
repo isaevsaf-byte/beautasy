@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PortableText } from "@portabletext/react";
-import Header from "@/components/Header";
+import Header from "@/components/HeaderWrapper";
 import Footer from "@/components/Footer";
 import AddToCartButton from "@/components/AddToCartButton";
 import dynamic from "next/dynamic";
@@ -39,6 +39,7 @@ interface SizePrice {
 interface ColorOption {
   name: string;
   hex?: string;
+  variantImage?: string; // resolved URL from Sanity
 }
 
 interface ProductProps {
@@ -50,6 +51,9 @@ interface ProductProps {
   description: unknown[];
   category: string;
   stock: number;
+  productBadges: string[];
+  handmadeDisclaimer?: string;
+  productionTime?: string;
   availableSizes: string[];
   sizePrices: SizePrice[];
   availableColors: ColorOption[];
@@ -59,6 +63,12 @@ interface ProductProps {
   giftBoxAvailable: boolean;
   giftBoxPrice: number;
 }
+
+const BADGE_LABELS: Record<string, { label: string; className: string }> = {
+  "new-in": { label: "New In", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  "best-seller": { label: "Best Seller", className: "bg-amber-100 text-amber-700 border-amber-200" },
+  "limited-edition": { label: "Limited Edition", className: "bg-rose-100 text-rose-700 border-rose-200" },
+};
 
 const GIFT_MESSAGE_MAX = 200;
 
@@ -147,7 +157,12 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
       : product.price;
 
   const images = product.images;
-  const activeImage = images[activeImageIndex] ?? images[0];
+  // If the selected colour has a variant image, show that instead of the gallery index
+  const activeColorVariant =
+    selectedColor != null
+      ? product.availableColors.find((c) => c.name === selectedColor)?.variantImage
+      : undefined;
+  const activeImage = activeColorVariant ?? images[activeImageIndex] ?? images[0];
   const categorySlug = categorySlugMap[product.category] || "lingerie";
 
   const goNext = useCallback(() => {
@@ -316,8 +331,8 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
 
             {/* ──── Right: Product Info ──── */}
             <motion.div variants={fadeUp} custom={1} className="flex flex-col">
-              {/* Category + Stock */}
-              <div className="flex items-center gap-3 mb-3">
+              {/* Category + Stock + Badges */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="px-3 py-1 bg-lavender-bg rounded-full text-xs tracking-wider uppercase text-charcoal-light">
                   {product.category}
                 </span>
@@ -328,6 +343,23 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                 ) : (
                   <span className="text-xs text-amber-600 font-medium">
                     Made to Order
+                  </span>
+                )}
+                {product.productBadges?.map((badge) => {
+                  const b = BADGE_LABELS[badge];
+                  return b ? (
+                    <span
+                      key={badge}
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${b.className}`}
+                    >
+                      {b.label}
+                    </span>
+                  ) : null;
+                })}
+                {product.productionTime && (
+                  <span className="flex items-center gap-1 text-xs text-charcoal-light">
+                    <Package size={12} className="text-lavender" />
+                    {product.productionTime} production
                   </span>
                 )}
               </div>
@@ -562,6 +594,14 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                   }}
                 />
               </div>
+
+              {/* Handmade disclaimer */}
+              {product.handmadeDisclaimer && (
+                <p className="text-xs text-charcoal-light leading-relaxed mb-6 flex items-start gap-2">
+                  <Sparkles size={13} className="text-lavender shrink-0 mt-0.5" />
+                  {product.handmadeDisclaimer}
+                </p>
+              )}
 
               {/* Accordion Sections */}
               <div className="border-b border-lavender-soft/40">
