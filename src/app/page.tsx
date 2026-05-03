@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import Header from "@/components/HeaderWrapper";
+import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { Scissors, Heart, Sparkles, MapPin } from "lucide-react";

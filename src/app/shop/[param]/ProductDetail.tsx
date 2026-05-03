@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PortableText } from "@portabletext/react";
-import Header from "@/components/HeaderWrapper";
+import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AddToCartButton from "@/components/AddToCartButton";
 import dynamic from "next/dynamic";

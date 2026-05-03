@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { sanityClient } from "@/lib/sanity";
 import { PortableText } from "@portabletext/react";
 import HeaderWrapper from "@/components/HeaderWrapper";
-import Footer from "@/components/Footer";
+import FooterWrapper from "@/components/FooterWrapper";
 
 export const revalidate = 300;
 
@@ -91,7 +91,7 @@ export default async function LegalPage({
           </div>
         )}
       </main>
-      <Footer />
+      <FooterWrapper />
     </>
   );
 }

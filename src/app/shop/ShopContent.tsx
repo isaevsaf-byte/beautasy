@@ -6,7 +6,7 @@ import { ArrowRight, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
-import Header from "@/components/HeaderWrapper";
+import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AddToCartButton from "@/components/AddToCartButton";
 import WishlistButton from "@/components/WishlistButton";

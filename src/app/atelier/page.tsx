@@ -18,7 +18,7 @@ import BeautasyLogo from "@/components/BeautasyLogo";
 import Image from "next/image";
 import Link from "next/link";
 /* eslint-disable @next/next/no-img-element */
-import Header from "@/components/HeaderWrapper";
+import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 

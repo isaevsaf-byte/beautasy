@@ -1,6 +1,29 @@
+"use client";
+
 import { Globe, MapPin, Package, Heart } from "lucide-react";
 import Link from "next/link";
-import { getSiteSettings } from "@/lib/siteSettings";
+
+/* ── Types ── */
+export interface FooterSettings {
+  socialLinks?: {
+    instagram?: string;
+    tiktok?: string;
+    pinterest?: string;
+  };
+  paymentIcons?: {
+    showVisa?: boolean;
+    showMastercard?: boolean;
+    showPaypal?: boolean;
+    showApplePay?: boolean;
+    showGooglePay?: boolean;
+    showAmex?: boolean;
+  };
+  shipping?: {
+    ukRate?: number;
+    internationalRate?: number;
+    freeShippingThreshold?: number;
+  };
+}
 
 const navLinks = [
   { label: "Shop", href: "/shop" },
@@ -67,17 +90,20 @@ function AmexIcon() {
   );
 }
 
-export default async function Footer() {
-  const settings = await getSiteSettings();
-  const social = settings.socialLinks ?? {};
-  const icons = settings.paymentIcons ?? {
-    showVisa: true, showMastercard: true, showPaypal: true, showApplePay: true,
-    showGooglePay: false, showAmex: false,
+export default function Footer({ settings }: { settings?: FooterSettings }) {
+  const social = settings?.socialLinks ?? {};
+  const icons = settings?.paymentIcons ?? {
+    showVisa: true,
+    showMastercard: true,
+    showPaypal: true,
+    showApplePay: true,
+    showGooglePay: false,
+    showAmex: false,
   };
-  const shipping = settings.shipping;
-  const ukLabel = shipping ? `£${(shipping.ukRate / 100).toFixed(2)}` : "£3.00";
-  const intLabel = shipping ? `£${(shipping.internationalRate / 100).toFixed(2)}` : "£12.00";
-  const threshold = shipping?.freeShippingThreshold ?? 0;
+  const shipping = settings?.shipping;
+  const ukLabel = shipping?.ukRate != null ? `£${(shipping.ukRate / 100).toFixed(2)}` : "£3.00";
+  const intLabel = shipping?.internationalRate != null ? `£${(shipping.internationalRate / 100).toFixed(2)}` : "£12.00";
+  const threshold = shipping?.freeShippingThreshold ?? 5000;
 
   const hasSocial = social.instagram || social.tiktok || social.pinterest;
   const hasPaymentIcons = Object.values(icons).some(Boolean);
