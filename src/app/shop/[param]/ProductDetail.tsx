@@ -78,6 +78,7 @@ interface ProductProps {
   packagingInfo: unknown[] | null;
   giftBoxAvailable: boolean;
   giftBoxPrice: number;
+  giftCardPlaceholder?: string;
   collection?: { name: string; slug: string; season?: string } | null;
   sizeGuide?: SizeGuide | null;
 }
@@ -580,7 +581,7 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                               )
                             }
                             rows={3}
-                            placeholder="Write a short note to include with the gift card…"
+                            placeholder={product.giftCardPlaceholder || "Write a short note to include with the gift card…"}
                             className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20 resize-none"
                           />
                           <p className="text-[11px] text-charcoal-light mt-1.5 text-right">
@@ -633,6 +634,7 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                     price: product.price,
                     image: images[0],
                     slug: product.slug,
+                    availableSizes: product.availableSizes,
                   }}
                 />
               </div>

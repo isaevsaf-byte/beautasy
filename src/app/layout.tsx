@@ -36,8 +36,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/beautasy-icon.png",
-        width: 1200,
-        height: 630,
+        width: 1378,
+        height: 1179,
         alt: "Beautasy — Handmade Lingerie & Accessories",
       },
     ],

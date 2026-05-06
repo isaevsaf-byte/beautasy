@@ -409,6 +409,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
                 price: product.price,
                 image: activeImage,
                 slug: product.slug,
+                availableSizes: product.availableSizes,
               }}
               className="bg-white/80 backdrop-blur-sm shadow-sm"
             />

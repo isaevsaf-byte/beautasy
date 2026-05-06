@@ -10,6 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: base, lastModified: new Date(), changeFrequency: "weekly", priority: 1 },
     { url: `${base}/shop`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
+    { url: `${base}/shop/collections`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.85 },
     { url: `${base}/shop/lingerie`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
     { url: `${base}/shop/kids`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
     { url: `${base}/shop/accessories`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
@@ -76,5 +77,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // silently skip
   }
 
-  return [...staticRoutes, ...productRoutes, ...giftBoxRoutes, ...legalRoutes];
+  // Dynamic collection routes
+  let collectionRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const collections = await sanityClient.fetch<{ slug: string; updatedAt: string }[]>(
+      `*[_type == "collection" && defined(slug.current)]{
+        "slug": slug.current,
+        "updatedAt": _updatedAt
+      }`
+    );
+    collectionRoutes = collections.map((c) => ({
+      url: `${base}/shop/collection/${c.slug}`,
+      lastModified: new Date(c.updatedAt),
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    }));
+  } catch {
+    // silently skip
+  }
+
+  return [...staticRoutes, ...productRoutes, ...giftBoxRoutes, ...legalRoutes, ...collectionRoutes];
 }

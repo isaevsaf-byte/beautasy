@@ -7,6 +7,8 @@ export interface WishlistItem {
   price: number; // pence
   image: string;
   slug: string;
+  /** Present when the product requires a size selection before adding to cart */
+  availableSizes?: string[];
 }
 
 interface WishlistState {

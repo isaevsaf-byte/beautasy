@@ -93,7 +93,8 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
   giftBoxAvailable,
   giftBoxPrice,
   "collection": collection->{ name, "slug": slug.current, season },
-  "sizeGuide": sizeGuide->{ name, notes, rows[]{ size, uk, eu, bust, waist, hips } }
+  "sizeGuide": sizeGuide->{ name, notes, rows[]{ size, uk, eu, bust, waist, hips } },
+  "giftCardPlaceholder": *[_type == "siteSettings"][0].giftCardPlaceholder
 }`;
 
 /* ─── Metadata ─── */
@@ -144,6 +145,7 @@ export async function generateMetadata({
   return {
     title: `${product.name} | Beautasy`,
     description: `${product.name} — Handmade ${product.category?.toLowerCase() || "product"} from Beautasy. £${(product.price / 100).toFixed(2)}`,
+    alternates: { canonical: `${siteUrl}/shop/${param}` },
     openGraph: {
       title: `${product.name} | Beautasy`,
       description: `Handmade ${product.category?.toLowerCase() || "product"} from Beautasy.`,
@@ -277,31 +279,60 @@ export default async function ShopParamPage({
           .filter((url: string | null): url is string => url !== null)
       : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"];
 
+  /* ── JSON-LD Product structured data (Google rich snippets) ── */
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: `Handmade ${product.category?.toLowerCase() || "product"} from Beautasy, crafted in Southampton, UK.`,
+    image: resolvedImages,
+    brand: { "@type": "Brand", name: "Beautasy" },
+    offers: {
+      "@type": "Offer",
+      price: (product.price / 100).toFixed(2),
+      priceCurrency: "GBP",
+      availability:
+        (product.stock ?? 0) > 0
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      url: `${siteUrl}/shop/${product.slug}`,
+      seller: { "@type": "Organization", name: "Beautasy" },
+    },
+    url: `${siteUrl}/shop/${product.slug}`,
+  };
+
   return (
-    <ProductDetail
-      product={{
-        _id: product._id,
-        name: product.name,
-        slug: product.slug,
-        price: product.price,
-        images: resolvedImages,
-        description: product.description || [],
-        category: product.category,
-        stock: product.stock ?? 0,
-        productBadges: product.productBadges || [],
-        handmadeDisclaimer: product.handmadeDisclaimer || "",
-        productionTime: product.productionTime || "",
-        availableSizes: product.availableSizes || [],
-        sizePrices: product.sizePrices || [],
-        availableColors: product.availableColors || [],
-        careInstructions: product.careInstructions || null,
-        shippingInfo: product.shippingInfo || null,
-        packagingInfo: product.packagingInfo || null,
-        giftBoxAvailable: product.giftBoxAvailable || false,
-        giftBoxPrice: product.giftBoxPrice || 0,
-        collection: product.collection || null,
-        sizeGuide: product.sizeGuide || null,
-      }}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <ProductDetail
+        product={{
+          _id: product._id,
+          name: product.name,
+          slug: product.slug,
+          price: product.price,
+          images: resolvedImages,
+          description: product.description || [],
+          category: product.category,
+          stock: product.stock ?? 0,
+          productBadges: product.productBadges || [],
+          handmadeDisclaimer: product.handmadeDisclaimer || "",
+          productionTime: product.productionTime || "",
+          availableSizes: product.availableSizes || [],
+          sizePrices: product.sizePrices || [],
+          availableColors: product.availableColors || [],
+          careInstructions: product.careInstructions || null,
+          shippingInfo: product.shippingInfo || null,
+          packagingInfo: product.packagingInfo || null,
+          giftBoxAvailable: product.giftBoxAvailable || false,
+          giftBoxPrice: product.giftBoxPrice || 0,
+          giftCardPlaceholder: product.giftCardPlaceholder || undefined,
+          collection: product.collection || null,
+          sizeGuide: product.sizeGuide || null,
+        }}
+      />
+    </>
   );
 }

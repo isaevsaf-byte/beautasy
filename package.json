@@ -12,7 +12,6 @@
     "@clerk/nextjs": "^6.38.1",
     "@portabletext/react": "^6.0.2",
     "@sanity/image-url": "^2.0.3",
-    "@sanity/vision": "^5.9.0",
     "@stripe/stripe-js": "^8.7.0",
     "framer-motion": "^12.34.0",
     "lucide-react": "^0.563.0",
@@ -22,10 +21,10 @@
     "react-dom": "19.2.3",
     "sanity": "^5.9.0",
     "stripe": "^20.3.1",
-    "styled-components": "^6.3.9",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@sanity/vision": "^5.9.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

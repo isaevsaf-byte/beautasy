@@ -21,6 +21,14 @@ export default function WishlistPage() {
 
   const wishlistItems = hydrated ? items : [];
 
+  // Items that require a size/colour selection cannot be added directly from
+  // the wishlist — they need to go through the PDP first.
+  function itemNeedsOptions(item: (typeof items)[0]): boolean {
+    // If availableSizes is undefined (old wishlist items) assume it needs options
+    // to be safe. If it's an empty array the product has no size variants.
+    return item.availableSizes === undefined || item.availableSizes.length > 0;
+  }
+
   function handleAddToCart(item: (typeof items)[0]) {
     addToCart({
       id: item.id,
@@ -111,13 +119,25 @@ export default function WishlistPage() {
                       </p>
 
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => handleAddToCart(item)}
-                          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
-                        >
-                          <ShoppingBag size={14} />
-                          Add to Bag
-                        </button>
+                        {itemNeedsOptions(item) ? (
+                          /* Product needs size/colour — send to PDP */
+                          <Link
+                            href={itemHref}
+                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+                          >
+                            <ShoppingBag size={14} />
+                            Select Options
+                          </Link>
+                        ) : (
+                          /* No size variant — add directly to cart */
+                          <button
+                            onClick={() => handleAddToCart(item)}
+                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+                          >
+                            <ShoppingBag size={14} />
+                            Add to Bag
+                          </button>
+                        )}
                         <button
                           onClick={() => removeItem(item.id)}
                           className="p-2.5 rounded-full border border-charcoal/15 text-charcoal-light hover:text-red-500 hover:border-red-200 transition-colors"
