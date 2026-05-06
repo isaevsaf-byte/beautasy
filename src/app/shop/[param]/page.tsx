@@ -64,7 +64,8 @@ const CATEGORY_PRODUCTS_QUERY = `*[_type == "product" && category == $cat] | ord
   category,
   subcategory,
   stock,
-  availableSizes
+  availableSizes,
+  "collection": collection->{ name, "slug": slug.current }
 }`;
 
 const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0] {
@@ -90,7 +91,8 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
   shippingInfo,
   packagingInfo,
   giftBoxAvailable,
-  giftBoxPrice
+  giftBoxPrice,
+  "collection": collection->{ name, "slug": slug.current, season }
 }`;
 
 /* ─── Metadata ─── */
@@ -216,6 +218,7 @@ export default async function ShopParamPage({
             category: string;
             subcategory?: string;
             availableSizes?: string[];
+            collection?: { name: string; slug: string } | null;
           }) => {
             const resolvedImages =
               p.images && p.images.length > 0
@@ -238,6 +241,7 @@ export default async function ShopParamPage({
               category: p.category,
               subcategory: p.subcategory,
               availableSizes: p.availableSizes || [],
+              collection: p.collection ?? null,
             };
           }
         );
@@ -294,6 +298,7 @@ export default async function ShopParamPage({
         packagingInfo: product.packagingInfo || null,
         giftBoxAvailable: product.giftBoxAvailable || false,
         giftBoxPrice: product.giftBoxPrice || 0,
+        collection: product.collection || null,
       }}
     />
   );

@@ -62,6 +62,7 @@ interface ProductProps {
   packagingInfo: unknown[] | null;
   giftBoxAvailable: boolean;
   giftBoxPrice: number;
+  collection?: { name: string; slug: string; season?: string } | null;
 }
 
 const BADGE_LABELS: Record<string, { label: string; className: string }> = {
@@ -336,6 +337,17 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                 <span className="px-3 py-1 bg-lavender-bg rounded-full text-xs tracking-wider uppercase text-charcoal-light">
                   {product.category}
                 </span>
+                {product.collection && (
+                  <Link
+                    href={`/shop/collection/${product.collection.slug}`}
+                    className="px-3 py-1 bg-lavender/25 hover:bg-lavender/40 rounded-full text-xs font-medium text-charcoal transition-colors"
+                  >
+                    {product.collection.name}
+                    {product.collection.season && (
+                      <span className="text-charcoal-light ml-1">· {product.collection.season}</span>
+                    )}
+                  </Link>
+                )}
                 {product.stock > 0 ? (
                   <span className="text-xs text-green-600 font-medium">
                     In Stock

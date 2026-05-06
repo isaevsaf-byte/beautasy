@@ -8,17 +8,33 @@ import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package } from "lucide-re
 import { useCart } from "@/store/useCart";
 import { DEFAULT_FREE_THRESHOLD } from "@/lib/siteSettings";
 
-export default function Cart({ freeShippingThreshold = DEFAULT_FREE_THRESHOLD }: { freeShippingThreshold?: number }) {
+export default function Cart({ freeShippingThreshold: propThreshold }: { freeShippingThreshold?: number }) {
   const { items, removeItem, updateQuantity, totalItems, totalPrice, clearCart } =
     useCart();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(
+    propThreshold ?? DEFAULT_FREE_THRESHOLD
+  );
 
   // Fix Zustand hydration: the store hydrates from localStorage after SSR,
   // so we track when the client has mounted to avoid hydration mismatches.
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
+
+  // If no threshold prop was provided (client pages without HeaderWrapper),
+  // fetch the live value from Sanity via the API route.
+  useEffect(() => {
+    if (propThreshold !== undefined) return; // already have it from SSR
+    fetch("/api/site-settings")
+      .then((r) => r.json())
+      .then((data) => {
+        const t = data?.shipping?.freeShippingThreshold;
+        if (typeof t === "number") setFreeShippingThreshold(t);
+      })
+      .catch(() => {/* keep the default */});
+  }, [propThreshold]);
 
   const count = hydrated ? totalItems() : 0;
 

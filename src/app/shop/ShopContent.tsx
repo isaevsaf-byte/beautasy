@@ -21,6 +21,7 @@ interface Product {
   category: string;
   subcategory?: string;
   availableSizes: string[];
+  collection?: { name: string; slug: string } | null;
 }
 
 const categories = [
@@ -84,18 +85,29 @@ const subcategoryLabels: Record<string, string> = {
   accessories: "Accessories",
 };
 
+interface ActiveCollection {
+  name: string;
+  slug: string;
+  season?: string;
+  description?: unknown[];
+}
+
 export default function ShopContent({
   products,
   activeCategory,
   activeSubcategory,
+  activeCollection,
 }: {
   products: Product[];
   activeCategory?: string;
   activeSubcategory?: string;
+  activeCollection?: ActiveCollection;
 }) {
   const displayedProducts = activeSubcategory
     ? products.filter((p) => p.subcategory === activeSubcategory)
     : products;
+
+  const isCollection = !!activeCollection;
 
   return (
     <>
@@ -115,7 +127,9 @@ export default function ShopContent({
                 custom={0}
                 className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
               >
-                {activeSubcategory
+                {isCollection
+                  ? `Collection${activeCollection.season ? ` — ${activeCollection.season}` : ""}`
+                  : activeSubcategory
                   ? `${categoryLabels[activeCategory ?? ""] || "Collection"} — ${subcategoryLabels[activeSubcategory] || activeSubcategory}`
                   : activeCategory
                   ? categoryLabels[activeCategory] || "Collection"
@@ -126,7 +140,9 @@ export default function ShopContent({
                 custom={1}
                 className="font-serif text-4xl sm:text-5xl mb-6"
               >
-                {activeSubcategory
+                {isCollection
+                  ? activeCollection.name
+                  : activeSubcategory
                   ? subcategoryLabels[activeSubcategory] || activeSubcategory
                   : activeCategory
                   ? categoryLabels[activeCategory] || "Shop"
@@ -137,17 +153,18 @@ export default function ShopContent({
                 custom={2}
                 className="text-lg text-charcoal-light max-w-lg mx-auto leading-relaxed"
               >
-                Every piece is handmade with care in our Southampton atelier.
-                {activeCategory
-                  ? " Explore our handpicked selection below."
-                  : " Explore our collections and find something made just for you."}
+                {isCollection
+                  ? "A curated selection of handmade pieces from our Southampton atelier."
+                  : activeCategory
+                  ? "Every piece is handmade with care in our Southampton atelier. Explore our handpicked selection below."
+                  : "Every piece is handmade with care in our Southampton atelier. Explore our collections and find something made just for you."}
               </motion.p>
             </motion.div>
           </div>
         </section>
 
-        {/* Category Overview — only show when browsing ALL products (no active category) */}
-        {!activeCategory && (
+        {/* Category Overview — only show when browsing ALL products (no active category or collection) */}
+        {!activeCategory && !isCollection && (
           <section className="pb-16">
             <div className="max-w-6xl mx-auto px-6">
               <motion.div
@@ -226,7 +243,7 @@ export default function ShopContent({
         )}
 
         {/* Products Grid */}
-        <section className={`py-24 md:py-32 ${activeCategory ? "" : "bg-lavender-bg"}`} id="products">
+        <section className={`py-24 md:py-32 ${activeCategory || isCollection ? "" : "bg-lavender-bg"}`} id="products">
           <div className="max-w-6xl mx-auto px-6">
             <motion.div
               initial="hidden"
@@ -365,8 +382,19 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
             className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
           />
           <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
-          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
-            <p className="text-xs text-charcoal-light">{product.category}</p>
+          <div className="absolute top-4 left-4 flex flex-col gap-1.5">
+            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
+              <p className="text-xs text-charcoal-light">{product.category}</p>
+            </div>
+            {product.collection && (
+              <a
+                href={`/shop/collection/${product.collection.slug}`}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-lavender/90 backdrop-blur-sm rounded-full px-3 py-1 hover:bg-lavender transition-colors"
+              >
+                <p className="text-xs text-charcoal font-medium">{product.collection.name}</p>
+              </a>
+            )}
           </div>
           {/* Wishlist heart */}
           <div className="absolute top-4 right-4 z-10">

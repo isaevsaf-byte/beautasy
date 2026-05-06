@@ -2,6 +2,7 @@
 
 import { Globe, MapPin, Package, Heart } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 /* ── Types ── */
 export interface FooterSettings {
@@ -90,16 +91,31 @@ function AmexIcon() {
   );
 }
 
-export default function Footer({ settings }: { settings?: FooterSettings }) {
+const DEFAULT_ICONS = {
+  showVisa: true,
+  showMastercard: true,
+  showPaypal: true,
+  showApplePay: true,
+  showGooglePay: false,
+  showAmex: false,
+} as const;
+
+export default function Footer({ settings: propSettings }: { settings?: FooterSettings }) {
+  const [fetchedSettings, setFetchedSettings] = useState<FooterSettings | null>(null);
+
+  // If no settings were passed from a server wrapper, fetch them from the API
+  // so that Sanity-configured social links & payment icons are always shown.
+  useEffect(() => {
+    if (propSettings !== undefined) return; // already have server-side settings
+    fetch("/api/site-settings")
+      .then((r) => r.json())
+      .then((data) => setFetchedSettings(data ?? {}))
+      .catch(() => {/* keep null — use defaults */});
+  }, [propSettings]);
+
+  const settings = propSettings ?? fetchedSettings ?? {};
   const social = settings?.socialLinks ?? {};
-  const icons = settings?.paymentIcons ?? {
-    showVisa: true,
-    showMastercard: true,
-    showPaypal: true,
-    showApplePay: true,
-    showGooglePay: false,
-    showAmex: false,
-  };
+  const icons = settings?.paymentIcons ?? DEFAULT_ICONS as NonNullable<FooterSettings["paymentIcons"]>;
   const shipping = settings?.shipping;
   const ukLabel = shipping?.ukRate != null ? `£${(shipping.ukRate / 100).toFixed(2)}` : "£3.00";
   const intLabel = shipping?.internationalRate != null ? `£${(shipping.internationalRate / 100).toFixed(2)}` : "£12.00";
