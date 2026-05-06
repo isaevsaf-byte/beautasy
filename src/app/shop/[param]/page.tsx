@@ -92,7 +92,8 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
   packagingInfo,
   giftBoxAvailable,
   giftBoxPrice,
-  "collection": collection->{ name, "slug": slug.current, season }
+  "collection": collection->{ name, "slug": slug.current, season },
+  "sizeGuide": sizeGuide->{ name, notes, rows[]{ size, uk, eu, bust, waist, hips } }
 }`;
 
 /* ─── Metadata ─── */
@@ -299,6 +300,7 @@ export default async function ShopParamPage({
         giftBoxAvailable: product.giftBoxAvailable || false,
         giftBoxPrice: product.giftBoxPrice || 0,
         collection: product.collection || null,
+        sizeGuide: product.sizeGuide || null,
       }}
     />
   );

@@ -12,6 +12,7 @@ import {
   Sparkles,
   Package,
   Search,
+  Ruler,
 } from "lucide-react";
 import Link from "next/link";
 import { PortableText } from "@portabletext/react";
@@ -34,6 +35,21 @@ import { fadeUp, stagger } from "@/components/animations";
 interface SizePrice {
   size: string;
   price: number;
+}
+
+interface SizeGuideRow {
+  size?: string;
+  uk?: string;
+  eu?: string;
+  bust?: string;
+  waist?: string;
+  hips?: string;
+}
+
+interface SizeGuide {
+  name: string;
+  notes?: string;
+  rows?: SizeGuideRow[];
 }
 
 interface ColorOption {
@@ -63,6 +79,7 @@ interface ProductProps {
   giftBoxAvailable: boolean;
   giftBoxPrice: number;
   collection?: { name: string; slug: string; season?: string } | null;
+  sizeGuide?: SizeGuide | null;
 }
 
 const BADGE_LABELS: Record<string, { label: string; className: string }> = {
@@ -136,6 +153,7 @@ const categorySlugMap: Record<string, string> = {
 export default function ProductDetail({ product }: { product: ProductProps }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [giftBoxChecked, setGiftBoxChecked] = useState(false);
   const [giftMessage, setGiftMessage] = useState("");
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -403,16 +421,28 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                         </span>
                       )}
                     </p>
-                    {sizeError && (
-                      <motion.p
-                        initial={{ opacity: 0, x: 6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="text-xs text-rose-500 font-medium"
-                      >
-                        Please select a size
-                      </motion.p>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {product.sizeGuide && (
+                        <button
+                          type="button"
+                          onClick={() => setSizeGuideOpen(true)}
+                          className="flex items-center gap-1.5 text-xs text-charcoal-light hover:text-charcoal transition-colors underline underline-offset-2"
+                        >
+                          <Ruler size={13} />
+                          Size Guide
+                        </button>
+                      )}
+                      {sizeError && (
+                        <motion.p
+                          initial={{ opacity: 0, x: 6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="text-xs text-rose-500 font-medium"
+                        >
+                          Please select a size
+                        </motion.p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {product.availableSizes.map((size) => (
@@ -740,6 +770,104 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
               </div>
             )}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ──── Size Guide Modal ──── */}
+      <AnimatePresence>
+        {sizeGuideOpen && product.sizeGuide && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setSizeGuideOpen(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998]"
+            />
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, y: 40, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 40, scale: 0.97 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="fixed inset-0 flex items-end sm:items-center justify-center z-[9999] p-4"
+              onClick={() => setSizeGuideOpen(false)}
+            >
+              <div
+                className="bg-[#FDFBF7] rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-5 border-b border-lavender-soft/40 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Ruler size={18} className="text-lavender" />
+                    <h3 className="font-serif text-xl">{product.sizeGuide.name}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSizeGuideOpen(false)}
+                    className="p-1.5 rounded-full text-charcoal-light hover:text-charcoal hover:bg-lavender-bg transition-colors"
+                    aria-label="Close size guide"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-auto flex-1 px-6 py-5">
+                  {product.sizeGuide.rows && product.sizeGuide.rows.length > 0 ? (() => {
+                    const rows = product.sizeGuide!.rows!;
+                    // Only show columns that have at least one non-empty value
+                    const hasUk   = rows.some((r) => r.uk);
+                    const hasEu   = rows.some((r) => r.eu);
+                    const hasBust = rows.some((r) => r.bust);
+                    const hasWaist = rows.some((r) => r.waist);
+                    const hasHips  = rows.some((r) => r.hips);
+
+                    return (
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="text-left">
+                            <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">Size</th>
+                            {hasUk    && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">UK</th>}
+                            {hasEu    && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">EU</th>}
+                            {hasBust  && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">Bust</th>}
+                            {hasWaist && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">Waist</th>}
+                            {hasHips  && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">Hips</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, i) => (
+                            <tr
+                              key={i}
+                              className={`border-t border-lavender-soft/30 ${i % 2 === 0 ? "bg-lavender-bg/30" : ""}`}
+                            >
+                              <td className="py-3 pr-4 font-medium text-charcoal">{row.size ?? "—"}</td>
+                              {hasUk    && <td className="py-3 pr-4 text-charcoal-light">{row.uk    || "—"}</td>}
+                              {hasEu    && <td className="py-3 pr-4 text-charcoal-light">{row.eu    || "—"}</td>}
+                              {hasBust  && <td className="py-3 pr-4 text-charcoal-light">{row.bust  || "—"}</td>}
+                              {hasWaist && <td className="py-3 pr-4 text-charcoal-light">{row.waist || "—"}</td>}
+                              {hasHips  && <td className="py-3 pr-4 text-charcoal-light">{row.hips  || "—"}</td>}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  })() : (
+                    <p className="text-sm text-charcoal-light">No size data available.</p>
+                  )}
+
+                  {product.sizeGuide.notes && (
+                    <p className="mt-5 text-xs text-charcoal-light leading-relaxed bg-lavender-bg/50 rounded-xl px-4 py-3 border border-lavender-soft/40">
+                      💡 {product.sizeGuide.notes}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
