@@ -33,7 +33,7 @@ export default function WishlistPage() {
   return (
     <>
       <Header />
-      <main className="pt-24 min-h-screen">
+      <main className="pt-28 min-h-screen">
         <section className="py-16 md:py-24">
           <div className="max-w-6xl mx-auto px-6">
             <motion.div

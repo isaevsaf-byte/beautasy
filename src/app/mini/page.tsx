@@ -56,7 +56,7 @@ export default function MiniPage() {
   return (
     <>
       <Header />
-      <main className="pt-24">
+      <main className="pt-28">
         {/* Hero */}
         <section className="py-16 md:py-24 bg-[#FFF0F5]/30">
           <div className="max-w-6xl mx-auto px-6">

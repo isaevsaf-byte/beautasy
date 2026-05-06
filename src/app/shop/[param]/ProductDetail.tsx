@@ -250,7 +250,7 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
   return (
     <>
       <Header />
-      <main className="pt-24">
+      <main className="pt-28">
         {/* ── Breadcrumb ── */}
         <div className="max-w-6xl mx-auto px-6 py-6">
           <nav className="flex items-center gap-2 text-sm text-charcoal-light">

@@ -136,7 +136,7 @@ export default function AtelierPage() {
   return (
     <>
       <Header />
-      <main className="pt-24">
+      <main className="pt-28">
         {/* ──── Hero ──── */}
         <section className="relative py-20 md:py-28 overflow-hidden">
           {/* Background (no placeholder text overlay) */}

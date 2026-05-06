@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Playfair_Display, Inter } from "next/font/google";
-import AnnouncementBar from "@/components/AnnouncementBar";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -76,7 +75,6 @@ export default function RootLayout({
       <body
         className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7] text-[#4A4A4A]`}
       >
-        <AnnouncementBar />
         {content}
       </body>
     </html>

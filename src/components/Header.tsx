@@ -218,14 +218,57 @@ function MegaMenu({ data }: { data: MegaMenuData }) {
 /*  Header                                                             */
 /* ------------------------------------------------------------------ */
 
-export default function Header({ freeShippingThreshold }: { freeShippingThreshold?: number }) {
+/* ── Announcement bar colour map ─────────────────────────────────── */
+const barBgMap: Record<string, string> = {
+  lavender: "bg-lavender text-charcoal",
+  charcoal: "bg-[#4A4A4A] text-white",
+  cream: "bg-cream-soft text-charcoal border-b border-lavender-soft/40",
+};
+
+interface AnnouncementBarData {
+  enabled: boolean;
+  text?: string;
+  link?: string;
+  bgColor?: "lavender" | "charcoal" | "cream";
+}
+
+export default function Header({
+  freeShippingThreshold: propThreshold,
+  announcementBar: propBar,
+}: {
+  freeShippingThreshold?: number;
+  announcementBar?: AnnouncementBarData | null;
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeMega, setActiveMega] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wishlistCount = useWishlist((s) => s.items.length);
+  // Announcement bar — fetched client-side when not passed from server
+  const [bar, setBar] = useState<AnnouncementBarData | null>(propBar ?? null);
 
   useEffect(() => setHydrated(true), []);
+
+  // Fetch announcement bar from /api/site-settings when not provided as prop.
+  // Uses sessionStorage so the bar data persists across client-side navigations.
+  useEffect(() => {
+    if (propBar !== undefined) return; // already provided by server
+    try {
+      const cached = sessionStorage.getItem("beautasy-site-settings");
+      if (cached) {
+        const s = JSON.parse(cached);
+        if (s?.announcementBar !== undefined) { setBar(s.announcementBar); return; }
+      }
+    } catch { /* ok */ }
+    fetch("/api/site-settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.announcementBar !== undefined) setBar(data.announcementBar);
+        // The Footer also caches the full settings object — reuse it
+        try { sessionStorage.setItem("beautasy-site-settings", JSON.stringify(data ?? {})); } catch { /* ok */ }
+      })
+      .catch(() => {});
+  }, [propBar]);
 
   const openMega = useCallback((label: string) => {
     if (closeTimeout.current) clearTimeout(closeTimeout.current);
@@ -240,14 +283,31 @@ export default function Header({ freeShippingThreshold }: { freeShippingThreshol
     if (closeTimeout.current) clearTimeout(closeTimeout.current);
   }, []);
 
+  const activeBar = hydrated && bar?.enabled && bar.text ? bar : null;
+
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
-      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-[#FDFBF7]/80 border-b border-[#E6E6FA]/40"
+      transition={{ duration: 0.5 }}
+      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-[#FDFBF7]/90 border-b border-[#E6E6FA]/40"
       onMouseLeave={scheduleMegaClose}
     >
+      {/* ── Announcement bar — lives inside the fixed header so it never
+           bleeds through the header's glass background as a ghost ── */}
+      {activeBar && (
+        <div className={`${barBgMap[activeBar.bgColor ?? "lavender"]} flex items-center justify-center py-2`}>
+          {activeBar.link ? (
+            <a href={activeBar.link} className="block w-full text-center hover:opacity-80 transition-opacity">
+              <p className="text-xs sm:text-sm tracking-wide font-medium px-4">{activeBar.text}</p>
+            </a>
+          ) : (
+            <p className="text-xs sm:text-sm tracking-wide font-medium px-4 text-center">{activeBar.text}</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Main nav row ── */}
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Mobile menu button */}
         <button
@@ -344,7 +404,7 @@ export default function Header({ freeShippingThreshold }: { freeShippingThreshol
               </motion.span>
             )}
           </Link>
-          <Cart freeShippingThreshold={freeShippingThreshold} />
+          <Cart freeShippingThreshold={propThreshold} />
         </nav>
 
         {/* Cart + Wishlist for mobile */}
@@ -365,7 +425,7 @@ export default function Header({ freeShippingThreshold }: { freeShippingThreshol
               </motion.span>
             )}
           </Link>
-          <Cart freeShippingThreshold={freeShippingThreshold} />
+          <Cart freeShippingThreshold={propThreshold} />
         </div>
       </div>
 

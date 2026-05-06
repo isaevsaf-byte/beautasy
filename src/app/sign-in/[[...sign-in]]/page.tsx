@@ -6,7 +6,7 @@ export default function SignInPage() {
   return (
     <>
       <Header />
-      <main className="pt-24 min-h-screen flex items-center justify-center bg-cream">
+      <main className="pt-28 min-h-screen flex items-center justify-center bg-cream">
         <SignIn
           appearance={{
             variables: { colorPrimary: "#DCD0FF" },

@@ -36,7 +36,7 @@ export default function SuccessPage() {
       </Suspense>
 
       <Header />
-      <main className="pt-24">
+      <main className="pt-28">
         <section className="min-h-[70vh] flex items-center justify-center py-16 md:py-24">
           <div className="max-w-lg mx-auto px-6 text-center">
             <motion.div

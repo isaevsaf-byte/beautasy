@@ -1,6 +1,6 @@
 export default function ShopLoading() {
   return (
-    <div className="pt-24">
+    <div className="pt-28">
       {/* Hero */}
       <section className="py-16 md:py-24">
         <div className="max-w-6xl mx-auto px-6 text-center">

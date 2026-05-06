@@ -4,5 +4,10 @@ import Header from "./Header";
 export default async function HeaderWrapper() {
   const settings = await getSiteSettings();
   const threshold = settings.shipping?.freeShippingThreshold ?? DEFAULT_FREE_THRESHOLD;
-  return <Header freeShippingThreshold={threshold} />;
+  return (
+    <Header
+      freeShippingThreshold={threshold}
+      announcementBar={settings.announcementBar ?? null}
+    />
+  );
 }
