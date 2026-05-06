@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import ShopContent from "./ShopContent";
 
-const siteUrl = "https://beautasy.vercel.app";
+const siteUrl = "https://beautasy.co.uk";
 
 export const metadata: Metadata = {
   title: "Beautasy Shop — Handmade Lingerie & Accessories",

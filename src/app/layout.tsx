@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   description:
     "Handmade lingerie, kids' clothing, and accessories tailored with love in Southampton, UK. Made to feel, not just wear.",
-  metadataBase: new URL("https://beautasy.vercel.app"),
+  metadataBase: new URL("https://beautasy.co.uk"),
   openGraph: {
     title: "BEAUTASY — Handmade Lingerie & Accessories | Southampton",
     description:

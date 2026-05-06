@@ -105,12 +105,22 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
 
   // If no settings were passed from a server wrapper, fetch them from the API
   // so that Sanity-configured social links & payment icons are always shown.
+  // sessionStorage caching means subsequent navigations are instant (no ghost/flash).
   useEffect(() => {
     if (propSettings !== undefined) return; // already have server-side settings
+    try {
+      const cached = sessionStorage.getItem("beautasy-site-settings");
+      if (cached) { setFetchedSettings(JSON.parse(cached)); return; }
+    } catch { /* sessionStorage unavailable */ }
+
     fetch("/api/site-settings")
       .then((r) => r.json())
-      .then((data) => setFetchedSettings(data ?? {}))
-      .catch(() => {/* keep null — use defaults */});
+      .then((data) => {
+        const s = data ?? {};
+        setFetchedSettings(s);
+        try { sessionStorage.setItem("beautasy-site-settings", JSON.stringify(s)); } catch { /* ok */ }
+      })
+      .catch(() => {/* keep defaults */});
   }, [propSettings]);
 
   const settings = propSettings ?? fetchedSettings ?? {};

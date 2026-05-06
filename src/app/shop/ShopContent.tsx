@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
@@ -95,14 +96,17 @@ interface ActiveCollection {
 export default function ShopContent({
   products,
   activeCategory,
-  activeSubcategory,
   activeCollection,
 }: {
   products: Product[];
   activeCategory?: string;
-  activeSubcategory?: string;
   activeCollection?: ActiveCollection;
 }) {
+  // Read ?category= from the URL client-side so the server page doesn't need
+  // searchParams (which would force fully-dynamic rendering and break ISR).
+  const searchParams = useSearchParams();
+  const activeSubcategory = searchParams.get("category") ?? undefined;
+
   const displayedProducts = activeSubcategory
     ? products.filter((p) => p.subcategory === activeSubcategory)
     : products;

@@ -20,7 +20,7 @@ function safeThumbUrl(image: unknown): string | null {
   }
 }
 
-const siteUrl = "https://beautasy.vercel.app";
+const siteUrl = "https://beautasy.co.uk";
 
 export const revalidate = 30;
 

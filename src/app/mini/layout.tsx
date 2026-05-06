@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const siteUrl = "https://beautasy.vercel.app";
+const siteUrl = "https://beautasy.co.uk";
 
 export const metadata: Metadata = {
   title: "Mini Beautasy — Handmade Kids' Clothing",

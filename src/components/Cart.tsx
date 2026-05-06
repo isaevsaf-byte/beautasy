@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package } from "lucide-react";
 /* eslint-disable @next/next/no-img-element */
+import { usePathname } from "next/navigation";
 import { useCart } from "@/store/useCart";
 import { DEFAULT_FREE_THRESHOLD } from "@/lib/siteSettings";
 
@@ -23,15 +24,37 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
 
+  // ── Close cart on every navigation ────────────────────────────────────
+  // In Next.js App Router, concurrent rendering keeps the old page's DOM
+  // alive while the new page loads. If the cart is open, its drawer (and
+  // the free-shipping line) becomes a "ghost" on the incoming page.
+  // Listening to pathname changes and closing immediately prevents this.
+  const pathname = usePathname();
+  useEffect(() => {
+    setIsOpen(false);
+  }, [pathname]);
+
   // If no threshold prop was provided (client pages without HeaderWrapper),
   // fetch the live value from Sanity via the API route.
+  // Use sessionStorage to avoid a re-fetch on every navigation.
   useEffect(() => {
     if (propThreshold !== undefined) return; // already have it from SSR
+    try {
+      const cached = sessionStorage.getItem("beautasy-free-threshold");
+      if (cached !== null) {
+        const t = Number(cached);
+        if (!isNaN(t)) { setFreeShippingThreshold(t); return; }
+      }
+    } catch { /* sessionStorage unavailable */ }
+
     fetch("/api/site-settings")
       .then((r) => r.json())
       .then((data) => {
         const t = data?.shipping?.freeShippingThreshold;
-        if (typeof t === "number") setFreeShippingThreshold(t);
+        if (typeof t === "number") {
+          setFreeShippingThreshold(t);
+          try { sessionStorage.setItem("beautasy-free-threshold", String(t)); } catch { /* ok */ }
+        }
       })
       .catch(() => {/* keep the default */});
   }, [propThreshold]);

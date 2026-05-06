@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Heart, ArrowRight, CheckCircle } from "lucide-react";
 import Link from "next/link";
@@ -9,15 +10,31 @@ import Footer from "@/components/Footer";
 import { fadeUp, stagger } from "@/components/animations";
 import { useCart } from "@/store/useCart";
 
-export default function SuccessPage() {
+/* ── Cart clearer — isolated so useSearchParams gets a Suspense boundary ── */
+function CartClearer() {
   const clearCart = useCart((state) => state.clearCart);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    clearCart();
-  }, [clearCart]);
+    // Only clear the cart when Stripe sends us a real session_id.
+    // This prevents the cart being wiped if someone navigates to /success directly.
+    const sessionId = searchParams.get("session_id");
+    if (sessionId) {
+      clearCart();
+    }
+  }, [clearCart, searchParams]);
 
+  return null;
+}
+
+export default function SuccessPage() {
   return (
     <>
+      {/* Suspense boundary required for useSearchParams in App Router */}
+      <Suspense fallback={null}>
+        <CartClearer />
+      </Suspense>
+
       <Header />
       <main className="pt-24">
         <section className="min-h-[70vh] flex items-center justify-center py-16 md:py-24">

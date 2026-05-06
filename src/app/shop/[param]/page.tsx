@@ -13,7 +13,7 @@ function safeImageUrl(image: unknown): string | null {
   }
 }
 
-const siteUrl = "https://beautasy.vercel.app";
+const siteUrl = "https://beautasy.co.uk";
 
 export const revalidate = 30;
 
@@ -178,15 +178,16 @@ export async function generateStaticParams() {
 }
 
 /* ─── Page component ─── */
+// NOTE: we deliberately do NOT read searchParams here — doing so would force
+// Next.js to render every product and category URL dynamically on every request,
+// killing ISR. The ?category= subcategory filter is read client-side by ShopContent
+// via useSearchParams(), which is fine because filtering is already client-side.
 export default async function ShopParamPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ param: string }>;
-  searchParams: Promise<{ category?: string }>;
 }) {
   const { param } = await params;
-  const { category: subcategoryParam } = await searchParams;
   const key = param.toLowerCase();
 
   /* ── Category route ── */
@@ -255,7 +256,6 @@ export default async function ShopParamPage({
       <ShopContent
         products={products}
         activeCategory={key}
-        activeSubcategory={subcategoryParam}
       />
     );
   }
