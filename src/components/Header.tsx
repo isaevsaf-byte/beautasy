@@ -29,10 +29,9 @@ const shopMenu: MegaMenuData = {
     {
       heading: "Collections",
       links: [
+        { label: "All Collections", href: "/shop/collections" },
         { label: "New Arrivals", href: "/shop" },
-        { label: "Best Sellers", href: "/shop" },
-        { label: "Seasonal Edits", href: "/shop" },
-        { label: "Gift Finder", href: "/shop" },
+        { label: "Gift Boxes", href: "/gift-boxes" },
       ],
     },
     {
@@ -45,16 +44,14 @@ const shopMenu: MegaMenuData = {
       ],
     },
     {
-      heading: "Special",
+      heading: "More",
       links: [
+        { label: "Accessories", href: "/shop/accessories" },
+        { label: "Home", href: "/shop/home" },
         {
-          label: "Liberty of London Exclusive",
+          label: "Liberty of London",
           href: "/shop",
           highlight: true,
-        },
-        {
-          label: "Gift Boxes",
-          href: "/gift-boxes",
         },
       ],
     },
@@ -72,8 +69,8 @@ const miniMenu: MegaMenuData = {
     {
       heading: "Collections",
       links: [
+        { label: "All Collections", href: "/shop/collections" },
         { label: "New In", href: "/shop/kids" },
-        { label: "Best Sellers", href: "/shop/kids" },
       ],
     },
     {
@@ -113,6 +110,7 @@ const megaMenus: Record<string, MegaMenuData> = {
 const navLinks = [
   { label: "Shop", href: "/shop" },
   { label: "Mini", href: "/shop/kids" },
+  { label: "Collections", href: "/shop/collections" },
   { label: "Gifts", href: "/gift-boxes" },
   { label: "Atelier", href: "/atelier" },
   { label: "Contact", href: "/contact" },
