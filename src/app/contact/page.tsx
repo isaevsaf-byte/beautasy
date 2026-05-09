@@ -62,7 +62,7 @@ export default function ContactPage() {
               <motion.a
                 variants={fadeUp}
                 custom={0}
-                href="mailto:safkristi@gmail.com"
+                href="mailto:hello@beautasy.co.uk"
                 className="flex items-center gap-5 bg-white/70 backdrop-blur-sm border border-lavender-soft/30 rounded-2xl px-7 py-6 hover:shadow-xl hover:shadow-lavender/10 transition-all duration-500 group"
               >
                 <div className="w-12 h-12 rounded-xl bg-lavender/20 flex items-center justify-center flex-shrink-0">
@@ -71,7 +71,7 @@ export default function ContactPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-serif text-lg mb-0.5">Email Us</p>
                   <p className="text-sm text-charcoal-light">
-                    safkristi@gmail.com
+                    hello@beautasy.co.uk
                   </p>
                 </div>
                 <ArrowRight
