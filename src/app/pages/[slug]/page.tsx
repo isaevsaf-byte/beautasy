@@ -117,7 +117,7 @@ export default async function LegalPage({
 
         {/* Body content */}
         {page.body && (
-          <div className="prose prose-sm max-w-none text-charcoal-light leading-relaxed">
+          <div className="prose prose-stone max-w-none prose-headings:font-serif prose-headings:text-charcoal prose-h2:text-2xl prose-h3:text-xl prose-p:text-charcoal-light prose-p:leading-relaxed prose-strong:text-charcoal prose-a:text-lavender prose-a:no-underline hover:prose-a:underline prose-li:text-charcoal-light prose-li:leading-relaxed">
             <PortableText
               value={page.body}
               components={{
