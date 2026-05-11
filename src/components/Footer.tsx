@@ -35,8 +35,10 @@ const navLinks = [
 ];
 
 const legalLinks = [
-  { label: "Returns & Exchanges", href: "/pages/returns" },
-  { label: "Privacy Policy", href: "/pages/privacy" },
+  { label: "About Us", href: "/pages/about-us" },
+  { label: "Delivery & Returns", href: "/pages/delivery-and-returns" },
+  { label: "Privacy Policy", href: "/pages/privacy-policy" },
+  { label: "Contact", href: "/contact" },
 ];
 
 /* ── Simple SVG payment icons ── */
