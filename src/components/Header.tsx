@@ -27,79 +27,57 @@ type MegaMenuData = {
 const shopMenu: MegaMenuData = {
   columns: [
     {
-      heading: "Collections",
+      heading: "Collection",
       links: [
-        { label: "All Collections", href: "/shop/collections" },
-        { label: "New Arrivals", href: "/shop" },
+        { label: "All Collection", href: "/shop" },
+        { label: "New Arrivals", href: "/shop?sort=new" },
         { label: "Gift Boxes", href: "/gift-boxes" },
       ],
     },
     {
       heading: "Lingerie",
       links: [
-        { label: "Bralettes", href: "/shop/lingerie?category=bralettes" },
-        { label: "Panties", href: "/shop/lingerie?category=panties" },
+        { label: "Bras", href: "/shop/lingerie?category=bras" },
+        { label: "Knickers", href: "/shop/lingerie?category=knickers" },
+        { label: "Belts", href: "/shop/lingerie?category=belts" },
+        { label: "Garters", href: "/shop/lingerie?category=garters" },
+        { label: "Sleeping Masks", href: "/shop/lingerie?category=sleeping-masks" },
         { label: "Sets", href: "/shop/lingerie?category=sets" },
-        { label: "Sleepwear", href: "/shop/lingerie?category=sleepwear" },
       ],
     },
     {
-      heading: "More",
+      heading: "Accessories & Bags",
       links: [
-        { label: "Accessories", href: "/shop/accessories" },
-        { label: "Home", href: "/shop/home" },
-        {
-          label: "Liberty of London",
-          href: "/shop",
-          highlight: true,
-        },
+        { label: "Hair Accessories", href: "/shop/accessories?category=hair-accessories" },
+        { label: "Pouches", href: "/shop/accessories?category=pouches" },
+        { label: "Organisers", href: "/shop/accessories?category=organisers" },
+      ],
+    },
+    {
+      heading: "Home Decor",
+      links: [
+        { label: "Cushion Cover", href: "/shop/home?category=cushion-cover" },
+        { label: "Table Runner", href: "/shop/home?category=table-runner" },
+        { label: "Placemats", href: "/shop/home?category=placemats" },
+        { label: "Napkins", href: "/shop/home?category=napkins" },
       ],
     },
   ],
-  featured: {
-    label: "Gift Finder",
-    href: "/gift-boxes",
-    description: "Find the perfect handmade gift for someone special.",
-    icon: <Gift size={20} />,
-  },
 };
 
 const miniMenu: MegaMenuData = {
   columns: [
     {
-      heading: "Collections",
+      heading: "Mini Beautasy",
       links: [
-        { label: "All Collections", href: "/shop/collections" },
-        { label: "New In", href: "/shop/kids" },
-      ],
-    },
-    {
-      heading: "Categories",
-      links: [
-        { label: "Blanket", href: "/shop/kids?category=blanket" },
-        { label: "Muslin Cloths", href: "/shop/kids?category=muslin-cloths" },
-        { label: "Bibs", href: "/shop/kids?category=bibs" },
-        { label: "Pyjama", href: "/shop/kids?category=pyjama" },
-        { label: "Accessories", href: "/shop/kids?category=accessories" },
-      ],
-    },
-    {
-      heading: "Special",
-      links: [
-        {
-          label: "Liberty of London Exclusive",
-          href: "/shop/kids",
-          highlight: true,
-        },
+        { label: "Kids' Underwear", href: "/shop/kids?category=underwear" },
+        { label: "Pyjamas", href: "/shop/kids?category=pyjamas" },
+        { label: "Blankets", href: "/shop/kids?category=blankets" },
+        { label: "Muslin Cloths & Bibs", href: "/shop/kids?category=muslin-cloths" },
+        { label: "Kids' Accessories", href: "/shop/kids?category=accessories" },
       ],
     },
   ],
-  featured: {
-    label: "Gift Finder",
-    href: "/shop/kids",
-    description: "Discover charming gifts for little ones.",
-    icon: <Gift size={20} />,
-  },
 };
 
 const megaMenus: Record<string, MegaMenuData> = {
@@ -110,7 +88,6 @@ const megaMenus: Record<string, MegaMenuData> = {
 const navLinks = [
   { label: "Shop", href: "/shop" },
   { label: "Mini", href: "/shop/kids" },
-  { label: "Collections", href: "/shop/collections" },
   { label: "Gifts", href: "/gift-boxes" },
   { label: "Atelier", href: "/atelier" },
   { label: "Contact", href: "/contact" },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
@@ -33,7 +33,7 @@ const categories = [
     bgClass: "bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF]",
     description: "Delicate pieces crafted with love",
     href: "/shop/lingerie",
-    items: ["Bralettes", "Bodysuits", "Sleepwear", "Sets"],
+    items: ["Bras", "Knickers", "Belts", "Garters", "Sleeping Masks", "Sets"],
   },
   {
     slug: "kids",
@@ -43,7 +43,7 @@ const categories = [
     bgClass: "bg-gradient-to-br from-[#FFF5F8] via-[#FFF0F5] to-[#FFE8EF]",
     description: "Gentle comfort for little ones",
     href: "/shop/kids",
-    items: ["Dresses", "Rompers", "Accessories", "Pyjamas"],
+    items: ["Kids' Underwear", "Pyjamas", "Blankets", "Muslin Cloths & Bibs", "Kids' Accessories"],
   },
   {
     slug: "accessories",
@@ -52,7 +52,7 @@ const categories = [
     bgClass: "bg-gradient-to-br from-[#F5F0FF] via-[#EDE5FF] to-[#E5DBFF]",
     description: "Handmade finishing touches",
     href: "/shop/accessories",
-    items: ["Tote Bags", "Scrunchies", "Hair Accessories", "Pouches"],
+    items: ["Hair Accessories", "Pouches", "Organisers"],
   },
   {
     slug: "home",
@@ -61,7 +61,7 @@ const categories = [
     bgClass: "bg-gradient-to-br from-[#FDFBF7] via-[#F8F3ED] to-[#F3ECDF]",
     description: "Beauty for your space",
     href: "/shop/home",
-    items: ["Cushion Covers", "Table Runners", "Napkins", "Lavender Sachets"],
+    items: ["Cushion Cover", "Table Runner", "Placemats", "Napkins"],
   },
 ];
 
@@ -84,6 +84,60 @@ const subcategoryLabels: Record<string, string> = {
   bibs: "Bibs",
   pyjama: "Pyjama",
   accessories: "Accessories",
+  // New subcategory labels
+  bras: "Bras",
+  knickers: "Knickers",
+  belts: "Belts",
+  garters: "Garters",
+  "sleeping-masks": "Sleeping Masks",
+  "hair-accessories": "Hair Accessories",
+  pouches: "Pouches",
+  organisers: "Organisers",
+  "cushion-cover": "Cushion Cover",
+  "table-runner": "Table Runner",
+  placemats: "Placemats",
+  napkins: "Napkins",
+  underwear: "Kids' Underwear",
+  pyjamas: "Pyjamas",
+  blankets: "Blankets",
+  "muslin-cloths-bibs": "Muslin Cloths & Bibs",
+};
+
+// Category-specific tag chips
+const categoryTags: Record<string, { slug: string; label: string }[]> = {
+  lingerie: [
+    { slug: "bras", label: "Bras" },
+    { slug: "knickers", label: "Knickers" },
+    { slug: "belts", label: "Belts" },
+    { slug: "garters", label: "Garters" },
+    { slug: "sleeping-masks", label: "Sleeping Masks" },
+    { slug: "sets", label: "Sets" },
+  ],
+  mini: [
+    { slug: "underwear", label: "Kids' Underwear" },
+    { slug: "pyjamas", label: "Pyjamas" },
+    { slug: "blankets", label: "Blankets" },
+    { slug: "muslin-cloths", label: "Muslin Cloths & Bibs" },
+    { slug: "accessories", label: "Kids' Accessories" },
+  ],
+  kids: [
+    { slug: "underwear", label: "Kids' Underwear" },
+    { slug: "pyjamas", label: "Pyjamas" },
+    { slug: "blankets", label: "Blankets" },
+    { slug: "muslin-cloths", label: "Muslin Cloths & Bibs" },
+    { slug: "accessories", label: "Kids' Accessories" },
+  ],
+  accessories: [
+    { slug: "hair-accessories", label: "Hair Accessories" },
+    { slug: "pouches", label: "Pouches" },
+    { slug: "organisers", label: "Organisers" },
+  ],
+  home: [
+    { slug: "cushion-cover", label: "Cushion Cover" },
+    { slug: "table-runner", label: "Table Runner" },
+    { slug: "placemats", label: "Placemats" },
+    { slug: "napkins", label: "Napkins" },
+  ],
 };
 
 interface ActiveCollection {
@@ -105,11 +159,15 @@ export default function ShopContent({
   // Read ?category= from the URL client-side so the server page doesn't need
   // searchParams (which would force fully-dynamic rendering and break ISR).
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const activeSubcategory = searchParams.get("category") ?? undefined;
 
   const displayedProducts = activeSubcategory
     ? products.filter((p) => p.subcategory === activeSubcategory)
     : products;
+
+  // Tags to show for the active category page
+  const tags = activeCategory ? (categoryTags[activeCategory] ?? []) : [];
 
   const isCollection = !!activeCollection;
 
@@ -166,6 +224,39 @@ export default function ShopContent({
             </motion.div>
           </div>
         </section>
+
+        {/* Category filter chips — shown when on a category page that has tags */}
+        {activeCategory && tags.length > 0 && (
+          <section className="pb-8">
+            <div className="max-w-6xl mx-auto px-6">
+              <div className="flex flex-wrap gap-2 justify-center">
+                <Link
+                  href={pathname}
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                    !activeSubcategory
+                      ? "bg-lavender text-charcoal"
+                      : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                  }`}
+                >
+                  All
+                </Link>
+                {tags.map((tag) => (
+                  <Link
+                    key={tag.slug}
+                    href={`${pathname}?category=${tag.slug}`}
+                    className={`px-5 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                      activeSubcategory === tag.slug
+                        ? "bg-lavender text-charcoal"
+                        : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                    }`}
+                  >
+                    {tag.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Category Overview — only show when browsing ALL products (no active category or collection) */}
         {!activeCategory && !isCollection && (
