@@ -84,7 +84,7 @@ export default async function CollectionsPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {collections.map((col) => {
-                  const imgUrl = col.coverImage ?? null;
+                  const imgUrl = safeCoverUrl(col.coverImage);
                   return (
                     <Link
                       key={col.slug}

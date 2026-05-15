@@ -7,8 +7,6 @@ import { ArrowRight, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import AddToCartButton from "@/components/AddToCartButton";
 import WishlistButton from "@/components/WishlistButton";
 import { fadeUp, stagger } from "@/components/animations";
@@ -25,6 +23,11 @@ interface Product {
   collection?: { name: string; slug: string } | null;
 }
 
+interface CategoryItem {
+  label: string;
+  slug: string;
+}
+
 const categories = [
   {
     slug: "lingerie",
@@ -33,7 +36,14 @@ const categories = [
     bgClass: "bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF]",
     description: "Delicate pieces crafted with love",
     href: "/shop/lingerie",
-    items: ["Bras", "Knickers", "Belts", "Garters", "Sleeping Masks", "Sets"],
+    items: [
+      { label: "Bras", slug: "bras" },
+      { label: "Knickers", slug: "knickers" },
+      { label: "Belts", slug: "belts" },
+      { label: "Garters", slug: "garters" },
+      { label: "Sleeping Masks", slug: "sleeping-masks" },
+      { label: "Sets", slug: "sets" },
+    ] as CategoryItem[],
   },
   {
     slug: "kids",
@@ -43,7 +53,13 @@ const categories = [
     bgClass: "bg-gradient-to-br from-[#FFF5F8] via-[#FFF0F5] to-[#FFE8EF]",
     description: "Gentle comfort for little ones",
     href: "/shop/kids",
-    items: ["Kids' Underwear", "Pyjamas", "Blankets", "Muslin Cloths & Bibs", "Kids' Accessories"],
+    items: [
+      { label: "Kids' Underwear", slug: "underwear" },
+      { label: "Pyjamas", slug: "pyjamas" },
+      { label: "Blankets", slug: "blankets" },
+      { label: "Muslin Cloths & Bibs", slug: "muslin-cloths" },
+      { label: "Kids' Accessories", slug: "accessories" },
+    ] as CategoryItem[],
   },
   {
     slug: "accessories",
@@ -52,7 +68,11 @@ const categories = [
     bgClass: "bg-gradient-to-br from-[#F5F0FF] via-[#EDE5FF] to-[#E5DBFF]",
     description: "Handmade finishing touches",
     href: "/shop/accessories",
-    items: ["Hair Accessories", "Pouches", "Organisers"],
+    items: [
+      { label: "Hair Accessories", slug: "hair-accessories" },
+      { label: "Pouches", slug: "pouches" },
+      { label: "Organisers", slug: "organisers" },
+    ] as CategoryItem[],
   },
   {
     slug: "home",
@@ -61,7 +81,12 @@ const categories = [
     bgClass: "bg-gradient-to-br from-[#FDFBF7] via-[#F8F3ED] to-[#F3ECDF]",
     description: "Beauty for your space",
     href: "/shop/home",
-    items: ["Cushion Cover", "Table Runner", "Placemats", "Napkins"],
+    items: [
+      { label: "Cushion Cover", slug: "cushion-cover" },
+      { label: "Table Runner", slug: "table-runner" },
+      { label: "Placemats", slug: "placemats" },
+      { label: "Napkins", slug: "napkins" },
+    ] as CategoryItem[],
   },
 ];
 
@@ -80,7 +105,7 @@ const subcategoryLabels: Record<string, string> = {
   sets: "Sets",
   sleepwear: "Sleepwear",
   blanket: "Blanket",
-  "muslin-cloths": "Muslin Cloths",
+  "muslin-cloths": "Muslin Cloths & Bibs",
   bibs: "Bibs",
   pyjama: "Pyjama",
   accessories: "Accessories",
@@ -100,7 +125,6 @@ const subcategoryLabels: Record<string, string> = {
   underwear: "Kids' Underwear",
   pyjamas: "Pyjamas",
   blankets: "Blankets",
-  "muslin-cloths-bibs": "Muslin Cloths & Bibs",
 };
 
 // Category-specific tag chips
@@ -173,7 +197,6 @@ export default function ShopContent({
 
   return (
     <>
-      <Header />
       <main className="pt-28">
         {/* Page Hero */}
         <section className="py-16 md:py-24">
@@ -311,11 +334,11 @@ export default function ShopContent({
                       <div className="flex flex-wrap gap-2 mb-8">
                         {cat.items.map((item) => (
                           <Link
-                            key={item}
-                            href={`/shop/${cat.slug}?category=${item.toLowerCase().replace(/['']/g, "").replace(/\s+&\s+/g, "-").replace(/\s+/g, "-")}`}
+                            key={item.slug}
+                            href={`/shop/${cat.slug}?category=${item.slug}`}
                             className="px-4 py-2 bg-lavender-bg rounded-full text-sm text-charcoal-light hover:bg-lavender hover:text-charcoal transition-colors"
                           >
-                            {item}
+                            {item.label}
                           </Link>
                         ))}
                       </div>
@@ -414,7 +437,6 @@ export default function ShopContent({
           </div>
         </section>
       </main>
-      <Footer />
     </>
   );
 }

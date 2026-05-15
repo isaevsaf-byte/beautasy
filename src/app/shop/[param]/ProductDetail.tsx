@@ -16,8 +16,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PortableText } from "@portabletext/react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import AddToCartButton from "@/components/AddToCartButton";
 import dynamic from "next/dynamic";
 import WishlistButton from "@/components/WishlistButton";
@@ -250,7 +248,6 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
 
   return (
     <>
-      <Header />
       <main className="pt-28">
         {/* ── Breadcrumb ── */}
         <div className="max-w-6xl mx-auto px-6 py-6">
@@ -873,7 +870,6 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
         )}
       </AnimatePresence>
 
-      <Footer />
     </>
   );
 }

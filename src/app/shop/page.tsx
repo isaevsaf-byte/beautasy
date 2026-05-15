@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import ShopContent from "./ShopContent";
+import ShopLoading from "./loading";
+import HeaderWrapper from "@/components/HeaderWrapper";
+import FooterWrapper from "@/components/FooterWrapper";
 
 const siteUrl = "https://beautasy.co.uk";
 
@@ -51,6 +55,7 @@ const PRODUCTS_QUERY = `*[_type == "product"] | order(_createdAt desc) {
   images,
   price,
   category,
+  subcategory,
   stock,
   availableSizes,
   "collection": collection->{ name, "slug": slug.current }
@@ -159,6 +164,7 @@ export default async function ShopPage() {
           price: number;
           images?: { asset?: { _ref: string } }[];
           category: string;
+          subcategory?: string;
           availableSizes?: string[];
           collection?: { name: string; slug: string } | null;
         }) => {
@@ -179,6 +185,7 @@ export default async function ShopPage() {
                 ? resolvedImages
                 : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"],
             category: p.category,
+            subcategory: p.subcategory,
             availableSizes: p.availableSizes || [],
             collection: p.collection ?? null,
           };
@@ -191,5 +198,13 @@ export default async function ShopPage() {
     products = fallbackProducts;
   }
 
-  return <ShopContent products={products} />;
+  return (
+    <>
+      <HeaderWrapper />
+      <Suspense fallback={<ShopLoading />}>
+        <ShopContent products={products} />
+      </Suspense>
+      <FooterWrapper />
+    </>
+  );
 }

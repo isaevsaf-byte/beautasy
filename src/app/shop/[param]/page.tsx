@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import ShopContent from "../ShopContent";
 import ProductDetail from "./ProductDetail";
 import { notFound } from "next/navigation";
+import ShopLoading from "../loading";
+import HeaderWrapper from "@/components/HeaderWrapper";
+import FooterWrapper from "@/components/FooterWrapper";
 
 /* ─── Safe image URL builder (won't crash on incomplete data) ─── */
 function safeImageUrl(image: unknown): string | null {
@@ -255,10 +259,16 @@ export default async function ShopParamPage({
     }
 
     return (
-      <ShopContent
-        products={products}
-        activeCategory={key}
-      />
+      <>
+        <HeaderWrapper />
+        <Suspense fallback={<ShopLoading />}>
+          <ShopContent
+            products={products}
+            activeCategory={key}
+          />
+        </Suspense>
+        <FooterWrapper />
+      </>
     );
   }
 
@@ -303,6 +313,7 @@ export default async function ShopParamPage({
 
   return (
     <>
+      <HeaderWrapper />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -333,6 +344,7 @@ export default async function ShopParamPage({
           sizeGuide: product.sizeGuide || null,
         }}
       />
+      <FooterWrapper />
     </>
   );
 }
