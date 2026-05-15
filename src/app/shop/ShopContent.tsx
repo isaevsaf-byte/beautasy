@@ -310,12 +310,13 @@ export default function ShopContent({
 
                       <div className="flex flex-wrap gap-2 mb-8">
                         {cat.items.map((item) => (
-                          <span
+                          <Link
                             key={item}
-                            className="px-4 py-2 bg-lavender-bg rounded-full text-sm text-charcoal-light"
+                            href={`/shop/${cat.slug}?category=${item.toLowerCase().replace(/['']/g, "").replace(/\s+&\s+/g, "-").replace(/\s+/g, "-")}`}
+                            className="px-4 py-2 bg-lavender-bg rounded-full text-sm text-charcoal-light hover:bg-lavender hover:text-charcoal transition-colors"
                           >
                             {item}
-                          </span>
+                          </Link>
                         ))}
                       </div>
 
