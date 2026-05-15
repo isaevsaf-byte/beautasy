@@ -19,7 +19,7 @@ function safeImageUrl(image: unknown): string | null {
 
 const siteUrl = "https://beautasy.co.uk";
 
-export const revalidate = 30;
+export const revalidate = 60;
 
 /* ─── Category maps ─── */
 const categoryMap: Record<string, string> = {
@@ -256,6 +256,8 @@ export default async function ShopParamPage({
       }
     } catch (error) {
       console.error("Error fetching products:", error);
+      // products stays as [] — ShopContent will show the "Coming Soon" state
+      // rather than crashing. Next.js will retry on next revalidation.
     }
 
     return (

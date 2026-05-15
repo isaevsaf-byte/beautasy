@@ -366,8 +366,7 @@ export default function ShopContent({
           <div className="max-w-6xl mx-auto px-6">
             <motion.div
               initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-80px" }}
+              animate="visible"
               variants={stagger}
               className="text-center mb-16"
             >
@@ -390,8 +389,7 @@ export default function ShopContent({
             {displayedProducts.length > 0 ? (
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "-80px" }}
+                animate="visible"
                 variants={stagger}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
               >
