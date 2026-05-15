@@ -128,15 +128,28 @@ export const product = defineType({
       type: "string",
       options: {
         list: [
-          { title: "Bralettes (Lingerie)", value: "bralettes" },
-          { title: "Panties (Lingerie)", value: "panties" },
+          // Lingerie
+          { title: "Bras (Lingerie)", value: "bras" },
+          { title: "Knickers (Lingerie)", value: "knickers" },
+          { title: "Belts (Lingerie)", value: "belts" },
+          { title: "Garters (Lingerie)", value: "garters" },
+          { title: "Sleeping Masks (Lingerie)", value: "sleeping-masks" },
           { title: "Sets (Lingerie)", value: "sets" },
-          { title: "Sleepwear (Lingerie)", value: "sleepwear" },
-          { title: "Blanket (Kids)", value: "blanket" },
-          { title: "Muslin Cloths (Kids)", value: "muslin-cloths" },
-          { title: "Bibs (Kids)", value: "bibs" },
-          { title: "Pyjama (Kids)", value: "pyjama" },
-          { title: "Accessories (Kids)", value: "accessories" },
+          // Mini / Kids
+          { title: "Kids' Underwear (Mini)", value: "underwear" },
+          { title: "Pyjamas (Mini)", value: "pyjamas" },
+          { title: "Blankets (Mini)", value: "blankets" },
+          { title: "Muslin Cloths & Bibs (Mini)", value: "muslin-cloths" },
+          { title: "Kids' Accessories (Mini)", value: "accessories" },
+          // Accessories & Bags
+          { title: "Hair Accessories", value: "hair-accessories" },
+          { title: "Pouches", value: "pouches" },
+          { title: "Organisers", value: "organisers" },
+          // Home Decor
+          { title: "Cushion Cover (Home)", value: "cushion-cover" },
+          { title: "Table Runner (Home)", value: "table-runner" },
+          { title: "Placemats (Home)", value: "placemats" },
+          { title: "Napkins (Home)", value: "napkins" },
         ],
         layout: "radio",
       },
