@@ -64,6 +64,43 @@ export const product = defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
+      name: "gender",
+      title: "Gender",
+      type: "string",
+      description: "Required by Google Shopping for apparel products.",
+      options: {
+        list: [
+          { title: "Female", value: "female" },
+          { title: "Male", value: "male" },
+          { title: "Unisex", value: "unisex" },
+        ],
+        layout: "radio",
+      },
+    }),
+    defineField({
+      name: "ageGroup",
+      title: "Age Group",
+      type: "string",
+      description: "Required by Google Shopping for apparel products.",
+      options: {
+        list: [
+          { title: "Adult (13+)", value: "adult" },
+          { title: "Kids (5–13 years)", value: "kids" },
+          { title: "Toddler (1–5 years)", value: "toddler" },
+          { title: "Infant (3–12 months)", value: "infant" },
+          { title: "Newborn (0–3 months)", value: "newborn" },
+        ],
+        layout: "radio",
+      },
+    }),
+    defineField({
+      name: "color",
+      title: "Primary Colour",
+      type: "string",
+      description: "Main colour for Google Shopping (e.g. Black, Cream, Sage). Required for apparel.",
+      placeholder: "Cream",
+    }),
+    defineField({
       name: "productBadges",
       title: "Product Badges",
       type: "array",
