@@ -5,7 +5,11 @@ import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy init — avoids build-time crash when env var isn't set yet
+function getResend() {
+  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
@@ -217,7 +221,7 @@ export async function POST(req: NextRequest) {
     // Send customer confirmation
     if (customerEmail) {
       try {
-        await resend.emails.send({
+        await getResend().emails.send({
           from: FROM_EMAIL,
           to: customerEmail,
           subject: "Your Beautasy order is confirmed 💜",
@@ -231,7 +235,7 @@ export async function POST(req: NextRequest) {
 
     // Send Kristina notification
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from: FROM_EMAIL,
         to: KRISTINA_EMAIL,
         subject: `New order — ${session.shipping_details?.name ?? customerEmail} · £${((session.amount_total ?? 0) / 100).toFixed(2)}`,
