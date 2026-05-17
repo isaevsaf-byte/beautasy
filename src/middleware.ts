@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const isProtectedRoute = createRouteMatcher(["/api/reviews(.*)"]);
+const isPublicApiRoute = createRouteMatcher(["/api/webhook(.*)"]);
 
 const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -12,6 +13,8 @@ function noopMiddleware(req: NextRequest) {
 
 const middleware = clerkEnabled
   ? clerkMiddleware(async (auth, req) => {
+      // Stripe webhook must bypass auth entirely
+      if (isPublicApiRoute(req)) return NextResponse.next();
       if (isProtectedRoute(req) && req.method === "POST") {
         await auth.protect();
       }
