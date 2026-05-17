@@ -224,6 +224,7 @@ export async function POST(req: NextRequest) {
         await getResend().emails.send({
           from: FROM_EMAIL,
           to: customerEmail,
+          replyTo: KRISTINA_EMAIL,
           subject: "Your Beautasy order is confirmed 💜",
           html: customerEmailHtml(session, items),
         });
