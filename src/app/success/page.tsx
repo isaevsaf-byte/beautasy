@@ -21,6 +21,13 @@ function CartClearer() {
     const sessionId = searchParams.get("session_id");
     if (sessionId) {
       clearCart();
+      // Fire Google Ads purchase conversion
+      if (typeof window !== "undefined" && typeof (window as any).gtag === "function") {
+        (window as any).gtag("event", "conversion", {
+          send_to: "AW-18152477897/AdUTCNCJjKscEMmp489D",
+          transaction_id: sessionId,
+        });
+      }
     }
   }, [clearCart, searchParams]);
 
