@@ -110,7 +110,7 @@ export async function GET() {
   <channel>
     <title>Beautasy Product Feed</title>
     <link>${SITE_URL}</link>
-    <description>Handmade lingerie, kids' clothing & accessories</description>
+    <description>Handmade lingerie, kids&apos; clothing &amp; accessories</description>
 ${items}
   </channel>
 </rss>`;
