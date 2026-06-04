@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const isProtectedRoute = createRouteMatcher(["/api/reviews(.*)"]);
-const isPublicApiRoute = createRouteMatcher(["/api/webhook(.*)"]);
+const isPublicApiRoute = createRouteMatcher(["/api/webhook(.*)", "/api/meta-feed(.*)"]);
 
 const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
