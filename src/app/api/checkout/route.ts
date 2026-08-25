@@ -190,8 +190,8 @@ export async function POST(req: NextRequest) {
             type: "fixed_amount",
             fixed_amount: { amount: ukRate, currency: "gbp" },
             display_name: qualifiesForFreeUkDelivery
-              ? "Free UK Delivery"
-              : "UK Delivery",
+              ? "Free UK Delivery (UK addresses only)"
+              : "UK Delivery (UK addresses only)",
             delivery_estimate: {
               minimum: { unit: "business_day", value: 3 },
               maximum: { unit: "business_day", value: 5 },
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
           shipping_rate_data: {
             type: "fixed_amount",
             fixed_amount: { amount: intRate, currency: "gbp" },
-            display_name: "International Delivery",
+            display_name: "International Delivery (outside the UK)",
             delivery_estimate: {
               minimum: { unit: "business_day", value: 7 },
               maximum: { unit: "business_day", value: 14 },

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Heart, ArrowRight, CheckCircle } from "lucide-react";
@@ -9,39 +9,111 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { fadeUp, stagger } from "@/components/animations";
 import { useCart } from "@/store/useCart";
+import { trackPurchase } from "@/lib/analytics";
 
-/* ── Cart clearer — isolated so useSearchParams gets a Suspense boundary ── */
-function CartClearer() {
+const ADS_PURCHASE_CONVERSION = "AW-18152477897/AdUTCNCJjKscEMmp489D";
+
+interface OrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  amountTotal: number;
+}
+
+interface OrderSummary {
+  paid: boolean;
+  reference?: string;
+  total?: number;
+  shippingTotal?: number;
+  items?: OrderItem[];
+}
+
+/* ── Order summary: clears the bag, reports the purchase, and shows the
+      customer what they actually bought (the page used to show nothing). ── */
+function OrderDetails() {
   const clearCart = useCart((state) => state.clearCart);
   const searchParams = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  const [order, setOrder] = useState<OrderSummary | null>(null);
 
   useEffect(() => {
-    // Only clear the cart when Stripe sends us a real session_id.
-    // This prevents the cart being wiped if someone navigates to /success directly.
-    const sessionId = searchParams.get("session_id");
-    if (sessionId) {
-      clearCart();
-      // Fire Google Ads purchase conversion
-      if (typeof window !== "undefined" && typeof (window as any).gtag === "function") {
-        (window as any).gtag("event", "conversion", {
-          send_to: "AW-18152477897/AdUTCNCJjKscEMmp489D",
-          transaction_id: sessionId,
-        });
-      }
-    }
-  }, [clearCart, searchParams]);
+    // Only act on a real Stripe session, so landing on /success directly
+    // neither wipes a bag nor reports a purchase.
+    if (!sessionId) return;
 
-  return null;
+    clearCart();
+
+    let cancelled = false;
+    fetch(`/api/checkout-session?session_id=${encodeURIComponent(sessionId)}`)
+      .then((r) => r.json())
+      .then((data: OrderSummary) => {
+        if (cancelled || !data?.paid) return;
+        setOrder(data);
+        trackPurchase({
+          transactionId: sessionId,
+          valuePence: data.total ?? 0,
+          items: (data.items ?? []).map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: item.quantity > 0 ? item.amountTotal / item.quantity : item.amountTotal,
+            quantity: item.quantity,
+          })),
+          adsConversionLabel: ADS_PURCHASE_CONVERSION,
+        });
+      })
+      .catch(() => {/* the confirmation email still has the details */});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clearCart, sessionId]);
+
+  if (!order?.paid || !order.items?.length) return null;
+
+  return (
+    <motion.div
+      variants={fadeUp}
+      custom={4}
+      className="bg-white/70 border border-lavender-soft/40 rounded-2xl p-6 mb-8 text-left"
+    >
+      <div className="flex items-baseline justify-between mb-4">
+        <h3 className="text-xs tracking-[0.2em] uppercase text-charcoal-light">Your order</h3>
+        {order.reference && (
+          <span className="text-xs font-mono text-charcoal-light">#{order.reference}</span>
+        )}
+      </div>
+      <ul className="space-y-2 mb-4">
+        {order.items.map((item, i) => (
+          <li key={`${item.id}-${i}`} className="flex justify-between gap-4 text-sm">
+            <span className="text-charcoal-light">
+              {item.name} × {item.quantity}
+            </span>
+            <span className="tabular-nums">£{(item.amountTotal / 100).toFixed(2)}</span>
+          </li>
+        ))}
+      </ul>
+      {typeof order.shippingTotal === "number" && (
+        <div className="flex justify-between gap-4 text-sm pt-3 border-t border-lavender-soft/40">
+          <span className="text-charcoal-light">Delivery</span>
+          <span className="tabular-nums">
+            {order.shippingTotal === 0 ? "Free" : `£${(order.shippingTotal / 100).toFixed(2)}`}
+          </span>
+        </div>
+      )}
+      <div className="flex justify-between gap-4 pt-2 font-medium">
+        <span>Total</span>
+        <span className="tabular-nums">£{((order.total ?? 0) / 100).toFixed(2)}</span>
+      </div>
+      <p className="text-xs text-charcoal-light mt-4 leading-relaxed">
+        Handmade to order — please allow 3–5 business days in the atelier before dispatch.
+      </p>
+    </motion.div>
+  );
 }
 
 export default function SuccessPage() {
   return (
     <>
-      {/* Suspense boundary required for useSearchParams in App Router */}
-      <Suspense fallback={null}>
-        <CartClearer />
-      </Suspense>
-
       <Header />
       <main className="pt-28">
         <section className="min-h-[70vh] flex items-center justify-center py-16 md:py-24">
@@ -90,6 +162,11 @@ export default function SuccessPage() {
               >
                 Made with <Heart size={14} className="text-lavender fill-lavender" /> just for you
               </motion.p>
+
+              {/* What they just bought */}
+              <Suspense fallback={null}>
+                <OrderDetails />
+              </Suspense>
 
               {/* Confirmation note */}
               <motion.div

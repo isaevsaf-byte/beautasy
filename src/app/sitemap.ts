@@ -1,7 +1,8 @@
 import { MetadataRoute } from "next";
 import { sanityClient } from "@/lib/sanity";
+import { SITE_URL } from "@/lib/site";
 
-const base = "https://beautasy.co.uk";
+const base = SITE_URL;
 
 export const revalidate = 3600; // regenerate every hour
 

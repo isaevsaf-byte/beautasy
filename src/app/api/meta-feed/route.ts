@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { sanityClient, urlFor } from "@/lib/sanity";
+import { SITE_URL } from "@/lib/site";
 
 // Always fetch fresh; Meta pulls this on its own schedule.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-const SITE_URL = "https://www.beautasy.co.uk";
 
 /* ─── GROQ: all products with a slug ─── */
 const QUERY = `*[_type == "product" && defined(slug.current)] | order(_createdAt desc){

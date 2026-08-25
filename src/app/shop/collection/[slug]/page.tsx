@@ -73,10 +73,13 @@ export async function generateMetadata({
 /* ─── Page ─── */
 export default async function CollectionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ category?: string; sort?: string; size?: string; ready?: string }>;
 }) {
   const { slug } = await params;
+  const filters = await searchParams;
 
   const [collection, sanityProducts] = await Promise.all([
     sanityClient.fetch(COLLECTION_QUERY, { slug }).catch(() => null),
@@ -93,6 +96,7 @@ export default async function CollectionPage({
     images?: { asset?: { _ref: string } }[];
     category: string;
     subcategory?: string;
+    stock?: number;
     availableSizes?: string[];
     collection?: { name: string; slug: string } | null;
   }[]).map((p) => {
@@ -114,6 +118,7 @@ export default async function CollectionPage({
           : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"],
       category: p.category,
       subcategory: p.subcategory,
+      stock: p.stock ?? 0,
       availableSizes: p.availableSizes || [],
       collection: p.collection ?? null,
     };
@@ -126,6 +131,8 @@ export default async function CollectionPage({
         <ShopContent
           products={products}
           activeCollection={collection}
+          basePath={`/shop/collection/${slug}`}
+          filters={filters}
         />
       </Suspense>
       <FooterWrapper />

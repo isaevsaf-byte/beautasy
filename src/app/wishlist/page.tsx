@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useIsClient } from "@/lib/useIsClient";
 import { motion } from "framer-motion";
 import { Heart, ArrowRight, ShoppingBag, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -15,9 +16,7 @@ import { fadeUp, stagger } from "@/components/animations";
 export default function WishlistPage() {
   const { items, removeItem, clearWishlist } = useWishlist();
   const addToCart = useCart((s) => s.addItem);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useIsClient();
 
   const wishlistItems = hydrated ? items : [];
 

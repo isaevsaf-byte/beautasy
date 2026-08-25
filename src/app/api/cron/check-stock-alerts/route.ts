@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
+import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
             <p style="color:#3d3d3d;line-height:1.7;">
               <strong>${escapeHtml(alert.product.name)}</strong>${alert.size ? ` in size <strong>${escapeHtml(alert.size)}</strong>` : ""} is back in stock. Handmade pieces sell out fast, so grab it before it's gone again.
             </p>
-            <a href="https://beautasy.co.uk/shop/${alert.product.slug}" style="display:inline-block;margin-top:16px;padding:12px 28px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">Shop Now</a>
+            <a href="${SITE_URL}/shop/${alert.product.slug}" style="display:inline-block;margin-top:16px;padding:12px 28px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">Shop Now</a>
           </div>`,
       });
       await sanityWriteClient.patch(alert._id).set({ notified: true }).commit();

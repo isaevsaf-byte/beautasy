@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import GiftBoxDetail from "./GiftBoxDetail";
 import { notFound } from "next/navigation";
+import { SITE_URL } from "@/lib/site";
 
 /* ─── Safe image URL builder ─── */
 function safeImageUrl(image: unknown): string | null {
@@ -20,7 +21,7 @@ function safeThumbUrl(image: unknown): string | null {
   }
 }
 
-const siteUrl = "https://beautasy.co.uk";
+const siteUrl = SITE_URL;
 
 export const revalidate = 30;
 

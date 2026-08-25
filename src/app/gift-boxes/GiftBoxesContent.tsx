@@ -49,13 +49,13 @@ export default function GiftBoxesContent({
                   Curated Sets
                 </p>
               </motion.div>
-              <motion.h2
+              <motion.h1
                 variants={fadeUp}
                 custom={1}
                 className="font-serif text-4xl sm:text-5xl mb-6"
               >
                 Gift Boxes
-              </motion.h2>
+              </motion.h1>
               <motion.p
                 variants={fadeUp}
                 custom={2}

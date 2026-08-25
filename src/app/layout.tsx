@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Playfair_Display, Inter } from "next/font/google";
 import Script from "next/script";
+import CookieConsent from "@/components/CookieConsent";
 import "./globals.css";
+import { SITE_URL } from "@/lib/site";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -25,12 +27,12 @@ export const metadata: Metadata = {
   },
   description:
     "Handmade lingerie, kids' clothing, and accessories tailored with love in Southampton, UK. Made to feel, not just wear.",
-  metadataBase: new URL("https://beautasy.co.uk"),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     title: "BEAUTASY — Handmade Lingerie & Accessories | Southampton",
     description:
       "Handmade lingerie, kids' clothing, and accessories tailored with love in Southampton, UK. Made to feel, not just wear.",
-    url: "https://www.beautasy.co.uk",
+    url: SITE_URL,
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
@@ -79,6 +81,34 @@ export default function RootLayout({
           src="https://www.googletagmanager.com/gtag/js?id=G-XSEN40QLSR"
           strategy="afterInteractive"
         />
+        {/* Consent Mode v2: analytics and ads start denied and only measure once
+            the visitor accepts in the cookie banner. Required for UK/EEA. */}
+        <Script id="google-consent-default" strategy="beforeInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('consent', 'default', {
+              ad_storage: 'denied',
+              ad_user_data: 'denied',
+              ad_personalization: 'denied',
+              analytics_storage: 'denied',
+              functionality_storage: 'granted',
+              security_storage: 'granted',
+              wait_for_update: 500
+            });
+            try {
+              var stored = localStorage.getItem('beautasy-cookie-consent');
+              if (stored === 'granted' || stored === 'denied') {
+                gtag('consent', 'update', {
+                  ad_storage: stored,
+                  ad_user_data: stored,
+                  ad_personalization: stored,
+                  analytics_storage: stored
+                });
+              }
+            } catch (e) {}
+          `}
+        </Script>
         <Script id="google-analytics" strategy="afterInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
@@ -93,6 +123,7 @@ export default function RootLayout({
         className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7] text-[#4A4A4A]`}
       >
         {content}
+        <CookieConsent />
       </body>
     </html>
   );

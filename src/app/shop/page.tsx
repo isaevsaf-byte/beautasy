@@ -5,8 +5,9 @@ import ShopContent from "./ShopContent";
 import ShopLoading from "./loading";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
+import { SITE_URL } from "@/lib/site";
 
-const siteUrl = "https://beautasy.co.uk";
+const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   title: "Beautasy Shop — Handmade Lingerie & Accessories",
@@ -148,7 +149,12 @@ const fallbackProducts = [
 
 export const revalidate = 60; // revalidate every 60 seconds
 
-export default async function ShopPage() {
+export default async function ShopPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string; sort?: string; size?: string; ready?: string }>;
+}) {
+  const filters = await searchParams;
   let products: typeof fallbackProducts = [];
 
   try {
@@ -165,6 +171,7 @@ export default async function ShopPage() {
           images?: { asset?: { _ref: string } }[];
           category: string;
           subcategory?: string;
+          stock?: number;
           availableSizes?: string[];
           collection?: { name: string; slug: string } | null;
         }) => {
@@ -186,6 +193,7 @@ export default async function ShopPage() {
                 : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"],
             category: p.category,
             subcategory: p.subcategory,
+            stock: p.stock ?? 0,
             availableSizes: p.availableSizes || [],
             collection: p.collection ?? null,
           };
@@ -202,7 +210,7 @@ export default async function ShopPage() {
     <>
       <HeaderWrapper />
       <Suspense fallback={<ShopLoading />}>
-        <ShopContent products={products} />
+        <ShopContent products={products} basePath="/shop" filters={filters} />
       </Suspense>
       <FooterWrapper />
     </>

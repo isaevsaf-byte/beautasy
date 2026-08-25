@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/site";
 
-const siteUrl = "https://beautasy.co.uk";
+const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   title: "Contact Beautasy — Get in Touch",

@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import ShopLoading from "../loading";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
+import { SITE_URL } from "@/lib/site";
 
 /* ─── Safe image URL builder (won't crash on incomplete data) ─── */
 function safeImageUrl(image: unknown): string | null {
@@ -17,7 +18,7 @@ function safeImageUrl(image: unknown): string | null {
   }
 }
 
-const siteUrl = "https://beautasy.co.uk";
+const siteUrl = SITE_URL;
 
 export const revalidate = 60;
 
@@ -101,6 +102,13 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
   "collection": collection->{ name, "slug": slug.current, season },
   "sizeGuide": sizeGuide->{ name, notes, rows[]{ size, uk, eu, bust, waist, hips } },
   "giftCardPlaceholder": *[_type == "siteSettings"][0].giftCardPlaceholder
+}`;
+
+/* Approved reviews — fetched server-side so the text is in the HTML (and so we
+   can publish an aggregateRating, which is what puts stars in Google results) */
+const REVIEWS_QUERY = `*[_type == "review" && product._ref == $id && approved == true] | order(createdAt desc) {
+  _id, userName, rating, comment, createdAt,
+  "images": images[].asset->url
 }`;
 
 /* Related products: same collection first, then same category to fill remaining slots */
@@ -195,16 +203,19 @@ export async function generateStaticParams() {
 }
 
 /* ─── Page component ─── */
-// NOTE: we deliberately do NOT read searchParams here — doing so would force
-// Next.js to render every product and category URL dynamically on every request,
-// killing ISR. The ?category= subcategory filter is read client-side by ShopContent
-// via useSearchParams(), which is fine because filtering is already client-side.
+// Filters are read here on the server. They used to be read client-side to keep
+// these pages static, but that made Next prerender the Suspense skeleton instead
+// of the product grid — the catalogue was invisible to search engines. Category
+// pages are worth far more indexed than statically cached.
 export default async function ShopParamPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ param: string }>;
+  searchParams: Promise<{ category?: string; sort?: string; size?: string; ready?: string }>;
 }) {
   const { param } = await params;
+  const filters = await searchParams;
   const key = param.toLowerCase();
 
   /* ── Category route ── */
@@ -218,6 +229,7 @@ export default async function ShopParamPage({
       images: string[];
       category: string;
       subcategory?: string;
+      stock?: number;
       availableSizes: string[];
     }[] = [];
 
@@ -236,6 +248,7 @@ export default async function ShopParamPage({
             images?: { asset?: { _ref: string } }[];
             category: string;
             subcategory?: string;
+            stock?: number;
             availableSizes?: string[];
             collection?: { name: string; slug: string } | null;
           }) => {
@@ -259,6 +272,7 @@ export default async function ShopParamPage({
                     ],
               category: p.category,
               subcategory: p.subcategory,
+              stock: p.stock ?? 0,
               availableSizes: p.availableSizes || [],
               collection: p.collection ?? null,
             };
@@ -278,6 +292,8 @@ export default async function ShopParamPage({
           <ShopContent
             products={products}
             activeCategory={key}
+            basePath={`/shop/${key}`}
+            filters={filters}
           />
         </Suspense>
         <FooterWrapper />
@@ -348,6 +364,25 @@ export default async function ShopParamPage({
     console.error("Error fetching related products:", error);
   }
 
+  /* ── Approved reviews ── */
+  let reviews: {
+    _id: string;
+    userName: string;
+    rating: number;
+    comment: string;
+    createdAt: string;
+    images?: string[];
+  }[] = [];
+  try {
+    reviews = await sanityClient.fetch(REVIEWS_QUERY, { id: product._id });
+  } catch (error) {
+    console.error("Error fetching reviews:", error);
+  }
+  const averageRating =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : 0;
+
   /* ── JSON-LD Product structured data (Google rich snippets) ── */
   const jsonLd = {
     "@context": "https://schema.org",
@@ -356,17 +391,68 @@ export default async function ShopParamPage({
     description: `Handmade ${product.category?.toLowerCase() || "product"} from Beautasy, crafted in Southampton, UK.`,
     image: resolvedImages,
     brand: { "@type": "Brand", name: "Beautasy" },
+    sku: product._id,
+    ...(product.availableColors?.[0]?.name ? { color: product.availableColors[0].name } : {}),
     offers: {
       "@type": "Offer",
       price: (product.price / 100).toFixed(2),
       priceCurrency: "GBP",
-      availability:
-        (product.stock ?? 0) > 0
-          ? "https://schema.org/InStock"
-          : "https://schema.org/OutOfStock",
+      // Made-to-order: nothing is ever truly out of stock, it just takes longer
+      availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
       url: `${siteUrl}/shop/${product.slug}`,
       seller: { "@type": "Organization", name: "Beautasy" },
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingRate: {
+          "@type": "MonetaryAmount",
+          value: "3.50",
+          currency: "GBP",
+        },
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "GB",
+        },
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: {
+            "@type": "QuantitativeValue",
+            minValue: 3,
+            maxValue: 5,
+            unitCode: "DAY",
+          },
+          transitTime: {
+            "@type": "QuantitativeValue",
+            minValue: 3,
+            maxValue: 5,
+            unitCode: "DAY",
+          },
+        },
+      },
     },
+    ...(reviews.length > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: averageRating.toFixed(1),
+            reviewCount: reviews.length,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          review: reviews.slice(0, 10).map((r) => ({
+            "@type": "Review",
+            author: { "@type": "Person", name: r.userName },
+            datePublished: r.createdAt,
+            reviewBody: r.comment,
+            reviewRating: {
+              "@type": "Rating",
+              ratingValue: r.rating,
+              bestRating: 5,
+              worstRating: 1,
+            },
+          })),
+        }
+      : {}),
     url: `${siteUrl}/shop/${product.slug}`,
   };
 
@@ -404,6 +490,8 @@ export default async function ShopParamPage({
           sizeGuide: product.sizeGuide || null,
         }}
         relatedProducts={relatedProducts}
+        reviews={reviews}
+        averageRating={averageRating}
       />
       <FooterWrapper />
     </>

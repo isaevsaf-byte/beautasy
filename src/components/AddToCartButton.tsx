@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, Check } from "lucide-react";
 import { useCart } from "@/store/useCart";
+import { trackAddToCart } from "@/lib/analytics";
 
 interface AddToCartButtonProps {
   id: string;
@@ -25,6 +26,7 @@ export default function AddToCartButton({
 
   function handleAdd() {
     addItem({ id, name, price, image, size });
+    trackAddToCart([{ id, name, price, quantity: 1, variant: size }]);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   }

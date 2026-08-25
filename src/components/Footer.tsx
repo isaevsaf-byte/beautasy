@@ -110,11 +110,20 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
   // sessionStorage caching means subsequent navigations are instant (no ghost/flash).
   useEffect(() => {
     if (propSettings !== undefined) return; // already have server-side settings
-    try {
-      const cached = sessionStorage.getItem("beautasy-site-settings");
-      if (cached) { setFetchedSettings(JSON.parse(cached)); return; }
-    } catch { /* sessionStorage unavailable */ }
+    let cancelled = false;
 
+    // Read the cache off the synchronous path: setting state directly in an
+    // effect body cascades an extra render (and React 19 lints against it).
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        const cached = sessionStorage.getItem("beautasy-site-settings");
+        if (cached) { setFetchedSettings(JSON.parse(cached)); return; }
+      } catch { /* sessionStorage unavailable */ }
+      loadSettings();
+    });
+
+    function loadSettings() {
     fetch("/api/site-settings")
       .then((r) => r.json())
       .then((data) => {
@@ -123,6 +132,9 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
         try { sessionStorage.setItem("beautasy-site-settings", JSON.stringify(s)); } catch { /* ok */ }
       })
       .catch(() => {/* keep defaults */});
+    }
+
+    return () => { cancelled = true; };
   }, [propSettings]);
 
   const settings = propSettings ?? fetchedSettings ?? {};
