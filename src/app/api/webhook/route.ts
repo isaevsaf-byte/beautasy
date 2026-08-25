@@ -3,6 +3,8 @@ import { getStripeInstance } from "@/lib/stripe";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
+import { escapeHtml } from "@/lib/escapeHtml";
+import { collectOrdered, planStockPatch, type OrderedLine, type StockDoc } from "@/lib/stock";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +44,7 @@ function formatAddress(shipping: ShippingDetails | null | undefined): string {
     a.country,
   ]
     .filter(Boolean)
+    .map(escapeHtml)
     .join("\n");
 }
 
@@ -51,7 +54,7 @@ function formatItems(items: Stripe.LineItem[]): string {
     .map((item) => {
       const qty = item.quantity ?? 1;
       const price = item.amount_total ? `£${(item.amount_total / 100).toFixed(2)}` : "";
-      return `• ${item.description ?? item.price?.product} × ${qty}  ${price}`;
+      return `• ${escapeHtml(item.description ?? item.price?.product)} × ${qty}  ${price}`;
     })
     .join("\n");
 }
@@ -62,7 +65,7 @@ function customerEmailHtml(session: any, items: Stripe.LineItem[]): string {
   const address = formatAddress(session.shipping_details);
   const total = `£${((session.amount_total ?? 0) / 100).toFixed(2)}`;
   const name = session.shipping_details?.name ?? session.customer_details?.name ?? "there";
-  const firstName = name.split(" ")[0];
+  const firstName = escapeHtml(name.split(" ")[0]);
 
   const itemRows = items
     .map((item) => {
@@ -70,7 +73,7 @@ function customerEmailHtml(session: any, items: Stripe.LineItem[]): string {
       const price = item.amount_total ? `£${(item.amount_total / 100).toFixed(2)}` : "";
       return `
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #f0eaf8;color:#3d3d3d;">${item.description ?? "Item"}</td>
+          <td style="padding:10px 0;border-bottom:1px solid #f0eaf8;color:#3d3d3d;">${escapeHtml(item.description ?? "Item")}</td>
           <td style="padding:10px 0;border-bottom:1px solid #f0eaf8;text-align:center;color:#3d3d3d;">${qty}</td>
           <td style="padding:10px 0;border-bottom:1px solid #f0eaf8;text-align:right;color:#3d3d3d;">${price}</td>
         </tr>`;
@@ -144,8 +147,8 @@ function customerEmailHtml(session: any, items: Stripe.LineItem[]): string {
 function adminEmailHtml(session: any, items: Stripe.LineItem[]): string {
   const address = formatAddress(session.shipping_details);
   const total = `£${((session.amount_total ?? 0) / 100).toFixed(2)}`;
-  const customer = session.customer_details?.email ?? "Unknown";
-  const phone = session.customer_details?.phone ?? "Not provided";
+  const customer = escapeHtml(session.customer_details?.email ?? "Unknown");
+  const phone = escapeHtml(session.customer_details?.phone ?? "Not provided");
   const itemList = formatItems(items);
 
   return `
@@ -163,7 +166,7 @@ function adminEmailHtml(session: any, items: Stripe.LineItem[]): string {
     <div style="padding:36px 40px;">
 
       <h2 style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#7a6d9a;margin:0 0 12px;">Customer</h2>
-      <p style="margin:0 0 4px;color:#3d3d3d;">${session.shipping_details?.name ?? "Unknown"}</p>
+      <p style="margin:0 0 4px;color:#3d3d3d;">${escapeHtml(session.shipping_details?.name ?? "Unknown")}</p>
       <p style="margin:0 0 4px;color:#3d3d3d;">${customer}</p>
       <p style="margin:0 0 24px;color:#3d3d3d;">${phone}</p>
 
@@ -183,6 +186,55 @@ function adminEmailHtml(session: any, items: Stripe.LineItem[]): string {
   </div>
 </body>
 </html>`;
+}
+
+/* ─── Ready-made stock ─── */
+
+/**
+ * Decrements the ready-made stock counters for everything in a paid order.
+ * The arithmetic lives in @/lib/stock so it can be exercised on its own.
+ */
+async function decrementStock(items: Stripe.LineItem[]): Promise<void> {
+  const lines: OrderedLine[] = [];
+
+  for (const item of items) {
+    const product = item.price?.product;
+    if (!product || typeof product !== "object" || "deleted" in product) continue;
+
+    const metadata = (product as Stripe.Product).metadata ?? {};
+    if (!metadata.product_id) continue;
+
+    lines.push({
+      productId: metadata.product_id,
+      size: metadata.size || undefined,
+      quantity: item.quantity ?? 1,
+    });
+  }
+
+  const wanted = collectOrdered(lines);
+  if (wanted.size === 0) return;
+
+  const docs = await sanityWriteClient.fetch<StockDoc[]>(
+    `*[_id in $ids]{ _id, stock, sizeStock }`,
+    { ids: Array.from(wanted.keys()) }
+  );
+
+  const tx = sanityWriteClient.transaction();
+  let patches = 0;
+
+  for (const doc of docs) {
+    const entry = wanted.get(doc._id);
+    if (!entry) continue;
+    const fields = planStockPatch(doc, entry);
+    if (!fields) continue;
+    tx.patch(doc._id, (p) => p.set(fields));
+    patches++;
+  }
+
+  if (patches > 0) {
+    await tx.commit();
+    console.log(`Ready-made stock decremented for ${patches} product(s)`);
+  }
 }
 
 /* ─── Webhook handler ─── */
@@ -206,6 +258,24 @@ export async function POST(req: NextRequest) {
   if (event.type === "checkout.session.completed") {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = event.data.object as any as (Stripe.Checkout.Session & { shipping_details?: ShippingDetails | null });
+
+    // Idempotency: Stripe retries delivery on timeouts and non-2xx replies, and
+    // without this guard every retry created a second order document, decremented
+    // stock again, and emailed the customer and Kristina a duplicate.
+    try {
+      const alreadyHandled = await sanityWriteClient.fetch<string | null>(
+        `*[_type == "order" && stripeSessionId == $id][0]._id`,
+        { id: session.id }
+      );
+      if (alreadyHandled) {
+        console.log("Duplicate webhook for session, skipping:", session.id);
+        return NextResponse.json({ received: true, duplicate: true });
+      }
+    } catch (err) {
+      // If the lookup itself fails we continue: a possible duplicate order is
+      // less damaging than silently dropping a paid order.
+      console.error("Duplicate check failed, processing anyway:", err);
+    }
 
     // Fetch line items (not included in webhook by default).
     // Expand price.product so we can read back the product_id metadata we
@@ -253,6 +323,13 @@ export async function POST(req: NextRequest) {
       });
     } catch (err) {
       console.error("Failed to save order to Sanity:", err);
+    }
+
+    // Keep the ready-made stock counters honest (never blocks made-to-order sales)
+    try {
+      await decrementStock(items);
+    } catch (err) {
+      console.error("Failed to decrement stock:", err);
     }
 
     // Send customer confirmation
