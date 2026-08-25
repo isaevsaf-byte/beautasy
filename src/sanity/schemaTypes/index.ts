@@ -5,6 +5,8 @@ import { siteSettings } from "./siteSettings";
 import { collection } from "./collection";
 import { sizeGuide } from "./sizeGuide";
 import { legalPage } from "./legalPage";
+import { stockAlert } from "./stockAlert";
+import { order } from "./order";
 
 export const schemaTypes = [
   product,
@@ -14,4 +16,6 @@ export const schemaTypes = [
   collection,
   sizeGuide,
   legalPage,
+  stockAlert,
+  order,
 ];

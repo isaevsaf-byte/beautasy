@@ -1,18 +1,72 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getStripeInstance } from "@/lib/stripe";
 import { getSiteSettings, DEFAULT_UK_RATE, DEFAULT_INT_RATE } from "@/lib/siteSettings";
+import { sanityClient } from "@/lib/sanity";
 
 export const dynamic = "force-dynamic";
+
+const GIFTBOX_ADDON_SUFFIX = "-giftbox";
 
 interface CheckoutItem {
   id: string;
   name: string;
-  price: number; // in pence
+  price: number; // in pence — client-supplied, NEVER trusted; overwritten below
   image: string;
   size?: string;
   color?: string;
   giftMessage?: string;
   quantity: number;
+}
+
+interface PriceLookupProduct {
+  _id: string;
+  price: number;
+  sizePrices?: { size: string; price: number }[];
+  giftBoxAvailable?: boolean;
+  giftBoxPrice?: number;
+}
+
+interface PriceLookupGiftBox {
+  _id: string;
+  price: number;
+}
+
+const PRICE_LOOKUP_QUERY = `{
+  "products": *[_type == "product" && _id in $ids]{ _id, price, sizePrices, giftBoxAvailable, giftBoxPrice },
+  "giftBoxes": *[_type == "giftBox" && _id in $ids]{ _id, price }
+}`;
+
+/**
+ * Resolves the authoritative price (in pence) for a cart line from Sanity.
+ * Returns null when the line can't be priced (unknown id, gift box not
+ * available, etc.) so the caller can reject the whole checkout.
+ */
+function resolvePrice(
+  item: CheckoutItem,
+  products: Map<string, PriceLookupProduct>,
+  giftBoxes: Map<string, PriceLookupGiftBox>
+): number | null {
+  if (item.id.endsWith(GIFTBOX_ADDON_SUFFIX)) {
+    const baseId = item.id.slice(0, -GIFTBOX_ADDON_SUFFIX.length);
+    const product = products.get(baseId);
+    if (!product || !product.giftBoxAvailable || !product.giftBoxPrice) return null;
+    return product.giftBoxPrice;
+  }
+
+  const product = products.get(item.id);
+  if (product) {
+    if (item.size) {
+      const sizePrice = product.sizePrices?.find((sp) => sp.size === item.size);
+      if (sizePrice) return sizePrice.price;
+    }
+    return product.price;
+  }
+
+  const giftBox = giftBoxes.get(item.id);
+  if (giftBox) return giftBox.price;
+
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -27,21 +81,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate each item before sending to Stripe
+    // Basic shape validation (price/quantity trust comes from Sanity below)
     for (const item of items) {
+      if (!item.id || typeof item.id !== "string") {
+        return NextResponse.json({ error: "Invalid item id" }, { status: 400 });
+      }
       if (!item.name || typeof item.name !== "string") {
         return NextResponse.json(
           { error: `Invalid product name for item: ${item.id}` },
-          { status: 400 }
-        );
-      }
-      if (
-        typeof item.price !== "number" ||
-        !Number.isInteger(item.price) ||
-        item.price < 1
-      ) {
-        return NextResponse.json(
-          { error: `Invalid price for "${item.name}". Price must be a positive whole number (in pence).` },
           { status: 400 }
         );
       }
@@ -57,6 +104,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Look up authoritative prices in Sanity — the client-supplied `price`
+    // is never trusted here, since it lives in editable localStorage and
+    // would otherwise let anyone pay whatever they choose at checkout.
+    const lookupIds = Array.from(
+      new Set(
+        items.map((item) =>
+          item.id.endsWith(GIFTBOX_ADDON_SUFFIX)
+            ? item.id.slice(0, -GIFTBOX_ADDON_SUFFIX.length)
+            : item.id
+        )
+      )
+    );
+
+    const { products: productList, giftBoxes: giftBoxList } = await sanityClient.fetch<{
+      products: PriceLookupProduct[];
+      giftBoxes: PriceLookupGiftBox[];
+    }>(PRICE_LOOKUP_QUERY, { ids: lookupIds });
+
+    const products = new Map(productList.map((p) => [p._id, p]));
+    const giftBoxes = new Map(giftBoxList.map((g) => [g._id, g]));
+
+    const pricedItems: (CheckoutItem & { verifiedPrice: number })[] = [];
+    for (const item of items) {
+      const verifiedPrice = resolvePrice(item, products, giftBoxes);
+      if (verifiedPrice == null || verifiedPrice < 1) {
+        return NextResponse.json(
+          { error: `"${item.name}" is no longer available. Please remove it and try again.` },
+          { status: 400 }
+        );
+      }
+      pricedItems.push({ ...item, verifiedPrice });
+    }
+
     // Early check: make sure STRIPE_SECRET_KEY is configured
     if (!process.env.STRIPE_SECRET_KEY) {
       console.error("STRIPE_SECRET_KEY is not set. Add it in Vercel → Project → Settings → Environment Variables.");
@@ -70,6 +150,10 @@ export async function POST(req: NextRequest) {
 
     const stripe = getStripeInstance();
 
+    // Attach the signed-in Clerk user (if any) so the webhook can link the
+    // resulting order to their account for order history. Guests checkout fine.
+    const { userId } = await auth();
+
     // Fetch live shipping rates from Sanity (falls back to defaults if not set)
     const siteSettings = await getSiteSettings();
     const ukRate = siteSettings.shipping?.ukRate ?? DEFAULT_UK_RATE;
@@ -78,6 +162,7 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       currency: "gbp",
+      allow_promotion_codes: true,
       shipping_address_collection: {
         allowed_countries: ["GB", "US", "CA", "FR", "DE", "IT", "ES", "AU"],
       },
@@ -105,7 +190,8 @@ export async function POST(req: NextRequest) {
           },
         },
       ],
-      line_items: items.map((item) => {
+      ...(userId ? { client_reference_id: userId } : {}),
+      line_items: pricedItems.map((item) => {
         // Build a descriptive product name including size and colour
         let productName = item.name;
         const metaParts: string[] = [];
@@ -134,7 +220,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        const metadata: Record<string, string> = {};
+        const metadata: Record<string, string> = { product_id: item.id };
         if (item.size) metadata.size = item.size;
         if (item.color) metadata.color = item.color;
         if (item.giftMessage) metadata.gift_message = item.giftMessage;
@@ -146,9 +232,9 @@ export async function POST(req: NextRequest) {
               name: productName,
               ...(description ? { description } : {}),
               ...(images.length > 0 ? { images } : {}),
-              ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+              metadata,
             },
-            unit_amount: item.price,
+            unit_amount: item.verifiedPrice,
           },
           quantity: item.quantity,
         };

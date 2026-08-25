@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, Camera, X } from "lucide-react";
 import { useUser, SignInButton } from "@clerk/nextjs";
 import StarRating from "./StarRating";
 import { fadeUp, stagger } from "./animations";
@@ -13,7 +13,10 @@ interface Review {
   rating: number;
   comment: string;
   createdAt: string;
+  images?: string[];
 }
+
+const MAX_PHOTOS = 4;
 
 export default function ReviewSection({ productId }: { productId: string }) {
   const { user, isSignedIn, isLoaded } = useUser();
@@ -27,6 +30,29 @@ export default function ReviewSection({ productId }: { productId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Photo attachments
+  const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    const room = MAX_PHOTOS - photos.length;
+    const toAdd = files.slice(0, room).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setPhotos((prev) => [...prev, ...toAdd]);
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((prev) => {
+      URL.revokeObjectURL(prev[index].preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  }
 
   // Fetch reviews
   useEffect(() => {
@@ -46,6 +72,29 @@ export default function ReviewSection({ productId }: { productId: string }) {
     setError(null);
 
     try {
+      // Upload any attached photos first, collecting their Sanity asset ids
+      let imageAssetIds: string[] = [];
+      if (photos.length > 0) {
+        setUploadingPhotos(true);
+        try {
+          imageAssetIds = await Promise.all(
+            photos.map(async ({ file }) => {
+              const formData = new FormData();
+              formData.append("file", file);
+              const res = await fetch("/api/reviews/upload", {
+                method: "POST",
+                body: formData,
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || "Failed to upload photo");
+              return data.assetId as string;
+            })
+          );
+        } finally {
+          setUploadingPhotos(false);
+        }
+      }
+
       const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,6 +107,7 @@ export default function ReviewSection({ productId }: { productId: string }) {
             "Customer",
           rating,
           comment,
+          imageAssetIds,
         }),
       });
 
@@ -68,18 +118,14 @@ export default function ReviewSection({ productId }: { productId: string }) {
         return;
       }
 
-      // Refresh reviews
-      const refreshed = await fetch(
-        `/api/reviews?productId=${productId}`
-      ).then((r) => r.json());
-      setReviews(refreshed.reviews || []);
-      setAverageRating(refreshed.averageRating || 0);
       setRating(0);
       setComment("");
+      photos.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPhotos([]);
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    } catch {
-      setError("Something went wrong. Please try again.");
+      setTimeout(() => setSuccess(false), 4000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     }
     setSubmitting(false);
   }
@@ -140,6 +186,52 @@ export default function ReviewSection({ productId }: { productId: string }) {
                 className="w-full p-4 rounded-xl border border-lavender-soft/40 bg-white/60 text-sm text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:ring-2 focus:ring-lavender/40"
                 rows={4}
               />
+              {/* Photo attachments */}
+              <div className="mb-1">
+                <div className="flex flex-wrap gap-2">
+                  {photos.map((photo, i) => (
+                    <div
+                      key={photo.preview}
+                      className="relative w-16 h-16 rounded-lg overflow-hidden border border-lavender-soft/40"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photo.preview}
+                        alt={`Attached photo ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(i)}
+                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+                        aria-label="Remove photo"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {photos.length < MAX_PHOTOS && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-16 h-16 rounded-lg border border-dashed border-lavender-soft/60 flex flex-col items-center justify-center text-charcoal-light hover:border-lavender hover:text-charcoal transition-colors"
+                      aria-label="Add photo"
+                    >
+                      <Camera size={16} />
+                      <span className="text-[10px] mt-0.5">Add</span>
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoSelect}
+                  className="hidden"
+                />
+              </div>
+
               <div className="flex items-center gap-4 mt-4">
                 <button
                   type="submit"
@@ -148,10 +240,10 @@ export default function ReviewSection({ productId }: { productId: string }) {
                   }
                   className="px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {submitting && (
+                  {(submitting || uploadingPhotos) && (
                     <Loader2 size={14} className="animate-spin" />
                   )}
-                  {submitting ? "Submitting..." : "Submit Review"}
+                  {uploadingPhotos ? "Uploading photos..." : submitting ? "Submitting..." : "Submit Review"}
                 </button>
                 {comment.length > 0 && comment.length < 10 && (
                   <p className="text-xs text-charcoal-light">
@@ -177,7 +269,7 @@ export default function ReviewSection({ productId }: { productId: string }) {
                     exit={{ opacity: 0 }}
                     className="text-xs text-green-600 mt-3"
                   >
-                    Thank you! Your review has been submitted.
+                    Thank you! Your review has been submitted and will appear once approved.
                   </motion.p>
                 )}
               </AnimatePresence>
@@ -224,6 +316,19 @@ export default function ReviewSection({ productId }: { productId: string }) {
                 <p className="text-sm text-charcoal-light leading-relaxed">
                   {rev.comment}
                 </p>
+                {rev.images && rev.images.length > 0 && (
+                  <div className="flex gap-2 mt-3">
+                    {rev.images.map((url, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={url}
+                        src={url}
+                        alt={`Photo from ${rev.userName}'s review, ${i + 1}`}
+                        className="w-16 h-16 rounded-lg object-cover border border-lavender-soft/30"
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </motion.div>

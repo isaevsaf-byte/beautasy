@@ -47,6 +47,22 @@ export const review = defineType({
       validation: (Rule) => Rule.required().min(10).max(1000),
     }),
     defineField({
+      name: "images",
+      title: "Photos",
+      type: "array",
+      of: [{ type: "image" }],
+      validation: (Rule) => Rule.max(4),
+      description: "Photos the customer attached to their review (max 4).",
+    }),
+    defineField({
+      name: "approved",
+      title: "Approved",
+      type: "boolean",
+      initialValue: false,
+      description:
+        "Reviews are hidden from the shop until approved here, to filter out spam or abuse before publishing.",
+    }),
+    defineField({
       name: "createdAt",
       title: "Created At",
       type: "datetime",
@@ -59,10 +75,11 @@ export const review = defineType({
       title: "userName",
       subtitle: "rating",
       productName: "product.name",
+      approved: "approved",
     },
-    prepare({ title, subtitle, productName }) {
+    prepare({ title, subtitle, productName, approved }) {
       return {
-        title: `${title} — ${"★".repeat(subtitle || 0)}`,
+        title: `${approved ? "✅" : "⏳"} ${title} — ${"★".repeat(subtitle || 0)}`,
         subtitle: productName,
       };
     },

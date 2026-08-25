@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Gift, Crown, ChevronRight, Heart } from "lucide-react";
+import { Menu, X, Gift, Crown, ChevronRight, Heart, Package } from "lucide-react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Cart from "@/components/Cart";
@@ -352,7 +352,15 @@ export default function Header({
                 <UserButton
                   afterSignOutUrl="/"
                   appearance={{ variables: { colorPrimary: "#DCD0FF" } }}
-                />
+                >
+                  <UserButton.MenuItems>
+                    <UserButton.Link
+                      label="My Orders"
+                      href="/orders"
+                      labelIcon={<Package size={14} />}
+                    />
+                  </UserButton.MenuItems>
+                </UserButton>
               </SignedIn>
               <SignedOut>
                 <SignInButton mode="modal">

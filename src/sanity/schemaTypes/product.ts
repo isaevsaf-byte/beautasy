@@ -293,6 +293,58 @@ export const product = defineType({
         "Optional: set a different price per size. Leave empty to use the base price for all sizes.",
     }),
     defineField({
+      name: "sizeStock",
+      title: "Stock Per Size",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          fields: [
+            defineField({
+              name: "size",
+              title: "Size",
+              type: "string",
+              options: {
+                list: [
+                  { title: "XXS", value: "XXS" },
+                  { title: "XS", value: "XS" },
+                  { title: "S", value: "S" },
+                  { title: "M", value: "M" },
+                  { title: "L", value: "L" },
+                  { title: "XL", value: "XL" },
+                  { title: "XXL", value: "XXL" },
+                  { title: "XXXL", value: "XXXL" },
+                  { title: "1–1.5 Years", value: "1-1.5Y" },
+                  { title: "2–3 Years", value: "2-3Y" },
+                  { title: "4–5 Years", value: "4-5Y" },
+                  { title: "6–7 Years", value: "6-7Y" },
+                  { title: "8–9 Years", value: "8-9Y" },
+                  { title: "10–11 Years", value: "10-11Y" },
+                  { title: "12–13 Years", value: "12-13Y" },
+                ],
+              },
+              validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: "quantity",
+              title: "Ready-Made Quantity",
+              type: "number",
+              initialValue: 0,
+              validation: (Rule) => Rule.required().min(0),
+            }),
+          ],
+          preview: {
+            select: { title: "size", subtitle: "quantity" },
+            prepare({ title, subtitle }: { title?: string; subtitle?: number }) {
+              return { title: `Size ${title ?? "?"}`, subtitle: `Qty: ${subtitle ?? 0}` };
+            },
+          },
+        },
+      ],
+      description:
+        "Optional: track ready-made stock per size, so a sold-out size shows correctly even while other sizes remain. Leave empty to use the overall Stock Quantity for every size (made-to-order model).",
+    }),
+    defineField({
       name: "availableColors",
       title: "Available Colours",
       type: "array",

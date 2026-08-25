@@ -20,6 +20,7 @@ import Link from "next/link";
 /* eslint-disable @next/next/no-img-element */
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import AtelierBookingForm from "@/components/AtelierBookingForm";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 
 /* ─────────────── Data ─────────────── */
@@ -519,6 +520,44 @@ export default function AtelierPage() {
           </div>
         </section>
 
+        {/* ──── Booking Form ──── */}
+        <section id="book" className="py-20 md:py-28 bg-lavender-bg scroll-mt-24">
+          <div className="max-w-2xl mx-auto px-6">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-80px" }}
+              variants={stagger}
+              className="text-center mb-12"
+            >
+              <motion.p
+                variants={fadeUp}
+                custom={0}
+                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
+              >
+                Book an Appointment
+              </motion.p>
+              <motion.h2
+                variants={fadeUp}
+                custom={1}
+                className="font-serif text-3xl sm:text-4xl"
+              >
+                Request a Fitting
+              </motion.h2>
+            </motion.div>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+              custom={2}
+              className="bg-white/70 backdrop-blur-sm border border-lavender-soft/30 rounded-3xl p-6 sm:p-10"
+            >
+              <AtelierBookingForm />
+            </motion.div>
+          </div>
+        </section>
+
         {/* ──── CTA ──── */}
         <section className="py-20 md:py-28">
           <div className="max-w-6xl mx-auto px-6">
@@ -555,7 +594,7 @@ export default function AtelierPage() {
                   className="flex flex-col sm:flex-row items-center justify-center gap-4"
                 >
                   <Link
-                    href="/contact"
+                    href="#book"
                     className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
                   >
                     Book a Fitting Appointment

@@ -124,10 +124,10 @@ export default function SuccessPage() {
                   />
                 </Link>
                 <Link
-                  href="/"
+                  href="/orders"
                   className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
                 >
-                  Back Home
+                  View My Orders
                 </Link>
               </motion.div>
             </motion.div>

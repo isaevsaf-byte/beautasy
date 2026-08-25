@@ -86,6 +86,7 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
   productionTime,
   availableSizes,
   sizePrices,
+  sizeStock,
   "availableColors": availableColors[]{
     name,
     hex,
@@ -96,9 +97,19 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
   packagingInfo,
   giftBoxAvailable,
   giftBoxPrice,
+  "collectionId": collection._ref,
   "collection": collection->{ name, "slug": slug.current, season },
   "sizeGuide": sizeGuide->{ name, notes, rows[]{ size, uk, eu, bust, waist, hips } },
   "giftCardPlaceholder": *[_type == "siteSettings"][0].giftCardPlaceholder
+}`;
+
+/* Related products: same collection first, then same category to fill remaining slots */
+const RELATED_BY_COLLECTION_QUERY = `*[_type == "product" && _id != $id && collection._ref == $collectionId] | order(_createdAt desc) [0...4] {
+  _id, name, "slug": slug.current, images, price, category
+}`;
+
+const RELATED_BY_CATEGORY_QUERY = `*[_type == "product" && _id != $id && category == $category] | order(_createdAt desc) [0...8] {
+  _id, name, "slug": slug.current, images, price, category
 }`;
 
 /* ─── Metadata ─── */
@@ -291,6 +302,52 @@ export default async function ShopParamPage({
           .filter((url: string | null): url is string => url !== null)
       : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"];
 
+  /* ── Related products: same collection first, falls back to same category ── */
+  let relatedProducts: {
+    _id: string;
+    name: string;
+    slug: string;
+    price: number;
+    image: string;
+    category: string;
+  }[] = [];
+  try {
+    type RawRelated = { _id: string; name: string; slug?: string; images?: unknown[]; price: number; category: string };
+
+    const byCollection: RawRelated[] = product.collectionId
+      ? await sanityClient.fetch(RELATED_BY_COLLECTION_QUERY, {
+          id: product._id,
+          collectionId: product.collectionId,
+        })
+      : [];
+
+    const seen = new Set(byCollection.map((p) => p._id));
+    let combined = byCollection;
+
+    if (combined.length < 4) {
+      const byCategory: RawRelated[] = await sanityClient.fetch(RELATED_BY_CATEGORY_QUERY, {
+        id: product._id,
+        category: product.category,
+      });
+      const fill = byCategory.filter((p) => !seen.has(p._id));
+      combined = [...combined, ...fill];
+    }
+
+    relatedProducts = combined.slice(0, 4).map((p) => ({
+      _id: p._id,
+      name: p.name,
+      slug: p.slug || p._id,
+      price: p.price,
+      image:
+        p.images && p.images.length > 0
+          ? safeImageUrl(p.images[0]) || "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"
+          : "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product",
+      category: p.category,
+    }));
+  } catch (error) {
+    console.error("Error fetching related products:", error);
+  }
+
   /* ── JSON-LD Product structured data (Google rich snippets) ── */
   const jsonLd = {
     "@context": "https://schema.org",
@@ -335,6 +392,7 @@ export default async function ShopParamPage({
           productionTime: product.productionTime || "",
           availableSizes: product.availableSizes || [],
           sizePrices: product.sizePrices || [],
+          sizeStock: product.sizeStock || [],
           availableColors: product.availableColors || [],
           careInstructions: product.careInstructions || null,
           shippingInfo: product.shippingInfo || null,
@@ -345,6 +403,7 @@ export default async function ShopParamPage({
           collection: product.collection || null,
           sizeGuide: product.sizeGuide || null,
         }}
+        relatedProducts={relatedProducts}
       />
       <FooterWrapper />
     </>
