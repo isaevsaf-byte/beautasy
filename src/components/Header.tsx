@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Gift, Crown, ChevronRight, Heart, Package } from "lucide-react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
-import Cart from "@/components/Cart";
+import Cart, { CartDrawer } from "@/components/Cart";
 import { useWishlist } from "@/store/useWishlist";
 import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
 
@@ -387,7 +387,7 @@ export default function Header({
               </motion.span>
             )}
           </Link>
-          <Cart freeShippingThreshold={propThreshold} />
+          <Cart />
         </nav>
 
         {/* Cart + Wishlist for mobile */}
@@ -408,7 +408,7 @@ export default function Header({
               </motion.span>
             )}
           </Link>
-          <Cart freeShippingThreshold={propThreshold} />
+          <Cart />
         </div>
       </div>
 
@@ -479,6 +479,8 @@ export default function Header({
           </motion.nav>
         )}
       </AnimatePresence>
+      {/* Single cart drawer for the whole page — both bag buttons open this one */}
+      <CartDrawer freeShippingThreshold={propThreshold} />
     </motion.header>
   );
 }

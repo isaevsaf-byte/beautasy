@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getStripeInstance } from "@/lib/stripe";
-import { getSiteSettings, DEFAULT_UK_RATE, DEFAULT_INT_RATE } from "@/lib/siteSettings";
+import {
+  getSiteSettings,
+  DEFAULT_UK_RATE,
+  DEFAULT_INT_RATE,
+  DEFAULT_FREE_THRESHOLD,
+} from "@/lib/siteSettings";
 import { sanityClient } from "@/lib/sanity";
 
 export const dynamic = "force-dynamic";
@@ -156,8 +161,21 @@ export async function POST(req: NextRequest) {
 
     // Fetch live shipping rates from Sanity (falls back to defaults if not set)
     const siteSettings = await getSiteSettings();
-    const ukRate = siteSettings.shipping?.ukRate ?? DEFAULT_UK_RATE;
     const intRate = siteSettings.shipping?.internationalRate ?? DEFAULT_INT_RATE;
+
+    // Free UK delivery above the threshold we advertise in the announcement bar
+    // and the cart's progress meter. The subtotal is recomputed here from the
+    // Sanity-verified prices, never from the client's cart totals.
+    const freeThreshold =
+      siteSettings.shipping?.freeShippingThreshold ?? DEFAULT_FREE_THRESHOLD;
+    const subtotal = pricedItems.reduce(
+      (sum, item) => sum + item.verifiedPrice * item.quantity,
+      0
+    );
+    const qualifiesForFreeUkDelivery = freeThreshold > 0 && subtotal >= freeThreshold;
+    const ukRate = qualifiesForFreeUkDelivery
+      ? 0
+      : siteSettings.shipping?.ukRate ?? DEFAULT_UK_RATE;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -171,7 +189,9 @@ export async function POST(req: NextRequest) {
           shipping_rate_data: {
             type: "fixed_amount",
             fixed_amount: { amount: ukRate, currency: "gbp" },
-            display_name: "UK Delivery",
+            display_name: qualifiesForFreeUkDelivery
+              ? "Free UK Delivery"
+              : "UK Delivery",
             delivery_estimate: {
               minimum: { unit: "business_day", value: 3 },
               maximum: { unit: "business_day", value: 5 },

@@ -37,9 +37,13 @@ const builder = createImageUrlBuilder(sanityConfig);
 /**
  * Generate optimised image URLs from Sanity image references.
  *
+ * `auto("format")` lets Sanity's CDN serve WebP/AVIF to browsers that accept
+ * it and fall back to JPEG for everything else — roughly half the bytes for
+ * the same picture (measured: 39.9KB JPEG → 20.1KB WebP on a catalogue shot).
+ *
  * Usage:
  *   urlFor(product.image).width(800).height(600).url()
  */
 export function urlFor(source: SanityImageSource) {
-  return builder.image(source);
+  return builder.image(source).auto("format");
 }

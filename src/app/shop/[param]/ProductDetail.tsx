@@ -19,10 +19,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PortableText } from "@portabletext/react";
-import AddToCartButton from "@/components/AddToCartButton";
 import dynamic from "next/dynamic";
 import WishlistButton from "@/components/WishlistButton";
 import { useCart } from "@/store/useCart";
+import { useCartUI } from "@/store/useCartUI";
 
 // Client-only: ReviewSection uses Clerk's useUser hook which can't run during SSG
 const ReviewSection = dynamic(() => import("@/components/ReviewSection"), {
@@ -239,6 +239,7 @@ export default function ProductDetail({
   const [sizeError, setSizeError] = useState(false);
   const [colorError, setColorError] = useState(false);
   const addItem = useCart((state) => state.addItem);
+  const openCart = useCartUI((state) => state.openCart);
 
   const hasSizes = product.availableSizes && product.availableSizes.length > 0;
   const hasColors =
@@ -335,6 +336,10 @@ export default function ProductDetail({
         ...(trimmedMessage ? { giftMessage: trimmedMessage } : {}),
       });
     }
+
+    // Show the customer what just happened — the bag icon is usually scrolled
+    // out of view here, so adding silently reads as a broken button.
+    openCart();
   }
 
   return (
