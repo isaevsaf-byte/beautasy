@@ -7,20 +7,66 @@ import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package } from "lucide-re
 /* eslint-disable @next/next/no-img-element */
 import { usePathname } from "next/navigation";
 import { useCart } from "@/store/useCart";
+import { useCartUI } from "@/store/useCartUI";
 import { DEFAULT_FREE_THRESHOLD } from "@/lib/siteSettings";
 
-export default function Cart({ freeShippingThreshold: propThreshold }: { freeShippingThreshold?: number }) {
-  const { items, removeItem, updateQuantity, totalItems, totalPrice, clearCart } =
-    useCart();
-  const [isOpen, setIsOpen] = useState(false);
+/**
+ * The bag icon in the header. Open/closed state lives in the `useCartUI`
+ * store, so "Add to Bag" on a product page can open the same drawer.
+ */
+export default function Cart() {
+  const items = useCart((state) => state.items);
+  const openCart = useCartUI((state) => state.openCart);
+
+  // Fix Zustand hydration: the store hydrates from localStorage after SSR,
+  // so we track when the client has mounted to avoid hydration mismatches.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+
+  const count = hydrated
+    ? items.reduce((sum, item) => sum + item.quantity, 0)
+    : 0;
+
+  return (
+    <button
+      onClick={openCart}
+      className="relative p-2 text-charcoal hover:text-charcoal/70 transition-colors"
+      aria-label="Open cart"
+    >
+      <ShoppingBag size={20} />
+      {count > 0 && (
+        <motion.span
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="absolute -top-1 -right-1 w-5 h-5 bg-lavender text-charcoal text-[10px] font-medium rounded-full flex items-center justify-center"
+        >
+          {count}
+        </motion.span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * The drawer itself — rendered ONCE per page (the header mounts a cart button
+ * for desktop and another for mobile, but there must only ever be one drawer).
+ * Portaled to document.body because the header's backdrop-filter creates a new
+ * containing block, which would break `position: fixed` on descendants.
+ */
+export function CartDrawer({
+  freeShippingThreshold: propThreshold,
+}: {
+  freeShippingThreshold?: number;
+}) {
+  const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart();
+  const isOpen = useCartUI((state) => state.isOpen);
+  const closeCart = useCartUI((state) => state.closeCart);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(
     propThreshold ?? DEFAULT_FREE_THRESHOLD
   );
 
-  // Fix Zustand hydration: the store hydrates from localStorage after SSR,
-  // so we track when the client has mounted to avoid hydration mismatches.
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
 
@@ -31,8 +77,8 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
   // Listening to pathname changes and closing immediately prevents this.
   const pathname = usePathname();
   useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
+    closeCart();
+  }, [pathname, closeCart]);
 
   // If no threshold prop was provided (client pages without HeaderWrapper),
   // fetch the live value from Sanity via the API route.
@@ -59,8 +105,6 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
       .catch(() => {/* keep the default */});
   }, [propThreshold]);
 
-  const count = hydrated ? totalItems() : 0;
-
   // Lock body scroll when cart is open
   useEffect(() => {
     if (isOpen) {
@@ -72,6 +116,16 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
       document.body.style.overflow = "";
     };
   }, [isOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeCart();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isOpen, closeCart]);
 
   async function handleCheckout() {
     setIsLoading(true);
@@ -128,9 +182,6 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
     }
   }
 
-  // ─── Cart drawer rendered via Portal ───────────────────────────────
-  // The header uses backdrop-filter which creates a new containing block,
-  // breaking `position: fixed` on descendants. Portal escapes this.
   const drawer = (
     <AnimatePresence>
       {isOpen && (
@@ -140,12 +191,15 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsOpen(false)}
+            onClick={closeCart}
             className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9998]"
           />
 
           {/* Drawer */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Your bag"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
@@ -156,7 +210,7 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
             <div className="flex items-center justify-between px-6 py-5 border-b border-lavender-soft/40 shrink-0">
               <h2 className="font-serif text-xl tracking-wide">Your Bag</h2>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={closeCart}
                 className="p-1 text-charcoal-light hover:text-charcoal transition-colors"
                 aria-label="Close cart"
               >
@@ -238,6 +292,7 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
                           <button
                             onClick={() => updateQuantity(key, item.quantity - 1)}
                             className="w-7 h-7 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
+                            aria-label={`Decrease quantity of ${item.name}`}
                           >
                             <Minus size={14} />
                           </button>
@@ -247,6 +302,7 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
                           <button
                             onClick={() => updateQuantity(key, item.quantity + 1)}
                             className="w-7 h-7 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
+                            aria-label={`Increase quantity of ${item.name}`}
                           >
                             <Plus size={14} />
                           </button>
@@ -254,6 +310,7 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
                           <button
                             onClick={() => removeItem(key)}
                             className="ml-auto p-1.5 text-charcoal-light hover:text-red-400 transition-colors"
+                            aria-label={`Remove ${item.name} from bag`}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -353,28 +410,6 @@ export default function Cart({ freeShippingThreshold: propThreshold }: { freeShi
     </AnimatePresence>
   );
 
-  return (
-    <>
-      {/* Cart Button — stays in the header */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="relative p-2 text-charcoal hover:text-charcoal/70 transition-colors"
-        aria-label="Open cart"
-      >
-        <ShoppingBag size={20} />
-        {count > 0 && (
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="absolute -top-1 -right-1 w-5 h-5 bg-lavender text-charcoal text-[10px] font-medium rounded-full flex items-center justify-center"
-          >
-            {count}
-          </motion.span>
-        )}
-      </button>
-
-      {/* Cart Drawer — portaled to document.body to escape header's backdrop-filter containing block */}
-      {hydrated && createPortal(drawer, document.body)}
-    </>
-  );
+  if (!hydrated) return null;
+  return createPortal(drawer, document.body);
 }

@@ -15,8 +15,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const REVIEWS_QUERY = `*[_type == "review" && product._ref == $productId] | order(createdAt desc) {
-      _id, userId, userName, rating, comment, createdAt
+    const REVIEWS_QUERY = `*[_type == "review" && product._ref == $productId && approved == true] | order(createdAt desc) {
+      _id, userId, userName, rating, comment, createdAt,
+      "images": images[].asset->url
     }`;
 
     const reviews = await sanityClient.fetch(REVIEWS_QUERY, { productId });
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { productId, userName, rating, comment } = body;
+    const { productId, userName, rating, comment, imageAssetIds } = body;
 
     // Validate
     if (!productId || !userName || !rating || !comment) {
@@ -70,6 +71,17 @@ export async function POST(req: NextRequest) {
     if (comment.length < 10 || comment.length > 1000) {
       return NextResponse.json(
         { error: "Comment must be between 10 and 1,000 characters" },
+        { status: 400 }
+      );
+    }
+    if (
+      imageAssetIds !== undefined &&
+      (!Array.isArray(imageAssetIds) ||
+        imageAssetIds.length > 4 ||
+        imageAssetIds.some((id) => typeof id !== "string"))
+    ) {
+      return NextResponse.json(
+        { error: "Invalid photo attachments" },
         { status: 400 }
       );
     }
@@ -95,7 +107,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create review
+    // Create review — hidden from the shop (approved: false) until a moderator
+    // reviews it in Sanity Studio, to filter out spam or abuse before publishing.
     const review = await sanityWriteClient.create({
       _type: "review",
       product: { _type: "reference", _ref: productId },
@@ -103,6 +116,12 @@ export async function POST(req: NextRequest) {
       userName,
       rating,
       comment,
+      approved: false,
+      images: (imageAssetIds || []).map((assetId: string) => ({
+        _type: "image",
+        _key: assetId,
+        asset: { _type: "reference", _ref: assetId },
+      })),
       createdAt: new Date().toISOString(),
     });
 

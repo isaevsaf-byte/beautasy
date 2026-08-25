@@ -488,28 +488,27 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         className="group"
       >
         {/* Main product image — click to go to PDP */}
-        <Link
-          href={`/shop/${product.slug}`}
-          className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 w-full block"
-        >
-          <img
-            src={activeImage}
-            alt={product.name}
-            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-          />
-          <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
-          <div className="absolute top-4 left-4 flex flex-col gap-1.5">
-            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
+        <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 w-full">
+          <Link href={`/shop/${product.slug}`} className="absolute inset-0 block">
+            <img
+              src={activeImage}
+              alt={product.name}
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+            />
+            <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
+          </Link>
+          {/* Badges — siblings of the PDP link, not nested inside it */}
+          <div className="absolute top-4 left-4 flex flex-col gap-1.5 pointer-events-none">
+            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 pointer-events-auto">
               <p className="text-xs text-charcoal-light">{product.category}</p>
             </div>
             {product.collection && (
-              <a
+              <Link
                 href={`/shop/collection/${product.collection.slug}`}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-lavender/90 backdrop-blur-sm rounded-full px-3 py-1 hover:bg-lavender transition-colors"
+                className="bg-lavender/90 backdrop-blur-sm rounded-full px-3 py-1 hover:bg-lavender transition-colors pointer-events-auto"
               >
                 <p className="text-xs text-charcoal font-medium">{product.collection.name}</p>
-              </a>
+              </Link>
             )}
           </div>
           {/* Wishlist heart */}
@@ -529,13 +528,13 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           {/* Zoom icon */}
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLightboxOpen(true); }}
-            className="absolute bottom-4 right-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100"
+            onClick={() => setLightboxOpen(true)}
+            className="absolute bottom-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100"
             aria-label="Quick view"
           >
             <Search size={16} />
           </button>
-        </Link>
+        </div>
 
         {availableImages.length > 1 && (
           <div className="flex gap-2 mb-4 overflow-x-auto pb-1">

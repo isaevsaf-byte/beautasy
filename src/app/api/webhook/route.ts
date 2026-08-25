@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripeInstance } from "@/lib/stripe";
 import Stripe from "stripe";
 import { Resend } from "resend";
+import { sanityWriteClient } from "@/lib/sanity";
 
 export const dynamic = "force-dynamic";
 
@@ -206,17 +207,53 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = event.data.object as any as (Stripe.Checkout.Session & { shipping_details?: ShippingDetails | null });
 
-    // Fetch line items (not included in webhook by default)
+    // Fetch line items (not included in webhook by default).
+    // Expand price.product so we can read back the product_id metadata we
+    // attached at checkout, for the order record below.
     let items: Stripe.LineItem[] = [];
     try {
       const stripe = getStripeInstance();
-      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+        limit: 100,
+        expand: ["data.price.product"],
+      });
       items = lineItems.data;
     } catch (err) {
       console.error("Failed to fetch line items:", err);
     }
 
     const customerEmail = session.customer_details?.email;
+
+    // Save the order to Sanity so signed-in customers can see it in "My Orders".
+    try {
+      await sanityWriteClient.create({
+        _type: "order",
+        stripeSessionId: session.id,
+        userId: session.client_reference_id || undefined,
+        customerEmail: customerEmail || undefined,
+        customerName: session.shipping_details?.name ?? session.customer_details?.name ?? undefined,
+        items: items.map((item) => {
+          const product = item.price?.product;
+          const productId =
+            product && typeof product === "object" && !("deleted" in product)
+              ? (product as Stripe.Product).metadata?.product_id
+              : undefined;
+          return {
+            _key: item.id,
+            productId,
+            name: item.description ?? "Item",
+            quantity: item.quantity ?? 1,
+            amountTotal: item.amount_total ?? 0,
+          };
+        }),
+        total: session.amount_total ?? 0,
+        shippingAddress: formatAddress(session.shipping_details),
+        status: "paid",
+        createdAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("Failed to save order to Sanity:", err);
+    }
 
     // Send customer confirmation
     if (customerEmail) {

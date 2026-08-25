@@ -106,11 +106,11 @@ GOOGLE_CATEGORY: dict[str, str] = {
 }
 
 # Apparel categories that require gender/age_group/color
-APPAREL_CATEGORIES = {"Lingerie", "Kids"}
+APPAREL_CATEGORIES = {"Lingerie", "Kids", "Accessories"}
 
 AGE_GROUP: dict[str, str] = {
     "Lingerie": "adult",
-    "Kids": "kids",       # 5–13 years
+    "Kids": "kids",
     "Accessories": "adult",
     "Home": "adult",
 }

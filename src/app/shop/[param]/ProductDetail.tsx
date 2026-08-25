@@ -13,13 +13,16 @@ import {
   Package,
   Search,
   Ruler,
+  Bell,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import { PortableText } from "@portabletext/react";
-import AddToCartButton from "@/components/AddToCartButton";
 import dynamic from "next/dynamic";
 import WishlistButton from "@/components/WishlistButton";
 import { useCart } from "@/store/useCart";
+import { useCartUI } from "@/store/useCartUI";
 
 // Client-only: ReviewSection uses Clerk's useUser hook which can't run during SSG
 const ReviewSection = dynamic(() => import("@/components/ReviewSection"), {
@@ -33,6 +36,11 @@ import { fadeUp, stagger } from "@/components/animations";
 interface SizePrice {
   size: string;
   price: number;
+}
+
+interface SizeStock {
+  size: string;
+  quantity: number;
 }
 
 interface SizeGuideRow {
@@ -70,6 +78,7 @@ interface ProductProps {
   productionTime?: string;
   availableSizes: string[];
   sizePrices: SizePrice[];
+  sizeStock: SizeStock[];
   availableColors: ColorOption[];
   careInstructions: unknown[] | null;
   shippingInfo: unknown[] | null;
@@ -88,6 +97,61 @@ const BADGE_LABELS: Record<string, { label: string; className: string }> = {
 };
 
 const GIFT_MESSAGE_MAX = 200;
+
+/* ─── Back-in-stock notify form ─── */
+function StockAlertForm({ productId, size }: { productId: string; size?: string }) {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    try {
+      const res = await fetch("/api/stock-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, email, size }),
+      });
+      if (!res.ok) throw new Error();
+      setStatus("done");
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  if (status === "done") {
+    return (
+      <p className="flex items-center gap-2 text-xs text-green-600 font-medium mt-2">
+        <CheckCircle2 size={14} />
+        We&apos;ll email you when ready-made stock is available.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 mt-2">
+      <input
+        type="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Your email"
+        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+      />
+      <button
+        type="submit"
+        disabled={status === "loading"}
+        className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-lavender/20 hover:bg-lavender/30 text-charcoal rounded-lg text-xs font-medium transition-colors disabled:opacity-60"
+      >
+        {status === "loading" ? <Loader2 size={12} className="animate-spin" /> : <Bell size={12} />}
+        Notify Me
+      </button>
+      {status === "error" && (
+        <span className="text-[10px] text-red-500">Try again</span>
+      )}
+    </form>
+  );
+}
 
 /* ─── Accordion Component ─── */
 function Accordion({
@@ -148,8 +212,23 @@ const categorySlugMap: Record<string, string> = {
   Home: "home",
 };
 
+interface RelatedProduct {
+  _id: string;
+  name: string;
+  slug: string;
+  price: number;
+  image: string;
+  category: string;
+}
+
 /* ─── Main Component ─── */
-export default function ProductDetail({ product }: { product: ProductProps }) {
+export default function ProductDetail({
+  product,
+  relatedProducts = [],
+}: {
+  product: ProductProps;
+  relatedProducts?: RelatedProduct[];
+}) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
@@ -160,6 +239,7 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
   const [sizeError, setSizeError] = useState(false);
   const [colorError, setColorError] = useState(false);
   const addItem = useCart((state) => state.addItem);
+  const openCart = useCartUI((state) => state.openCart);
 
   const hasSizes = product.availableSizes && product.availableSizes.length > 0;
   const hasColors =
@@ -173,6 +253,18 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
     selectedSize != null && sizePriceMap[selectedSize] != null
       ? sizePriceMap[selectedSize]
       : product.price;
+
+  // Per-size stock is optional — when tracked, a sold-out size is disabled
+  // even while the product's overall stock (or other sizes) remain available.
+  const hasSizeStock = product.sizeStock && product.sizeStock.length > 0;
+  const sizeStockMap: Record<string, number> = {};
+  for (const ss of product.sizeStock ?? []) {
+    sizeStockMap[ss.size] = ss.quantity;
+  }
+  const currentStock: number =
+    hasSizeStock && selectedSize != null
+      ? sizeStockMap[selectedSize] ?? 0
+      : product.stock;
 
   const images = product.images;
   // If the selected colour has a variant image, show that instead of the gallery index
@@ -244,6 +336,10 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
         ...(trimmedMessage ? { giftMessage: trimmedMessage } : {}),
       });
     }
+
+    // Show the customer what just happened — the bag icon is usually scrolled
+    // out of view here, so adding silently reads as a broken button.
+    openCart();
   }
 
   return (
@@ -364,9 +460,17 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                     )}
                   </Link>
                 )}
-                {product.stock > 0 ? (
+                {hasSizeStock && !selectedSize ? (
+                  <span className="text-xs text-charcoal-light font-medium">
+                    Select a size to see stock
+                  </span>
+                ) : currentStock > 5 ? (
                   <span className="text-xs text-green-600 font-medium">
                     In Stock
+                  </span>
+                ) : currentStock > 0 ? (
+                  <span className="text-xs text-rose-500 font-medium">
+                    Only {currentStock} left in ready-made stock{selectedSize ? ` (size ${selectedSize})` : ""}
                   </span>
                 ) : (
                   <span className="text-xs text-amber-600 font-medium">
@@ -644,6 +748,19 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
                 </p>
               )}
 
+              {/* Back-in-stock signup — only once we know there's no ready-made stock
+                  for the current selection (or the product as a whole, when sizes
+                  aren't stock-tracked individually) */}
+              {(hasSizeStock ? selectedSize && currentStock === 0 : currentStock === 0) && (
+                <div className="mb-6 p-4 rounded-xl bg-lavender-bg/40 border border-lavender-soft/30">
+                  <p className="flex items-center gap-1.5 text-xs tracking-wider uppercase font-medium text-charcoal">
+                    <Bell size={13} className="text-lavender" />
+                    Prefer ready-made stock{selectedSize ? ` in size ${selectedSize}` : ""}?
+                  </p>
+                  <StockAlertForm productId={product._id} size={selectedSize ?? undefined} />
+                </div>
+              )}
+
               {/* Accordion Sections */}
               <div className="border-b border-lavender-soft/40">
                 <Accordion
@@ -665,6 +782,51 @@ export default function ProductDetail({ product }: { product: ProductProps }) {
             </motion.div>
           </motion.div>
         </section>
+
+        {/* ── You Might Also Like ── */}
+        {relatedProducts.length > 0 && (
+          <section className="max-w-6xl mx-auto px-6 pb-20">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-80px" }}
+              variants={stagger}
+            >
+              <motion.h3
+                variants={fadeUp}
+                custom={0}
+                className="font-serif text-2xl mb-6"
+              >
+                You Might Also Like
+              </motion.h3>
+              <motion.div
+                variants={stagger}
+                className="grid grid-cols-2 sm:grid-cols-4 gap-6"
+              >
+                {relatedProducts.map((rp, i) => (
+                  <motion.div key={rp._id} variants={fadeUp} custom={i + 1}>
+                    <Link href={`/shop/${rp.slug}`} className="group block">
+                      <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-white/60 mb-3">
+                        <img
+                          src={rp.image}
+                          alt={rp.name}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                        />
+                        <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300" />
+                      </div>
+                      <h4 className="font-serif text-sm mb-1 group-hover:text-charcoal/70 transition-colors line-clamp-2">
+                        {rp.name}
+                      </h4>
+                      <p className="text-xs text-charcoal-light">
+                        £{(rp.price / 100).toFixed(2)}
+                      </p>
+                    </Link>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </motion.div>
+          </section>
+        )}
 
         {/* ── Reviews ── */}
         <section className="max-w-6xl mx-auto px-6 pb-16">
