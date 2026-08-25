@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# secrets — Google Merchant Center OAuth (never commit)
+merchant-center/credentials.json
+merchant-center/token.json
+merchant-center/*.log
+
+# python
+__pycache__/
+*.pyc
+
+# claude
+.claude/worktrees/
