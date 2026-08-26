@@ -9,6 +9,8 @@ export interface Review {
   comment: string;
   createdAt: string;
   images?: string[];
+  /** True when the review came from a review-request email for a real order */
+  verifiedPurchase?: boolean;
 }
 
 /**
@@ -52,6 +54,11 @@ export default function ReviewList({
           <div className="flex items-center gap-3 mb-2">
             <StarRating rating={review.rating} size={14} />
             <span className="font-medium text-sm text-charcoal">{review.userName}</span>
+            {review.verifiedPurchase && (
+              <span className="text-[10px] tracking-wider uppercase text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                Verified purchase
+              </span>
+            )}
             <time
               dateTime={review.createdAt}
               className="text-xs text-charcoal-light"

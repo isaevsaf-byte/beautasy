@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { sanityWriteClient } from "@/lib/sanity";
-import { rateLimit } from "@/lib/rateLimit";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { findOrderByReviewToken } from "@/lib/reviewToken";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +12,23 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 /* ─── POST /api/reviews/upload — uploads one review photo to Sanity, returns its asset id ─── */
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
-  if (!userId) {
+
+  const formData = await req.formData();
+  const token = formData.get("token");
+
+  // Photos can come from a signed-in customer or from a review-request link
+  let identity = userId ? `user:${userId}` : null;
+  if (!identity && typeof token === "string") {
+    const order = await findOrderByReviewToken(token);
+    if (order) identity = `order:${order._id}`;
+  }
+  if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Assets are uploaded before the review is validated, so an unlimited caller
   // could fill the Sanity asset store with orphaned files
-  const limited = rateLimit(`review-upload:${userId}`, 20, 60 * 60 * 1000);
+  const limited = rateLimit(`review-upload:${identity}:${clientIp(req)}`, 20, 60 * 60 * 1000);
   if (!limited.ok) {
     return NextResponse.json(
       { error: "Too many uploads. Please try again later." },
@@ -32,7 +43,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const formData = await req.formData();
   const file = formData.get("file");
 
   if (!(file instanceof File)) {

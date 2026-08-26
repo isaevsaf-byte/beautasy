@@ -7,6 +7,8 @@ import { sizeGuide } from "./sizeGuide";
 import { legalPage } from "./legalPage";
 import { stockAlert } from "./stockAlert";
 import { order } from "./order";
+import { subscriber } from "./subscriber";
+import { abandonedCart } from "./abandonedCart";
 
 export const schemaTypes = [
   product,
@@ -18,4 +20,6 @@ export const schemaTypes = [
   legalPage,
   stockAlert,
   order,
+  subscriber,
+  abandonedCart,
 ];

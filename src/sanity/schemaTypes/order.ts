@@ -84,6 +84,19 @@ export const order = defineType({
       description: "Update this as the order moves through production and delivery.",
     }),
     defineField({
+      name: "reviewToken",
+      title: "Review Token",
+      type: "string",
+      readOnly: true,
+      description: "Secret in the review-request email link, so a customer can review without an account.",
+    }),
+    defineField({
+      name: "reviewRequestSentAt",
+      title: "Review Request Sent",
+      type: "datetime",
+      readOnly: true,
+    }),
+    defineField({
       name: "createdAt",
       title: "Created At",
       type: "datetime",

@@ -88,6 +88,8 @@ interface ProductProps {
   packagingInfo: unknown[] | null;
   giftBoxAvailable: boolean;
   giftBoxPrice: number;
+  madeToMeasureAvailable?: boolean;
+  madeToMeasurePrice?: number;
   giftCardPlaceholder?: string;
   collection?: { name: string; slug: string; season?: string } | null;
   sizeGuide?: SizeGuide | null;
@@ -241,6 +243,8 @@ export default function ProductDetail({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [giftBoxChecked, setGiftBoxChecked] = useState(false);
+  const [madeToMeasure, setMadeToMeasure] = useState(false);
+  const [measurements, setMeasurements] = useState({ bust: "", waist: "", hips: "", height: "", notes: "" });
   const [giftMessage, setGiftMessage] = useState("");
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -276,6 +280,20 @@ export default function ProductDetail({
     hasSizeStock && selectedSize != null
       ? sizeStockMap[selectedSize] ?? 0
       : product.stock;
+
+  const mtmPrice = product.madeToMeasurePrice ?? 0;
+  const mtmOffered = !!product.madeToMeasureAvailable && mtmPrice > 0;
+  const measurementSummary = [
+    measurements.bust && `Bust ${measurements.bust}`,
+    measurements.waist && `Waist ${measurements.waist}`,
+    measurements.hips && `Hips ${measurements.hips}`,
+    measurements.height && `Height ${measurements.height}`,
+    measurements.notes && `Notes: ${measurements.notes}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const measurementsComplete =
+    !!measurements.bust && !!measurements.waist && !!measurements.hips;
 
   const images = product.images;
   // If the selected colour has a variant image, show that instead of the gallery index
@@ -368,6 +386,16 @@ export default function ProductDetail({
         variant: [selectedSize, selectedColor].filter(Boolean).join(" / ") || undefined,
       },
     ]);
+
+    if (madeToMeasure && mtmOffered && measurementsComplete) {
+      addItem({
+        id: `${product._id}${"-madetomeasure"}`,
+        name: `Made to Measure — ${product.name}`,
+        price: mtmPrice,
+        image: activeImage,
+        measurements: measurementSummary,
+      });
+    }
 
     // Show the customer what just happened — the bag icon is usually scrolled
     // out of view here, so adding silently reads as a broken button.
@@ -676,6 +704,90 @@ export default function ProductDetail({
                 </div>
               )}
 
+              {/* ── Made to measure ── */}
+              {/* The atelier already sews to order; this sells that properly
+                  instead of leaving it on a separate page nobody links to. */}
+              {mtmOffered && (
+                <div className="mb-6">
+                  <label className="flex items-center gap-3 p-4 rounded-xl bg-lavender-bg/50 border border-lavender-soft/30 cursor-pointer group hover:bg-lavender-bg transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={madeToMeasure}
+                      onChange={(e) => setMadeToMeasure(e.target.checked)}
+                      className="w-4 h-4 rounded accent-lavender"
+                    />
+                    <Ruler size={18} className="text-lavender shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-charcoal">Made to your measurements</p>
+                      <p className="text-xs text-charcoal-light">
+                        Cut for you in our Southampton atelier
+                      </p>
+                    </div>
+                    <span className="text-sm font-medium text-charcoal">
+                      +£{(mtmPrice / 100).toFixed(2)}
+                    </span>
+                  </label>
+
+                  <AnimatePresence>
+                    {madeToMeasure && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 p-4 rounded-xl bg-white border border-lavender-soft/40 space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            {([
+                              ["bust", "Bust"],
+                              ["waist", "Waist"],
+                              ["hips", "Hips"],
+                              ["height", "Height"],
+                            ] as const).map(([field, label]) => (
+                              <label key={field} className="block">
+                                <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+                                  {label}
+                                  {field !== "height" && <span className="text-rose-400"> *</span>}
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={measurements[field]}
+                                  onChange={(e) =>
+                                    setMeasurements((m) => ({ ...m, [field]: e.target.value.slice(0, 12) }))
+                                  }
+                                  placeholder="e.g. 86cm"
+                                  className="w-full text-sm px-3 py-2 rounded-lg border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                                />
+                              </label>
+                            ))}
+                          </div>
+                          <label className="block">
+                            <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+                              Anything else we should know?
+                            </span>
+                            <textarea
+                              rows={2}
+                              value={measurements.notes}
+                              onChange={(e) =>
+                                setMeasurements((m) => ({ ...m, notes: e.target.value.slice(0, 200) }))
+                              }
+                              placeholder="Longer straps, a little more room at the back…"
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                            />
+                          </label>
+                          <p className="text-[11px] text-charcoal-light leading-relaxed">
+                            Bust, waist and hips are needed. Not sure how to measure? Reply to your
+                            order email and Kristina will talk you through it.
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
               {/* Gift Box Option */}
               {product.giftBoxAvailable && product.giftBoxPrice > 0 && (
                 <div className="mb-6">
@@ -746,7 +858,8 @@ export default function ProductDetail({
                 {(() => {
                   const missingSize = hasSizes && !selectedSize;
                   const missingColor = hasColors && !selectedColor;
-                  const disabled = missingSize || missingColor;
+                  const missingMeasurements = madeToMeasure && !measurementsComplete;
+                  const disabled = missingSize || missingColor || missingMeasurements;
                   let label: string;
                   if (missingSize && missingColor) {
                     label = "Select Size & Colour";
@@ -754,10 +867,13 @@ export default function ProductDetail({
                     label = "Select a Size";
                   } else if (missingColor) {
                     label = "Select a Colour";
+                  } else if (missingMeasurements) {
+                    label = "Add Your Measurements";
                   } else {
                     label = `Add to Bag — £${(
                       (currentPrice +
-                        (giftBoxChecked ? product.giftBoxPrice : 0)) /
+                        (giftBoxChecked ? product.giftBoxPrice : 0) +
+                        (madeToMeasure ? mtmPrice : 0)) /
                       100
                     ).toFixed(2)}`;
                   }

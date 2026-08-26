@@ -98,6 +98,8 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
   packagingInfo,
   giftBoxAvailable,
   giftBoxPrice,
+  madeToMeasureAvailable,
+  madeToMeasurePrice,
   "collectionId": collection._ref,
   "collection": collection->{ name, "slug": slug.current, season },
   "sizeGuide": sizeGuide->{ name, notes, rows[]{ size, uk, eu, bust, waist, hips } },
@@ -107,7 +109,7 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
 /* Approved reviews — fetched server-side so the text is in the HTML (and so we
    can publish an aggregateRating, which is what puts stars in Google results) */
 const REVIEWS_QUERY = `*[_type == "review" && product._ref == $id && approved == true] | order(createdAt desc) {
-  _id, userName, rating, comment, createdAt,
+  _id, userName, rating, comment, createdAt, verifiedPurchase,
   "images": images[].asset->url
 }`;
 
@@ -372,6 +374,7 @@ export default async function ShopParamPage({
     comment: string;
     createdAt: string;
     images?: string[];
+    verifiedPurchase?: boolean;
   }[] = [];
   try {
     reviews = await sanityClient.fetch(REVIEWS_QUERY, { id: product._id });
@@ -485,6 +488,8 @@ export default async function ShopParamPage({
           packagingInfo: product.packagingInfo || null,
           giftBoxAvailable: product.giftBoxAvailable || false,
           giftBoxPrice: product.giftBoxPrice || 0,
+          madeToMeasureAvailable: product.madeToMeasureAvailable || false,
+          madeToMeasurePrice: product.madeToMeasurePrice || 0,
           giftCardPlaceholder: product.giftCardPlaceholder || undefined,
           collection: product.collection || null,
           sizeGuide: product.sizeGuide || null,

@@ -9,17 +9,20 @@ export interface CartItem {
   size?: string;
   color?: string;
   giftMessage?: string;
+  /** Body measurements for a made-to-measure piece, already formatted */
+  measurements?: string;
   quantity: number;
 }
 
-type ItemKey = { id: string; size?: string; color?: string; giftMessage?: string };
+type ItemKey = { id: string; size?: string; color?: string; giftMessage?: string; measurements?: string };
 
 function sameLine(a: ItemKey, b: ItemKey): boolean {
   return (
     a.id === b.id &&
     (a.size ?? "") === (b.size ?? "") &&
     (a.color ?? "") === (b.color ?? "") &&
-    (a.giftMessage ?? "") === (b.giftMessage ?? "")
+    (a.giftMessage ?? "") === (b.giftMessage ?? "") &&
+    (a.measurements ?? "") === (b.measurements ?? "")
   );
 }
 
