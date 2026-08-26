@@ -24,6 +24,7 @@ import dynamic from "next/dynamic";
 import WishlistButton from "@/components/WishlistButton";
 import ReviewList, { type Review } from "@/components/ReviewList";
 import Lightbox from "@/components/Lightbox";
+import SizeQuiz from "@/components/SizeQuiz";
 import { useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
 import { trackViewItem, trackAddToCart } from "@/lib/analytics";
@@ -589,6 +590,16 @@ export default function ProductDetail({
                       )}
                     </p>
                     <div className="flex items-center gap-3">
+                      {product.sizeGuide?.rows && product.sizeGuide.rows.length > 0 && (
+                        <SizeQuiz
+                          rows={product.sizeGuide.rows}
+                          availableSizes={product.availableSizes}
+                          onPick={(size) => {
+                            setSelectedSize(size);
+                            setSizeError(false);
+                          }}
+                        />
+                      )}
                       {product.sizeGuide && (
                         <button
                           type="button"
