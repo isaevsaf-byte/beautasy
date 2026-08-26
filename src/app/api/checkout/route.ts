@@ -12,6 +12,7 @@ import { sanityClient } from "@/lib/sanity";
 export const dynamic = "force-dynamic";
 
 const GIFTBOX_ADDON_SUFFIX = "-giftbox";
+const MADE_TO_MEASURE_SUFFIX = "-madetomeasure";
 
 interface CheckoutItem {
   id: string;
@@ -21,6 +22,7 @@ interface CheckoutItem {
   size?: string;
   color?: string;
   giftMessage?: string;
+  measurements?: string;
   quantity: number;
 }
 
@@ -30,6 +32,8 @@ interface PriceLookupProduct {
   sizePrices?: { size: string; price: number }[];
   giftBoxAvailable?: boolean;
   giftBoxPrice?: number;
+  madeToMeasureAvailable?: boolean;
+  madeToMeasurePrice?: number;
 }
 
 interface PriceLookupGiftBox {
@@ -38,7 +42,7 @@ interface PriceLookupGiftBox {
 }
 
 const PRICE_LOOKUP_QUERY = `{
-  "products": *[_type == "product" && _id in $ids]{ _id, price, sizePrices, giftBoxAvailable, giftBoxPrice },
+  "products": *[_type == "product" && _id in $ids]{ _id, price, sizePrices, giftBoxAvailable, giftBoxPrice, madeToMeasureAvailable, madeToMeasurePrice },
   "giftBoxes": *[_type == "giftBox" && _id in $ids]{ _id, price }
 }`;
 
@@ -52,6 +56,13 @@ function resolvePrice(
   products: Map<string, PriceLookupProduct>,
   giftBoxes: Map<string, PriceLookupGiftBox>
 ): number | null {
+  if (item.id.endsWith(MADE_TO_MEASURE_SUFFIX)) {
+    const baseId = item.id.slice(0, -MADE_TO_MEASURE_SUFFIX.length);
+    const product = products.get(baseId);
+    if (!product || !product.madeToMeasureAvailable || !product.madeToMeasurePrice) return null;
+    return product.madeToMeasurePrice;
+  }
+
   if (item.id.endsWith(GIFTBOX_ADDON_SUFFIX)) {
     const baseId = item.id.slice(0, -GIFTBOX_ADDON_SUFFIX.length);
     const product = products.get(baseId);
@@ -114,11 +125,15 @@ export async function POST(req: NextRequest) {
     // would otherwise let anyone pay whatever they choose at checkout.
     const lookupIds = Array.from(
       new Set(
-        items.map((item) =>
-          item.id.endsWith(GIFTBOX_ADDON_SUFFIX)
-            ? item.id.slice(0, -GIFTBOX_ADDON_SUFFIX.length)
-            : item.id
-        )
+        items.map((item) => {
+          if (item.id.endsWith(GIFTBOX_ADDON_SUFFIX)) {
+            return item.id.slice(0, -GIFTBOX_ADDON_SUFFIX.length);
+          }
+          if (item.id.endsWith(MADE_TO_MEASURE_SUFFIX)) {
+            return item.id.slice(0, -MADE_TO_MEASURE_SUFFIX.length);
+          }
+          return item.id;
+        })
       )
     );
 
@@ -229,6 +244,8 @@ export async function POST(req: NextRequest) {
         // so this is where the gift card message becomes visible to merchant + buyer.
         const description = item.giftMessage
           ? `🎁 Gift card: "${item.giftMessage}"`
+          : item.measurements
+          ? `📐 Measurements: ${item.measurements}`
           : undefined;
 
         // Only include images that are valid absolute HTTPS URLs
@@ -248,6 +265,7 @@ export async function POST(req: NextRequest) {
         if (item.size) metadata.size = item.size;
         if (item.color) metadata.color = item.color;
         if (item.giftMessage) metadata.gift_message = item.giftMessage;
+        if (item.measurements) metadata.measurements = item.measurements;
 
         return {
           price_data: {

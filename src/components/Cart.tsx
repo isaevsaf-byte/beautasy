@@ -249,10 +249,11 @@ export function CartDrawer({
                       size: item.size,
                       color: item.color,
                       giftMessage: item.giftMessage,
+                      measurements: item.measurements,
                     };
                     return (
                     <motion.div
-                      key={`${item.id}-${item.size ?? ""}-${item.color ?? ""}-${item.giftMessage ?? ""}`}
+                      key={`${item.id}-${item.size ?? ""}-${item.color ?? ""}-${item.giftMessage ?? ""}-${item.measurements ?? ""}`}
                       layout
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -282,6 +283,14 @@ export function CartDrawer({
                           <p className="text-xs text-charcoal-light mt-0.5">
                             Colour: {item.color}
                           </p>
+                        )}
+                        {item.measurements && (
+                          <div className="mt-1.5 px-2 py-1.5 rounded-lg bg-lavender-bg/60 border border-lavender-soft/40">
+                            <p className="text-[10px] tracking-wider uppercase text-charcoal-light mb-0.5">
+                              Your measurements
+                            </p>
+                            <p className="text-xs text-charcoal break-words">{item.measurements}</p>
+                          </div>
                         )}
                         {item.giftMessage && (
                           <div className="mt-1.5 px-2 py-1.5 rounded-lg bg-lavender-bg/60 border border-lavender-soft/40">

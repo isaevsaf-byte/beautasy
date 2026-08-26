@@ -389,6 +389,22 @@ export const product = defineType({
         "Add colour options (e.g. scrunchies). Leave empty if the product has only one colour. Each colour can have its own photo — clicking the swatch switches the main image.",
     }),
     defineField({
+      name: "madeToMeasureAvailable",
+      title: "Offer Made to Measure",
+      type: "boolean",
+      initialValue: false,
+      description: "Lets the customer send their measurements and have this piece cut for them.",
+    }),
+    defineField({
+      name: "madeToMeasurePrice",
+      title: "Made to Measure Surcharge (pence)",
+      type: "number",
+      initialValue: 0,
+      description: "Added on top of the piece's price, e.g. 1500 = £15.00.",
+      hidden: ({ parent }) => !parent?.madeToMeasureAvailable,
+      validation: (Rule) => Rule.min(0),
+    }),
+    defineField({
       name: "giftBoxAvailable",
       title: "Gift Box Available",
       type: "boolean",
