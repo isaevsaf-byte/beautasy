@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { sanityClient, sanityWriteClient } from "@/lib/sanity";
+import { sanityWriteClient } from "@/lib/sanity";
 
 /**
  * Gift cards with a real balance.
@@ -52,7 +52,7 @@ export async function findSpendableCard(code: string): Promise<GiftCard | null> 
   const normalised = normaliseCode(code);
   if (!normalised || normalised.length > 40) return null;
 
-  const card = await sanityClient.fetch(
+  const card = await sanityWriteClient.fetch(
     `*[_type == "giftCard" && code == $code][0]{ _id, code, balance, active, expiresAt, recipientName }`,
     { code: normalised }
   );
@@ -74,7 +74,7 @@ export function redeemableAmount(card: GiftCard, orderSubtotal: number): number 
 /** Deducts what was actually spent, never below zero. */
 export async function deductFromCard(cardId: string, spent: number): Promise<void> {
   if (spent <= 0) return;
-  const card = await sanityClient.fetch(
+  const card = await sanityWriteClient.fetch(
     `*[_id == $id][0]{ balance }`,
     { id: cardId }
   );

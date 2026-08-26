@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { sanityClient } from "@/lib/sanity";
+import { sanityWriteClient } from "@/lib/sanity";
 
 /**
  * Review-request links.
@@ -33,7 +33,7 @@ export async function findOrderByReviewToken(token: string): Promise<TokenOrder 
 
   // NB: the param is `reviewToken`, not `token` — the Sanity client reserves
   // `token` for auth, and using it here silently breaks the parameter types.
-  const order = await sanityClient.fetch(
+  const order = await sanityWriteClient.fetch(
     `*[_type == "order" && reviewToken == $reviewToken][0]{ _id, customerEmail, customerName, createdAt, "items": items[]{ productId, name, quantity } }`,
     { reviewToken: token }
   );

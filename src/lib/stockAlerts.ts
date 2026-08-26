@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { sanityClient, sanityWriteClient } from "@/lib/sanity";
+import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 
@@ -51,7 +51,7 @@ export async function runStockAlerts(): Promise<{ checked: number; sent: number 
     return { checked: 0, sent: 0 };
   }
 
-  const alerts: PendingAlert[] = await sanityClient.fetch(PENDING_ALERTS_QUERY);
+  const alerts: PendingAlert[] = await sanityWriteClient.fetch(PENDING_ALERTS_QUERY);
   const dueAlerts = alerts.filter(isBackInStock);
 
   let sent = 0;

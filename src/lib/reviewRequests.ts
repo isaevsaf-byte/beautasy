@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { sanityClient, sanityWriteClient } from "@/lib/sanity";
+import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { generateReviewToken } from "@/lib/reviewToken";
 import { SITE_URL } from "@/lib/site";
@@ -85,7 +85,7 @@ export async function runReviewRequests(): Promise<{ candidates: number; sent: n
   }
 
   const cutoff = new Date(Date.now() - DAYS_BEFORE_ASKING * 24 * 60 * 60 * 1000).toISOString();
-  const orders: PendingOrder[] = await sanityClient.fetch(PENDING_QUERY, {
+  const orders: PendingOrder[] = await sanityWriteClient.fetch(PENDING_QUERY, {
     cutoff,
     limit: MAX_PER_RUN,
   });

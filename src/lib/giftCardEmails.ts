@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { sanityClient, sanityWriteClient } from "@/lib/sanity";
+import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 
@@ -107,7 +107,7 @@ export async function deliverScheduledGiftCards(): Promise<{ due: number; sent: 
     return { due: 0, sent: 0 };
   }
 
-  const cards: DeliverableCard[] = await sanityClient.fetch(DUE_QUERY, {
+  const cards: DeliverableCard[] = await sanityWriteClient.fetch(DUE_QUERY, {
     now: new Date().toISOString(),
   });
 

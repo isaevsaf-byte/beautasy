@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { sanityClient, sanityWriteClient } from "@/lib/sanity";
+import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 
@@ -87,7 +87,7 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
     return { checked: 0, sent: 0 };
   }
 
-  const bookings: NotifiableBooking[] = await sanityClient.fetch(PENDING_QUERY, { limit });
+  const bookings: NotifiableBooking[] = await sanityWriteClient.fetch(PENDING_QUERY, { limit });
   const resend = new Resend(process.env.RESEND_API_KEY);
   let sent = 0;
 
