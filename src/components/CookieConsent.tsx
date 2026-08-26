@@ -30,6 +30,9 @@ function applyChoice(choice: Choice): void {
     ad_personalization: choice,
     analytics_storage: choice,
   });
+  // The Meta Pixel has no consent-denied mode, so it listens for this and
+  // loads (or stays away) accordingly.
+  window.dispatchEvent(new Event("beautasy-consent-changed"));
 }
 
 /**

@@ -42,12 +42,14 @@ export async function GET(req: NextRequest) {
       email: session.customer_details?.email ?? null,
       items: lineItems.map((item) => {
         const product = item.price?.product;
-        const productId =
+        const meta =
           product && typeof product === "object" && !("deleted" in product)
-            ? (product as Stripe.Product).metadata?.product_id
+            ? (product as Stripe.Product).metadata
             : undefined;
+        const productId = meta?.product_id;
         return {
           id: productId ?? item.id,
+          slug: meta?.slug,
           name: item.description ?? "Item",
           quantity: item.quantity ?? 1,
           amountTotal: item.amount_total ?? 0,

@@ -714,6 +714,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           <AddToCartButton
             id={product._id}
             name={product.name}
+            slug={product.slug}
             price={product.price}
             image={activeImage}
           />

@@ -15,6 +15,7 @@ const ADS_PURCHASE_CONVERSION = "AW-18152477897/AdUTCNCJjKscEMmp489D";
 
 interface OrderItem {
   id: string;
+  slug?: string;
   name: string;
   quantity: number;
   amountTotal: number;
@@ -54,6 +55,7 @@ function OrderDetails() {
           valuePence: data.total ?? 0,
           items: (data.items ?? []).map((item) => ({
             id: item.id,
+            slug: item.slug,
             name: item.name,
             price: item.quantity > 0 ? item.amountTotal / item.quantity : item.amountTotal,
             quantity: item.quantity,

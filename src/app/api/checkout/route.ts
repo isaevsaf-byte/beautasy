@@ -23,6 +23,7 @@ interface CheckoutItem {
   size?: string;
   color?: string;
   giftMessage?: string;
+  slug?: string;
   measurements?: string;
   quantity: number;
 }
@@ -345,6 +346,7 @@ export async function POST(req: NextRequest) {
         if (item.color) metadata.color = item.color;
         if (item.giftMessage) metadata.gift_message = item.giftMessage;
         if (item.measurements) metadata.measurements = item.measurements;
+        if (item.slug) metadata.slug = item.slug;
 
         return {
           price_data: {

@@ -184,6 +184,7 @@ export function CartDrawer({
       items.map((item) => ({
         id: item.id,
         name: item.name,
+        slug: item.slug,
         price: item.price,
         quantity: item.quantity,
         variant: [item.size, item.color].filter(Boolean).join(" / ") || undefined,

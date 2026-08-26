@@ -320,10 +320,11 @@ export default function ProductDetail({
     trackViewItem({
       id: product._id,
       name: product.name,
+      slug: product.slug,
       price: product.price,
       category: product.category,
     });
-  }, [product._id, product.name, product.price, product.category]);
+  }, [product._id, product.name, product.slug, product.price, product.category]);
 
   function handleAddToCart() {
     let blocked = false;
@@ -346,6 +347,7 @@ export default function ProductDetail({
     addItem({
       id: product._id,
       name: product.name,
+      slug: product.slug,
       price: currentPrice,
       image: activeImage,
       ...(selectedSize ? { size: selectedSize } : {}),
@@ -367,6 +369,7 @@ export default function ProductDetail({
       {
         id: product._id,
         name: product.name,
+        slug: product.slug,
         price: currentPrice,
         quantity: 1,
         category: product.category,

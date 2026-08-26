@@ -9,6 +9,8 @@ import { trackAddToCart } from "@/lib/analytics";
 interface AddToCartButtonProps {
   id: string;
   name: string;
+  /** Feeds the Meta catalogue id on ad events */
+  slug?: string;
   price: number; // in pence
   image: string;
   size?: string;
@@ -17,6 +19,7 @@ interface AddToCartButtonProps {
 export default function AddToCartButton({
   id,
   name,
+  slug,
   price,
   image,
   size,
@@ -25,8 +28,8 @@ export default function AddToCartButton({
   const [added, setAdded] = useState(false);
 
   function handleAdd() {
-    addItem({ id, name, price, image, size });
-    trackAddToCart([{ id, name, price, quantity: 1, variant: size }]);
+    addItem({ id, name, slug, price, image, size });
+    trackAddToCart([{ id, name, slug, price, quantity: 1, variant: size }]);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   }
