@@ -5,6 +5,12 @@ import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
+import {
+  generateGiftCardCode,
+  expiryFromNow,
+  deductFromCard,
+} from "@/lib/giftCards";
+import { deliverGiftCard } from "@/lib/giftCardEmails";
 import { collectOrdered, planStockPatch, type OrderedLine, type StockDoc } from "@/lib/stock";
 
 export const dynamic = "force-dynamic";
@@ -352,6 +358,72 @@ async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<vo
   console.log("Abandoned cart reminder handled for", email);
 }
 
+/* ─── Gift cards ─── */
+
+/**
+ * Issues a gift card once its purchase is paid for.
+ *
+ * Scheduled cards are stored but not emailed — the daily job sends those on the
+ * chosen morning, which is what makes a gift card work as an actual present.
+ */
+async function issueGiftCard(session: Stripe.Checkout.Session): Promise<void> {
+  const meta = session.metadata ?? {};
+  if (meta.gift_card !== "true") return;
+
+  const amount = Number(meta.gift_card_amount ?? session.amount_total ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const existing = await sanityWriteClient.fetch<string | null>(
+    `*[_type == "giftCard" && stripeSessionId == $id][0]._id`,
+    { id: session.id }
+  );
+  if (existing) return;
+
+  const deliverAt = meta.gift_card_deliver_at;
+  const card = await sanityWriteClient.create({
+    _type: "giftCard",
+    code: generateGiftCardCode(),
+    initialAmount: amount,
+    balance: amount,
+    recipientEmail: meta.gift_card_recipient,
+    recipientName: meta.gift_card_recipient_name,
+    message: meta.gift_card_message,
+    purchaserEmail: session.customer_details?.email ?? undefined,
+    deliverAt: deliverAt || undefined,
+    expiresAt: expiryFromNow(),
+    active: true,
+    stripeSessionId: session.id,
+    createdAt: new Date().toISOString(),
+  });
+
+  const scheduledForLater = deliverAt && new Date(deliverAt).getTime() > Date.now();
+  if (!scheduledForLater) {
+    await deliverGiftCard({
+      _id: card._id,
+      code: card.code as string,
+      initialAmount: amount,
+      recipientEmail: meta.gift_card_recipient,
+      recipientName: meta.gift_card_recipient_name,
+      message: meta.gift_card_message,
+      expiresAt: card.expiresAt as string,
+    });
+  }
+
+  console.log("Gift card issued:", card.code, scheduledForLater ? "(scheduled)" : "(sent)");
+}
+
+/** Takes the spent amount off a gift card that paid for part of an order. */
+async function spendGiftCard(session: Stripe.Checkout.Session): Promise<void> {
+  const cardId = session.metadata?.gift_card_id;
+  if (!cardId) return;
+
+  const spent = session.total_details?.amount_discount ?? 0;
+  if (spent <= 0) return;
+
+  await deductFromCard(cardId, spent);
+  console.log(`Gift card ${cardId} spent £${(spent / 100).toFixed(2)}`);
+}
+
 /* ─── Webhook handler ─── */
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -408,6 +480,23 @@ export async function POST(req: NextRequest) {
     }
 
     const customerEmail = session.customer_details?.email;
+
+    // A gift card purchase is not a normal order — issue the card and stop
+    if (session.metadata?.gift_card === "true") {
+      try {
+        await issueGiftCard(session);
+      } catch (err) {
+        console.error("Failed to issue gift card:", err);
+      }
+      return NextResponse.json({ received: true, giftCard: true });
+    }
+
+    // Deduct whatever a gift card paid towards this order
+    try {
+      await spendGiftCard(session);
+    } catch (err) {
+      console.error("Failed to deduct gift card balance:", err);
+    }
 
     // Save the order to Sanity so signed-in customers can see it in "My Orders".
     try {

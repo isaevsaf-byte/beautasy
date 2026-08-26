@@ -8,6 +8,7 @@ import {
   DEFAULT_FREE_THRESHOLD,
 } from "@/lib/siteSettings";
 import { sanityClient } from "@/lib/sanity";
+import { findSpendableCard, redeemableAmount } from "@/lib/giftCards";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const items: CheckoutItem[] = body?.items;
+    const giftCardCode: string | undefined =
+      typeof body?.giftCardCode === "string" ? body.giftCardCode : undefined;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -192,10 +195,39 @@ export async function POST(req: NextRequest) {
       ? 0
       : siteSettings.shipping?.ukRate ?? DEFAULT_UK_RATE;
 
+    // A gift card pays for part (or all) of the order. Stripe applies a coupon
+    // we mint for exactly the redeemable amount; the webhook then deducts what
+    // was actually spent, so any remaining balance stays on the card.
+    let giftCardDiscount: { couponId: string; cardId: string; amount: number } | null = null;
+    if (giftCardCode) {
+      const card = await findSpendableCard(giftCardCode);
+      if (!card) {
+        return NextResponse.json(
+          { error: "That gift card code isn't valid. Check it and try again." },
+          { status: 400 }
+        );
+      }
+      const amount = redeemableAmount(card, subtotal);
+      if (amount > 0) {
+        const coupon = await stripe.coupons.create({
+          amount_off: amount,
+          currency: "gbp",
+          duration: "once",
+          name: `Gift card ${card.code}`,
+          max_redemptions: 1,
+          metadata: { gift_card_id: card._id, gift_card_code: card.code },
+        });
+        giftCardDiscount = { couponId: coupon.id, cardId: card._id, amount };
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       currency: "gbp",
-      allow_promotion_codes: true,
+      // Stripe allows either a pre-applied discount or a promo code field, not both
+      ...(giftCardDiscount
+        ? { discounts: [{ coupon: giftCardDiscount.couponId }] }
+        : { allow_promotion_codes: true }),
       // Expire in three hours so `checkout.session.expired` fires (and the
       // abandoned-cart reminder goes out) while the decision is still fresh,
       // rather than a day later as Stripe would default to.
@@ -230,6 +262,9 @@ export async function POST(req: NextRequest) {
         },
       ],
       ...(userId ? { client_reference_id: userId } : {}),
+      ...(giftCardDiscount
+        ? { metadata: { gift_card_id: giftCardDiscount.cardId } }
+        : {}),
       line_items: pricedItems.map((item) => {
         // Build a descriptive product name including size and colour
         let productName = item.name;

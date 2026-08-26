@@ -5,12 +5,8 @@
   "installCommand": "npm install",
   "crons": [
     {
-      "path": "/api/cron/check-stock-alerts",
+      "path": "/api/cron/daily",
       "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/review-requests",
-      "schedule": "0 10 * * *"
     }
   ]
 }

@@ -34,6 +34,7 @@ const shopMenu: MegaMenuData = {
         { label: "All Collection", href: "/shop" },
         { label: "New Arrivals", href: "/shop?sort=new" },
         { label: "Gift Boxes", href: "/gift-boxes" },
+        { label: "Gift Cards", href: "/gift-cards" },
       ],
     },
     {
