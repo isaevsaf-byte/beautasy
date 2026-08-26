@@ -84,6 +84,19 @@ export const order = defineType({
       description: "Update this as the order moves through production and delivery.",
     }),
     defineField({
+      name: "trackingUrl",
+      title: "Tracking Link",
+      type: "url",
+      description: "Royal Mail / courier tracking link. Included in the dispatch email if set.",
+    }),
+    defineField({
+      name: "notifiedStatus",
+      title: "Customer Notified Of",
+      type: "string",
+      readOnly: true,
+      description: "The last status the customer was emailed about. Set automatically.",
+    }),
+    defineField({
       name: "reviewToken",
       title: "Review Token",
       type: "string",

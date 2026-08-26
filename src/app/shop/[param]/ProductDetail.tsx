@@ -18,10 +18,12 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { PortableText } from "@portabletext/react";
 import dynamic from "next/dynamic";
 import WishlistButton from "@/components/WishlistButton";
 import ReviewList, { type Review } from "@/components/ReviewList";
+import Lightbox from "@/components/Lightbox";
 import { useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
 import { trackViewItem, trackAddToCart } from "@/lib/analytics";
@@ -322,22 +324,6 @@ export default function ProductDetail({
     });
   }, [product._id, product.name, product.price, product.category]);
 
-  // Keyboard nav for lightbox
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLightboxOpen(false);
-      if (e.key === "ArrowRight") goNext();
-      if (e.key === "ArrowLeft") goPrev();
-    };
-    window.addEventListener("keydown", handleKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = "";
-    };
-  }, [lightboxOpen, goNext, goPrev]);
-
   function handleAddToCart() {
     let blocked = false;
     // Require a size if this product has sizes configured
@@ -451,10 +437,15 @@ export default function ProductDetail({
                   touchStartX.current = null;
                 }}
               >
-                <img
+                {/* The LCP element on a product page: sized per device and
+                    fetched with priority so it is not queued behind scripts. */}
+                <Image
                   src={activeImage}
                   alt={product.name}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover"
+                  priority
                 />
                 {/* Zoom button */}
                 <button
@@ -1038,105 +1029,14 @@ export default function ProductDetail({
         </button>
       </div>
 
-      {/* ──── Lightbox ──── */}
-      <AnimatePresence>
-        {lightboxOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
-            onClick={() => setLightboxOpen(false)}
-          >
-            <button
-              type="button"
-              onClick={() => setLightboxOpen(false)}
-              className="absolute top-5 right-5 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
-              aria-label="Close"
-            >
-              <X size={22} />
-            </button>
-
-            {images.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goPrev();
-                }}
-                className="absolute left-4 sm:left-6 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
-                aria-label="Previous"
-              >
-                <ChevronLeft size={22} />
-              </button>
-            )}
-
-            <motion.div
-              key={activeImageIndex}
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.92 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="relative max-w-[90vw] max-h-[85vh]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={images[activeImageIndex]}
-                alt={`${product.name} — image ${activeImageIndex + 1}`}
-                className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
-              />
-              {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-full px-4 py-1.5">
-                  <p className="text-white text-xs tracking-wider">
-                    {activeImageIndex + 1} / {images.length}
-                  </p>
-                </div>
-              )}
-            </motion.div>
-
-            {images.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goNext();
-                }}
-                className="absolute right-4 sm:right-6 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
-                aria-label="Next"
-              >
-                <ChevronRight size={22} />
-              </button>
-            )}
-
-            {images.length > 1 && (
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
-                {images.map((image, i) => (
-                  <button
-                    key={`lb-thumb-${i}`}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveImageIndex(i);
-                    }}
-                    className={`relative w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
-                      i === activeImageIndex
-                        ? "border-white scale-110 shadow-lg"
-                        : "border-white/30 hover:border-white/60"
-                    }`}
-                  >
-                    <img
-                      src={image}
-                      alt={`Thumbnail ${i + 1}`}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Lightbox
+        images={images}
+        alt={product.name}
+        index={activeImageIndex}
+        onIndexChange={setActiveImageIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
 
       {/* ──── Size Guide Modal ──── */}
       <AnimatePresence>
