@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { sanityWriteClient } from "@/lib/sanity";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Save the request first: an email Kristina has to remember to answer is
+    // how a fitting quietly goes unbooked. As a document she can confirm it,
+    // and the customer gets told either way.
+    if (process.env.SANITY_API_WRITE_TOKEN) {
+      try {
+        await sanityWriteClient.create({
+          _type: "atelierBooking",
+          name,
+          email,
+          phone: phone || undefined,
+          service,
+          preferredDate: preferredDate || undefined,
+          notes: notes || undefined,
+          status: "new",
+          createdAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("Failed to save atelier booking:", err);
+      }
+    }
+
     const resend = getResend();
 
     await resend.emails.send({
@@ -88,7 +110,7 @@ export async function POST(req: NextRequest) {
           <h1 style="font-size:22px;font-weight:400;">Thanks, ${escapeHtml(name.split(" ")[0])}!</h1>
           <p style="color:#3d3d3d;line-height:1.8;">
             We've received your request for <strong>${escapeHtml(service)}</strong>${preferredDate ? ` on ${escapeHtml(preferredDate)}` : ""}.
-            We'll confirm your appointment by email or WhatsApp shortly.
+            Kristina will confirm your time by email shortly — you'll get a message either way, so nothing is left hanging.
           </p>
         </div>`,
     });

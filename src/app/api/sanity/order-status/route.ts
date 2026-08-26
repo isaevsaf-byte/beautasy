@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendPendingStatusEmails } from "@/lib/orderStatusEmails";
+import { sendPendingBookingEmails } from "@/lib/bookingEmails";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,9 @@ export async function POST(req: NextRequest) {
 
   // The payload isn't trusted for anything — it's only a nudge to go and look
   // at which orders are due an email, which the query decides.
-  const result = await sendPendingStatusEmails(10);
-  return NextResponse.json(result);
+  const [orders, bookings] = await Promise.all([
+    sendPendingStatusEmails(10),
+    sendPendingBookingEmails(10),
+  ]);
+  return NextResponse.json({ orders, bookings });
 }

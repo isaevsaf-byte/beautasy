@@ -92,6 +92,13 @@ export async function POST(req: NextRequest) {
     const items: CheckoutItem[] = body?.items;
     const giftCardCode: string | undefined =
       typeof body?.giftCardCode === "string" ? body.giftCardCode : undefined;
+    // Where it's going, chosen in the bag. Stripe shows every shipping option to
+    // every customer and can't filter them by address, so a US order could pick
+    // the £3.50 UK rate. Deciding the region before the session means only the
+    // right rate — and only the matching countries — ever reach Stripe.
+    const requestedRegion = body?.region === "uk" || body?.region === "international"
+      ? (body.region as "uk" | "international")
+      : undefined;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -170,6 +177,9 @@ export async function POST(req: NextRequest) {
     }
 
     const origin = req.headers.get("origin") || "http://localhost:3000";
+    // Falls back to the shopper's own country when the bag didn't say
+    const geoCountry = req.headers.get("x-vercel-ip-country");
+    const region = requestedRegion ?? (geoCountry === "GB" ? "uk" : undefined);
 
     const stripe = getStripeInstance();
 
@@ -233,34 +243,68 @@ export async function POST(req: NextRequest) {
       // rather than a day later as Stripe would default to.
       expires_at: Math.floor(Date.now() / 1000) + 3 * 60 * 60,
       shipping_address_collection: {
-        allowed_countries: ["GB", "US", "CA", "FR", "DE", "IT", "ES", "AU"],
+        allowed_countries:
+          region === "uk"
+            ? (["GB"] as const)
+            : region === "international"
+            ? (["US", "CA", "FR", "DE", "IT", "ES", "AU"] as const)
+            : (["GB", "US", "CA", "FR", "DE", "IT", "ES", "AU"] as const),
       },
-      shipping_options: [
-        {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: { amount: ukRate, currency: "gbp" },
-            display_name: qualifiesForFreeUkDelivery
-              ? "Free UK Delivery (UK addresses only)"
-              : "UK Delivery (UK addresses only)",
-            delivery_estimate: {
-              minimum: { unit: "business_day", value: 3 },
-              maximum: { unit: "business_day", value: 5 },
-            },
-          },
-        },
-        {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: { amount: intRate, currency: "gbp" },
-            display_name: "International Delivery (outside the UK)",
-            delivery_estimate: {
-              minimum: { unit: "business_day", value: 7 },
-              maximum: { unit: "business_day", value: 14 },
-            },
-          },
-        },
-      ],
+      shipping_options:
+        region === "international"
+          ? [
+              {
+                shipping_rate_data: {
+                  type: "fixed_amount" as const,
+                  fixed_amount: { amount: intRate, currency: "gbp" },
+                  display_name: "International Delivery",
+                  delivery_estimate: {
+                    minimum: { unit: "business_day" as const, value: 7 },
+                    maximum: { unit: "business_day" as const, value: 14 },
+                  },
+                },
+              },
+            ]
+          : region === "uk"
+          ? [
+              {
+                shipping_rate_data: {
+                  type: "fixed_amount" as const,
+                  fixed_amount: { amount: ukRate, currency: "gbp" },
+                  display_name: qualifiesForFreeUkDelivery ? "Free UK Delivery" : "UK Delivery",
+                  delivery_estimate: {
+                    minimum: { unit: "business_day" as const, value: 3 },
+                    maximum: { unit: "business_day" as const, value: 5 },
+                  },
+                },
+              },
+            ]
+          : [
+              {
+                shipping_rate_data: {
+                  type: "fixed_amount" as const,
+                  fixed_amount: { amount: ukRate, currency: "gbp" },
+                  display_name: qualifiesForFreeUkDelivery
+                    ? "Free UK Delivery (UK addresses only)"
+                    : "UK Delivery (UK addresses only)",
+                  delivery_estimate: {
+                    minimum: { unit: "business_day" as const, value: 3 },
+                    maximum: { unit: "business_day" as const, value: 5 },
+                  },
+                },
+              },
+              {
+                shipping_rate_data: {
+                  type: "fixed_amount" as const,
+                  fixed_amount: { amount: intRate, currency: "gbp" },
+                  display_name: "International Delivery (outside the UK)",
+                  delivery_estimate: {
+                    minimum: { unit: "business_day" as const, value: 7 },
+                    maximum: { unit: "business_day" as const, value: 14 },
+                  },
+                },
+              },
+            ],
       ...(userId ? { client_reference_id: userId } : {}),
       ...(giftCardDiscount
         ? { metadata: { gift_card_id: giftCardDiscount.cardId } }
