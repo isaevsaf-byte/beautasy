@@ -49,17 +49,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Please select a service" }, { status: 400 });
     }
 
-    if (!process.env.RESEND_API_KEY) {
-      console.error("RESEND_API_KEY is not set");
-      return NextResponse.json(
-        { error: "Booking is temporarily unavailable — please WhatsApp or email us instead." },
-        { status: 503 }
-      );
-    }
-
-    // Save the request first: an email Kristina has to remember to answer is
-    // how a fitting quietly goes unbooked. As a document she can confirm it,
-    // and the customer gets told either way.
+    // Save the request before anything else. An email Kristina has to remember
+    // to answer is how a fitting quietly goes unbooked — and if the mail
+    // service is down or misconfigured, the request must still survive.
+    let saved = false;
     if (process.env.SANITY_API_WRITE_TOKEN) {
       try {
         await sanityWriteClient.create({
@@ -73,9 +66,22 @@ export async function POST(req: NextRequest) {
           status: "new",
           createdAt: new Date().toISOString(),
         });
+        saved = true;
       } catch (err) {
         console.error("Failed to save atelier booking:", err);
       }
+    }
+
+    // The request is already safe in the Studio, so a mail outage is not the
+    // customer's problem — only tell them something went wrong if we lost it.
+    if (!process.env.RESEND_API_KEY) {
+      console.error("RESEND_API_KEY is not set — booking saved without email");
+      return saved
+        ? NextResponse.json({ ok: true, emailed: false }, { status: 201 })
+        : NextResponse.json(
+            { error: "Booking is temporarily unavailable — please WhatsApp or email us instead." },
+            { status: 503 }
+          );
     }
 
     const resend = getResend();
@@ -117,7 +123,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
-    console.error("Error sending atelier booking:", error);
+    console.error("Error handling atelier booking:", error);
     return NextResponse.json(
       { error: "Failed to send booking request. Please try WhatsApp instead." },
       { status: 500 }
