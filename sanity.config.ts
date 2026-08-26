@@ -4,6 +4,7 @@ import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
 import { visionTool } from "@sanity/vision";
 import { schemaTypes } from "./src/sanity/schemaTypes";
+import { notifyCustomerAction } from "./src/sanity/notifyAction";
 
 export default defineConfig({
   name: "beautasy",
@@ -18,5 +19,14 @@ export default defineConfig({
 
   schema: {
     types: schemaTypes,
+  },
+
+  document: {
+    // "Email the customer now" on the documents whose status drives an email,
+    // so Kristina doesn't have to wait for the nightly job.
+    actions: (prev, context) =>
+      context.schemaType === "order" || context.schemaType === "atelierBooking"
+        ? [...prev, notifyCustomerAction]
+        : prev,
   },
 });
