@@ -67,6 +67,11 @@ export function CartDrawer({
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(
     propThreshold ?? DEFAULT_FREE_THRESHOLD
   );
+  // Gift card applied to this order, if any
+  const [giftCardCode, setGiftCardCode] = useState("");
+  const [giftCard, setGiftCard] = useState<{ code: string; balance: number } | null>(null);
+  const [giftCardError, setGiftCardError] = useState<string | null>(null);
+  const [checkingCard, setCheckingCard] = useState(false);
 
   const hydrated = useIsClient();
 
@@ -169,7 +174,7 @@ export function CartDrawer({
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, ...(giftCard ? { giftCardCode: giftCard.code } : {}) }),
       });
 
       const data = await res.json();
@@ -378,6 +383,67 @@ export function CartDrawer({
                     </div>
                   );
                 })()}
+
+                {/* Gift card */}
+                <div>
+                  {giftCard ? (
+                    <div className="flex items-center justify-between gap-2 text-xs bg-lavender-bg/60 border border-lavender-soft/40 rounded-lg px-3 py-2">
+                      <span className="text-charcoal">
+                        Gift card <strong>{giftCard.code}</strong> — £
+                        {(Math.min(giftCard.balance, totalPrice()) / 100).toFixed(2)} off
+                      </span>
+                      <button
+                        onClick={() => {
+                          setGiftCard(null);
+                          setGiftCardCode("");
+                        }}
+                        className="text-charcoal-light hover:text-charcoal underline underline-offset-2"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        setCheckingCard(true);
+                        setGiftCardError(null);
+                        try {
+                          const res = await fetch(
+                            `/api/gift-cards?code=${encodeURIComponent(giftCardCode)}`
+                          );
+                          const data = await res.json();
+                          if (!res.ok || !data.valid) {
+                            setGiftCardError(data.error ?? "That code isn't valid");
+                          } else {
+                            setGiftCard({ code: data.code, balance: data.balance });
+                          }
+                        } catch {
+                          setGiftCardError("Could not check that code");
+                        }
+                        setCheckingCard(false);
+                      }}
+                      className="flex gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={giftCardCode}
+                        onChange={(e) => setGiftCardCode(e.target.value.toUpperCase().slice(0, 30))}
+                        placeholder="Gift card code"
+                        aria-label="Gift card code"
+                        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                      />
+                      <button
+                        type="submit"
+                        disabled={checkingCard || giftCardCode.length < 4}
+                        className="shrink-0 px-3 py-2 rounded-lg bg-lavender/20 hover:bg-lavender/30 text-charcoal text-xs font-medium transition-colors disabled:opacity-50"
+                      >
+                        {checkingCard ? "…" : "Apply"}
+                      </button>
+                    </form>
+                  )}
+                  {giftCardError && <p className="text-[11px] text-red-500 mt-1">{giftCardError}</p>}
+                </div>
 
                 {/* Total */}
                 <div className="flex items-center justify-between">

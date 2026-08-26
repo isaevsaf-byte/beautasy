@@ -37,6 +37,7 @@ const navLinks = [
 
 const legalLinks = [
   { label: "About Us", href: "/pages/about-us" },
+  { label: "Gift Cards", href: "/gift-cards" },
   { label: "Delivery & Returns", href: "/pages/delivery-and-returns" },
   { label: "Privacy Policy", href: "/pages/privacy-policy" },
   { label: "Contact", href: "/contact" },

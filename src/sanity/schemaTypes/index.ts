@@ -9,6 +9,7 @@ import { stockAlert } from "./stockAlert";
 import { order } from "./order";
 import { subscriber } from "./subscriber";
 import { abandonedCart } from "./abandonedCart";
+import { giftCard } from "./giftCard";
 
 export const schemaTypes = [
   product,
@@ -22,4 +23,5 @@ export const schemaTypes = [
   order,
   subscriber,
   abandonedCart,
+  giftCard,
 ];
