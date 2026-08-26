@@ -72,6 +72,9 @@ export function CartDrawer({
   const [giftCard, setGiftCard] = useState<{ code: string; balance: number } | null>(null);
   const [giftCardError, setGiftCardError] = useState<string | null>(null);
   const [checkingCard, setCheckingCard] = useState(false);
+  // Where the parcel is going. Preselected from the shopper's country, but
+  // theirs to change — a UK customer might be sending a gift abroad.
+  const [region, setRegion] = useState<"uk" | "international">("uk");
 
   const hydrated = useIsClient();
 
@@ -109,6 +112,23 @@ export function CartDrawer({
       })
       .catch(() => {/* keep the default */});
   }, [propThreshold]);
+
+  // Preselect the delivery region from where the shopper appears to be
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    fetch("/api/geo")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && (data?.region === "uk" || data?.region === "international")) {
+          setRegion(data.region);
+        }
+      })
+      .catch(() => {/* the UK default is the common case */});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   // Lock body scroll when cart is open
   useEffect(() => {
@@ -174,7 +194,11 @@ export function CartDrawer({
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, ...(giftCard ? { giftCardCode: giftCard.code } : {}) }),
+        body: JSON.stringify({
+          items,
+          region,
+          ...(giftCard ? { giftCardCode: giftCard.code } : {}),
+        }),
       });
 
       const data = await res.json();
@@ -351,7 +375,7 @@ export function CartDrawer({
             {items.length > 0 && (
               <div className="border-t border-lavender-soft/40 px-6 py-5 space-y-4 shrink-0">
                 {/* Free shipping progress */}
-                {freeShippingThreshold > 0 && (() => {
+                {region === "uk" && freeShippingThreshold > 0 && (() => {
                   const spent = totalPrice();
                   const remaining = freeShippingThreshold - spent;
                   const pct = Math.min((spent / freeShippingThreshold) * 100, 100);
@@ -383,6 +407,33 @@ export function CartDrawer({
                     </div>
                   );
                 })()}
+
+                {/* Delivery region — decides which rate Stripe offers */}
+                <div>
+                  <p className="text-[11px] tracking-wider uppercase text-charcoal-light mb-1.5">
+                    Delivering to
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      ["uk", "United Kingdom"],
+                      ["international", "Rest of world"],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setRegion(value)}
+                        aria-pressed={region === value}
+                        className={`py-2 rounded-lg border text-xs font-medium transition-colors ${
+                          region === value
+                            ? "bg-lavender border-lavender text-charcoal"
+                            : "bg-white border-lavender-soft/50 text-charcoal-light hover:border-lavender"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Gift card */}
                 <div>

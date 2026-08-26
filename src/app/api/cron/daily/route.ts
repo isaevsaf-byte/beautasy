@@ -3,6 +3,7 @@ import { runStockAlerts } from "@/lib/stockAlerts";
 import { runReviewRequests } from "@/lib/reviewRequests";
 import { sendPendingStatusEmails } from "@/lib/orderStatusEmails";
 import { deliverScheduledGiftCards } from "@/lib/giftCardEmails";
+import { sendPendingBookingEmails } from "@/lib/bookingEmails";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -28,9 +29,10 @@ export async function GET(req: NextRequest) {
     runStockAlerts(),
     runReviewRequests(),
     deliverScheduledGiftCards(),
+    sendPendingBookingEmails(),
   ]);
 
-  const [statusEmails, stockAlerts, reviewRequests, giftCards] = results.map((r) =>
+  const [statusEmails, stockAlerts, reviewRequests, giftCards, bookings] = results.map((r) =>
     r.status === "fulfilled" ? r.value : { error: String(r.reason) }
   );
 
@@ -38,5 +40,5 @@ export async function GET(req: NextRequest) {
     if (result.status === "rejected") console.error("Daily job failed:", result.reason);
   }
 
-  return NextResponse.json({ statusEmails, stockAlerts, reviewRequests, giftCards });
+  return NextResponse.json({ statusEmails, stockAlerts, reviewRequests, giftCards, bookings });
 }

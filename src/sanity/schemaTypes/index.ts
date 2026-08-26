@@ -10,6 +10,7 @@ import { order } from "./order";
 import { subscriber } from "./subscriber";
 import { abandonedCart } from "./abandonedCart";
 import { giftCard } from "./giftCard";
+import { atelierBooking } from "./atelierBooking";
 
 export const schemaTypes = [
   product,
@@ -24,4 +25,5 @@ export const schemaTypes = [
   subscriber,
   abandonedCart,
   giftCard,
+  atelierBooking,
 ];
