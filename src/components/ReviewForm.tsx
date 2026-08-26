@@ -7,22 +7,15 @@ import { useUser, SignInButton } from "@clerk/nextjs";
 import StarRating from "./StarRating";
 import { fadeUp, stagger } from "./animations";
 
-interface Review {
-  _id: string;
-  userName: string;
-  rating: number;
-  comment: string;
-  createdAt: string;
-  images?: string[];
-}
-
 const MAX_PHOTOS = 4;
 
-export default function ReviewSection({ productId }: { productId: string }) {
+/**
+ * The "write a review" half of the reviews block. Kept client-only because it
+ * needs Clerk's useUser; the published reviews themselves are server-rendered
+ * by <ReviewList> so they end up in the HTML.
+ */
+export default function ReviewForm({ productId }: { productId: string }) {
   const { user, isSignedIn, isLoaded } = useUser();
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [averageRating, setAverageRating] = useState(0);
-  const [loading, setLoading] = useState(true);
 
   // Form state
   const [rating, setRating] = useState(0);
@@ -53,18 +46,6 @@ export default function ReviewSection({ productId }: { productId: string }) {
       return prev.filter((_, i) => i !== index);
     });
   }
-
-  // Fetch reviews
-  useEffect(() => {
-    fetch(`/api/reviews?productId=${productId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setReviews(data.reviews || []);
-        setAverageRating(data.averageRating || 0);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [productId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -131,36 +112,13 @@ export default function ReviewSection({ productId }: { productId: string }) {
   }
 
   return (
-    <section className="py-16 border-t border-lavender-soft/40">
+    <div>
       <motion.div
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-80px" }}
         variants={stagger}
       >
-        <motion.h3
-          variants={fadeUp}
-          custom={0}
-          className="font-serif text-2xl mb-6"
-        >
-          Customer Reviews
-        </motion.h3>
-
-        {/* Average rating summary */}
-        {!loading && reviews.length > 0 && (
-          <motion.div
-            variants={fadeUp}
-            custom={1}
-            className="flex items-center gap-3 mb-8"
-          >
-            <StarRating rating={Math.round(averageRating)} />
-            <span className="text-sm text-charcoal-light">
-              {averageRating.toFixed(1)} ({reviews.length} review
-              {reviews.length !== 1 ? "s" : ""})
-            </span>
-          </motion.div>
-        )}
-
         {/* Review form */}
         <motion.div variants={fadeUp} custom={2}>
           {isLoaded && isSignedIn ? (
@@ -288,60 +246,7 @@ export default function ReviewSection({ productId }: { productId: string }) {
           ) : null}
         </motion.div>
 
-        {/* Reviews list */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 size={24} className="animate-spin text-lavender" />
-          </div>
-        ) : reviews.length > 0 ? (
-          <motion.div variants={fadeUp} custom={3}>
-            {reviews.map((rev) => (
-              <div
-                key={rev._id}
-                className="py-4 border-b border-lavender-soft/20 last:border-b-0"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <StarRating rating={rev.rating} size={14} />
-                  <span className="font-medium text-sm text-charcoal">
-                    {rev.userName}
-                  </span>
-                  <span className="text-xs text-charcoal-light">
-                    {new Date(rev.createdAt).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-                <p className="text-sm text-charcoal-light leading-relaxed">
-                  {rev.comment}
-                </p>
-                {rev.images && rev.images.length > 0 && (
-                  <div className="flex gap-2 mt-3">
-                    {rev.images.map((url, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={url}
-                        src={url}
-                        alt={`Photo from ${rev.userName}'s review, ${i + 1}`}
-                        className="w-16 h-16 rounded-lg object-cover border border-lavender-soft/30"
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </motion.div>
-        ) : (
-          <motion.p
-            variants={fadeUp}
-            custom={3}
-            className="text-sm text-charcoal-light text-center py-8"
-          >
-            No reviews yet. Be the first to share your thoughts!
-          </motion.p>
-        )}
       </motion.div>
-    </section>
+    </div>
   );
 }

@@ -8,7 +8,9 @@ import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package } from "lucide-re
 import { usePathname } from "next/navigation";
 import { useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
+import { useIsClient } from "@/lib/useIsClient";
 import { DEFAULT_FREE_THRESHOLD } from "@/lib/siteSettings";
+import { trackBeginCheckout } from "@/lib/analytics";
 
 /**
  * The bag icon in the header. Open/closed state lives in the `useCartUI`
@@ -18,10 +20,9 @@ export default function Cart() {
   const items = useCart((state) => state.items);
   const openCart = useCartUI((state) => state.openCart);
 
-  // Fix Zustand hydration: the store hydrates from localStorage after SSR,
-  // so we track when the client has mounted to avoid hydration mismatches.
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  // The cart store hydrates from localStorage after SSR, so the count must read
+  // as empty until we are on the client or the markup would not match.
+  const hydrated = useIsClient();
 
   const count = hydrated
     ? items.reduce((sum, item) => sum + item.quantity, 0)
@@ -67,8 +68,7 @@ export function CartDrawer({
     propThreshold ?? DEFAULT_FREE_THRESHOLD
   );
 
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useIsClient();
 
   // ── Close cart on every navigation ────────────────────────────────────
   // In Next.js App Router, concurrent rendering keeps the old page's DOM
@@ -154,6 +154,16 @@ export function CartDrawer({
       setIsLoading(false);
       return;
     }
+
+    trackBeginCheckout(
+      items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        variant: [item.size, item.color].filter(Boolean).join(" / ") || undefined,
+      }))
+    );
 
     try {
       const res = await fetch("/api/checkout", {

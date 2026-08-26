@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /* ─── POST /api/stock-alerts — subscribe an email to a product's restock ─── */
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(`stock-alerts:${clientIp(req)}`, 10, 60 * 60 * 1000);
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(limited.retryAfter) } }
+    );
+  }
+
   try {
     const { productId, email, size } = await req.json();
 
@@ -26,6 +35,14 @@ export async function POST(req: NextRequest) {
         { error: "Stock alerts are temporarily unavailable" },
         { status: 503 }
       );
+    }
+
+    const productExists = await sanityClient.fetch<string | null>(
+      `*[_id == $productId && _type == "product"][0]._id`,
+      { productId }
+    );
+    if (!productExists) {
+      return NextResponse.json({ error: "Unknown product" }, { status: 400 });
     }
 
     const existing = await sanityClient.fetch(

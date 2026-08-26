@@ -5,6 +5,8 @@ import { Menu, X, Gift, Crown, ChevronRight, Heart, Package } from "lucide-react
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Cart, { CartDrawer } from "@/components/Cart";
+import SearchOverlay from "@/components/SearchOverlay";
+import { useIsClient } from "@/lib/useIsClient";
 import { useWishlist } from "@/store/useWishlist";
 import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
 
@@ -216,25 +218,34 @@ export default function Header({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeMega, setActiveMega] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  const hydrated = useIsClient();
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wishlistCount = useWishlist((s) => s.items.length);
   // Announcement bar — fetched client-side when not passed from server
   const [bar, setBar] = useState<AnnouncementBarData | null>(propBar ?? null);
 
-  useEffect(() => setHydrated(true), []);
 
   // Fetch announcement bar from /api/site-settings when not provided as prop.
   // Uses sessionStorage so the bar data persists across client-side navigations.
   useEffect(() => {
     if (propBar !== undefined) return; // already provided by server
-    try {
-      const cached = sessionStorage.getItem("beautasy-site-settings");
-      if (cached) {
-        const s = JSON.parse(cached);
-        if (s?.announcementBar !== undefined) { setBar(s.announcementBar); return; }
-      }
-    } catch { /* ok */ }
+    let cancelled = false;
+
+    // Off the synchronous path: a setState in the effect body cascades an extra
+    // render (and React 19 lints against it).
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        const cached = sessionStorage.getItem("beautasy-site-settings");
+        if (cached) {
+          const s = JSON.parse(cached);
+          if (s?.announcementBar !== undefined) { setBar(s.announcementBar); return; }
+        }
+      } catch { /* ok */ }
+      loadBar();
+    });
+
+    function loadBar() {
     fetch("/api/site-settings")
       .then((r) => r.json())
       .then((data) => {
@@ -243,6 +254,9 @@ export default function Header({
         try { sessionStorage.setItem("beautasy-site-settings", JSON.stringify(data ?? {})); } catch { /* ok */ }
       })
       .catch(() => {});
+    }
+
+    return () => { cancelled = true; };
   }, [propBar]);
 
   const openMega = useCallback((label: string) => {
@@ -329,9 +343,9 @@ export default function Header({
 
         {/* Logo center */}
         <Link href="/" className="absolute left-1/2 -translate-x-1/2">
-          <h1 className="font-serif text-2xl md:text-3xl tracking-[0.3em] text-charcoal">
+          <span className="block font-serif text-2xl md:text-3xl tracking-[0.3em] text-charcoal">
             BEAUTASY
-          </h1>
+          </span>
         </Link>
 
         {/* Nav right (desktop) */}
@@ -371,6 +385,7 @@ export default function Header({
               </SignedOut>
             </>
           )}
+          <SearchOverlay />
           <Link
             href="/wishlist"
             className="relative p-1 text-charcoal/70 hover:text-charcoal transition-colors duration-300"
@@ -392,6 +407,7 @@ export default function Header({
 
         {/* Cart + Wishlist for mobile */}
         <div className="md:hidden flex items-center gap-3">
+          <SearchOverlay />
           <Link
             href="/wishlist"
             className="relative p-1 text-charcoal/70 hover:text-charcoal transition-colors"
@@ -476,6 +492,33 @@ export default function Header({
                 </div>
               );
             })}
+            {clerkEnabled && (
+              <div className="border-t border-lavender-soft/40 mt-3 pt-3">
+                <SignedIn>
+                  <Link
+                    href="/orders"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 py-3 text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors"
+                  >
+                    <Package size={14} />
+                    My Orders
+                  </Link>
+                  <div className="py-2">
+                    <UserButton
+                      afterSignOutUrl="/"
+                      appearance={{ variables: { colorPrimary: "#DCD0FF" } }}
+                    />
+                  </div>
+                </SignedIn>
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <button className="block w-full text-left py-3 text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors">
+                      Sign In
+                    </button>
+                  </SignInButton>
+                </SignedOut>
+              </div>
+            )}
           </motion.nav>
         )}
       </AnimatePresence>

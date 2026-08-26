@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
 import { useWishlist, WishlistItem } from "@/store/useWishlist";
+import { useIsClient } from "@/lib/useIsClient";
 
 interface WishlistButtonProps {
   product: WishlistItem;
@@ -15,9 +15,7 @@ export default function WishlistButton({
   className = "",
 }: WishlistButtonProps) {
   const { toggleItem, isWishlisted } = useWishlist();
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useIsClient();
 
   const wishlisted = hydrated ? isWishlisted(product.id) : false;
 

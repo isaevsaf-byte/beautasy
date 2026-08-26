@@ -84,7 +84,7 @@ function Hero() {
             Handmade in Southampton
           </motion.p>
 
-          <motion.h2
+          <motion.h1
             variants={fadeUp}
             custom={1}
             className="font-serif text-4xl sm:text-5xl lg:text-6xl leading-tight mb-6"
@@ -92,7 +92,7 @@ function Hero() {
             Made to feel,
             <br />
             <span className="italic text-lavender">not just wear.</span>
-          </motion.h2>
+          </motion.h1>
 
           <motion.p
             variants={fadeUp}

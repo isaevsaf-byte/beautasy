@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -21,11 +21,14 @@ import Link from "next/link";
 import { PortableText } from "@portabletext/react";
 import dynamic from "next/dynamic";
 import WishlistButton from "@/components/WishlistButton";
+import ReviewList, { type Review } from "@/components/ReviewList";
 import { useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
+import { trackViewItem, trackAddToCart } from "@/lib/analytics";
 
-// Client-only: ReviewSection uses Clerk's useUser hook which can't run during SSG
-const ReviewSection = dynamic(() => import("@/components/ReviewSection"), {
+// Client-only: the review form uses Clerk's useUser hook, which can't run during SSG.
+// The published reviews are server-rendered by <ReviewList> below.
+const ReviewForm = dynamic(() => import("@/components/ReviewForm"), {
   ssr: false,
 });
 import { fadeUp, stagger } from "@/components/animations";
@@ -225,9 +228,14 @@ interface RelatedProduct {
 export default function ProductDetail({
   product,
   relatedProducts = [],
+  reviews = [],
+  averageRating = 0,
 }: {
   product: ProductProps;
   relatedProducts?: RelatedProduct[];
+  /** Approved reviews, fetched on the server so they land in the HTML */
+  reviews?: Review[];
+  averageRating?: number;
 }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -240,6 +248,9 @@ export default function ProductDetail({
   const [colorError, setColorError] = useState(false);
   const addItem = useCart((state) => state.addItem);
   const openCart = useCartUI((state) => state.openCart);
+  // Lets the sticky mobile bar send the customer back up to the size/colour picker
+  const optionsRef = useRef<HTMLDivElement | null>(null);
+  const touchStartX = useRef<number | null>(null);
 
   const hasSizes = product.availableSizes && product.availableSizes.length > 0;
   const hasColors =
@@ -282,6 +293,16 @@ export default function ProductDetail({
   const goPrev = useCallback(() => {
     setActiveImageIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
   }, [images.length]);
+
+  // Report the product view once per product, for GA4 funnels and remarketing
+  useEffect(() => {
+    trackViewItem({
+      id: product._id,
+      name: product.name,
+      price: product.price,
+      category: product.category,
+    });
+  }, [product._id, product.name, product.price, product.category]);
 
   // Keyboard nav for lightbox
   useEffect(() => {
@@ -337,6 +358,17 @@ export default function ProductDetail({
       });
     }
 
+    trackAddToCart([
+      {
+        id: product._id,
+        name: product.name,
+        price: currentPrice,
+        quantity: 1,
+        category: product.category,
+        variant: [selectedSize, selectedColor].filter(Boolean).join(" / ") || undefined,
+      },
+    ]);
+
     // Show the customer what just happened — the bag icon is usually scrolled
     // out of view here, so adding silently reads as a broken button.
     openCart();
@@ -344,7 +376,7 @@ export default function ProductDetail({
 
   return (
     <>
-      <main className="pt-28">
+      <main className="pt-28 pb-24 md:pb-0">
         {/* ── Breadcrumb ── */}
         <div className="max-w-6xl mx-auto px-6 py-6">
           <nav className="flex items-center gap-2 text-sm text-charcoal-light">
@@ -377,7 +409,20 @@ export default function ProductDetail({
             {/* ──── Left: Image Gallery ──── */}
             <motion.div variants={fadeUp} custom={0}>
               {/* Main Image */}
-              <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white/60 mb-4">
+              <div
+                className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white/60 mb-4"
+                onTouchStart={(e) => {
+                  touchStartX.current = e.changedTouches[0].clientX;
+                }}
+                onTouchEnd={(e) => {
+                  // Swipe through the gallery on touch devices; the arrows are
+                  // fiddly on a phone and everyone expects a swipe here.
+                  if (touchStartX.current == null || images.length < 2) return;
+                  const dx = e.changedTouches[0].clientX - touchStartX.current;
+                  if (Math.abs(dx) > 45) (dx < 0 ? goNext : goPrev)();
+                  touchStartX.current = null;
+                }}
+              >
                 <img
                   src={activeImage}
                   alt={product.name}
@@ -512,6 +557,7 @@ export default function ProductDetail({
               )}
 
               {/* ── Size Selector ── */}
+              <div ref={optionsRef} />
               {hasSizes && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
@@ -830,9 +876,51 @@ export default function ProductDetail({
 
         {/* ── Reviews ── */}
         <section className="max-w-6xl mx-auto px-6 pb-16">
-          <ReviewSection productId={product._id} />
+          <div className="py-16 border-t border-lavender-soft/40">
+            <h2 className="font-serif text-2xl mb-6">Customer Reviews</h2>
+            <ReviewForm productId={product._id} />
+            <ReviewList reviews={reviews} averageRating={averageRating} />
+          </div>
         </section>
       </main>
+
+      {/* ──── Sticky mobile buy bar ──── */}
+      {/* On a phone the price and the button sit well below the gallery, so the
+          main call to action was off-screen for most of the page. */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 py-3 flex items-center gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] text-charcoal-light truncate">{product.name}</p>
+          <p className="font-serif text-lg leading-tight">
+            £{((currentPrice + (giftBoxChecked ? product.giftBoxPrice : 0)) / 100).toFixed(2)}
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            const missingSize = hasSizes && !selectedSize;
+            const missingColor = hasColors && !selectedColor;
+            if (missingSize || missingColor) {
+              optionsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+              if (missingSize) {
+                setSizeError(true);
+                setTimeout(() => setSizeError(false), 2500);
+              }
+              if (missingColor) {
+                setColorError(true);
+                setTimeout(() => setColorError(false), 2500);
+              }
+              return;
+            }
+            handleAddToCart();
+          }}
+          className="flex-1 py-3 rounded-full bg-lavender text-charcoal text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors"
+        >
+          {hasSizes && !selectedSize
+            ? "Select a Size"
+            : hasColors && !selectedColor
+            ? "Select a Colour"
+            : "Add to Bag"}
+        </button>
+      </div>
 
       {/* ──── Lightbox ──── */}
       <AnimatePresence>

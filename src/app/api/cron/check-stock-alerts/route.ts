@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
+import { escapeHtml } from "@/lib/escapeHtml";
+import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +45,12 @@ function isBackInStock(alert: PendingAlert): boolean {
 /* ─── GET /api/cron/check-stock-alerts — notifies customers when a product they
    subscribed to is back in stock. Scheduled via Vercel Cron (see vercel.json). ─── */
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Fail closed: without a secret this endpoint would be an open email trigger
+  if (!process.env.CRON_SECRET) {
+    console.error("CRON_SECRET is not set — refusing to run the stock alert job");
+    return NextResponse.json({ error: "Cron is not configured" }, { status: 500 });
+  }
+  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -64,9 +70,9 @@ export async function GET(req: NextRequest) {
             <p style="font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#7a6d9a;">Beautasy</p>
             <h1 style="font-size:24px;font-weight:400;color:#2d2d2d;">Good news — it's back!</h1>
             <p style="color:#3d3d3d;line-height:1.7;">
-              <strong>${alert.product.name}</strong>${alert.size ? ` in size <strong>${alert.size}</strong>` : ""} is back in stock. Handmade pieces sell out fast, so grab it before it's gone again.
+              <strong>${escapeHtml(alert.product.name)}</strong>${alert.size ? ` in size <strong>${escapeHtml(alert.size)}</strong>` : ""} is back in stock. Handmade pieces sell out fast, so grab it before it's gone again.
             </p>
-            <a href="https://beautasy.co.uk/shop/${alert.product.slug}" style="display:inline-block;margin-top:16px;padding:12px 28px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">Shop Now</a>
+            <a href="${SITE_URL}/shop/${alert.product.slug}" style="display:inline-block;margin-top:16px;padding:12px 28px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">Shop Now</a>
           </div>`,
       });
       await sanityWriteClient.patch(alert._id).set({ notified: true }).commit();

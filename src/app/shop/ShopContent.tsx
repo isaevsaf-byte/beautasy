@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useSearchParams, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +19,8 @@ interface Product {
   category: string;
   subcategory?: string;
   availableSizes: string[];
+  /** Ready-made pieces on the shelf; 0 means made to order, not unavailable */
+  stock?: number;
   collection?: { name: string; slug: string } | null;
 }
 
@@ -171,24 +172,71 @@ interface ActiveCollection {
   description?: unknown[];
 }
 
+export interface ShopFilters {
+  /** ?category= — subcategory chip */
+  category?: string;
+  /** ?sort= — price-asc | price-desc | undefined (newest) */
+  sort?: string;
+  /** ?size= */
+  size?: string;
+  /** ?ready=1 — only pieces already sewn */
+  ready?: string;
+}
+
 export default function ShopContent({
   products,
   activeCategory,
   activeCollection,
+  basePath,
+  filters = {},
 }: {
   products: Product[];
   activeCategory?: string;
   activeCollection?: ActiveCollection;
+  /** Path this listing lives at, used to build filter links */
+  basePath: string;
+  filters?: ShopFilters;
 }) {
-  // Read ?category= from the URL client-side so the server page doesn't need
-  // searchParams (which would force fully-dynamic rendering and break ISR).
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const activeSubcategory = searchParams.get("category") ?? undefined;
+  // Filters arrive from the server rather than from useSearchParams(): reading
+  // them client-side made Next replace the whole listing with the Suspense
+  // skeleton in the prerendered HTML, so search engines never saw a product.
+  const activeSubcategory = filters.category;
+  const activeSort = filters.sort;
+  const activeSize = filters.size;
+  const readyOnly = filters.ready === "1";
 
-  const displayedProducts = activeSubcategory
-    ? products.filter((p) => p.subcategory === activeSubcategory)
-    : products;
+  /** Builds a URL for this listing with some params changed and the rest kept. */
+  const buildHref = (patch: Record<string, string | undefined>) => {
+    const next = new URLSearchParams();
+    const current: Record<string, string | undefined> = {
+      category: activeSubcategory,
+      sort: activeSort,
+      size: activeSize,
+      ready: filters.ready,
+      ...patch,
+    };
+    for (const [key, value] of Object.entries(current)) {
+      if (value !== undefined) next.set(key, value);
+    }
+    const qs = next.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
+
+  // Sizes actually offered by the products on this page
+  const sizeOptions = Array.from(
+    new Set(products.flatMap((p) => p.availableSizes ?? []))
+  );
+
+  const displayedProducts = products
+    .filter((p) => (activeSubcategory ? p.subcategory === activeSubcategory : true))
+    .filter((p) => (activeSize ? (p.availableSizes ?? []).includes(activeSize) : true))
+    // "Ready to ship" means pieces already sewn; everything else is made to order
+    .filter((p) => (readyOnly ? (p.stock ?? 0) > 0 : true))
+    .sort((a, b) => {
+      if (activeSort === "price-asc") return a.price - b.price;
+      if (activeSort === "price-desc") return b.price - a.price;
+      return 0; // server already returns newest first, which is our default
+    });
 
   // Tags to show for the active category page
   const tags = activeCategory ? (categoryTags[activeCategory] ?? []) : [];
@@ -220,7 +268,7 @@ export default function ShopContent({
                   ? categoryLabels[activeCategory] || "Collection"
                   : "Our Collections"}
               </motion.p>
-              <motion.h2
+              <motion.h1
                 variants={fadeUp}
                 custom={1}
                 className="font-serif text-4xl sm:text-5xl mb-6"
@@ -232,7 +280,7 @@ export default function ShopContent({
                   : activeCategory
                   ? categoryLabels[activeCategory] || "Shop"
                   : "Browse the Shelves"}
-              </motion.h2>
+              </motion.h1>
               <motion.p
                 variants={fadeUp}
                 custom={2}
@@ -254,7 +302,7 @@ export default function ShopContent({
             <div className="max-w-6xl mx-auto px-6">
               <div className="flex flex-wrap gap-2 justify-center">
                 <Link
-                  href={pathname}
+                  href={buildHref({ category: undefined })}
                   className={`px-5 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
                     !activeSubcategory
                       ? "bg-lavender text-charcoal"
@@ -266,7 +314,7 @@ export default function ShopContent({
                 {tags.map((tag) => (
                   <Link
                     key={tag.slug}
-                    href={`${pathname}?category=${tag.slug}`}
+                    href={buildHref({ category: tag.slug })}
                     className={`px-5 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
                       activeSubcategory === tag.slug
                         ? "bg-lavender text-charcoal"
@@ -386,6 +434,96 @@ export default function ShopContent({
               </motion.h3>
             </motion.div>
 
+            {/* Sort + filter controls */}
+            {products.length > 0 && (
+              <div className="flex flex-col gap-4 mb-10">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs tracking-wider uppercase text-charcoal-light">
+                    {displayedProducts.length}{" "}
+                    {displayedProducts.length === 1 ? "piece" : "pieces"}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs tracking-wider uppercase text-charcoal-light mr-1">
+                      Sort
+                    </span>
+                    {[
+                      { key: undefined, label: "Newest" },
+                      { key: "price-asc", label: "Price ↑" },
+                      { key: "price-desc", label: "Price ↓" },
+                    ].map((option) => {
+                      const active = (activeSort ?? undefined) === option.key;
+                      return (
+                        <Link
+                          key={option.label}
+                          href={buildHref({ sort: option.key })}
+                          scroll={false}
+                          aria-current={active ? "true" : undefined}
+                          className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
+                            active
+                              ? "bg-lavender text-charcoal"
+                              : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                          }`}
+                        >
+                          {option.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {(sizeOptions.length > 0 || readyOnly) && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {sizeOptions.length > 0 && (
+                      <>
+                        <span className="text-xs tracking-wider uppercase text-charcoal-light mr-1">
+                          Size
+                        </span>
+                        {sizeOptions.map((size) => {
+                          const active = activeSize === size;
+                          return (
+                            <Link
+                              key={size}
+                              href={buildHref({ size: active ? undefined : size })}
+                              scroll={false}
+                              aria-pressed={active}
+                              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
+                                active
+                                  ? "bg-lavender text-charcoal"
+                                  : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                              }`}
+                            >
+                              {size}
+                            </Link>
+                          );
+                        })}
+                      </>
+                    )}
+                    <Link
+                      href={buildHref({ ready: readyOnly ? undefined : "1" })}
+                      scroll={false}
+                      aria-pressed={readyOnly}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
+                        readyOnly
+                          ? "bg-lavender text-charcoal"
+                          : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                      }`}
+                    >
+                      Ready to ship
+                    </Link>
+                    {(activeSize || readyOnly || activeSort) && (
+                      <Link
+                        href={buildHref({ size: undefined, ready: undefined, sort: undefined })}
+                        scroll={false}
+                        className="px-3 py-1.5 text-xs text-charcoal-light hover:text-charcoal underline underline-offset-2"
+                      >
+                        Clear
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {displayedProducts.length > 0 ? (
               <motion.div
                 initial="hidden"
@@ -410,7 +548,9 @@ export default function ShopContent({
                   <span className="text-3xl">✨</span>
                 </div>
                 <h4 className="font-serif text-2xl mb-3">
-                  {activeSubcategory
+                  {activeSize || readyOnly
+                    ? "Nothing matches those filters"
+                    : activeSubcategory
                     ? `${subcategoryLabels[activeSubcategory] || activeSubcategory} Coming Soon`
                     : activeCategory
                     ? `${categoryLabels[activeCategory] || "This"} Collection Coming Soon`
@@ -563,8 +703,11 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         <Link href={`/shop/${product.slug}`} className="block">
           <h4 className="font-serif text-lg mb-1 hover:text-charcoal/70 transition-colors">{product.name}</h4>
         </Link>
-        <p className="text-charcoal-light text-sm mb-4">
+        <p className="text-charcoal-light text-sm mb-1">
           £{(product.price / 100).toFixed(2)}
+        </p>
+        <p className="text-[11px] text-charcoal-light/80 mb-4">
+          {(product.stock ?? 0) > 0 ? "Ready to ship" : "Made to order"}
         </p>
 
         {product.availableSizes && product.availableSizes.length > 0 ? (
