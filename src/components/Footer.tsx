@@ -3,6 +3,7 @@
 import { Globe, MapPin, Package, Heart } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import NewsletterSignup from "@/components/NewsletterSignup";
 
 /* ── Types ── */
 export interface FooterSettings {
@@ -152,6 +153,11 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
     <footer className="py-16 md:py-20 border-t border-lavender-soft/40">
       <div className="max-w-6xl mx-auto px-6">
         {/* Top row */}
+        {/* Newsletter — the shop's only way to reach someone who didn't buy today */}
+        <div className="mb-14 pb-14 border-b border-lavender-soft/40">
+          <NewsletterSignup source="footer" />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           {/* Brand */}
           <div className="md:col-span-1">

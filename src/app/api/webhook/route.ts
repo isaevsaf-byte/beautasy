@@ -245,6 +245,113 @@ async function decrementStock(items: Stripe.LineItem[]): Promise<void> {
   }
 }
 
+/* ─── Abandoned cart ─── */
+function abandonedCartHtml(items: Stripe.LineItem[], total: number): string {
+  const rows = items
+    .map((item) => {
+      const qty = item.quantity ?? 1;
+      return `<tr>
+        <td style="padding:8px 0;border-bottom:1px solid #f0eaf8;color:#3d3d3d;">${escapeHtml(item.description ?? "Item")}</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f0eaf8;text-align:right;color:#3d3d3d;">× ${qty}</td>
+      </tr>`;
+    })
+    .join("");
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#faf9f7;font-family:Georgia,serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,0.06);">
+    <div style="background:#e8dff5;padding:34px 40px;text-align:center;">
+      <p style="margin:0 0 8px;font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#7a6d9a;">Beautasy</p>
+      <h1 style="margin:0;font-size:25px;font-weight:400;color:#2d2d2d;font-style:italic;">Still thinking it over?</h1>
+    </div>
+    <div style="padding:32px 40px;">
+      <p style="color:#3d3d3d;line-height:1.7;margin-top:0;">
+        Your bag is waiting. Every piece is sewn to order in our Southampton atelier,
+        so nothing is mass produced — and popular fabrics do run out.
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin:22px 0;">${rows}</table>
+      <p style="color:#3d3d3d;margin:0 0 22px;"><strong>Total: £${(total / 100).toFixed(2)}</strong></p>
+      <p style="text-align:center;margin:0;">
+        <a href="${SITE_URL}/shop" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">Finish your order</a>
+      </p>
+      <p style="color:#777;font-size:13px;line-height:1.7;margin:24px 0 0;">
+        Questions about sizing or fabric? Just reply — Kristina reads every message.
+      </p>
+    </div>
+    <div style="padding:20px 40px;border-top:1px solid #f0eaf8;text-align:center;">
+      <p style="margin:0;font-size:11px;color:#aaa;">You're getting this because you started an order at beautasy.co.uk. Reply "stop" and we won't send another.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Emails a reminder when a checkout expires unpaid.
+ *
+ * Stripe only knows the address if the shopper typed one before leaving, so
+ * this fires for the people who got furthest — exactly the ones worth a nudge.
+ * One document per session keeps it to a single reminder.
+ */
+async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<void> {
+  const email = session.customer_details?.email;
+  if (!email) return;
+
+  const already = await sanityWriteClient.fetch<string | null>(
+    `*[_type == "abandonedCart" && stripeSessionId == $id][0]._id`,
+    { id: session.id }
+  );
+  if (already) return;
+
+  let items: Stripe.LineItem[] = [];
+  try {
+    const stripe = getStripeInstance();
+    const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
+    items = lineItems.data;
+  } catch (err) {
+    console.error("Failed to fetch line items for abandoned cart:", err);
+  }
+  if (items.length === 0) return;
+
+  const total = session.amount_total ?? items.reduce((sum, i) => sum + (i.amount_total ?? 0), 0);
+  let reminderSent = false;
+
+  if (process.env.RESEND_API_KEY) {
+    try {
+      await getResend().emails.send({
+        from: FROM_EMAIL,
+        to: email,
+        replyTo: KRISTINA_EMAIL,
+        subject: "Your Beautasy bag is still waiting 💜",
+        html: abandonedCartHtml(items, total),
+      });
+      reminderSent = true;
+    } catch (err) {
+      console.error("Failed to send abandoned cart email:", err);
+    }
+  }
+
+  await sanityWriteClient.create({
+    _type: "abandonedCart",
+    stripeSessionId: session.id,
+    email,
+    total,
+    items: items.map((item, i) => ({
+      _key: item.id ?? `item-${i}`,
+      name: item.description ?? "Item",
+      quantity: item.quantity ?? 1,
+    })),
+    reminderSent,
+    recovered: false,
+    createdAt: new Date().toISOString(),
+  });
+
+  console.log("Abandoned cart reminder handled for", email);
+}
+
 /* ─── Webhook handler ─── */
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -367,6 +474,14 @@ export async function POST(req: NextRequest) {
       console.log("Admin notification sent to Kristina");
     } catch (err) {
       console.error("Failed to send admin email:", err);
+    }
+  }
+
+  if (event.type === "checkout.session.expired") {
+    try {
+      await handleAbandonedCart(event.data.object as Stripe.Checkout.Session);
+    } catch (err) {
+      console.error("Failed to handle abandoned cart:", err);
     }
   }
 

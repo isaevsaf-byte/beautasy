@@ -181,6 +181,10 @@ export async function POST(req: NextRequest) {
       mode: "payment",
       currency: "gbp",
       allow_promotion_codes: true,
+      // Expire in three hours so `checkout.session.expired` fires (and the
+      // abandoned-cart reminder goes out) while the decision is still fresh,
+      // rather than a day later as Stripe would default to.
+      expires_at: Math.floor(Date.now() / 1000) + 3 * 60 * 60,
       shipping_address_collection: {
         allowed_countries: ["GB", "US", "CA", "FR", "DE", "IT", "ES", "AU"],
       },

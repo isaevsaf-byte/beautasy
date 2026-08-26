@@ -16,7 +16,7 @@ export const review = defineType({
       name: "userId",
       title: "User ID (Clerk)",
       type: "string",
-      validation: (Rule) => Rule.required(),
+      description: "Set when a signed-in customer left the review; empty for reviews left through a review-request email link.",
       readOnly: true,
     }),
     defineField({
@@ -53,6 +53,21 @@ export const review = defineType({
       of: [{ type: "image" }],
       validation: (Rule) => Rule.max(4),
       description: "Photos the customer attached to their review (max 4).",
+    }),
+    defineField({
+      name: "orderId",
+      title: "Order",
+      type: "string",
+      readOnly: true,
+      description: "The order this review was left from, so one order can review a piece once.",
+    }),
+    defineField({
+      name: "verifiedPurchase",
+      title: "Verified Purchase",
+      type: "boolean",
+      initialValue: false,
+      readOnly: true,
+      description: "Set automatically when the review comes from a review-request email.",
     }),
     defineField({
       name: "approved",
