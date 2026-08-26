@@ -15,12 +15,16 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
+    fbq?: (...args: unknown[]) => void;
   }
 }
 
 export interface AnalyticsItem {
   /** Sanity document id */
   id: string;
+  /** Product slug — the Meta catalogue keys on BEAUTASY_<slug>, so dynamic ads
+   *  can only match a viewed product when we send the same id. */
+  slug?: string;
   name: string;
   /** Price in pence, as stored */
   price: number;
@@ -32,6 +36,29 @@ export interface AnalyticsItem {
 function send(event: string, params: GtagParams): void {
   if (typeof window === "undefined" || typeof window.gtag !== "function") return;
   window.gtag("event", event, params);
+}
+
+/** Meta Pixel. Silent when the pixel hasn't loaded — e.g. before consent. */
+function sendMeta(event: string, params: GtagParams): void {
+  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+  window.fbq("track", event, params);
+}
+
+/** The ids Meta's catalogue uses, matching /api/meta-feed. */
+function feedIds(items: AnalyticsItem[]): string[] {
+  return items.filter((i) => i.slug).map((i) => `BEAUTASY_${i.slug}`);
+}
+
+function metaPayload(items: AnalyticsItem[]) {
+  return {
+    content_type: "product",
+    content_ids: feedIds(items),
+    contents: items
+      .filter((i) => i.slug)
+      .map((i) => ({ id: `BEAUTASY_${i.slug}`, quantity: i.quantity ?? 1 })),
+    currency: "GBP",
+    value: total(items),
+  };
 }
 
 /** GA4 wants major units (pounds), we store pence. */
@@ -62,6 +89,7 @@ export function trackViewItem(item: AnalyticsItem): void {
     value: toPounds(item.price),
     items: toGa4Items([item]),
   });
+  sendMeta("ViewContent", { ...metaPayload([item]), content_name: item.name });
 }
 
 export function trackAddToCart(items: AnalyticsItem[]): void {
@@ -71,6 +99,7 @@ export function trackAddToCart(items: AnalyticsItem[]): void {
     value: total(items),
     items: toGa4Items(items),
   });
+  sendMeta("AddToCart", metaPayload(items));
 }
 
 export function trackBeginCheckout(items: AnalyticsItem[]): void {
@@ -80,10 +109,12 @@ export function trackBeginCheckout(items: AnalyticsItem[]): void {
     value: total(items),
     items: toGa4Items(items),
   });
+  sendMeta("InitiateCheckout", { ...metaPayload(items), num_items: items.length });
 }
 
 export function trackSearch(term: string): void {
   send("search", { search_term: term });
+  sendMeta("Search", { search_string: term });
 }
 
 /**
@@ -106,6 +137,14 @@ export function trackPurchase(params: {
     currency: "GBP",
     value,
     ...(params.items ? { items: toGa4Items(params.items) } : {}),
+  });
+
+  sendMeta("Purchase", {
+    ...(params.items ? metaPayload(params.items) : { currency: "GBP" }),
+    value,
+    currency: "GBP",
+    // Meta dedupes against the server-side event of the same name if one is added later
+    order_id: params.transactionId,
   });
 
   if (params.adsConversionLabel) {

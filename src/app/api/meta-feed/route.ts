@@ -67,12 +67,23 @@ function plainText(blocks: SanityProduct["description"], fallback: string): stri
 function buildItem(p: SanityProduct): string {
   const id = `BEAUTASY_${p.slug}`;
   const link = `${SITE_URL}/shop/${p.slug}`;
-  const imageLink =
-    p.images && p.images.length > 0
-      ? urlFor(p.images[0]).width(1200).url()
-      : `${SITE_URL}/beautasy-icon.png`;
+  const allImages = (p.images ?? [])
+    .map((image) => {
+      try {
+        return urlFor(image).width(1200).url();
+      } catch {
+        return null;
+      }
+    })
+    .filter((u): u is string => !!u);
+  const imageLink = allImages[0] ?? `${SITE_URL}/beautasy-icon.png`;
+  // Meta shows these in the product detail view; up to 10 are allowed
+  const extraImages = allImages.slice(1, 10);
   const price = `${(p.price / 100).toFixed(2)} GBP`;
-  const availability = (p.stock ?? 0) > 0 ? "in stock" : "out of stock";
+  // Everything is made to order, so a zero ready-made count means "a few days",
+  // not "unavailable". Marking those out of stock had Meta quietly drop them
+  // from tagging and dynamic ads.
+  const availability = "in stock";
   const description = plainText(
     p.description,
     `Handmade ${(p.category ?? "product").toLowerCase()} by Beautasy, Southampton.`
@@ -91,6 +102,7 @@ function buildItem(p: SanityProduct): string {
       <g:description>${xml(description)}</g:description>
       <g:link>${xml(link)}</g:link>
       <g:image_link>${xml(imageLink)}</g:image_link>
+      ${extraImages.map((u) => `<g:additional_image_link>${xml(u)}</g:additional_image_link>`).join("\n      ")}
       <g:availability>${availability}</g:availability>
       <g:condition>new</g:condition>
       <g:price>${xml(price)}</g:price>

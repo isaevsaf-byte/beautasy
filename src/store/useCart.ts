@@ -6,6 +6,8 @@ export interface CartItem {
   name: string;
   price: number; // price in pence (e.g. 2999 = £29.99)
   image: string;
+  /** Used to build the Meta catalogue id (BEAUTASY_<slug>) for ad events */
+  slug?: string;
   size?: string;
   color?: string;
   giftMessage?: string;

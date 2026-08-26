@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Playfair_Display, Inter } from "next/font/google";
 import Script from "next/script";
 import CookieConsent from "@/components/CookieConsent";
+import MetaPixel from "@/components/MetaPixel";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
 
@@ -123,6 +124,7 @@ export default function RootLayout({
         className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7] text-[#4A4A4A]`}
       >
         {content}
+        <MetaPixel />
         <CookieConsent />
       </body>
     </html>
