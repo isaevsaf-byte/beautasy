@@ -22,6 +22,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
+import { LOCAL_SERVICES } from "@/lib/localServices";
 
 /* ─────────────── Data ─────────────── */
 
@@ -422,6 +423,50 @@ export default function AtelierPage() {
                 may require additional time and care.
               </p>
             </motion.div>
+          </div>
+        </section>
+
+        {/* ──── Popular jobs ──── */}
+        {/* Each of these has its own page answering one search. Linking to them
+            from here is what lets Google find them at all. */}
+        <section className="py-20 md:py-24">
+          <div className="max-w-5xl mx-auto px-6">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-80px" }}
+              variants={stagger}
+              className="mb-10"
+            >
+              <motion.p
+                variants={fadeUp}
+                custom={0}
+                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
+              >
+                Most asked for
+              </motion.p>
+              <motion.h2 variants={fadeUp} custom={1} className="font-serif text-3xl sm:text-4xl">
+                Popular jobs, with prices
+              </motion.h2>
+            </motion.div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {LOCAL_SERVICES.map((s) => (
+                <Link
+                  key={s.slug}
+                  href={`/alterations/${s.slug}`}
+                  className="group bg-white rounded-2xl border border-lavender-soft/40 p-6 hover:border-lavender transition-colors"
+                >
+                  <span className="block text-xs tracking-[0.18em] uppercase text-charcoal-light mb-2">
+                    {s.eyebrow}
+                  </span>
+                  <span className="font-serif text-lg leading-snug block mb-3 group-hover:text-lavender transition-colors">
+                    {s.h1.replace(" in Southampton", "")}
+                  </span>
+                  <span className="text-sm font-medium text-charcoal">{s.prices[0].price}</span>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
 

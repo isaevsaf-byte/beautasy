@@ -1,6 +1,7 @@
 import { MetadataRoute } from "next";
 import { sanityClient } from "@/lib/sanity";
 import { SITE_URL } from "@/lib/site";
+import { LOCAL_SERVICES } from "@/lib/localServices";
 
 const base = SITE_URL;
 
@@ -19,6 +20,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/gift-boxes`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
     { url: `${base}/gift-cards`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/atelier`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/alterations`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.85 },
+    // The local service pages are the ones competing for "alterations near me",
+    // so they sit above the atelier overview in priority.
+    ...LOCAL_SERVICES.map((s) => ({
+      url: `${base}/alterations/${s.slug}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    })),
     { url: `${base}/contact`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
   ];
 

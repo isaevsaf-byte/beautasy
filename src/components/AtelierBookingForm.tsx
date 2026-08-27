@@ -12,11 +12,25 @@ const SERVICES = [
   "Other / Not Sure",
 ];
 
-export default function AtelierBookingForm() {
+/**
+ * `defaultService` lets a landing page name the job it is about — a request
+ * from the wedding page arrives in the Studio as "Wedding Dress Alterations"
+ * rather than a generic "Alterations", so Kristina can see which page is
+ * actually bringing work in without opening analytics.
+ */
+export default function AtelierBookingForm({
+  defaultService,
+}: {
+  defaultService?: string;
+} = {}) {
+  const options =
+    defaultService && !SERVICES.includes(defaultService)
+      ? [defaultService, ...SERVICES]
+      : SERVICES;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [service, setService] = useState(SERVICES[0]);
+  const [service, setService] = useState(defaultService ?? SERVICES[0]);
   const [preferredDate, setPreferredDate] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -91,7 +105,7 @@ export default function AtelierBookingForm() {
           onChange={(e) => setService(e.target.value)}
           className="w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
         >
-          {SERVICES.map((s) => (
+          {options.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
