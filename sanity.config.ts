@@ -5,6 +5,8 @@ import { structureTool } from "sanity/structure";
 import { visionTool } from "@sanity/vision";
 import { schemaTypes } from "./src/sanity/schemaTypes";
 import { notifyCustomerAction } from "./src/sanity/notifyAction";
+import { approvePostAction, publishNowAction } from "./src/sanity/socialActions";
+import { structure } from "./src/sanity/structure";
 
 export default defineConfig({
   name: "beautasy",
@@ -15,7 +17,7 @@ export default defineConfig({
 
   basePath: "/studio",
 
-  plugins: [structureTool(), visionTool()],
+  plugins: [structureTool({ structure }), visionTool()],
 
   schema: {
     types: schemaTypes,
@@ -24,9 +26,16 @@ export default defineConfig({
   document: {
     // "Email the customer now" on the documents whose status drives an email,
     // so Kristina doesn't have to wait for the nightly job.
-    actions: (prev, context) =>
-      context.schemaType === "order" || context.schemaType === "atelierBooking"
-        ? [...prev, notifyCustomerAction]
-        : prev,
+    actions: (prev, context) => {
+      if (context.schemaType === "order" || context.schemaType === "atelierBooking") {
+        return [...prev, notifyCustomerAction];
+      }
+      // Approving is the only gate between a suggestion and a public post, so
+      // both buttons sit on the document itself.
+      if (context.schemaType === "socialPost") {
+        return [approvePostAction, publishNowAction, ...prev];
+      }
+      return prev;
+    },
   },
 });

@@ -4,6 +4,7 @@ import { runReviewRequests } from "@/lib/reviewRequests";
 import { sendPendingStatusEmails } from "@/lib/orderStatusEmails";
 import { deliverScheduledGiftCards } from "@/lib/giftCardEmails";
 import { sendPendingBookingEmails } from "@/lib/bookingEmails";
+import { publishDuePosts, draftPostsForNewProducts } from "@/lib/socialQueue";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -30,15 +31,26 @@ export async function GET(req: NextRequest) {
     runReviewRequests(),
     deliverScheduledGiftCards(),
     sendPendingBookingEmails(),
+    // Drafting only writes suggestions into the Studio; publishing only sends
+    // what has already been approved by hand.
+    draftPostsForNewProducts(3),
+    publishDuePosts(5),
   ]);
 
-  const [statusEmails, stockAlerts, reviewRequests, giftCards, bookings] = results.map((r) =>
-    r.status === "fulfilled" ? r.value : { error: String(r.reason) }
-  );
+  const [statusEmails, stockAlerts, reviewRequests, giftCards, bookings, socialDrafts, socialPosts] =
+    results.map((r) => (r.status === "fulfilled" ? r.value : { error: String(r.reason) }));
 
   for (const result of results) {
     if (result.status === "rejected") console.error("Daily job failed:", result.reason);
   }
 
-  return NextResponse.json({ statusEmails, stockAlerts, reviewRequests, giftCards, bookings });
+  return NextResponse.json({
+    statusEmails,
+    stockAlerts,
+    reviewRequests,
+    giftCards,
+    bookings,
+    socialDrafts,
+    socialPosts,
+  });
 }

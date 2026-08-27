@@ -11,6 +11,7 @@ import { subscriber } from "./subscriber";
 import { abandonedCart } from "./abandonedCart";
 import { giftCard } from "./giftCard";
 import { atelierBooking } from "./atelierBooking";
+import { socialPost } from "./socialPost";
 
 export const schemaTypes = [
   product,
@@ -26,4 +27,5 @@ export const schemaTypes = [
   abandonedCart,
   giftCard,
   atelierBooking,
+  socialPost,
 ];
