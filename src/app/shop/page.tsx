@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import ShopContent from "./ShopContent";
-import ShopLoading from "./loading";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import { SITE_URL } from "@/lib/site";
@@ -206,12 +204,17 @@ export default async function ShopPage({
     products = fallbackProducts;
   }
 
+  // Deliberately no <Suspense> here, and no loading.tsx in this folder. Both
+  // create a boundary that Next streams separately when the Sanity fetch is
+  // slow, and a streamed boundary never finishes hydrating on a direct page
+  // load: React leaves it marked "$~" and every handler inside it stays dead,
+  // so Add to Bag, the thumbnails and the image viewer silently do nothing.
+  // The listing is server-rendered from resolved props anyway, so the boundary
+  // could never show its fallback for data — it only ever cost us the page.
   return (
     <>
       <HeaderWrapper />
-      <Suspense fallback={<ShopLoading />}>
-        <ShopContent products={products} basePath="/shop" filters={filters} />
-      </Suspense>
+      <ShopContent products={products} basePath="/shop" filters={filters} />
       <FooterWrapper />
     </>
   );
