@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useIsClient } from "@/lib/useIsClient";
 import { motion } from "framer-motion";
 import { Heart, ArrowRight, ShoppingBag, Trash2 } from "lucide-react";

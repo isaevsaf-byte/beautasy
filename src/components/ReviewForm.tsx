@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Camera, X } from "lucide-react";
 import { useUser, SignInButton } from "@clerk/nextjs";

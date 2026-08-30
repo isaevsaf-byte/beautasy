@@ -4,6 +4,7 @@ import { Playfair_Display, Inter } from "next/font/google";
 import Script from "next/script";
 import CookieConsent from "@/components/CookieConsent";
 import MetaPixel from "@/components/MetaPixel";
+import { CONSENT_KEY } from "@/lib/consent";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
 
@@ -98,7 +99,7 @@ export default function RootLayout({
               wait_for_update: 500
             });
             try {
-              var stored = localStorage.getItem('beautasy-cookie-consent');
+              var stored = localStorage.getItem('${CONSENT_KEY}');
               if (stored === 'granted' || stored === 'denied') {
                 gtag('consent', 'update', {
                   ad_storage: stored,

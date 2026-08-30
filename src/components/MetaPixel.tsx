@@ -1,19 +1,14 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+import {
+  hasConsent,
+  subscribeToConsent,
+  noConsentOnServer,
+} from "@/lib/consent";
 
 export const META_PIXEL_ID = "1018486883937671";
-const CONSENT_KEY = "beautasy-cookie-consent";
-export const CONSENT_EVENT = "beautasy-consent-changed";
-
-function hasConsent(): boolean {
-  try {
-    return localStorage.getItem(CONSENT_KEY) === "granted";
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Meta Pixel, loaded only once the visitor has accepted advertising cookies.
@@ -21,16 +16,17 @@ function hasConsent(): boolean {
  * Unlike Google's tag there is no consent-denied mode to fall back on, so the
  * script simply isn't fetched until someone says yes — and it appears the
  * moment they do, without a page reload, via the consent event the banner fires.
+ *
+ * Consent is read straight from the store rather than mirrored into state: an
+ * effect that immediately calls setState renders twice on every mount, and the
+ * server snapshot of `false` is what keeps hydration in step. See @/lib/consent.
  */
 export default function MetaPixel() {
-  const [allowed, setAllowed] = useState(false);
-
-  useEffect(() => {
-    setAllowed(hasConsent());
-    const onChange = () => setAllowed(hasConsent());
-    window.addEventListener(CONSENT_EVENT, onChange);
-    return () => window.removeEventListener(CONSENT_EVENT, onChange);
-  }, []);
+  const allowed = useSyncExternalStore(
+    subscribeToConsent,
+    hasConsent,
+    noConsentOnServer
+  );
 
   if (!allowed) return null;
 

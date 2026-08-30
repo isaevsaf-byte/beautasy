@@ -4,35 +4,22 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useIsClient } from "@/lib/useIsClient";
+import {
+  readConsent,
+  writeConsent,
+  type ConsentChoice,
+} from "@/lib/consent";
 
-const STORAGE_KEY = "beautasy-cookie-consent";
-
-type Choice = "granted" | "denied";
-
-function readChoice(): Choice | null {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === "granted" || stored === "denied" ? stored : null;
-  } catch {
-    return null;
-  }
-}
-
-function applyChoice(choice: Choice): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, choice);
-  } catch {
-    /* private mode — the banner will simply ask again next visit */
-  }
+function applyChoice(choice: ConsentChoice): void {
   window.gtag?.("consent", "update", {
     ad_storage: choice,
     ad_user_data: choice,
     ad_personalization: choice,
     analytics_storage: choice,
   });
-  // The Meta Pixel has no consent-denied mode, so it listens for this and
-  // loads (or stays away) accordingly.
-  window.dispatchEvent(new Event("beautasy-consent-changed"));
+  // Storing the choice also announces it. The Meta Pixel has no consent-denied
+  // mode, so it listens for that and loads (or stays away) accordingly.
+  writeConsent(choice);
 }
 
 /**
@@ -46,11 +33,11 @@ function applyChoice(choice: Choice): void {
  */
 export default function CookieConsent() {
   const isClient = useIsClient();
-  const [choice, setChoice] = useState<Choice | null>(() =>
-    typeof window === "undefined" ? null : readChoice()
+  const [choice, setChoice] = useState<ConsentChoice | null>(() =>
+    typeof window === "undefined" ? null : readConsent()
   );
 
-  const decide = (next: Choice) => {
+  const decide = (next: ConsentChoice) => {
     applyChoice(next);
     setChoice(next);
   };

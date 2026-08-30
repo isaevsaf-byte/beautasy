@@ -1,6 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 // Auth lives inside the review routes themselves rather than here: a customer
 // following a review-request link has no account, and blanket-protecting
@@ -14,7 +13,7 @@ const isPublicApiRoute = createRouteMatcher([
 
 const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-function noopMiddleware(req: NextRequest) {
+function noopMiddleware() {
   return NextResponse.next();
 }
 
