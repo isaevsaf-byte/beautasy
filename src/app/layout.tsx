@@ -5,6 +5,7 @@ import Script from "next/script";
 import CookieConsent from "@/components/CookieConsent";
 import MetaPixel from "@/components/MetaPixel";
 import { CONSENT_KEY } from "@/lib/consent";
+import { clerkEnabled } from "@/lib/clerk";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
 
@@ -55,8 +56,6 @@ export const metadata: Metadata = {
     images: ["/beautasy-icon.png"],
   },
 };
-
-const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 export default function RootLayout({
   children,

@@ -6,6 +6,7 @@ import { Loader2, Camera, X } from "lucide-react";
 import { useUser, SignInButton } from "@clerk/nextjs";
 import StarRating from "./StarRating";
 import { fadeUp, stagger } from "./animations";
+import { clerkEnabled } from "@/lib/clerk";
 
 const MAX_PHOTOS = 4;
 
@@ -13,8 +14,19 @@ const MAX_PHOTOS = 4;
  * The "write a review" half of the reviews block. Kept client-only because it
  * needs Clerk's useUser; the published reviews themselves are server-rendered
  * by <ReviewList> so they end up in the HTML.
+ *
+ * Reviews are tied to an account, so with Clerk switched off there is nothing
+ * to offer and this renders nothing. That check has to happen out here, before
+ * the hook: useUser() throws without a <ClerkProvider> above it, and a hook
+ * cannot be called conditionally — which is why the form itself lives in a
+ * separate component below.
  */
 export default function ReviewForm({ productId }: { productId: string }) {
+  if (!clerkEnabled) return null;
+  return <SignedInReviewForm productId={productId} />;
+}
+
+function SignedInReviewForm({ productId }: { productId: string }) {
   const { user, isSignedIn, isLoaded } = useUser();
 
   // Form state

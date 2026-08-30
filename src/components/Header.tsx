@@ -9,8 +9,8 @@ import SearchOverlay from "@/components/SearchOverlay";
 import { useIsClient } from "@/lib/useIsClient";
 import { useWishlist } from "@/store/useWishlist";
 import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
+import { clerkEnabled } from "@/lib/clerk";
 
-const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 /* ------------------------------------------------------------------ */
 /*  Mega-menu data                                                     */
