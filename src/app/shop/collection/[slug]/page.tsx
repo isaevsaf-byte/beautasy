@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import { notFound } from "next/navigation";
 import ShopContent from "../../ShopContent";
-import ShopLoading from "../../loading";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 
@@ -127,14 +125,12 @@ export default async function CollectionPage({
   return (
     <>
       <HeaderWrapper />
-      <Suspense fallback={<ShopLoading />}>
-        <ShopContent
-          products={products}
-          activeCollection={collection}
-          basePath={`/shop/collection/${slug}`}
-          filters={filters}
-        />
-      </Suspense>
+      <ShopContent
+        products={products}
+        activeCollection={collection}
+        basePath={`/shop/collection/${slug}`}
+        filters={filters}
+      />
       <FooterWrapper />
     </>
   );

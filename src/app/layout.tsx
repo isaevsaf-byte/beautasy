@@ -4,6 +4,8 @@ import { Playfair_Display, Inter } from "next/font/google";
 import Script from "next/script";
 import CookieConsent from "@/components/CookieConsent";
 import MetaPixel from "@/components/MetaPixel";
+import { CONSENT_KEY } from "@/lib/consent";
+import { clerkEnabled } from "@/lib/clerk";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
 
@@ -55,8 +57,6 @@ export const metadata: Metadata = {
   },
 };
 
-const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -98,7 +98,7 @@ export default function RootLayout({
               wait_for_update: 500
             });
             try {
-              var stored = localStorage.getItem('beautasy-cookie-consent');
+              var stored = localStorage.getItem('${CONSENT_KEY}');
               if (stored === 'granted' || stored === 'denied') {
                 gtag('consent', 'update', {
                   ad_storage: stored,

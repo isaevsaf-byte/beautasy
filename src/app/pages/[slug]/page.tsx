@@ -131,6 +131,12 @@ export default async function LegalPage({
                     return (
                       <figure className="my-8">
                         <div className="rounded-2xl overflow-hidden">
+                          {/* Editor-supplied image: the page query doesn't ask
+                              Sanity for asset dimensions, and next/image needs
+                              them (or a fixed aspect ratio) to reserve space.
+                              Plain <img> keeps prose images flowing at their
+                              natural shape. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={imgUrl}
                             alt={value.alt || ""}

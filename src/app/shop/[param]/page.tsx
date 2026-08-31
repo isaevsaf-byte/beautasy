@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import ShopContent from "../ShopContent";
 import ProductDetail from "./ProductDetail";
 import { notFound } from "next/navigation";
-import ShopLoading from "../loading";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import { SITE_URL } from "@/lib/site";
@@ -290,14 +288,12 @@ export default async function ShopParamPage({
     return (
       <>
         <HeaderWrapper />
-        <Suspense fallback={<ShopLoading />}>
-          <ShopContent
-            products={products}
-            activeCategory={key}
-            basePath={`/shop/${key}`}
-            filters={filters}
-          />
-        </Suspense>
+        <ShopContent
+          products={products}
+          activeCategory={key}
+          basePath={`/shop/${key}`}
+          filters={filters}
+        />
         <FooterWrapper />
       </>
     );

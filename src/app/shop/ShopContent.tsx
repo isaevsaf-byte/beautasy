@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { ArrowRight, Search } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
@@ -590,18 +590,6 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
       : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"];
 
   const activeImage = availableImages[activeImageIndex] ?? availableImages[0];
-
-  const goNext = useCallback(() => {
-    setActiveImageIndex((prev) =>
-      prev < availableImages.length - 1 ? prev + 1 : 0
-    );
-  }, [availableImages.length]);
-
-  const goPrev = useCallback(() => {
-    setActiveImageIndex((prev) =>
-      prev > 0 ? prev - 1 : availableImages.length - 1
-    );
-  }, [availableImages.length]);
 
   return (
     <>
