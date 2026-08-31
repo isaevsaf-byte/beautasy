@@ -121,6 +121,8 @@ export async function draftPostsForNewProducts(limit = 3): Promise<DraftResult> 
 
 interface DuePost {
   _id: string;
+  /** Sanity's revision id, used to claim the post without racing anyone. */
+  _rev: string;
   caption: string;
   hashtags?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -139,18 +141,84 @@ const DUE_POSTS = `*[
   && !defined(publishedAt)
   && (!defined(scheduledFor) || scheduledFor <= $now)
 ] | order(coalesce(scheduledFor, createdAt) asc)[0...$limit]{
-  _id, caption, hashtags, image
+  _id, _rev, caption, hashtags, image
 }`;
 
 const ONE_POST = `*[_type == "socialPost" && !(_id in path("drafts.**")) && _id == $id && status == "approved" && !defined(publishedAt)][0]{
-  _id, caption, hashtags, image
+  _id, _rev, caption, hashtags, image
 }`;
 
 export interface PublishSummary {
   published: number;
   failed: number;
+  /** Posts another run had already claimed. Not failures — nothing went wrong. */
+  alreadyRunning?: number;
   skipped?: string;
-  posts: { id: string; ok: boolean; permalink?: string; error?: string }[];
+  posts: {
+    id: string;
+    ok: boolean;
+    permalink?: string;
+    error?: string;
+    skipped?: boolean;
+  }[];
+}
+
+/**
+ * Takes the post for this run, so that nobody else can take it too.
+ *
+ * `ifRevisionId` is the whole trick: Sanity accepts the patch only if nothing
+ * has touched the document since we read it, so when two runs reach for the
+ * same post exactly one wins and the other is turned away. Without it the
+ * document goes on reading as approved-and-due for as long as Instagram takes
+ * to answer, and everyone who looks in that window sends the same picture —
+ * the morning cron, either GitHub schedule, the Studio button, or a stranger,
+ * since /api/social/publish carries no secret on purpose.
+ *
+ * A duplicate here is public and cannot be taken back, which is why the claim
+ * comes before the posting rather than after it.
+ */
+async function claim(post: DuePost): Promise<boolean> {
+  try {
+    await sanityWriteClient
+      .patch(post._id)
+      .ifRevisionId(post._rev)
+      .set({ status: "publishing" })
+      .commit();
+    return true;
+  } catch {
+    // Losing the race is the expected outcome here, not an error worth
+    // reporting: somebody else is already sending this one. Anything else that
+    // stopped us writing would have stopped us publishing anyway.
+    return false;
+  }
+}
+
+/**
+ * Writes down what happened, with a couple of retries.
+ *
+ * This is the write that must not be lost. By the time it runs the picture is
+ * already public, and a post left sitting on `publishing` is one Kristina has
+ * to sort out by hand — so it is worth trying more than once before giving up.
+ */
+async function record(
+  id: string,
+  fields: Record<string, unknown>,
+  clear: string[] = []
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const patch = sanityWriteClient.patch(id).set(fields);
+      await (clear.length ? patch.unset(clear) : patch).commit();
+      return true;
+    } catch (error) {
+      if (attempt === 3) {
+        console.error(`Could not record the outcome for ${id}:`, error);
+        return false;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+    }
+  }
+  return false;
 }
 
 async function publishOne(post: DuePost) {
@@ -163,28 +231,43 @@ async function publishOne(post: DuePost) {
     return { id: post._id, ok: false, error: "The post has no usable picture" };
   }
 
-  const result = await publishToInstagram(imageUrl, caption);
-
-  // Recording the outcome is what stops a retry loop from posting twice.
-  try {
-    await sanityWriteClient
-      .patch(post._id)
-      .set(
-        result.ok
-          ? {
-              status: "published",
-              publishedAt: new Date().toISOString(),
-              permalink: result.permalink,
-              lastError: undefined,
-            }
-          : { status: "failed", lastError: result.error ?? "Unknown error" }
-      )
-      .commit();
-  } catch (error) {
-    console.error(`Published ${post._id} but could not record it:`, error);
+  if (!(await claim(post))) {
+    return {
+      id: post._id,
+      ok: false,
+      skipped: true,
+      error: "Another run is already sending this one",
+    };
   }
 
-  return { id: post._id, ok: result.ok, permalink: result.permalink, error: result.error };
+  const result = await publishToInstagram(imageUrl, caption);
+
+  const recorded = result.ok
+    ? await record(
+        post._id,
+        {
+          status: "published",
+          publishedAt: new Date().toISOString(),
+          permalink: result.permalink,
+        },
+        // A note from an earlier failed attempt would otherwise sit there
+        // contradicting the success.
+        ["lastError"]
+      )
+    : await record(post._id, {
+        status: "failed",
+        lastError: result.error ?? "Unknown error",
+      });
+
+  return {
+    id: post._id,
+    ok: result.ok,
+    permalink: result.permalink,
+    error:
+      result.ok && !recorded
+        ? "Posted, but saving the status failed — it is still showing as Publishing"
+        : result.error,
+  };
 }
 
 /** Sends out everything approved and due. */
@@ -208,7 +291,10 @@ export async function publishDuePosts(limit = 5): Promise<PublishSummary> {
 
   return {
     published: posts.filter((p) => p.ok).length,
-    failed: posts.filter((p) => !p.ok).length,
+    // A post someone else is already sending is not a failure, and counting it
+    // as one would make a healthy run look broken in the logs.
+    failed: posts.filter((p) => !p.ok && !p.skipped).length,
+    alreadyRunning: posts.filter((p) => p.skipped).length || undefined,
     posts,
   };
 }
@@ -232,7 +318,8 @@ export async function publishPostById(id: string): Promise<PublishSummary> {
   const result = await publishOne(post);
   return {
     published: result.ok ? 1 : 0,
-    failed: result.ok ? 0 : 1,
+    failed: result.ok || result.skipped ? 0 : 1,
+    alreadyRunning: result.skipped ? 1 : undefined,
     posts: [result],
   };
 }

@@ -83,11 +83,14 @@ export const socialPost = defineType({
         list: [
           { title: "Draft — needs your eyes", value: "draft" },
           { title: "Approved — will go out", value: "approved" },
+          { title: "Publishing — going out right now", value: "publishing" },
           { title: "Published", value: "published" },
           { title: "Failed — see the note", value: "failed" },
         ],
         layout: "radio",
       },
+      description:
+        "Publishing is set by the site, not by you: it claims the post for a few seconds so two runs can never send the same picture twice. If one is still sitting on Publishing minutes later, something stopped halfway — check Instagram, then set it to Published if it arrived, or back to Approved to try again.",
       initialValue: "draft",
       validation: (Rule) => Rule.required(),
     }),

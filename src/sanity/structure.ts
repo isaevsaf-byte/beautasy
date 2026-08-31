@@ -25,7 +25,12 @@ export const structure: StructureResolver = (S) =>
         .child(
           S.documentList()
             .title("Approved")
-            .filter('_type == "socialPost" && status == "approved"')
+            // "publishing" belongs here too. The site sets it for the few
+            // seconds a post is on its way to Instagram, so that two runs can
+            // never send the same picture — but if something stops halfway the
+            // post keeps that status, and this is the list where it has to be
+            // visible rather than quietly belonging to no list at all.
+            .filter('_type == "socialPost" && status in ["approved", "publishing"]')
             .defaultOrdering([{ field: "scheduledFor", direction: "asc" }])
         ),
       S.listItem()
