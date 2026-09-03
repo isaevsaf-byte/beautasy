@@ -93,6 +93,7 @@ const navLinks = [
   { label: "Mini", href: "/shop/kids" },
   { label: "Gifts", href: "/gift-boxes" },
   { label: "Atelier", href: "/atelier" },
+  { label: "Alterations", href: "/alterations" },
   { label: "Contact", href: "/contact" },
 ];
 

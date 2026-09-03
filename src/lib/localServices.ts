@@ -43,6 +43,25 @@ export interface LocalService {
   related: string[];
   /** Shown as a banner when the service has a season running */
   seasonal?: string;
+  /** Last day the seasonal banner is true, ISO date — after it the banner is a lie */
+  seasonalUntil?: string;
+}
+
+/**
+ * The campaign's promise, in the words that go on every landing page. It used
+ * to live only on the /alterations hub, which search traffic never lands on.
+ */
+export const CAMPAIGN_HOOK = {
+  title: "Bring the thing you never wear",
+  body: "Not sure it can be saved? Bring it in for a free ten-minute look. If it can't be rescued you'll be told straight away, and it costs you nothing to find out.",
+};
+
+/** The seasonal banner, only while its season is actually on. */
+export function seasonalNote(service: LocalService, now: Date = new Date()): string | null {
+  if (!service.seasonal) return null;
+  if (!service.seasonalUntil) return service.seasonal;
+  const until = new Date(`${service.seasonalUntil}T23:59:59Z`).getTime();
+  return Number.isFinite(until) && now.getTime() <= until ? service.seasonal : null;
 }
 
 export const LOCAL_SERVICES: LocalService[] = [
@@ -112,6 +131,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     serviceName: "School Uniform Alterations",
     seasonal:
       "September rush is on — uniform brought in this month is back within 3–5 days.",
+    seasonalUntil: "2026-09-30",
     intro: [
       "Uniform is sold in sizes, and children come in shapes. Buying the next size up and turning the hem under works until the first PE lesson, and a blazer that swamps the shoulders never stops looking borrowed.",
       "Hems shortened properly, waists taken in, sleeves adjusted, name tapes sewn where they won't scratch. Bring a bag of it at once — five items priced as a bundle costs less than five separate jobs.",

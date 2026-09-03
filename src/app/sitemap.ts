@@ -7,29 +7,33 @@ const base = SITE_URL;
 
 export const revalidate = 3600; // regenerate every hour
 
+// Static pages change when their code does. Stamping them "modified now" on
+// every regeneration teaches crawlers to ignore the date for the whole site.
+const STATIC_PAGES_CHANGED = new Date("2026-09-03");
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static routes
   const staticRoutes: MetadataRoute.Sitemap = [
-    { url: base, lastModified: new Date(), changeFrequency: "weekly", priority: 1 },
-    { url: `${base}/shop`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
-    { url: `${base}/shop/collections`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.85 },
-    { url: `${base}/shop/lingerie`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
-    { url: `${base}/shop/kids`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
-    { url: `${base}/shop/accessories`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
-    { url: `${base}/shop/home`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
-    { url: `${base}/gift-boxes`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
-    { url: `${base}/gift-cards`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
-    { url: `${base}/atelier`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
-    { url: `${base}/alterations`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.85 },
+    { url: base, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "weekly", priority: 1 },
+    { url: `${base}/shop`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "daily", priority: 0.9 },
+    { url: `${base}/shop/collections`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "weekly", priority: 0.85 },
+    { url: `${base}/shop/lingerie`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "daily", priority: 0.85 },
+    { url: `${base}/shop/kids`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "daily", priority: 0.85 },
+    { url: `${base}/shop/accessories`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "daily", priority: 0.85 },
+    { url: `${base}/shop/home`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${base}/gift-boxes`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${base}/gift-cards`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/atelier`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/alterations`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "monthly", priority: 0.85 },
     // The local service pages are the ones competing for "alterations near me",
     // so they sit above the atelier overview in priority.
     ...LOCAL_SERVICES.map((s) => ({
       url: `${base}/alterations/${s.slug}`,
-      lastModified: new Date(),
+      lastModified: STATIC_PAGES_CHANGED,
       changeFrequency: "monthly" as const,
       priority: 0.8,
     })),
-    { url: `${base}/contact`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/contact`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "monthly", priority: 0.7 },
   ];
 
   // Dynamic product routes
