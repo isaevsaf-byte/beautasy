@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { currentUserId } from "@/lib/clerkServer";
 import { getStripeInstance } from "@/lib/stripe";
 import {
   getSiteSettings,
@@ -8,7 +8,37 @@ import {
   DEFAULT_FREE_THRESHOLD,
 } from "@/lib/siteSettings";
 import { sanityClient } from "@/lib/sanity";
-import { findSpendableCard, redeemableAmount } from "@/lib/giftCards";
+import {
+  findSpendableCard,
+  redeemableAmount,
+  reservationIsLive,
+  reserveCard,
+  type SpendableCard,
+} from "@/lib/giftCards";
+import type Stripe from "stripe";
+
+/**
+ * Ends the checkout that currently holds a gift card, so it can no longer be
+ * paid with a discount this new checkout is about to take. A session that has
+ * already been paid cannot be expired — then the balance is about to move and
+ * the new checkout has to wait for the webhook.
+ */
+async function expireHeldSession(
+  stripe: Stripe,
+  sessionId: string
+): Promise<"expired" | "paid" | "gone"> {
+  try {
+    await stripe.checkout.sessions.expire(sessionId);
+    return "expired";
+  } catch {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      return session.payment_status === "paid" ? "paid" : "gone";
+    } catch {
+      return "gone";
+    }
+  }
+}
 
 export const dynamic = "force-dynamic";
 
@@ -185,8 +215,9 @@ export async function POST(req: NextRequest) {
     const stripe = getStripeInstance();
 
     // Attach the signed-in Clerk user (if any) so the webhook can link the
-    // resulting order to their account for order history. Guests checkout fine.
-    const { userId } = await auth();
+    // resulting order to their account for order history. Guests checkout fine —
+    // and so does everyone else when Clerk is off or down: this never throws.
+    const userId = await currentUserId();
 
     // Fetch live shipping rates from Sanity (falls back to defaults if not set)
     const siteSettings = await getSiteSettings();
@@ -210,13 +241,25 @@ export async function POST(req: NextRequest) {
     // we mint for exactly the redeemable amount; the webhook then deducts what
     // was actually spent, so any remaining balance stays on the card.
     let giftCardDiscount: { couponId: string; cardId: string; amount: number } | null = null;
+    let card: SpendableCard | null = null;
     if (giftCardCode) {
-      const card = await findSpendableCard(giftCardCode);
+      card = await findSpendableCard(giftCardCode);
       if (!card) {
         return NextResponse.json(
           { error: "That gift card code isn't valid. Check it and try again." },
           { status: 400 }
         );
+      }
+      // One checkout at a time per card: the previous one is closed at Stripe
+      // before this one is allowed to carry the same balance.
+      if (reservationIsLive(card)) {
+        const previous = await expireHeldSession(stripe, card.reservedSession as string);
+        if (previous === "paid") {
+          return NextResponse.json(
+            { error: "That gift card was just used in another order and its balance is updating. Give it a minute and try again." },
+            { status: 409 }
+          );
+        }
       }
       const amount = redeemableAmount(card, subtotal);
       if (amount > 0) {
@@ -371,6 +414,20 @@ export async function POST(req: NextRequest) {
         { error: "Failed to create checkout session. Please try again." },
         { status: 500 }
       );
+    }
+
+    // The card is held for this session before the customer is sent to pay.
+    // Losing the race means another checkout read the same card a moment ago
+    // and got there first; this session must then never be payable.
+    if (giftCardDiscount && card) {
+      const reserved = await reserveCard(card, session.id, giftCardDiscount.amount, session.expires_at);
+      if (!reserved) {
+        await stripe.checkout.sessions.expire(session.id).catch(() => {});
+        return NextResponse.json(
+          { error: "That gift card is being used in another checkout right now. Please try again in a moment." },
+          { status: 409 }
+        );
+      }
     }
 
     return NextResponse.json({ url: session.url });

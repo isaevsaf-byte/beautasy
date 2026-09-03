@@ -8,6 +8,15 @@ import { sanityWriteClient } from "@/lib/sanity";
  * unspent value is lost, which is the wrong behaviour for a £50 card used on a
  * £28 bra. Balances live here, checkout applies whatever is left (up to the
  * order subtotal), and the webhook deducts what was actually spent.
+ *
+ * One checkout at a time per card. The discount is minted into a Stripe
+ * session before anyone has paid, and a session lives for hours — so without
+ * a reservation two checkouts opened with the same code both got the full
+ * balance, both could be paid, and the shop covered the difference. A card
+ * now records which session holds it; a new checkout for the same card expires
+ * the previous session at Stripe first, so it can no longer be paid, and takes
+ * the card over. The reservation itself is written with `ifRevisionId`, so two
+ * checkouts started in the same instant cannot both win.
  */
 
 /** Face values offered on the gift card page, in pence. */
@@ -24,6 +33,16 @@ export interface GiftCard {
   active?: boolean;
   expiresAt?: string;
   recipientName?: string;
+  /** The checkout session that currently holds this card, if any */
+  reservedSession?: string;
+  reservedAmount?: number;
+  /** When that session expires at Stripe — after this the hold means nothing */
+  reservedUntil?: string;
+}
+
+/** A card as read for checkout: carries the revision the reservation is conditional on. */
+export interface SpendableCard extends GiftCard {
+  _rev: string;
 }
 
 /** Human-friendly, unambiguous code: no O/0, I/1 confusion. */
@@ -48,16 +67,19 @@ export function sanitiseAmount(pence: unknown): number | null {
 }
 
 /** Looks up a card that can actually be spent right now. */
-export async function findSpendableCard(code: string): Promise<GiftCard | null> {
+export async function findSpendableCard(code: string): Promise<SpendableCard | null> {
   const normalised = normaliseCode(code);
   if (!normalised || normalised.length > 40) return null;
 
   const card = await sanityWriteClient.fetch(
-    `*[_type == "giftCard" && code == $code][0]{ _id, code, balance, active, expiresAt, recipientName }`,
+    `*[_type == "giftCard" && code == $code][0]{
+      _id, _rev, code, balance, active, expiresAt, recipientName,
+      reservedSession, reservedAmount, reservedUntil
+    }`,
     { code: normalised }
   );
 
-  const found = card as GiftCard | null;
+  const found = card as SpendableCard | null;
   if (!found) return null;
   if (found.active === false) return null;
   if (found.balance <= 0) return null;
@@ -71,18 +93,87 @@ export function redeemableAmount(card: GiftCard, orderSubtotal: number): number 
   return Math.max(0, Math.min(card.balance, orderSubtotal));
 }
 
-/** Deducts what was actually spent, never below zero. */
-export async function deductFromCard(cardId: string, spent: number): Promise<void> {
+/** True while another checkout holds the card and its session has not run out. */
+export function reservationIsLive(card: GiftCard, now: number = Date.now()): boolean {
+  if (!card.reservedSession || !card.reservedUntil) return false;
+  const until = new Date(card.reservedUntil).getTime();
+  return Number.isFinite(until) && until > now;
+}
+
+/**
+ * Records that `sessionId` now holds the card.
+ *
+ * Conditional on the revision the card was read at: if another checkout got
+ * here first the document has changed, Sanity refuses the patch, and the
+ * caller must not let its session be paid.
+ */
+export async function reserveCard(
+  card: SpendableCard,
+  sessionId: string,
+  amount: number,
+  /** Stripe's expires_at, unix seconds */
+  expiresAt: number
+): Promise<boolean> {
+  try {
+    await sanityWriteClient
+      .patch(card._id)
+      .ifRevisionId(card._rev)
+      .set({
+        reservedSession: sessionId,
+        reservedAmount: amount,
+        reservedUntil: new Date(expiresAt * 1000).toISOString(),
+      })
+      .commit();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Frees the card, but only if `sessionId` is still the one holding it. */
+export async function releaseCard(cardId: string, sessionId: string): Promise<void> {
+  const card = await sanityWriteClient.fetch<{ _rev: string; reservedSession?: string } | null>(
+    `*[_id == $id][0]{ _rev, reservedSession }`,
+    { id: cardId }
+  );
+  if (!card || card.reservedSession !== sessionId) return;
+  try {
+    await sanityWriteClient
+      .patch(cardId)
+      .ifRevisionId(card._rev)
+      .unset(["reservedSession", "reservedAmount", "reservedUntil"])
+      .commit();
+  } catch {
+    // Changed under us — a newer checkout holds it now, and that hold stands
+  }
+}
+
+/**
+ * Takes the spent amount off the card, atomically, and frees the hold the
+ * paying session had on it.
+ *
+ * `dec` is a single server-side operation, so two orders paid with the same
+ * card in the same second both land. A balance below zero afterwards means
+ * more was redeemed than the card held — the case the reservation prevents —
+ * so it is floored and logged loudly rather than hidden.
+ */
+export async function deductFromCard(cardId: string, spent: number, sessionId?: string): Promise<void> {
   if (spent <= 0) return;
-  const card = await sanityWriteClient.fetch(
+  await sanityWriteClient.patch(cardId).dec({ balance: spent }).commit();
+
+  const after = await sanityWriteClient.fetch<{ balance?: number } | null>(
     `*[_id == $id][0]{ balance }`,
     { id: cardId }
   );
-  const balance = (card as { balance?: number } | null)?.balance ?? 0;
-  await sanityWriteClient
-    .patch(cardId)
-    .set({ balance: Math.max(0, balance - spent) })
-    .commit();
+  const balance = after?.balance ?? 0;
+  if (balance < 0) {
+    console.error(
+      `Gift card ${cardId} over-redeemed by £${(-balance / 100).toFixed(2)} — flooring to zero. Check the orders that used it.`
+    );
+    await sanityWriteClient.patch(cardId).set({ balance: 0 }).commit();
+  }
+
+  if (sessionId) await releaseCard(cardId, sessionId);
 }
 
 export function expiryFromNow(): string {
