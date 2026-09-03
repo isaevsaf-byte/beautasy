@@ -13,7 +13,13 @@ import {
 } from "@/lib/giftCards";
 import { deliverGiftCard, emailGiftCardPurchase } from "@/lib/giftCardEmails";
 import { getSiteSettings, DEFAULT_INT_RATE } from "@/lib/siteSettings";
-import { collectOrdered, planStockPatch, type OrderedLine, type StockDoc } from "@/lib/stock";
+import {
+  collectOrdered,
+  planStockDecrement,
+  planStockFloor,
+  type OrderedLine,
+  type StockDoc,
+} from "@/lib/stock";
 
 export const dynamic = "force-dynamic";
 
@@ -243,27 +249,44 @@ async function decrementStock(items: Stripe.LineItem[]): Promise<void> {
   const wanted = collectOrdered(lines);
   if (wanted.size === 0) return;
 
+  const ids = Array.from(wanted.keys());
   const docs = await sanityWriteClient.fetch<StockDoc[]>(
     `*[_id in $ids]{ _id, stock, sizeStock }`,
-    { ids: Array.from(wanted.keys()) }
+    { ids }
   );
 
+  // Atomic decrements: two orders for the same piece paid in the same second
+  // both count, where a read-then-set would have dropped one of them.
   const tx = sanityWriteClient.transaction();
   let patches = 0;
 
   for (const doc of docs) {
     const entry = wanted.get(doc._id);
     if (!entry) continue;
-    const fields = planStockPatch(doc, entry);
-    if (!fields) continue;
-    tx.patch(doc._id, (p) => p.set(fields));
+    const dec = planStockDecrement(doc, entry);
+    if (!dec) continue;
+    tx.patch(doc._id, (p) => p.dec(dec));
     patches++;
   }
 
-  if (patches > 0) {
-    await tx.commit();
-    console.log(`Ready-made stock decremented for ${patches} product(s)`);
+  if (patches === 0) return;
+  await tx.commit();
+  console.log(`Ready-made stock decremented for ${patches} product(s)`);
+
+  // dec cannot floor, so bring anything that went below zero back up
+  const after = await sanityWriteClient.fetch<StockDoc[]>(
+    `*[_id in $ids]{ _id, stock, sizeStock }`,
+    { ids }
+  );
+  const floor = sanityWriteClient.transaction();
+  let floored = 0;
+  for (const doc of after) {
+    const fields = planStockFloor(doc);
+    if (!fields) continue;
+    floor.patch(doc._id, (p) => p.set(fields));
+    floored++;
   }
+  if (floored > 0) await floor.commit();
 }
 
 /* ─── Abandoned cart ─── */
