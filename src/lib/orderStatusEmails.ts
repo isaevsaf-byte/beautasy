@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
+import { claimThenSend } from "@/lib/claim";
 
 /**
  * Keeps the customer in the loop while their order is being made.
@@ -21,6 +22,8 @@ type NotifiableStatus = (typeof NOTIFIABLE)[number];
 
 export interface NotifiableOrder {
   _id: string;
+  /** Revision the order was read at — the claim is conditional on it */
+  _rev: string;
   status: string;
   notifiedStatus?: string;
   customerEmail?: string;
@@ -95,13 +98,16 @@ const PENDING_QUERY = `*[
   && status in ["in-production", "shipped", "delivered"]
   && (!defined(notifiedStatus) || notifiedStatus != status)
 ] | order(createdAt desc) [0...$limit] {
-  _id, status, notifiedStatus, customerEmail, customerName, trackingUrl,
+  _id, _rev, status, notifiedStatus, customerEmail, customerName, trackingUrl,
   "items": items[]{ name, quantity }
 }`;
 
 /**
  * Emails everyone whose order moved to a status they haven't been told about.
- * Safe to call repeatedly: `notifiedStatus` is what stops a second email.
+ * Safe to call repeatedly, and safe to call from several places at once: the
+ * order is claimed (notifiedStatus set, conditional on its revision) before
+ * the email goes out, so the Studio button, the Sanity webhook and the daily
+ * job can overlap without anyone hearing the same news twice.
  */
 export async function sendPendingStatusEmails(limit = 50): Promise<{ checked: number; sent: number }> {
   if (!process.env.RESEND_API_KEY || !process.env.SANITY_API_WRITE_TOKEN) {
@@ -116,19 +122,21 @@ export async function sendPendingStatusEmails(limit = 50): Promise<{ checked: nu
     const status = order.status as NotifiableStatus;
     if (!NOTIFIABLE.includes(status) || !order.customerEmail) continue;
 
-    try {
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: order.customerEmail,
-        replyTo: KRISTINA_EMAIL,
-        subject: COPY[status].subject,
-        html: statusEmail(order, status),
-      });
-      await sanityWriteClient.patch(order._id).set({ notifiedStatus: status }).commit();
-      sent++;
-    } catch (err) {
-      console.error(`Failed to send ${status} email for order ${order._id}:`, err);
-    }
+    const outcome = await claimThenSend(
+      sanityWriteClient,
+      order,
+      { notifiedStatus: status },
+      order.notifiedStatus ? { notifiedStatus: order.notifiedStatus } : ["notifiedStatus"],
+      () =>
+        resend.emails.send({
+          from: FROM_EMAIL,
+          to: order.customerEmail as string,
+          replyTo: KRISTINA_EMAIL,
+          subject: COPY[status].subject,
+          html: statusEmail(order, status),
+        })
+    );
+    if (outcome === "sent") sent++;
   }
 
   return { checked: orders.length, sent };

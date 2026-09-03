@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
+import { claimThenSend } from "@/lib/claim";
 
 /**
  * Confirming atelier bookings.
@@ -20,6 +21,8 @@ type NotifiableStatus = (typeof NOTIFIABLE)[number];
 
 export interface NotifiableBooking {
   _id: string;
+  /** Revision the booking was read at — the claim is conditional on it */
+  _rev: string;
   status: string;
   notifiedStatus?: string;
   name?: string;
@@ -78,10 +81,16 @@ const PENDING_QUERY = `*[
   && status in ["confirmed", "declined"]
   && (!defined(notifiedStatus) || notifiedStatus != status)
 ] | order(createdAt desc) [0...$limit] {
-  _id, status, notifiedStatus, name, email, service, preferredDate, confirmedFor, replyNote
+  _id, _rev, status, notifiedStatus, name, email, service, preferredDate, confirmedFor, replyNote
 }`;
 
-/** Emails customers whose booking Kristina has confirmed or declined. */
+/**
+ * Emails customers whose booking Kristina has confirmed or declined.
+ *
+ * Claimed before it is sent — see @/lib/claim. Confirming in the Studio fires
+ * the Sanity webhook, and the "Email the customer now" button is usually
+ * pressed a second later; without the claim that was two confirmations.
+ */
 export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: number; sent: number }> {
   if (!process.env.RESEND_API_KEY || !process.env.SANITY_API_WRITE_TOKEN) {
     return { checked: 0, sent: 0 };
@@ -95,22 +104,24 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
     const status = booking.status as NotifiableStatus;
     if (!NOTIFIABLE.includes(status) || !booking.email) continue;
 
-    try {
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: booking.email,
-        replyTo: KRISTINA_EMAIL,
-        subject:
-          status === "confirmed"
-            ? "Your Beautasy atelier appointment is confirmed 💜"
-            : "About your Beautasy atelier booking",
-        html: bookingEmailHtml(booking, status),
-      });
-      await sanityWriteClient.patch(booking._id).set({ notifiedStatus: status }).commit();
-      sent++;
-    } catch (err) {
-      console.error(`Failed to send ${status} email for booking ${booking._id}:`, err);
-    }
+    const outcome = await claimThenSend(
+      sanityWriteClient,
+      booking,
+      { notifiedStatus: status },
+      booking.notifiedStatus ? { notifiedStatus: booking.notifiedStatus } : ["notifiedStatus"],
+      () =>
+        resend.emails.send({
+          from: FROM_EMAIL,
+          to: booking.email as string,
+          replyTo: KRISTINA_EMAIL,
+          subject:
+            status === "confirmed"
+              ? "Your Beautasy atelier appointment is confirmed 💜"
+              : "About your Beautasy atelier booking",
+          html: bookingEmailHtml(booking, status),
+        })
+    );
+    if (outcome === "sent") sent++;
   }
 
   return { checked: bookings.length, sent };

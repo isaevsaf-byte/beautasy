@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
+import { claimThenSend } from "@/lib/claim";
 
 /**
  * Emails everyone waiting on a piece that is ready-made again.
@@ -18,6 +19,7 @@ function getResend() {
 
 interface PendingAlert {
   _id: string;
+  _rev: string;
   email: string;
   size?: string;
   product: {
@@ -31,6 +33,7 @@ interface PendingAlert {
 
 const PENDING_ALERTS_QUERY = `*[_type == "stockAlert" && notified == false] {
   _id,
+  _rev,
   email,
   size,
   "product": product->{ _id, name, "slug": slug.current, stock, sizeStock }
@@ -57,26 +60,30 @@ export async function runStockAlerts(): Promise<{ checked: number; sent: number 
   let sent = 0;
   for (const alert of dueAlerts) {
     if (!alert.product) continue;
-    try {
-      await getResend().emails.send({
+    const product = alert.product;
+    // Claimed before it is sent, so two overlapping runs cannot both email
+    const outcome = await claimThenSend(
+      sanityWriteClient,
+      alert,
+      { notified: true },
+      { notified: false },
+      () =>
+        getResend().emails.send({
         from: FROM_EMAIL,
         to: alert.email,
-        subject: `Back in stock: ${alert.product.name}${alert.size ? ` (${alert.size})` : ""} 💜`,
+        subject: `Back in stock: ${product.name}${alert.size ? ` (${alert.size})` : ""} 💜`,
         html: `
           <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:32px;">
             <p style="font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#7a6d9a;">Beautasy</p>
             <h1 style="font-size:24px;font-weight:400;color:#2d2d2d;">Good news — it's back!</h1>
             <p style="color:#3d3d3d;line-height:1.7;">
-              <strong>${escapeHtml(alert.product.name)}</strong>${alert.size ? ` in size <strong>${escapeHtml(alert.size)}</strong>` : ""} is back in stock. Handmade pieces sell out fast, so grab it before it's gone again.
+              <strong>${escapeHtml(product.name)}</strong>${alert.size ? ` in size <strong>${escapeHtml(alert.size)}</strong>` : ""} is back in stock. Handmade pieces sell out fast, so grab it before it's gone again.
             </p>
-            <a href="${SITE_URL}/shop/${alert.product.slug}" style="display:inline-block;margin-top:16px;padding:12px 28px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">Shop Now</a>
+            <a href="${SITE_URL}/shop/${product.slug}" style="display:inline-block;margin-top:16px;padding:12px 28px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">Shop Now</a>
           </div>`,
-      });
-      await sanityWriteClient.patch(alert._id).set({ notified: true }).commit();
-      sent++;
-    } catch (err) {
-      console.error(`Failed to send stock alert for ${alert.email}:`, err);
-    }
+        })
+    );
+    if (outcome === "sent") sent++;
   }
 
   return { checked: alerts.length, sent };
