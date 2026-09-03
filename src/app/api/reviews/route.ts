@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { currentUserId } from "@/lib/clerkServer";
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
 import { rateLimit } from "@/lib/rateLimit";
 
@@ -48,7 +48,8 @@ export async function GET(req: NextRequest) {
 /* ─── POST /api/reviews ─── */
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    // Account reviews need Clerk; without it the emailed review link is the way in
+    const userId = await currentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
