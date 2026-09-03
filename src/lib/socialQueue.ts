@@ -1,4 +1,5 @@
-import { sanityWriteClient, urlFor } from "@/lib/sanity";
+import { createImageUrlBuilder } from "@sanity/image-url";
+import { sanityWriteClient, sanityConfig } from "@/lib/sanity";
 import {
   buildCaptionOptions,
   buildHashtags,
@@ -18,6 +19,15 @@ import { publishToInstagram, instagramConfigured } from "@/lib/instagram";
  * Both read through `sanityWriteClient` rather than the cached client — the
  * CDN serves a stale `status`, which is exactly how a post would go out twice.
  */
+
+/**
+ * Pictures for Instagram are built without `auto=format`. The shop's `urlFor`
+ * adds it so browsers get WebP, but it lets the CDN answer WebP to any fetcher
+ * that says it can take it — and Instagram's Content Publishing API accepts
+ * JPEG only. Pinning the format is one line; discovering it would have been a
+ * "Failed" post on the first morning the pipeline ran for real.
+ */
+const instagramImages = createImageUrlBuilder(sanityConfig);
 
 interface ProductForPost {
   _id: string;
@@ -226,7 +236,13 @@ async function publishOne(post: DuePost) {
 
   let imageUrl: string;
   try {
-    imageUrl = urlFor(post.image).width(1080).height(1350).fit("crop").url();
+    imageUrl = instagramImages
+      .image(post.image)
+      .width(1080)
+      .height(1350)
+      .fit("crop")
+      .format("jpg")
+      .url();
   } catch {
     return { id: post._id, ok: false, error: "The post has no usable picture" };
   }
