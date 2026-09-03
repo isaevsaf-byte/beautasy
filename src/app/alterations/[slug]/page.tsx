@@ -326,6 +326,29 @@ export default async function LocalServicePage({
           </div>
         </section>
 
+        {/* ──── From the shop ──── */}
+        {/* The atelier brings people in; the handmade pieces are what they
+            should leave knowing about. Nothing here is a sale pitch — each link
+            says why the piece belongs next to this job. */}
+        <section className="max-w-4xl mx-auto px-6 mt-20">
+          <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-2">Made in the same room</p>
+          <h2 className="font-serif text-2xl mb-6">While you&apos;re here</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {service.shop.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group bg-white rounded-2xl border border-lavender-soft/40 p-5 hover:border-lavender transition-colors"
+              >
+                <span className="font-serif text-lg leading-snug block mb-1.5 group-hover:text-lavender transition-colors">
+                  {item.label}
+                </span>
+                <span className="text-sm text-charcoal-light leading-relaxed block">{item.note}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         {/* ──── Related ──── */}
         <section className="max-w-4xl mx-auto px-6 mt-20">
           <h2 className="font-serif text-2xl mb-6">Also done here</h2>

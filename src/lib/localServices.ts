@@ -21,6 +21,13 @@ export interface Faq {
   a: string;
 }
 
+export interface ShopLink {
+  label: string;
+  href: string;
+  /** One line on why it belongs next to this job */
+  note: string;
+}
+
 export interface LocalService {
   /** URL segment under /alterations */
   slug: string;
@@ -41,6 +48,12 @@ export interface LocalService {
   faqs: Faq[];
   /** Sibling pages to link to — internal links are how these pages lift each other */
   related: string[];
+  /**
+   * What from the shop belongs beside this job. The campaign's whole shape is
+   * "the atelier brings people in, the handmade pieces grow from that" — and
+   * until now no service page led anywhere in the shop at all.
+   */
+  shop: ShopLink[];
   /** Shown as a banner when the service has a season running */
   seasonal?: string;
   /** Last day the seasonal banner is true, ISO date — after it the banner is a lie */
@@ -120,6 +133,11 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
     ],
     related: ["prom-and-evening-dress-southampton", "zip-replacement-southampton"],
+    shop: [
+      { label: "Bridal garters", href: "/shop/lingerie?category=garters", note: "Handmade in the same room your dress is pinned in." },
+      { label: "Lingerie sets", href: "/shop/lingerie?category=sets", note: "Cut to sit invisibly under a fitted bodice." },
+      { label: "Gift boxes", href: "/gift-boxes", note: "For the bridesmaids, packed ready to hand over." },
+    ],
   },
   {
     slug: "school-uniform-southampton",
@@ -179,6 +197,11 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
     ],
     related: ["jeans-and-trousers-southampton", "zip-replacement-southampton"],
+    shop: [
+      { label: "Kids' underwear", href: "/shop/kids?category=underwear", note: "Soft cotton, no scratchy labels, made to last the year." },
+      { label: "Pyjamas", href: "/shop/kids?category=pyjamas", note: "Sewn from the same fabrics, in the same sizes." },
+      { label: "Hair accessories", href: "/shop/kids?category=accessories", note: "School-friendly bows and bands." },
+    ],
   },
   {
     slug: "prom-and-evening-dress-southampton",
@@ -234,6 +257,10 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
     ],
     related: ["wedding-dress-southampton", "zip-replacement-southampton"],
+    shop: [
+      { label: "Bras", href: "/shop/lingerie?category=bras", note: "The right bra changes how a gown sits — bring it to the fitting." },
+      { label: "Pouches", href: "/shop/accessories?category=pouches", note: "Something small for the night, in silk." },
+    ],
   },
   {
     slug: "jeans-and-trousers-southampton",
@@ -288,6 +315,10 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
     ],
     related: ["school-uniform-southampton", "zip-replacement-southampton"],
+    shop: [
+      { label: "Knickers", href: "/shop/lingerie?category=knickers", note: "Cut not to show through a slim leg." },
+      { label: "Belts", href: "/shop/lingerie?category=belts", note: "Handmade, to the length you actually are." },
+    ],
   },
   {
     slug: "zip-replacement-southampton",
@@ -342,6 +373,10 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
     ],
     related: ["jeans-and-trousers-southampton", "curtains-and-home-southampton"],
+    shop: [
+      { label: "Pouches and organisers", href: "/shop/accessories?category=pouches", note: "With zips chosen to last — the kind we replace least." },
+      { label: "Cushion covers", href: "/shop/home?category=cushion-cover", note: "Made here, so a broken zip is a five-minute fix." },
+    ],
   },
   {
     slug: "curtains-and-home-southampton",
@@ -399,6 +434,11 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
     ],
     related: ["zip-replacement-southampton", "jeans-and-trousers-southampton"],
+    shop: [
+      { label: "Cushion covers", href: "/shop/home?category=cushion-cover", note: "Ready-made, or from the same fabric as your curtains." },
+      { label: "Table runners", href: "/shop/home?category=table-runner", note: "Finished with the same weighted hems." },
+      { label: "Napkins", href: "/shop/home?category=napkins", note: "Sets of four and six." },
+    ],
   },
 ];
 

@@ -26,3 +26,13 @@ test("every local page answers its own search — no paragraph is shared between
     assert.ok(s.prices.length >= 4, `${s.slug}: a price list this short does not answer "how much"`);
   }
 });
+
+test("every local page leads somewhere in the shop — that is the campaign's whole shape", () => {
+  for (const s of LOCAL_SERVICES) {
+    assert.ok(s.shop.length >= 2, `${s.slug}: at least two shop links`);
+    for (const link of s.shop) {
+      assert.match(link.href, /^\/(shop|gift-boxes)/, `${s.slug}: "${link.label}" must point into the shop`);
+      assert.ok(link.note.length > 10, `${s.slug}: "${link.label}" needs its one-line reason`);
+    }
+  }
+});
