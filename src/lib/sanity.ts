@@ -21,8 +21,19 @@ export const sanityConfig = {
   useCdn: process.env.NODE_ENV === "production",
 };
 
+// Read token for a private dataset. Server-only on purpose (no NEXT_PUBLIC_):
+// nothing in the browser talks to Sanity directly — components go through
+// /api/* — so the dataset can be private without a public token. Bookings,
+// stock alerts, orders and gift-card balances all live in this dataset, and a
+// public dataset serves every one of them to anyone with the project id.
+// The CDN honours the token, so cached reads keep working.
+const readToken = process.env.SANITY_API_READ_TOKEN;
+
 // Main client — use this in Server Components, API routes, etc.
-export const sanityClient = createClient(sanityConfig);
+export const sanityClient = createClient({
+  ...sanityConfig,
+  ...(readToken ? { token: readToken } : {}),
+});
 
 // Write client — server-side only, for creating reviews etc.
 export const sanityWriteClient = createClient({

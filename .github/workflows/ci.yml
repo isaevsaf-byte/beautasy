@@ -30,7 +30,12 @@ jobs:
       - name: Tests
         run: npm test
 
-      # No secrets needed: Sanity reads come from the public CDN, and Stripe,
-      # Clerk and Resend are all initialised lazily at request time.
+      # Stripe, Clerk and Resend are initialised lazily at request time, so
+      # they need nothing here. Sanity does: the dataset is private, and the
+      # build prerenders product, collection and info pages from it. Without
+      # the token every fetch is caught and the build still passes — with
+      # empty pages, which is worse than a red build. Keep the secret set.
       - name: Build
         run: npm run build
+        env:
+          SANITY_API_READ_TOKEN: ${{ secrets.SANITY_API_READ_TOKEN }}
