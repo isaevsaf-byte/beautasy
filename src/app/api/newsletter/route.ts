@@ -3,7 +3,7 @@ import { Resend } from "resend";
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { escapeHtml } from "@/lib/escapeHtml";
-import { ensureWelcomeCode } from "@/lib/discounts";
+import { createWelcomeCode, WELCOME_VALID_DAYS } from "@/lib/discounts";
 import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ function welcomeEmail(code: string | null): string {
           ? `<div style="background:#f7f3ff;border-radius:12px;padding:22px;text-align:center;margin:26px 0;">
                <p style="margin:0 0 8px;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#7a6d9a;">10% off your first order</p>
                <p style="margin:0;font-size:26px;letter-spacing:4px;color:#2d2d2d;font-family:Georgia,serif;">${escapeHtml(code)}</p>
-               <p style="margin:10px 0 0;font-size:12px;color:#777;">Enter it at checkout</p>
+               <p style="margin:10px 0 0;font-size:12px;color:#777;">Enter it at checkout — yours alone, valid for ${WELCOME_VALID_DAYS} days</p>
              </div>`
           : ""
       }
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ subscribed: true, alreadySubscribed: true });
     }
 
-    const code = await ensureWelcomeCode();
+    const code = await createWelcomeCode(normalised);
 
     await sanityWriteClient.create({
       _type: "subscriber",
