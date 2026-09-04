@@ -5,6 +5,8 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { createWelcomeCode, WELCOME_VALID_DAYS } from "@/lib/discounts";
 import { SITE_URL } from "@/lib/site";
+import { emailFingerprint, maskEmail, sealOptional } from "@/lib/pii";
+import { secretsConfigured } from "@/lib/secrets";
 
 export const dynamic = "force-dynamic";
 
@@ -79,17 +81,18 @@ export async function POST(req: NextRequest) {
     }
     const normalised = email.trim().toLowerCase();
 
-    if (!process.env.SANITY_API_WRITE_TOKEN) {
-      console.error("SANITY_API_WRITE_TOKEN is not configured");
+    if (!process.env.SANITY_API_WRITE_TOKEN || !secretsConfigured()) {
+      console.error("SANITY_API_WRITE_TOKEN or DATA_SECRET is not configured");
       return NextResponse.json(
         { error: "Sign-ups are temporarily unavailable" },
         { status: 503 }
       );
     }
 
+    // Matched on a fingerprint: the address itself is not in the document
     const existing = await sanityClient.fetch<string | null>(
-      `*[_type == "subscriber" && email == $email][0]._id`,
-      { email: normalised }
+      `*[_type == "subscriber" && emailFingerprint == $fingerprint][0]._id`,
+      { fingerprint: emailFingerprint(normalised) }
     );
     if (existing) {
       // Don't resend the code, and don't reveal that the address is on the list
@@ -100,9 +103,11 @@ export async function POST(req: NextRequest) {
 
     await sanityWriteClient.create({
       _type: "subscriber",
-      email: normalised,
+      emailHint: maskEmail(normalised),
+      emailFingerprint: emailFingerprint(normalised),
+      emailSealed: sealOptional(normalised),
       source: source === "checkout" ? "checkout" : "footer",
-      ...(code ? { welcomeCode: code } : {}),
+      ...(code ? { welcomeCodeSealed: sealOptional(code) } : {}),
       unsubscribed: false,
       createdAt: new Date().toISOString(),
     });

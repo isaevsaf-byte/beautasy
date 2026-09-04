@@ -15,11 +15,13 @@ export const abandonedCart = defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
-      name: "email",
+      name: "emailHint",
       title: "Email",
       type: "string",
       readOnly: true,
+      description: "Masked. This dataset is readable by anyone, so the address itself is sealed.",
     }),
+    defineField({ name: "emailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
     defineField({
       name: "total",
       title: "Cart Total (pence)",
@@ -64,7 +66,7 @@ export const abandonedCart = defineType({
     }),
   ],
   preview: {
-    select: { title: "email", subtitle: "total" },
+    select: { title: "emailHint", subtitle: "total" },
     prepare({ title, subtitle }) {
       return {
         title: title || "Unknown shopper",

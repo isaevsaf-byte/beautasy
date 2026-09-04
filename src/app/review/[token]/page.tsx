@@ -22,7 +22,7 @@ export default async function ReviewPage({
   const order = await findOrderByReviewToken(token);
 
   const reviewable = (order?.items ?? []).filter((item) => item.productId);
-  const firstName = order?.customerName?.split(" ")[0];
+  const firstName = order?.displayName;
 
   return (
     <>

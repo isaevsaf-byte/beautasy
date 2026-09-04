@@ -3,6 +3,7 @@ import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 import { claimThenSend } from "@/lib/claim";
+import { open } from "@/lib/pii";
 
 /**
  * Confirming atelier bookings.
@@ -27,8 +28,11 @@ export interface NotifiableBooking {
   _rev: string;
   status: string;
   notifiedStatus?: string;
-  name?: string;
-  email?: string;
+  /** First name, readable, for the Studio and the greeting */
+  displayName?: string;
+  /** Sealed contact details — see @/lib/pii */
+  nameSealed?: string;
+  emailSealed?: string;
   service?: string;
   preferredDate?: string;
   confirmedFor?: string;
@@ -36,7 +40,7 @@ export interface NotifiableBooking {
 }
 
 function bookingEmailHtml(booking: NotifiableBooking, status: NotifiableStatus): string {
-  const firstName = escapeHtml(booking.name?.split(" ")[0] ?? "there");
+  const firstName = escapeHtml(booking.displayName ?? "there");
   const service = escapeHtml(booking.service ?? "your appointment");
   const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
 
@@ -96,11 +100,12 @@ function bookingEmailHtml(booking: NotifiableBooking, status: NotifiableStatus):
 
 const PENDING_QUERY = `*[
   _type == "atelierBooking"
-  && defined(email)
+  && defined(emailSealed)
   && status in ["confirmed", "declined", "completed"]
   && (!defined(notifiedStatus) || notifiedStatus != status)
 ] | order(createdAt desc) [0...$limit] {
-  _id, _rev, status, notifiedStatus, name, email, service, preferredDate, confirmedFor, replyNote
+  _id, _rev, status, notifiedStatus, displayName, nameSealed, emailSealed,
+  service, preferredDate, confirmedFor, replyNote
 }`;
 
 /**
@@ -121,7 +126,14 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
 
   for (const booking of bookings) {
     const status = booking.status as NotifiableStatus;
-    if (!NOTIFIABLE.includes(status) || !booking.email) continue;
+    if (!NOTIFIABLE.includes(status)) continue;
+
+    // The address is sealed in the document; sending needs the real one
+    const email = open(booking.emailSealed);
+    if (!email) {
+      console.error(`Booking ${booking._id} has no readable email — not notifying`);
+      continue;
+    }
 
     const outcome = await claimThenSend(
       sanityWriteClient,
@@ -131,7 +143,7 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
       () =>
         resend.emails.send({
           from: FROM_EMAIL,
-          to: booking.email as string,
+          to: email,
           replyTo: KRISTINA_EMAIL,
           subject:
             status === "confirmed"

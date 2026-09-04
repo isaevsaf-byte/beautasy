@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { emailFingerprint, maskEmail, sealOptional } from "@/lib/pii";
+import { secretsConfigured } from "@/lib/secrets";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +31,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid size" }, { status: 400 });
     }
 
-    if (!process.env.SANITY_API_WRITE_TOKEN) {
-      console.error("SANITY_API_WRITE_TOKEN is not configured");
+    if (!process.env.SANITY_API_WRITE_TOKEN || !secretsConfigured()) {
+      console.error("SANITY_API_WRITE_TOKEN or DATA_SECRET is not configured");
       return NextResponse.json(
         { error: "Stock alerts are temporarily unavailable" },
         { status: 503 }
@@ -45,9 +47,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unknown product" }, { status: 400 });
     }
 
+    // Matched on a fingerprint: the address itself is not in the document
     const existing = await sanityClient.fetch(
-      `*[_type == "stockAlert" && product._ref == $productId && email == $email && size == $size && notified == false][0]`,
-      { productId, email, size: size ?? null }
+      `*[_type == "stockAlert" && product._ref == $productId && emailFingerprint == $fingerprint && size == $size && notified == false][0]`,
+      { productId, fingerprint: emailFingerprint(email), size: size ?? null }
     );
     if (existing) {
       return NextResponse.json({ alreadySubscribed: true }, { status: 200 });
@@ -56,7 +59,9 @@ export async function POST(req: NextRequest) {
     await sanityWriteClient.create({
       _type: "stockAlert",
       product: { _type: "reference", _ref: productId },
-      email,
+      emailHint: maskEmail(email),
+      emailFingerprint: emailFingerprint(email),
+      emailSealed: sealOptional(email),
       ...(size ? { size } : {}),
       notified: false,
       createdAt: new Date().toISOString(),

@@ -3,6 +3,7 @@ import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { generateReviewToken, reviewTokenFingerprint } from "@/lib/reviewToken";
 import { SITE_URL } from "@/lib/site";
+import { open } from "@/lib/pii";
 
 /**
  * Asks recent customers for a review, with a tokenised link so they don't need
@@ -24,23 +25,25 @@ const MAX_PER_RUN = 25;
 
 interface PendingOrder {
   _id: string;
-  customerEmail: string;
-  customerName?: string;
+  /** Sealed address — see @/lib/pii */
+  customerEmailSealed?: string;
+  /** First name, readable, for the greeting */
+  displayName?: string;
   items: { productId?: string; name: string }[];
 }
 
 const PENDING_QUERY = `*[
   _type == "order"
-  && defined(customerEmail)
+  && defined(customerEmailSealed)
   && !defined(reviewRequestSentAt)
   && createdAt < $cutoff
   && status in ["paid", "in-production", "shipped", "delivered"]
 ] | order(createdAt asc) [0...$limit] {
-  _id, customerEmail, customerName, "items": items[]{ productId, name }
+  _id, customerEmailSealed, displayName, "items": items[]{ productId, name }
 }`;
 
 function requestEmail(order: PendingOrder, token: string): string {
-  const firstName = escapeHtml(order.customerName?.split(" ")[0] ?? "there");
+  const firstName = escapeHtml(order.displayName ?? "there");
   const pieces = order.items
     .filter((item) => item.productId)
     .map((item) => `<li style="margin-bottom:6px;color:#3d3d3d;">${escapeHtml(item.name)}</li>`)
@@ -100,6 +103,12 @@ export async function runReviewRequests(): Promise<{ candidates: number; sent: n
       continue;
     }
 
+    const email = open(order.customerEmailSealed);
+    if (!email) {
+      console.error(`Order ${order._id} has no readable email — not asking for a review`);
+      continue;
+    }
+
     const token = generateReviewToken();
     try {
       // Store the token's fingerprint first: an order that can accept a link
@@ -115,7 +124,7 @@ export async function runReviewRequests(): Promise<{ candidates: number; sent: n
 
       await getResend().emails.send({
         from: FROM_EMAIL,
-        to: order.customerEmail,
+        to: email,
         replyTo: KRISTINA_EMAIL,
         subject: "How are your Beautasy pieces wearing? 💜",
         html: requestEmail(order, token),

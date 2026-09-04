@@ -3,6 +3,7 @@ import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 import { claimThenSend } from "@/lib/claim";
+import { open } from "@/lib/pii";
 
 /**
  * Emails everyone waiting on a piece that is ready-made again.
@@ -20,7 +21,8 @@ function getResend() {
 interface PendingAlert {
   _id: string;
   _rev: string;
-  email: string;
+  /** Sealed address — see @/lib/pii */
+  emailSealed?: string;
   size?: string;
   product: {
     _id: string;
@@ -34,7 +36,7 @@ interface PendingAlert {
 const PENDING_ALERTS_QUERY = `*[_type == "stockAlert" && notified == false] {
   _id,
   _rev,
-  email,
+  emailSealed,
   size,
   "product": product->{ _id, name, "slug": slug.current, stock, sizeStock }
 }`;
@@ -61,6 +63,11 @@ export async function runStockAlerts(): Promise<{ checked: number; sent: number 
   for (const alert of dueAlerts) {
     if (!alert.product) continue;
     const product = alert.product;
+    const email = open(alert.emailSealed);
+    if (!email) {
+      console.error(`Stock alert ${alert._id} has no readable email — not notifying`);
+      continue;
+    }
     // Claimed before it is sent, so two overlapping runs cannot both email
     const outcome = await claimThenSend(
       sanityWriteClient,
@@ -70,7 +77,7 @@ export async function runStockAlerts(): Promise<{ checked: number; sent: number 
       () =>
         getResend().emails.send({
         from: FROM_EMAIL,
-        to: alert.email,
+        to: email,
         subject: `Back in stock: ${product.name}${alert.size ? ` (${alert.size})` : ""} 💜`,
         html: `
           <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:32px;">

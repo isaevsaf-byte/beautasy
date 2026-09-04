@@ -5,11 +5,26 @@ export const atelierBooking = defineType({
   title: "Atelier Booking",
   type: "document",
   description:
-    "A request for an alteration or fitting. Change the status to confirm or decline it — the customer is emailed automatically.",
+    "A request for an alteration or fitting. Change the status to confirm or decline it — the customer is emailed automatically. Contact details are stored sealed; use \u201cShow contact details\u201d to read them.",
   fields: [
-    defineField({ name: "name", title: "Name", type: "string", readOnly: true }),
-    defineField({ name: "email", title: "Email", type: "string", readOnly: true }),
-    defineField({ name: "phone", title: "Phone", type: "string", readOnly: true }),
+    defineField({
+      name: "displayName",
+      title: "First Name",
+      type: "string",
+      readOnly: true,
+      description: "The rest of the contact details are sealed — this dataset is readable by anyone.",
+    }),
+    defineField({
+      name: "emailHint",
+      title: "Email",
+      type: "string",
+      readOnly: true,
+      description: "Masked. Use \u201cShow contact details\u201d for the address itself.",
+    }),
+    defineField({ name: "nameSealed", title: "Name (sealed)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "phoneSealed", title: "Phone (sealed)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "notesSealed", title: "Notes (sealed)", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "service", title: "Service", type: "string", readOnly: true }),
     defineField({
       name: "preferredDate",
@@ -18,7 +33,6 @@ export const atelierBooking = defineType({
       readOnly: true,
       description: "What the customer asked for.",
     }),
-    defineField({ name: "notes", title: "Notes", type: "text", rows: 3, readOnly: true }),
     defineField({
       name: "status",
       title: "Status",
@@ -58,7 +72,7 @@ export const atelierBooking = defineType({
     defineField({ name: "createdAt", title: "Requested At", type: "datetime", readOnly: true }),
   ],
   preview: {
-    select: { title: "name", service: "service", status: "status", date: "preferredDate" },
+    select: { title: "displayName", service: "service", status: "status", date: "preferredDate" },
     prepare({ title, service, status, date }) {
       return {
         title: `${title ?? "Someone"} — ${service ?? "booking"}`,

@@ -6,11 +6,14 @@ export const subscriber = defineType({
   type: "document",
   fields: [
     defineField({
-      name: "email",
+      name: "emailHint",
       title: "Email",
       type: "string",
-      validation: (Rule) => Rule.required().email(),
+      readOnly: true,
+      description: "Masked. This dataset is readable by anyone, so the address itself is sealed.",
     }),
+    defineField({ name: "emailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailFingerprint", title: "Email Fingerprint", type: "string", readOnly: true, hidden: true }),
     defineField({
       name: "source",
       title: "Signed Up From",
@@ -26,11 +29,12 @@ export const subscriber = defineType({
       initialValue: "footer",
     }),
     defineField({
-      name: "welcomeCode",
-      title: "Welcome Code Sent",
+      name: "welcomeCodeSealed",
+      title: "Welcome Code (sealed)",
       type: "string",
-      description: "The discount code emailed to them, if any.",
+      description: "The single-use code emailed to them. Sealed: a readable one-off discount is a readable discount.",
       readOnly: true,
+      hidden: true,
     }),
     defineField({
       name: "unsubscribed",
@@ -47,7 +51,7 @@ export const subscriber = defineType({
     }),
   ],
   preview: {
-    select: { title: "email", subtitle: "source" },
+    select: { title: "emailHint", subtitle: "source" },
   },
   orderings: [
     {

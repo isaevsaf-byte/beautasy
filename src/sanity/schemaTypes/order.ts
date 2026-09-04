@@ -20,17 +20,21 @@ export const order = defineType({
       description: "Empty for guest checkouts — order won't appear in any account's order history.",
     }),
     defineField({
-      name: "customerEmail",
-      title: "Customer Email",
+      name: "displayName",
+      title: "First Name",
       type: "string",
       readOnly: true,
+      description: "The rest is sealed — this dataset is readable by anyone. Use \u201cShow contact details\u201d.",
     }),
     defineField({
-      name: "customerName",
-      title: "Customer Name",
+      name: "emailHint",
+      title: "Email",
       type: "string",
       readOnly: true,
+      description: "Masked. Use \u201cShow contact details\u201d for the address itself.",
     }),
+    defineField({ name: "customerEmailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "customerNameSealed", title: "Name (sealed)", type: "string", readOnly: true, hidden: true }),
     defineField({
       name: "items",
       title: "Items",
@@ -62,10 +66,12 @@ export const order = defineType({
       readOnly: true,
     }),
     defineField({
-      name: "shippingAddress",
-      title: "Shipping Address",
+      name: "shippingAddressSealed",
+      title: "Delivery Address (sealed)",
       type: "text",
       readOnly: true,
+      hidden: true,
+      description: "Read it with \u201cShow contact details\u201d; it is also in the order email.",
     }),
     defineField({
       name: "status",
@@ -119,7 +125,7 @@ export const order = defineType({
     }),
   ],
   preview: {
-    select: { customerName: "customerName", email: "customerEmail", total: "total", status: "status" },
+    select: { customerName: "displayName", email: "emailHint", total: "total", status: "status" },
     prepare({ customerName, email, total, status }) {
       return {
         title: `${customerName || email || "Guest"} — £${((total || 0) / 100).toFixed(2)}`,

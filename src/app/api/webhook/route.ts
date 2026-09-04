@@ -14,6 +14,7 @@ import {
 } from "@/lib/giftCards";
 import { deliverGiftCard, emailGiftCardPurchase } from "@/lib/giftCardEmails";
 import { getSiteSettings, DEFAULT_INT_RATE } from "@/lib/siteSettings";
+import { sealOptional, maskEmail, firstNameOf } from "@/lib/pii";
 import {
   collectOrdered,
   planStockDecrement,
@@ -382,7 +383,8 @@ async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<vo
   await sanityWriteClient.create({
     _type: "abandonedCart",
     stripeSessionId: session.id,
-    email,
+    emailHint: maskEmail(email),
+    emailSealed: sealOptional(email),
     total,
     items: items.map((item, i) => ({
       _key: item.id ?? `item-${i}`,
@@ -427,10 +429,11 @@ async function issueGiftCard(session: Stripe.Checkout.Session): Promise<void> {
     ...codeFields(code),
     initialAmount: amount,
     balance: amount,
-    recipientEmail: meta.gift_card_recipient,
-    recipientName: meta.gift_card_recipient_name,
-    message: meta.gift_card_message,
-    purchaserEmail: session.customer_details?.email ?? undefined,
+    recipientHint: maskEmail(meta.gift_card_recipient),
+    recipientEmailSealed: sealOptional(meta.gift_card_recipient),
+    recipientNameSealed: sealOptional(meta.gift_card_recipient_name),
+    messageSealed: sealOptional(meta.gift_card_message),
+    purchaserEmailSealed: sealOptional(session.customer_details?.email),
     deliverAt: deliverAt || undefined,
     expiresAt: expiryFromNow(),
     active: true,
@@ -568,8 +571,13 @@ export async function POST(req: NextRequest) {
         _type: "order",
         stripeSessionId: session.id,
         userId: session.client_reference_id || undefined,
-        customerEmail: customerEmail || undefined,
-        customerName: shippingOf(session)?.name ?? session.customer_details?.name ?? undefined,
+        // Readable enough to find the order, sealed everywhere it matters
+        displayName: firstNameOf(shippingOf(session)?.name ?? session.customer_details?.name),
+        emailHint: maskEmail(customerEmail),
+        customerEmailSealed: sealOptional(customerEmail),
+        customerNameSealed: sealOptional(
+          shippingOf(session)?.name ?? session.customer_details?.name
+        ),
         items: items.map((item) => {
           const product = item.price?.product;
           const productId =
@@ -585,7 +593,7 @@ export async function POST(req: NextRequest) {
           };
         }),
         total: session.amount_total ?? 0,
-        shippingAddress: formatAddress(shippingOf(session)),
+        shippingAddressSealed: sealOptional(formatAddress(shippingOf(session))),
         status: "paid",
         createdAt: new Date().toISOString(),
       });

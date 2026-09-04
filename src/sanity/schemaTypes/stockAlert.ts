@@ -13,11 +13,14 @@ export const stockAlert = defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
-      name: "email",
+      name: "emailHint",
       title: "Customer Email",
       type: "string",
-      validation: (Rule) => Rule.required().email(),
+      readOnly: true,
+      description: "Masked. This dataset is readable by anyone, so the address itself is sealed.",
     }),
+    defineField({ name: "emailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailFingerprint", title: "Email Fingerprint", type: "string", readOnly: true, hidden: true }),
     defineField({
       name: "size",
       title: "Size",
@@ -41,7 +44,7 @@ export const stockAlert = defineType({
     }),
   ],
   preview: {
-    select: { title: "email", productName: "product.name", notified: "notified" },
+    select: { title: "emailHint", productName: "product.name", notified: "notified" },
     prepare({ title, productName, notified }) {
       return {
         title: `${notified ? "✅" : "⏳"} ${title}`,

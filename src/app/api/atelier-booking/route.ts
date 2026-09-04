@@ -3,6 +3,8 @@ import { Resend } from "resend";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { sanityWriteClient } from "@/lib/sanity";
+import { sealOptional, maskEmail, firstNameOf } from "@/lib/pii";
+import { secretsConfigured } from "@/lib/secrets";
 
 export const dynamic = "force-dynamic";
 
@@ -53,16 +55,20 @@ export async function POST(req: NextRequest) {
     // to answer is how a fitting quietly goes unbooked — and if the mail
     // service is down or misconfigured, the request must still survive.
     let saved = false;
-    if (process.env.SANITY_API_WRITE_TOKEN) {
+    if (process.env.SANITY_API_WRITE_TOKEN && secretsConfigured()) {
       try {
         await sanityWriteClient.create({
           _type: "atelierBooking",
-          name,
-          email,
-          phone: phone || undefined,
+          // Readable: enough to recognise the row in the Studio
+          displayName: firstNameOf(name),
+          emailHint: maskEmail(email),
+          // Sealed: the details themselves. See @/lib/pii.
+          nameSealed: sealOptional(name),
+          emailSealed: sealOptional(email),
+          phoneSealed: sealOptional(phone),
+          notesSealed: sealOptional(notes),
           service,
           preferredDate: preferredDate || undefined,
-          notes: notes || undefined,
           status: "new",
           createdAt: new Date().toISOString(),
         });
@@ -70,6 +76,8 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.error("Failed to save atelier booking:", err);
       }
+    } else if (!secretsConfigured()) {
+      console.error("DATA_SECRET is not set — a booking cannot be stored without sealing the contact details");
     }
 
     // The request is already safe in the Studio, so a mail outage is not the

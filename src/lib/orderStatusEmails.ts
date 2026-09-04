@@ -3,6 +3,7 @@ import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 import { claimThenSend } from "@/lib/claim";
+import { open } from "@/lib/pii";
 
 /**
  * Keeps the customer in the loop while their order is being made.
@@ -26,8 +27,10 @@ export interface NotifiableOrder {
   _rev: string;
   status: string;
   notifiedStatus?: string;
-  customerEmail?: string;
-  customerName?: string;
+  /** Sealed address — see @/lib/pii */
+  customerEmailSealed?: string;
+  /** First name, readable, for the greeting */
+  displayName?: string;
   trackingUrl?: string;
   items?: { name: string; quantity: number }[];
 }
@@ -52,7 +55,7 @@ const COPY: Record<NotifiableStatus, { subject: string; heading: string; body: s
 
 function statusEmail(order: NotifiableOrder, status: NotifiableStatus): string {
   const { heading, body } = COPY[status];
-  const firstName = escapeHtml(order.customerName?.split(" ")[0] ?? "there");
+  const firstName = escapeHtml(order.displayName ?? "there");
   const pieces = (order.items ?? [])
     .map((item) => `<li style="margin-bottom:6px;color:#3d3d3d;">${escapeHtml(item.name)} × ${item.quantity}</li>`)
     .join("");
@@ -94,11 +97,11 @@ function statusEmail(order: NotifiableOrder, status: NotifiableStatus): string {
 
 const PENDING_QUERY = `*[
   _type == "order"
-  && defined(customerEmail)
+  && defined(customerEmailSealed)
   && status in ["in-production", "shipped", "delivered"]
   && (!defined(notifiedStatus) || notifiedStatus != status)
 ] | order(createdAt desc) [0...$limit] {
-  _id, _rev, status, notifiedStatus, customerEmail, customerName, trackingUrl,
+  _id, _rev, status, notifiedStatus, customerEmailSealed, displayName, trackingUrl,
   "items": items[]{ name, quantity }
 }`;
 
@@ -120,7 +123,13 @@ export async function sendPendingStatusEmails(limit = 50): Promise<{ checked: nu
 
   for (const order of orders) {
     const status = order.status as NotifiableStatus;
-    if (!NOTIFIABLE.includes(status) || !order.customerEmail) continue;
+    if (!NOTIFIABLE.includes(status)) continue;
+
+    const email = open(order.customerEmailSealed);
+    if (!email) {
+      console.error(`Order ${order._id} has no readable email — not notifying`);
+      continue;
+    }
 
     const outcome = await claimThenSend(
       sanityWriteClient,
@@ -130,7 +139,7 @@ export async function sendPendingStatusEmails(limit = 50): Promise<{ checked: nu
       () =>
         resend.emails.send({
           from: FROM_EMAIL,
-          to: order.customerEmail as string,
+          to: email,
           replyTo: KRISTINA_EMAIL,
           subject: COPY[status].subject,
           html: statusEmail(order, status),

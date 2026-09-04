@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     const displayName =
       (typeof userName === "string" && userName.trim().slice(0, 40)) ||
-      order.customerName?.split(" ")[0] ||
+      order.displayName ||
       "Customer";
 
     const review = await sanityWriteClient.create({

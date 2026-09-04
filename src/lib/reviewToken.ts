@@ -18,8 +18,8 @@ import { fingerprint } from "@/lib/secrets";
 
 export interface TokenOrder {
   _id: string;
-  customerEmail?: string;
-  customerName?: string;
+  /** First name, readable — the sealed fields stay sealed for this page */
+  displayName?: string;
   createdAt: string;
   items: {
     productId?: string;
@@ -44,7 +44,7 @@ export async function findOrderByReviewToken(token: string): Promise<TokenOrder 
   // NB: the param is `reviewToken`, not `token` — the Sanity client reserves
   // `token` for auth, and using it here silently breaks the parameter types.
   const order = await sanityWriteClient.fetch(
-    `*[_type == "order" && reviewTokenFingerprint == $reviewToken][0]{ _id, customerEmail, customerName, createdAt, "items": items[]{ productId, name, quantity } }`,
+    `*[_type == "order" && reviewTokenFingerprint == $reviewToken][0]{ _id, displayName, createdAt, "items": items[]{ productId, name, quantity } }`,
     { reviewToken: reviewTokenFingerprint(token) }
   );
   return (order as TokenOrder | null) ?? null;
