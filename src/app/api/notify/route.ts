@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { fromThisSite } from "@/lib/sameOrigin";
 import { sendPendingStatusEmails } from "@/lib/orderStatusEmails";
 import { sendPendingBookingEmails } from "@/lib/bookingEmails";
 
@@ -14,12 +15,17 @@ export const dynamic = "force-dynamic";
  * the Studio token doesn't have — so the Studio calls this instead, from a
  * button on the document.
  *
- * No secret, deliberately, because there is nothing here worth stealing: it
- * sends only the emails the daily job would send anyway, only to the addresses
- * stored on those documents, and only once — `notifiedStatus` is what stops a
- * repeat. The worst an outsider can do is make a due email arrive sooner.
+ * No secret, because the Studio has nowhere safe to keep one; instead the
+ * caller has to be a page on this site, which the Studio is. It sends only
+ * the emails the daily job would send anyway, only to the addresses stored on
+ * those documents, and only once — the claim in @/lib/claim is what stops a
+ * repeat even when two callers overlap.
  */
 export async function POST(req: NextRequest) {
+  if (!fromThisSite(req)) {
+    return NextResponse.json({ error: "Only the Studio can call this" }, { status: 403 });
+  }
+
   const limited = rateLimit(`notify:${clientIp(req)}`, 30, 60 * 60 * 1000);
   if (!limited.ok) {
     return NextResponse.json(

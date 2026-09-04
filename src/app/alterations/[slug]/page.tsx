@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, Clock, MapPin, Phone, Mail } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Phone, Mail, MessageCircle } from "lucide-react";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
-import { LOCAL_SERVICES, getLocalService } from "@/lib/localServices";
+import { LOCAL_SERVICES, CAMPAIGN_HOOK, getLocalService, seasonalNote } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
+import { BUSINESS, openingHoursSpecification, postalAddress, whatsappLink } from "@/lib/business";
 
 export const revalidate = 86400;
 
@@ -70,20 +71,19 @@ export default async function LocalServicePage({
       { "@type": "City", name: "Southampton" },
       { "@type": "AdministrativeArea", name: "Hampshire" },
     ],
+    // Points at the one business entity declared on /alterations rather than
+    // describing a fresh one per page, so search engines see six services of
+    // one atelier — not seven unrelated businesses.
     provider: {
       "@type": "ClothingStore",
-      name: "Beautasy",
-      image: `${SITE_URL}/beautasy-logo-gold.png`,
-      url: SITE_URL,
-      telephone: "+44 7729 741116",
-      email: "hello@beautasy.co.uk",
-      priceRange: "££",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: "Southampton",
-        addressRegion: "Hampshire",
-        addressCountry: "GB",
-      },
+      "@id": BUSINESS.atelierId,
+      name: BUSINESS.atelierName,
+      url: `${SITE_URL}/alterations`,
+      telephone: BUSINESS.telephone,
+      email: BUSINESS.email,
+      address: postalAddress(),
+      openingHoursSpecification: openingHoursSpecification(),
+      sameAs: [...BUSINESS.sameAs],
     },
     // "from £18" is a floor, not a price. Publishing it as a fixed price
     // contradicts the text on the page, which is the kind of mismatch Google
@@ -133,6 +133,11 @@ export default async function LocalServicePage({
     .map((s) => getLocalService(s))
     .filter((s): s is NonNullable<typeof s> => Boolean(s));
 
+  const seasonal = seasonalNote(service);
+  const whatsapp = whatsappLink(
+    `Hi Kristina, I'd like a quote for ${service.serviceName.toLowerCase()} — here's a photo of the garment:`
+  );
+
   return (
     <>
       <script
@@ -171,10 +176,10 @@ export default async function LocalServicePage({
             {service.h1}
           </h1>
 
-          {service.seasonal && (
+          {seasonal && (
             <p className="inline-flex items-start gap-2 mb-7 px-4 py-2.5 rounded-2xl bg-lavender-bg border border-lavender-soft/60 text-sm text-charcoal">
               <Clock size={15} className="mt-0.5 shrink-0 text-lavender" aria-hidden="true" />
-              {service.seasonal}
+              {seasonal}
             </p>
           )}
 
@@ -186,7 +191,13 @@ export default async function LocalServicePage({
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 mt-9">
+          {/* The campaign's promise, on the page people actually land on */}
+          <div className="mt-8 max-w-2xl bg-lavender-bg rounded-2xl px-5 py-4 border border-lavender-soft/50">
+            <p className="font-serif text-xl italic text-charcoal mb-1">{CAMPAIGN_HOOK.title}</p>
+            <p className="text-sm text-charcoal-light leading-relaxed">{CAMPAIGN_HOOK.body}</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-7">
             <a
               href="#book"
               className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
@@ -195,13 +206,27 @@ export default async function LocalServicePage({
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
             </a>
             <a
-              href="tel:+447729741116"
+              href={whatsapp}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+            >
+              <MessageCircle size={15} aria-hidden="true" />
+              Send a photo on WhatsApp
+            </a>
+            <a
+              href={BUSINESS.telephoneHref}
               className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
             >
               <Phone size={15} aria-hidden="true" />
               Call the atelier
             </a>
           </div>
+
+          <p className="flex items-center gap-2 mt-6 text-sm text-charcoal-light">
+            <Clock size={14} aria-hidden="true" />
+            {BUSINESS.hours.label}
+          </p>
         </section>
 
         {/* ──── Prices ──── */}
@@ -288,13 +313,39 @@ export default async function LocalServicePage({
               <span className="inline-flex items-center gap-2">
                 <MapPin size={14} aria-hidden="true" /> Southampton, UK
               </span>
-              <a href="tel:+447729741116" className="inline-flex items-center gap-2 hover:text-lavender transition-colors">
-                <Phone size={14} aria-hidden="true" /> +44 7729 741116
+              <span className="inline-flex items-center gap-2">
+                <Clock size={14} aria-hidden="true" /> {BUSINESS.hours.label}
+              </span>
+              <a href={BUSINESS.telephoneHref} className="inline-flex items-center gap-2 hover:text-lavender transition-colors">
+                <Phone size={14} aria-hidden="true" /> {BUSINESS.telephone}
               </a>
-              <a href="mailto:hello@beautasy.co.uk" className="inline-flex items-center gap-2 hover:text-lavender transition-colors">
-                <Mail size={14} aria-hidden="true" /> hello@beautasy.co.uk
+              <a href={`mailto:${BUSINESS.email}`} className="inline-flex items-center gap-2 hover:text-lavender transition-colors">
+                <Mail size={14} aria-hidden="true" /> {BUSINESS.email}
               </a>
             </div>
+          </div>
+        </section>
+
+        {/* ──── From the shop ──── */}
+        {/* The atelier brings people in; the handmade pieces are what they
+            should leave knowing about. Nothing here is a sale pitch — each link
+            says why the piece belongs next to this job. */}
+        <section className="max-w-4xl mx-auto px-6 mt-20">
+          <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-2">Made in the same room</p>
+          <h2 className="font-serif text-2xl mb-6">While you&apos;re here</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {service.shop.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group bg-white rounded-2xl border border-lavender-soft/40 p-5 hover:border-lavender transition-colors"
+              >
+                <span className="font-serif text-lg leading-snug block mb-1.5 group-hover:text-lavender transition-colors">
+                  {item.label}
+                </span>
+                <span className="text-sm text-charcoal-light leading-relaxed block">{item.note}</span>
+              </Link>
+            ))}
           </div>
         </section>
 

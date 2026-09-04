@@ -88,11 +88,14 @@ const megaMenus: Record<string, MegaMenuData> = {
   Mini: miniMenu,
 };
 
-const navLinks = [
+const navLinks: { label: string; href: string; wideOnly?: boolean }[] = [
   { label: "Shop", href: "/shop" },
   { label: "Mini", href: "/shop/kids" },
   { label: "Gifts", href: "/gift-boxes" },
   { label: "Atelier", href: "/atelier" },
+  // Six links plus the centred wordmark collide on a tablet-width header, so
+  // this one waits for a wide screen; the mobile menu always lists it.
+  { label: "Alterations", href: "/alterations", wideOnly: true },
   { label: "Contact", href: "/contact" },
 ];
 
@@ -297,20 +300,24 @@ export default function Header({
         </div>
       )}
 
-      {/* ── Main nav row ── */}
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      {/* ── Main nav row ──
+           Three columns rather than an absolutely-centred wordmark: the logo
+           sits in the middle while both sides have room, and a wide side nav
+           pushes it over instead of printing through it (which is what
+           happened with six links on a tablet-width screen). */}
+      <div className="max-w-6xl mx-auto px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         {/* Mobile menu button */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden text-charcoal p-1"
+          className="md:hidden justify-self-start text-charcoal p-1"
           aria-label="Toggle menu"
         >
           {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
 
         {/* Nav left (desktop) */}
-        <nav className="hidden md:flex items-center gap-6">
-          {navLinks.slice(0, 3).map((link) => {
+        <nav className="hidden md:flex justify-self-start items-center gap-6">
+          {navLinks.slice(0, 4).map((link) => {
             const hasMega = link.label in megaMenus;
             return (
               <div
@@ -321,7 +328,7 @@ export default function Header({
               >
                 <Link
                   href={link.href}
-                  className={`text-sm tracking-widest uppercase transition-colors duration-300 ${
+                  className={`text-sm tracking-widest uppercase whitespace-nowrap transition-colors duration-300 ${
                     activeMega === link.label
                       ? "text-charcoal"
                       : "text-charcoal/70 hover:text-charcoal"
@@ -343,20 +350,22 @@ export default function Header({
         </nav>
 
         {/* Logo center */}
-        <Link href="/" className="absolute left-1/2 -translate-x-1/2">
+        <Link href="/" className="justify-self-center whitespace-nowrap">
           <span className="block font-serif text-2xl md:text-3xl tracking-[0.3em] text-charcoal">
             BEAUTASY
           </span>
         </Link>
 
         {/* Nav right (desktop) */}
-        <nav className="hidden md:flex items-center gap-6">
-          {navLinks.slice(3).map((link) => (
+        <nav className="hidden md:flex justify-self-end items-center gap-6">
+          {navLinks.slice(4).map((link) => (
             <Link
               key={link.label}
               href={link.href}
               onMouseEnter={() => setActiveMega(null)}
-              className="text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors duration-300"
+              className={`text-sm tracking-widest uppercase whitespace-nowrap text-charcoal/70 hover:text-charcoal transition-colors duration-300 ${
+                link.wideOnly ? "hidden lg:inline" : ""
+              }`}
             >
               {link.label}
             </Link>
@@ -379,7 +388,7 @@ export default function Header({
               </SignedIn>
               <SignedOut>
                 <SignInButton mode="modal">
-                  <button className="text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors duration-300">
+                  <button className="text-sm tracking-widest uppercase whitespace-nowrap text-charcoal/70 hover:text-charcoal transition-colors duration-300">
                     Sign In
                   </button>
                 </SignInButton>
@@ -407,7 +416,7 @@ export default function Header({
         </nav>
 
         {/* Cart + Wishlist for mobile */}
-        <div className="md:hidden flex items-center gap-3">
+        <div className="md:hidden justify-self-end flex items-center gap-3">
           <SearchOverlay />
           <Link
             href="/wishlist"

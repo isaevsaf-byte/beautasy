@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
+import { claimThenSend } from "@/lib/claim";
 
 /**
  * Confirming atelier bookings.
@@ -15,11 +16,15 @@ import { SITE_URL } from "@/lib/site";
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 
-const NOTIFIABLE = ["confirmed", "declined"] as const;
+// "completed" is the thank-you after collection — and the one moment a
+// customer is glad enough to say so in public, if they are asked.
+const NOTIFIABLE = ["confirmed", "declined", "completed"] as const;
 type NotifiableStatus = (typeof NOTIFIABLE)[number];
 
 export interface NotifiableBooking {
   _id: string;
+  /** Revision the booking was read at — the claim is conditional on it */
+  _rev: string;
   status: string;
   notifiedStatus?: string;
   name?: string;
@@ -35,11 +40,28 @@ function bookingEmailHtml(booking: NotifiableBooking, status: NotifiableStatus):
   const service = escapeHtml(booking.service ?? "your appointment");
   const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
 
-  const heading = status === "confirmed" ? "You're booked in" : "About your booking";
+  const reviewUrl = process.env.GOOGLE_REVIEW_URL;
+
+  const heading =
+    status === "confirmed"
+      ? "You're booked in"
+      : status === "completed"
+      ? "Thank you"
+      : "About your booking";
   const body =
     status === "confirmed"
       ? `Your ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}. We're at the atelier in Southampton — reply to this email if you need to move it.`
+      : status === "completed"
+      ? `Thank you for trusting us with your ${service}. If it fits the way you hoped, a sentence about it${reviewUrl ? " on Google" : ""} helps the next person in Southampton find a small atelier — and means a great deal to the one pair of hands that did the work.`
       : `We're so sorry — we can't take your ${service}${when ? ` on ${when}` : ""} after all.`;
+  const button =
+    status === "completed"
+      ? reviewUrl
+        ? { href: reviewUrl, label: "Leave a Google review" }
+        : { href: `${SITE_URL}/alterations`, label: "Bring the next thing" }
+      : status === "confirmed"
+      ? { href: `${SITE_URL}/atelier`, label: "About the atelier" }
+      : { href: `${SITE_URL}/atelier`, label: "Ask for another time" };
 
   return `
 <!DOCTYPE html>
@@ -61,7 +83,7 @@ function bookingEmailHtml(booking: NotifiableBooking, status: NotifiableStatus):
           : ""
       }
       <p style="text-align:center;margin:26px 0 0;">
-        <a href="${SITE_URL}/atelier" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">${status === "confirmed" ? "About the atelier" : "Ask for another time"}</a>
+        <a href="${escapeHtml(button.href)}" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">${button.label}</a>
       </p>
     </div>
     <div style="padding:20px 40px;border-top:1px solid #f0eaf8;text-align:center;">
@@ -75,13 +97,19 @@ function bookingEmailHtml(booking: NotifiableBooking, status: NotifiableStatus):
 const PENDING_QUERY = `*[
   _type == "atelierBooking"
   && defined(email)
-  && status in ["confirmed", "declined"]
+  && status in ["confirmed", "declined", "completed"]
   && (!defined(notifiedStatus) || notifiedStatus != status)
 ] | order(createdAt desc) [0...$limit] {
-  _id, status, notifiedStatus, name, email, service, preferredDate, confirmedFor, replyNote
+  _id, _rev, status, notifiedStatus, name, email, service, preferredDate, confirmedFor, replyNote
 }`;
 
-/** Emails customers whose booking Kristina has confirmed or declined. */
+/**
+ * Emails customers whose booking Kristina has confirmed or declined.
+ *
+ * Claimed before it is sent — see @/lib/claim. Confirming in the Studio fires
+ * the Sanity webhook, and the "Email the customer now" button is usually
+ * pressed a second later; without the claim that was two confirmations.
+ */
 export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: number; sent: number }> {
   if (!process.env.RESEND_API_KEY || !process.env.SANITY_API_WRITE_TOKEN) {
     return { checked: 0, sent: 0 };
@@ -95,22 +123,26 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
     const status = booking.status as NotifiableStatus;
     if (!NOTIFIABLE.includes(status) || !booking.email) continue;
 
-    try {
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: booking.email,
-        replyTo: KRISTINA_EMAIL,
-        subject:
-          status === "confirmed"
-            ? "Your Beautasy atelier appointment is confirmed 💜"
-            : "About your Beautasy atelier booking",
-        html: bookingEmailHtml(booking, status),
-      });
-      await sanityWriteClient.patch(booking._id).set({ notifiedStatus: status }).commit();
-      sent++;
-    } catch (err) {
-      console.error(`Failed to send ${status} email for booking ${booking._id}:`, err);
-    }
+    const outcome = await claimThenSend(
+      sanityWriteClient,
+      booking,
+      { notifiedStatus: status },
+      booking.notifiedStatus ? { notifiedStatus: booking.notifiedStatus } : ["notifiedStatus"],
+      () =>
+        resend.emails.send({
+          from: FROM_EMAIL,
+          to: booking.email as string,
+          replyTo: KRISTINA_EMAIL,
+          subject:
+            status === "confirmed"
+              ? "Your Beautasy atelier appointment is confirmed 💜"
+              : status === "completed"
+              ? "Thank you from the Beautasy atelier 💜"
+              : "About your Beautasy atelier booking",
+          html: bookingEmailHtml(booking, status),
+        })
+    );
+    if (outcome === "sent") sent++;
   }
 
   return { checked: bookings.length, sent };

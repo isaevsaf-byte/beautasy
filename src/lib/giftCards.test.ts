@@ -5,6 +5,7 @@ import {
   normaliseCode,
   sanitiseAmount,
   redeemableAmount,
+  reservationIsLive,
   MIN_AMOUNT,
   MAX_AMOUNT,
 } from "./giftCards";
@@ -44,4 +45,39 @@ test("a card smaller than the order spends all of itself", () => {
 
 test("an empty card redeems nothing", () => {
   assert.equal(redeemableAmount({ _id: "c", code: "X", balance: 0 }, 2800), 0);
+});
+
+const NOW = Date.parse("2026-09-03T12:00:00Z");
+
+test("a card nobody is checking out with is free to use", () => {
+  assert.equal(reservationIsLive({ _id: "c", code: "X", balance: 5000 }, NOW), false);
+});
+
+test("a card held by an open checkout is not free", () => {
+  const card = {
+    _id: "c",
+    code: "X",
+    balance: 5000,
+    reservedSession: "cs_test_1",
+    reservedAmount: 5000,
+    reservedUntil: "2026-09-03T14:00:00Z",
+  };
+  assert.equal(reservationIsLive(card, NOW), true);
+});
+
+test("a hold outlives nothing: once the session has expired the card is free again", () => {
+  const card = {
+    _id: "c",
+    code: "X",
+    balance: 5000,
+    reservedSession: "cs_test_1",
+    reservedAmount: 5000,
+    reservedUntil: "2026-09-03T11:59:59Z",
+  };
+  assert.equal(reservationIsLive(card, NOW), false);
+});
+
+test("a hold with an unreadable date never blocks a customer", () => {
+  const card = { _id: "c", code: "X", balance: 5000, reservedSession: "cs_x", reservedUntil: "not a date" };
+  assert.equal(reservationIsLive(card, NOW), false);
 });

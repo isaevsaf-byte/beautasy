@@ -3,8 +3,9 @@ import Link from "next/link";
 import { ArrowRight, Clock, MapPin, Phone } from "lucide-react";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
-import { LOCAL_SERVICES } from "@/lib/localServices";
+import { LOCAL_SERVICES, CAMPAIGN_HOOK } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
+import { BUSINESS, openingHoursSpecification, postalAddress } from "@/lib/business";
 
 export const revalidate = 86400;
 
@@ -38,20 +39,18 @@ export default function AlterationsHub() {
   const localBusinessLd = {
     "@context": "https://schema.org",
     "@type": "ClothingStore",
-    "@id": `${SITE_URL}/alterations#business`,
-    name: "Beautasy Atelier",
+    "@id": BUSINESS.atelierId,
+    name: BUSINESS.atelierName,
     description: DESCRIPTION,
     url: `${SITE_URL}/alterations`,
     image: `${SITE_URL}/beautasy-logo-gold.png`,
-    telephone: "+44 7729 741116",
-    email: "hello@beautasy.co.uk",
+    telephone: BUSINESS.telephone,
+    email: BUSINESS.email,
     priceRange: "££",
-    address: {
-      "@type": "PostalAddress",
-      addressLocality: "Southampton",
-      addressRegion: "Hampshire",
-      addressCountry: "GB",
-    },
+    address: postalAddress(),
+    openingHoursSpecification: openingHoursSpecification(),
+    sameAs: [...BUSINESS.sameAs],
+    parentOrganization: { "@id": BUSINESS.organizationId },
     areaServed: [
       { "@type": "City", name: "Southampton" },
       { "@type": "AdministrativeArea", name: "Hampshire" },
@@ -85,7 +84,7 @@ export default function AlterationsHub() {
             Alterations · Southampton
           </p>
           <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl leading-tight mb-7 text-balance">
-            Bring the thing you never wear
+            {CAMPAIGN_HOOK.title}
           </h1>
           <div className="space-y-4 max-w-2xl">
             <p className="text-charcoal-light leading-relaxed">
@@ -110,17 +109,17 @@ export default function AlterationsHub() {
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
             </Link>
             <a
-              href="tel:+447729741116"
+              href={BUSINESS.telephoneHref}
               className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
             >
               <Phone size={15} aria-hidden="true" />
-              +44 7729 741116
+              {BUSINESS.telephone}
             </a>
           </div>
 
-          <p className="flex items-center gap-2 mt-7 text-sm text-charcoal-light">
-            <MapPin size={14} aria-hidden="true" />
-            Southampton and across Hampshire
+          <p className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-7 text-sm text-charcoal-light">
+            <span className="inline-flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Southampton and across Hampshire</span>
+            <span className="inline-flex items-center gap-2"><Clock size={14} aria-hidden="true" /> {BUSINESS.hours.label}</span>
           </p>
         </section>
 
@@ -160,8 +159,7 @@ export default function AlterationsHub() {
           <div className="bg-lavender-bg rounded-3xl p-7 sm:p-10">
             <h2 className="font-serif text-2xl mb-3">Not sure it can be saved?</h2>
             <p className="text-sm text-charcoal-light max-w-lg mb-7 leading-relaxed">
-              Bring it in for a free ten-minute look. If it can&apos;t be rescued you&apos;ll be
-              told straight away, and it costs you nothing to find out.
+              {CAMPAIGN_HOOK.body}
             </p>
             <Link
               href="/atelier#book"

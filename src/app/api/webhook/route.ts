@@ -9,9 +9,17 @@ import {
   generateGiftCardCode,
   expiryFromNow,
   deductFromCard,
+  releaseCard,
 } from "@/lib/giftCards";
-import { deliverGiftCard } from "@/lib/giftCardEmails";
-import { collectOrdered, planStockPatch, type OrderedLine, type StockDoc } from "@/lib/stock";
+import { deliverGiftCard, emailGiftCardPurchase } from "@/lib/giftCardEmails";
+import { getSiteSettings, DEFAULT_INT_RATE } from "@/lib/siteSettings";
+import {
+  collectOrdered,
+  planStockDecrement,
+  planStockFloor,
+  type OrderedLine,
+  type StockDoc,
+} from "@/lib/stock";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +43,18 @@ interface ShippingDetails {
     postal_code?: string | null;
     country?: string | null;
   } | null;
+}
+
+/**
+ * Where the parcel goes. Stripe moved this from `shipping_details` to
+ * `collected_information.shipping_details` in the 2025-03-31 API; which one a
+ * webhook carries depends on the endpoint's API version, so both are read.
+ * Without this an order on a newer endpoint arrives as "Not provided" — and
+ * there is nothing to post to.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function shippingOf(session: any): ShippingDetails | null | undefined {
+  return session?.collected_information?.shipping_details ?? session?.shipping_details;
 }
 
 /* ─── Format address ─── */
@@ -69,9 +89,9 @@ function formatItems(items: Stripe.LineItem[]): string {
 /* ─── Customer confirmation email (HTML) ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function customerEmailHtml(session: any, items: Stripe.LineItem[]): string {
-  const address = formatAddress(session.shipping_details);
+  const address = formatAddress(shippingOf(session));
   const total = `£${((session.amount_total ?? 0) / 100).toFixed(2)}`;
-  const name = session.shipping_details?.name ?? session.customer_details?.name ?? "there";
+  const name = shippingOf(session)?.name ?? session.customer_details?.name ?? "there";
   const firstName = escapeHtml(name.split(" ")[0]);
 
   const itemRows = items
@@ -151,13 +171,14 @@ function customerEmailHtml(session: any, items: Stripe.LineItem[]): string {
 
 /* ─── Kristina notification email (HTML) ─── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function adminEmailHtml(session: any, items: Stripe.LineItem[]): string {
-  const address = formatAddress(session.shipping_details);
-  // Stripe shows every shipping option to every customer, so a non-UK order can
-  // pick the cheap UK rate. Flag it rather than silently eating the difference.
-  const country = session.shipping_details?.address?.country;
+function adminEmailHtml(session: any, items: Stripe.LineItem[], internationalRate: number): string {
+  const address = formatAddress(shippingOf(session));
+  // The bag decides the region before Stripe, but a shopper can still pick the
+  // wrong one. Flag a non-UK address that paid less than the international
+  // rate rather than silently eating the difference.
+  const country = shippingOf(session)?.address?.country;
   const shippingPaid = session.total_details?.amount_shipping ?? 0;
-  const ukRateMismatch = !!country && country !== "GB" && shippingPaid < 1000;
+  const ukRateMismatch = !!country && country !== "GB" && shippingPaid < internationalRate;
   const total = `£${((session.amount_total ?? 0) / 100).toFixed(2)}`;
   const customer = escapeHtml(session.customer_details?.email ?? "Unknown");
   const phone = escapeHtml(session.customer_details?.phone ?? "Not provided");
@@ -178,7 +199,7 @@ function adminEmailHtml(session: any, items: Stripe.LineItem[]): string {
     <div style="padding:36px 40px;">
 
       <h2 style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#7a6d9a;margin:0 0 12px;">Customer</h2>
-      <p style="margin:0 0 4px;color:#3d3d3d;">${escapeHtml(session.shipping_details?.name ?? "Unknown")}</p>
+      <p style="margin:0 0 4px;color:#3d3d3d;">${escapeHtml(shippingOf(session)?.name ?? "Unknown")}</p>
       <p style="margin:0 0 4px;color:#3d3d3d;">${customer}</p>
       <p style="margin:0 0 24px;color:#3d3d3d;">${phone}</p>
 
@@ -228,27 +249,44 @@ async function decrementStock(items: Stripe.LineItem[]): Promise<void> {
   const wanted = collectOrdered(lines);
   if (wanted.size === 0) return;
 
+  const ids = Array.from(wanted.keys());
   const docs = await sanityWriteClient.fetch<StockDoc[]>(
     `*[_id in $ids]{ _id, stock, sizeStock }`,
-    { ids: Array.from(wanted.keys()) }
+    { ids }
   );
 
+  // Atomic decrements: two orders for the same piece paid in the same second
+  // both count, where a read-then-set would have dropped one of them.
   const tx = sanityWriteClient.transaction();
   let patches = 0;
 
   for (const doc of docs) {
     const entry = wanted.get(doc._id);
     if (!entry) continue;
-    const fields = planStockPatch(doc, entry);
-    if (!fields) continue;
-    tx.patch(doc._id, (p) => p.set(fields));
+    const dec = planStockDecrement(doc, entry);
+    if (!dec) continue;
+    tx.patch(doc._id, (p) => p.dec(dec));
     patches++;
   }
 
-  if (patches > 0) {
-    await tx.commit();
-    console.log(`Ready-made stock decremented for ${patches} product(s)`);
+  if (patches === 0) return;
+  await tx.commit();
+  console.log(`Ready-made stock decremented for ${patches} product(s)`);
+
+  // dec cannot floor, so bring anything that went below zero back up
+  const after = await sanityWriteClient.fetch<StockDoc[]>(
+    `*[_id in $ids]{ _id, stock, sizeStock }`,
+    { ids }
+  );
+  const floor = sanityWriteClient.transaction();
+  let floored = 0;
+  for (const doc of after) {
+    const fields = planStockFloor(doc);
+    if (!fields) continue;
+    floor.patch(doc._id, (p) => p.set(fields));
+    floored++;
   }
+  if (floored > 0) await floor.commit();
 }
 
 /* ─── Abandoned cart ─── */
@@ -396,18 +434,29 @@ async function issueGiftCard(session: Stripe.Checkout.Session): Promise<void> {
     createdAt: new Date().toISOString(),
   });
 
-  const scheduledForLater = deliverAt && new Date(deliverAt).getTime() > Date.now();
+  const scheduledForLater = !!deliverAt && new Date(deliverAt).getTime() > Date.now();
+  const deliverable = {
+    _id: card._id,
+    code: card.code as string,
+    initialAmount: amount,
+    recipientEmail: meta.gift_card_recipient,
+    recipientName: meta.gift_card_recipient_name,
+    message: meta.gift_card_message,
+    expiresAt: card.expiresAt as string,
+  };
+
   if (!scheduledForLater) {
-    await deliverGiftCard({
-      _id: card._id,
-      code: card.code as string,
-      initialAmount: amount,
-      recipientEmail: meta.gift_card_recipient,
-      recipientName: meta.gift_card_recipient_name,
-      message: meta.gift_card_message,
-      expiresAt: card.expiresAt as string,
-    });
+    // If this fails the card keeps no sentAt, and the daily job retries it
+    await deliverGiftCard(deliverable);
   }
+
+  // The buyer paid for this and used to hear nothing at all — no receipt, no
+  // code, no way to fix a mistyped recipient. Kristina hears about it too.
+  await emailGiftCardPurchase(deliverable, {
+    purchaserEmail: session.customer_details?.email ?? undefined,
+    deliverAt: scheduledForLater ? (deliverAt as string) : undefined,
+    total: session.amount_total ?? amount,
+  });
 
   console.log("Gift card issued:", card.code, scheduledForLater ? "(scheduled)" : "(sent)");
 }
@@ -418,10 +467,20 @@ async function spendGiftCard(session: Stripe.Checkout.Session): Promise<void> {
   if (!cardId) return;
 
   const spent = session.total_details?.amount_discount ?? 0;
-  if (spent <= 0) return;
+  if (spent <= 0) {
+    await releaseCard(cardId, session.id);
+    return;
+  }
 
-  await deductFromCard(cardId, spent);
+  await deductFromCard(cardId, spent, session.id);
   console.log(`Gift card ${cardId} spent £${(spent / 100).toFixed(2)}`);
+}
+
+/** An unpaid checkout that held a gift card lets go of it. */
+async function releaseGiftCard(session: Stripe.Checkout.Session): Promise<void> {
+  const cardId = session.metadata?.gift_card_id;
+  if (!cardId) return;
+  await releaseCard(cardId, session.id);
 }
 
 /* ─── Webhook handler ─── */
@@ -505,7 +564,7 @@ export async function POST(req: NextRequest) {
         stripeSessionId: session.id,
         userId: session.client_reference_id || undefined,
         customerEmail: customerEmail || undefined,
-        customerName: session.shipping_details?.name ?? session.customer_details?.name ?? undefined,
+        customerName: shippingOf(session)?.name ?? session.customer_details?.name ?? undefined,
         items: items.map((item) => {
           const product = item.price?.product;
           const productId =
@@ -521,7 +580,7 @@ export async function POST(req: NextRequest) {
           };
         }),
         total: session.amount_total ?? 0,
-        shippingAddress: formatAddress(session.shipping_details),
+        shippingAddress: formatAddress(shippingOf(session)),
         status: "paid",
         createdAt: new Date().toISOString(),
       });
@@ -554,11 +613,13 @@ export async function POST(req: NextRequest) {
 
     // Send Kristina notification
     try {
+      const settings = await getSiteSettings();
+      const internationalRate = settings.shipping?.internationalRate ?? DEFAULT_INT_RATE;
       await getResend().emails.send({
         from: FROM_EMAIL,
         to: KRISTINA_EMAIL,
-        subject: `New order — ${session.shipping_details?.name ?? customerEmail} · £${((session.amount_total ?? 0) / 100).toFixed(2)}`,
-        html: adminEmailHtml(session, items),
+        subject: `New order — ${shippingOf(session)?.name ?? customerEmail} · £${((session.amount_total ?? 0) / 100).toFixed(2)}`,
+        html: adminEmailHtml(session, items, internationalRate),
       });
       console.log("Admin notification sent to Kristina");
     } catch (err) {
@@ -567,8 +628,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (event.type === "checkout.session.expired") {
+    const expired = event.data.object as Stripe.Checkout.Session;
     try {
-      await handleAbandonedCart(event.data.object as Stripe.Checkout.Session);
+      await releaseGiftCard(expired);
+    } catch (err) {
+      console.error("Failed to release a gift card hold:", err);
+    }
+    try {
+      await handleAbandonedCart(expired);
     } catch (err) {
       console.error("Failed to handle abandoned cart:", err);
     }

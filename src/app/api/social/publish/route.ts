@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { fromThisSite } from "@/lib/sameOrigin";
 import { publishDuePosts, publishPostById } from "@/lib/socialQueue";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,10 @@ export async function POST(req: NextRequest) {
     req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
 
   if (!authorised) {
+    // Without the secret the caller has to be the Studio itself
+    if (!fromThisSite(req)) {
+      return NextResponse.json({ error: "Only the Studio can call this" }, { status: 403 });
+    }
     const limited = rateLimit(`social-publish:${clientIp(req)}`, 10, 60 * 60 * 1000);
     if (!limited.ok) {
       return NextResponse.json(

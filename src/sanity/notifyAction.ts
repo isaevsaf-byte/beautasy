@@ -12,7 +12,7 @@ import type { DocumentActionComponent, DocumentActionProps } from "sanity";
  */
 
 const ORDER_NOTIFIABLE = ["in-production", "shipped", "delivered"];
-const BOOKING_NOTIFIABLE = ["confirmed", "declined"];
+const BOOKING_NOTIFIABLE = ["confirmed", "declined", "completed"];
 
 interface StatusDoc {
   _type?: string;

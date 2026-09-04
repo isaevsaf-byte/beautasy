@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import { SITE_URL } from "@/lib/site";
+import { getSiteSettings, DEFAULT_UK_RATE } from "@/lib/siteSettings";
 
 /* ─── Safe image URL builder (won't crash on incomplete data) ─── */
 function safeImageUrl(image: unknown): string | null {
@@ -383,6 +384,10 @@ export default async function ShopParamPage({
       : 0;
 
   /* ── JSON-LD Product structured data (Google rich snippets) ── */
+  // The delivery rate lives in Site Settings; a hardcoded figure here drifts
+  // from what checkout charges, and that mismatch is what Merchant Center flags.
+  const siteSettings = await getSiteSettings();
+  const ukRate = siteSettings.shipping?.ukRate ?? DEFAULT_UK_RATE;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -405,7 +410,7 @@ export default async function ShopParamPage({
         "@type": "OfferShippingDetails",
         shippingRate: {
           "@type": "MonetaryAmount",
-          value: "3.50",
+          value: (ukRate / 100).toFixed(2),
           currency: "GBP",
         },
         shippingDestination: {

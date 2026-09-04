@@ -112,6 +112,30 @@ export function trackBeginCheckout(items: AnalyticsItem[]): void {
   sendMeta("InitiateCheckout", { ...metaPayload(items), num_items: items.length });
 }
 
+/**
+ * A fitting request from the atelier form — the campaign's primary conversion.
+ *
+ * Bookings were the one thing the site never reported: no way to see which of
+ * the local pages brings work in, nothing for Ads or Meta to optimise toward.
+ * `service` carries the page it came from ("Wedding Dress Alterations").
+ */
+export function trackLead(params: {
+  service: string;
+  source?: string;
+  adsConversionLabel?: string;
+}): void {
+  send("generate_lead", {
+    currency: "GBP",
+    value: 0,
+    lead_source: params.source ?? "atelier-form",
+    service: params.service,
+  });
+  sendMeta("Lead", { content_name: params.service, content_category: "atelier" });
+  if (params.adsConversionLabel) {
+    send("conversion", { send_to: params.adsConversionLabel });
+  }
+}
+
 export function trackSearch(term: string): void {
   send("search", { search_term: term });
   sendMeta("Search", { search_string: term });

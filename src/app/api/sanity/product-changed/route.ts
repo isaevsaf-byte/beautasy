@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sanityClient, urlFor } from "@/lib/sanity";
+import { sanityWriteClient, urlFor } from "@/lib/sanity";
 import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -89,11 +89,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No document id" }, { status: 400 });
   }
 
-  const product = (await sanityClient.fetch(PRODUCT_QUERY, { id: body._id })) as FeedProduct | null;
+  // Read past the CDN: this fires the moment a product is published, and the
+  // cached copy can still be the previous version — the old price would go
+  // straight into the catalogue this route exists to keep current.
+  const product = (await sanityWriteClient.fetch(PRODUCT_QUERY, { id: body._id })) as FeedProduct | null;
 
-  // Deleted or unpublished — take it out of the catalogue
+  // Deleted or unpublished — take it out of the catalogue. The catalogue keys
+  // on the slug (see /api/meta-feed), so the delete must too, or it never lands.
   if (!product?.slug) {
-    const requests = [{ method: "DELETE", retailer_id: `BEAUTASY_${body._id}` }];
+    const slug = typeof body.slug === "string" ? body.slug : body.slug?.current;
+    const requests = [{ method: "DELETE", retailer_id: `BEAUTASY_${slug ?? body._id}` }];
     await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${catalogId}/items_batch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

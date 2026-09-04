@@ -28,7 +28,7 @@ export const atelierBooking = defineType({
           { title: "New — needs a reply", value: "new" },
           { title: "Confirmed", value: "confirmed" },
           { title: "Can't make it", value: "declined" },
-          { title: "Done", value: "completed" },
+          { title: "Done — thanks them and asks for a review", value: "completed" },
         ],
         layout: "radio",
       },

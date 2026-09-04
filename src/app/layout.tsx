@@ -8,6 +8,24 @@ import { CONSENT_KEY } from "@/lib/consent";
 import { clerkEnabled } from "@/lib/clerk";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
+import { BUSINESS } from "@/lib/business";
+
+/**
+ * The brand as one schema.org entity, on every page. The atelier's
+ * LocalBusiness block on /alterations points here as its parent, so search
+ * engines see one Beautasy rather than a shop and an unrelated tailor.
+ */
+const organizationLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": BUSINESS.organizationId,
+  name: BUSINESS.name,
+  url: SITE_URL,
+  logo: `${SITE_URL}/beautasy-logo-gold.png`,
+  email: BUSINESS.email,
+  telephone: BUSINESS.telephone,
+  sameAs: [...BUSINESS.sameAs],
+};
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -77,6 +95,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+        />
         {/* Google Analytics 4 */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-XSEN40QLSR"

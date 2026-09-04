@@ -1,5 +1,6 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { currentUserId } from "@/lib/clerkServer";
+import { clerkEnabled } from "@/lib/clerk";
 import Link from "next/link";
 import { Package, ArrowRight } from "lucide-react";
 import Header from "@/components/Header";
@@ -35,7 +36,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function OrdersPage() {
-  const { userId } = await auth();
+  // No accounts without Clerk, so there is no order history page either
+  if (!clerkEnabled) notFound();
+
+  const userId = await currentUserId();
 
   if (!userId) {
     redirect("/sign-in?redirect_url=/orders");

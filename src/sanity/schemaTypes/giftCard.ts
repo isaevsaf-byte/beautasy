@@ -80,6 +80,26 @@ export const giftCard = defineType({
       description: "Untick to stop a card being used (lost, refunded, disputed).",
     }),
     defineField({
+      name: "reservedSession",
+      title: "Held By Checkout",
+      type: "string",
+      readOnly: true,
+      description:
+        "Set while a checkout using this card is open, so a second checkout cannot spend the same balance. Cleared when that checkout is paid or expires.",
+    }),
+    defineField({
+      name: "reservedAmount",
+      title: "Amount Held (pence)",
+      type: "number",
+      readOnly: true,
+    }),
+    defineField({
+      name: "reservedUntil",
+      title: "Held Until",
+      type: "datetime",
+      readOnly: true,
+    }),
+    defineField({
       name: "stripeSessionId",
       title: "Bought In Session",
       type: "string",

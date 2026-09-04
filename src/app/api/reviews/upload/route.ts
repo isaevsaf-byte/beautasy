@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { currentUserId } from "@/lib/clerkServer";
 import { sanityWriteClient } from "@/lib/sanity";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { findOrderByReviewToken } from "@/lib/reviewToken";
@@ -11,7 +11,7 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 /* ─── POST /api/reviews/upload — uploads one review photo to Sanity, returns its asset id ─── */
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
+  const userId = await currentUserId();
 
   const formData = await req.formData();
   const token = formData.get("token");
