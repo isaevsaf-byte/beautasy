@@ -97,11 +97,13 @@ export const order = defineType({
       description: "The last status the customer was emailed about. Set automatically.",
     }),
     defineField({
-      name: "reviewToken",
-      title: "Review Token",
+      name: "reviewTokenFingerprint",
+      title: "Review Link Fingerprint",
       type: "string",
       readOnly: true,
-      description: "Secret in the review-request email link, so a customer can review without an account.",
+      hidden: true,
+      description:
+        "Recognises the review link that was emailed. The link's secret is not stored — this dataset is readable, and a readable token is a \"verified purchase\" badge anyone could print.",
     }),
     defineField({
       name: "reviewRequestSentAt",

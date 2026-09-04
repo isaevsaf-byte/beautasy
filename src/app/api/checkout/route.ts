@@ -267,9 +267,9 @@ export async function POST(req: NextRequest) {
           amount_off: amount,
           currency: "gbp",
           duration: "once",
-          name: `Gift card ${card.code}`,
+          name: `Gift card …${card.codeHint}`,
           max_redemptions: 1,
-          metadata: { gift_card_id: card._id, gift_card_code: card.code },
+          metadata: { gift_card_id: card._id, gift_card_hint: card.codeHint },
         });
         giftCardDiscount = { couponId: coupon.id, cardId: card._id, amount };
       }

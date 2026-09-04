@@ -7,6 +7,7 @@ import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 import {
   generateGiftCardCode,
+  codeFields,
   expiryFromNow,
   deductFromCard,
   releaseCard,
@@ -418,9 +419,12 @@ async function issueGiftCard(session: Stripe.Checkout.Session): Promise<void> {
   if (existing) return;
 
   const deliverAt = meta.gift_card_deliver_at;
+  // Generated here and stored only keyed and sealed — the clear code exists
+  // for the length of this function and then only in the recipient's inbox.
+  const code = generateGiftCardCode();
   const card = await sanityWriteClient.create({
     _type: "giftCard",
-    code: generateGiftCardCode(),
+    ...codeFields(code),
     initialAmount: amount,
     balance: amount,
     recipientEmail: meta.gift_card_recipient,
@@ -437,7 +441,7 @@ async function issueGiftCard(session: Stripe.Checkout.Session): Promise<void> {
   const scheduledForLater = !!deliverAt && new Date(deliverAt).getTime() > Date.now();
   const deliverable = {
     _id: card._id,
-    code: card.code as string,
+    code,
     initialAmount: amount,
     recipientEmail: meta.gift_card_recipient,
     recipientName: meta.gift_card_recipient_name,
@@ -458,7 +462,8 @@ async function issueGiftCard(session: Stripe.Checkout.Session): Promise<void> {
     total: session.amount_total ?? amount,
   });
 
-  console.log("Gift card issued:", card.code, scheduledForLater ? "(scheduled)" : "(sent)");
+  // Never log the code itself — Vercel logs are one more place it would sit
+  console.log("Gift card issued: …", card.codeHint, scheduledForLater ? "(scheduled)" : "(sent)");
 }
 
 /** Takes the spent amount off a gift card that paid for part of an order. */

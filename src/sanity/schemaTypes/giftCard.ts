@@ -5,14 +5,30 @@ export const giftCard = defineType({
   title: "Gift Card",
   type: "document",
   description:
-    "Issued automatically when someone buys a gift card. The balance goes down as it is spent, so a card can be used across several orders.",
+    "Issued automatically when someone buys a gift card. The balance goes down as it is spent, so a card can be used across several orders. The code itself is not kept here — only the recipient's email has it.",
   fields: [
     defineField({
-      name: "code",
-      title: "Code",
+      name: "codeHint",
+      title: "Code Ends In",
       type: "string",
       readOnly: true,
-      validation: (Rule) => Rule.required(),
+      description:
+        "The last four characters, for telling cards apart. The full code is deliberately not stored: this dataset is readable, and a readable code is spendable money.",
+    }),
+    defineField({
+      name: "codeFingerprint",
+      title: "Code Fingerprint",
+      type: "string",
+      readOnly: true,
+      hidden: true,
+    }),
+    defineField({
+      name: "codeSealed",
+      title: "Sealed Code",
+      type: "string",
+      readOnly: true,
+      hidden: true,
+      description: "Encrypted copy, so a scheduled card can still be emailed on its day.",
     }),
     defineField({
       name: "initialAmount",
@@ -113,12 +129,12 @@ export const giftCard = defineType({
     }),
   ],
   preview: {
-    select: { title: "code", balance: "balance", initial: "initialAmount", active: "active" },
-    prepare({ title, balance, initial, active }) {
+    select: { hint: "codeHint", balance: "balance", initial: "initialAmount", active: "active" },
+    prepare({ hint, balance, initial, active }) {
       const left = typeof balance === "number" ? `£${(balance / 100).toFixed(2)}` : "—";
       const face = typeof initial === "number" ? `£${(initial / 100).toFixed(2)}` : "—";
       return {
-        title: title ?? "Gift card",
+        title: hint ? `Gift card …${hint}` : "Gift card",
         subtitle: `${left} left of ${face}${active ? "" : " · disabled"}`,
       };
     },

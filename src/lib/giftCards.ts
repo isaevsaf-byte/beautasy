@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import { sanityWriteClient } from "@/lib/sanity";
+import { fingerprint, seal, unseal } from "@/lib/secrets";
 
 /**
  * Gift cards with a real balance.
@@ -17,6 +18,12 @@ import { sanityWriteClient } from "@/lib/sanity";
  * the previous session at Stripe first, so it can no longer be paid, and takes
  * the card over. The reservation itself is written with `ifRevisionId`, so two
  * checkouts started in the same instant cannot both win.
+ *
+ * The code itself is never stored in the clear. Sanity's dataset is public on
+ * this plan, and a readable gift card code is readable money — see
+ * @/lib/secrets. The document keeps a keyed fingerprint to look the card up
+ * by, a sealed copy so a scheduled card can still be emailed weeks later, and
+ * the last four characters so Kristina can tell two cards apart.
  */
 
 /** Face values offered on the gift card page, in pence. */
@@ -28,7 +35,8 @@ export const VALIDITY_MONTHS = 12;
 
 export interface GiftCard {
   _id: string;
-  code: string;
+  /** Last four characters, for telling cards apart in the Studio */
+  codeHint: string;
   balance: number;
   active?: boolean;
   expiresAt?: string;
@@ -45,12 +53,36 @@ export interface SpendableCard extends GiftCard {
   _rev: string;
 }
 
+/** A card as read for delivery: carries the sealed code so it can be emailed. */
+export interface SealedCard extends GiftCard {
+  codeSealed?: string;
+}
+
 /** Human-friendly, unambiguous code: no O/0, I/1 confusion. */
 export function generateGiftCardCode(): string {
   const alphabet = "ACDEFGHJKLMNPQRTUVWXY2346789";
   const bytes = randomBytes(12);
   const chars = Array.from(bytes, (b) => alphabet[b % alphabet.length]);
   return `BEAUTASY-${chars.slice(0, 4).join("")}-${chars.slice(4, 8).join("")}`;
+}
+
+/** What a gift card document stores in place of the code itself. */
+export function codeFields(code: string): {
+  codeFingerprint: string;
+  codeSealed: string;
+  codeHint: string;
+} {
+  const normalised = normaliseCode(code);
+  return {
+    codeFingerprint: fingerprint(normalised),
+    codeSealed: seal(normalised),
+    codeHint: normalised.slice(-4),
+  };
+}
+
+/** The code itself, for the email that delivers it. Null if it cannot be read back. */
+export function revealCode(card: { codeSealed?: string }): string | null {
+  return unseal(card.codeSealed);
 }
 
 export function normaliseCode(code: string): string {
@@ -71,12 +103,13 @@ export async function findSpendableCard(code: string): Promise<SpendableCard | n
   const normalised = normaliseCode(code);
   if (!normalised || normalised.length > 40) return null;
 
+  // Matched on the fingerprint, because the code itself is not in the document
   const card = await sanityWriteClient.fetch(
-    `*[_type == "giftCard" && code == $code][0]{
-      _id, _rev, code, balance, active, expiresAt, recipientName,
+    `*[_type == "giftCard" && codeFingerprint == $fingerprint][0]{
+      _id, _rev, codeHint, balance, active, expiresAt, recipientName,
       reservedSession, reservedAmount, reservedUntil
     }`,
-    { code: normalised }
+    { fingerprint: fingerprint(normalised) }
   );
 
   const found = card as SpendableCard | null;

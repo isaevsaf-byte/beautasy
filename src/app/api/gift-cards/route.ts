@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripeInstance } from "@/lib/stripe";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
-import { findSpendableCard, sanitiseAmount, PRESET_AMOUNTS } from "@/lib/giftCards";
+import { findSpendableCard, normaliseCode, sanitiseAmount, PRESET_AMOUNTS } from "@/lib/giftCards";
 import { SITE_URL } from "@/lib/site";
+import { secretsConfigured } from "@/lib/secrets";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ valid: false, error: "That code isn't valid" }, { status: 404 });
   }
 
-  return NextResponse.json({ valid: true, code: card.code, balance: card.balance });
+  // Echoes back what the shopper typed, not what is stored: the document has
+  // only a keyed fingerprint of the code, never the code itself.
+  return NextResponse.json({ valid: true, code: normaliseCode(code), balance: card.balance });
 }
 
 /* ─── POST /api/gift-cards — buy one ─── */
@@ -80,6 +83,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Payment system is not configured. Please contact support." },
         { status: 500 }
+      );
+    }
+    // Codes are stored keyed and sealed; without the key one could be sold and
+    // then never issued. Better to refuse the sale than to take the money.
+    if (!secretsConfigured()) {
+      console.error("DATA_SECRET is not set — refusing to sell a gift card that could not be issued");
+      return NextResponse.json(
+        { error: "Gift cards are temporarily unavailable. Please try again later." },
+        { status: 503 }
       );
     }
 

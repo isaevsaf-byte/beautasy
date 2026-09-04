@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
-import { generateReviewToken } from "@/lib/reviewToken";
+import { generateReviewToken, reviewTokenFingerprint } from "@/lib/reviewToken";
 import { SITE_URL } from "@/lib/site";
 
 /**
@@ -102,11 +102,15 @@ export async function runReviewRequests(): Promise<{ candidates: number; sent: n
 
     const token = generateReviewToken();
     try {
-      // Store the token first: a saved token with no email is recoverable,
-      // an email whose token was never saved is a dead link.
+      // Store the token's fingerprint first: an order that can accept a link
+      // nobody received is recoverable, an emailed link the order will not
+      // recognise is dead. The token itself lives only in the email.
       await sanityWriteClient
         .patch(order._id)
-        .set({ reviewToken: token, reviewRequestSentAt: new Date().toISOString() })
+        .set({
+          reviewTokenFingerprint: reviewTokenFingerprint(token),
+          reviewRequestSentAt: new Date().toISOString(),
+        })
         .commit();
 
       await getResend().emails.send({

@@ -34,29 +34,29 @@ test("custom amounts round to whole pounds and stay in range", () => {
 });
 
 test("a card larger than the order only spends what the order costs", () => {
-  const card = { _id: "c", code: "X", balance: 5000 };
+  const card = { _id: "c", codeHint: "CD34", balance: 5000 };
   assert.equal(redeemableAmount(card, 2800), 2800);
 });
 
 test("a card smaller than the order spends all of itself", () => {
-  const card = { _id: "c", code: "X", balance: 2000 };
+  const card = { _id: "c", codeHint: "CD34", balance: 2000 };
   assert.equal(redeemableAmount(card, 2800), 2000);
 });
 
 test("an empty card redeems nothing", () => {
-  assert.equal(redeemableAmount({ _id: "c", code: "X", balance: 0 }, 2800), 0);
+  assert.equal(redeemableAmount({ _id: "c", codeHint: "CD34", balance: 0 }, 2800), 0);
 });
 
 const NOW = Date.parse("2026-09-03T12:00:00Z");
 
 test("a card nobody is checking out with is free to use", () => {
-  assert.equal(reservationIsLive({ _id: "c", code: "X", balance: 5000 }, NOW), false);
+  assert.equal(reservationIsLive({ _id: "c", codeHint: "CD34", balance: 5000 }, NOW), false);
 });
 
 test("a card held by an open checkout is not free", () => {
   const card = {
     _id: "c",
-    code: "X",
+    codeHint: "CD34",
     balance: 5000,
     reservedSession: "cs_test_1",
     reservedAmount: 5000,
@@ -68,7 +68,7 @@ test("a card held by an open checkout is not free", () => {
 test("a hold outlives nothing: once the session has expired the card is free again", () => {
   const card = {
     _id: "c",
-    code: "X",
+    codeHint: "CD34",
     balance: 5000,
     reservedSession: "cs_test_1",
     reservedAmount: 5000,
@@ -78,6 +78,6 @@ test("a hold outlives nothing: once the session has expired the card is free aga
 });
 
 test("a hold with an unreadable date never blocks a customer", () => {
-  const card = { _id: "c", code: "X", balance: 5000, reservedSession: "cs_x", reservedUntil: "not a date" };
+  const card = { _id: "c", codeHint: "CD34", balance: 5000, reservedSession: "cs_x", reservedUntil: "not a date" };
   assert.equal(reservationIsLive(card, NOW), false);
 });

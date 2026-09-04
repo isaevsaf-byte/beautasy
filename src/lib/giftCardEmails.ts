@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
+import { revealCode } from "@/lib/giftCards";
 
 /**
  * Delivering gift cards: immediately, or on the date the buyer chose (which is
@@ -13,6 +14,7 @@ const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 
 export interface DeliverableCard {
   _id: string;
+  /** The code in the clear — held only long enough to put it in an email */
   code: string;
   initialAmount: number;
   recipientEmail?: string;
@@ -100,7 +102,7 @@ const DUE_QUERY = `*[
   && !defined(sentAt)
   && defined(recipientEmail)
   && (!defined(deliverAt) || deliverAt <= $now)
-] [0...50] { _id, code, initialAmount, recipientEmail, recipientName, message, expiresAt }`;
+] [0...50] { _id, codeSealed, codeHint, initialAmount, recipientEmail, recipientName, message, expiresAt }`;
 
 /** The buyer's receipt: what was bought, for whom, when it arrives, and the code as a backup. */
 function purchaseReceiptHtml(
@@ -203,14 +205,21 @@ export async function deliverScheduledGiftCards(): Promise<{ due: number; sent: 
     return { due: 0, sent: 0 };
   }
 
-  const cards: DeliverableCard[] = await sanityWriteClient.fetch(DUE_QUERY, {
-    now: new Date().toISOString(),
-  });
+  const due: (Omit<DeliverableCard, "code"> & { codeSealed?: string; codeHint?: string })[] =
+    await sanityWriteClient.fetch(DUE_QUERY, { now: new Date().toISOString() });
 
   let sent = 0;
-  for (const card of cards) {
-    if (await deliverGiftCard(card)) sent++;
+  for (const card of due) {
+    // The code is sealed in the document; an email needs the real thing
+    const code = revealCode(card);
+    if (!code) {
+      console.error(
+        `Gift card ${card._id} (…${card.codeHint ?? "????"}) could not be unsealed — DATA_SECRET may have changed. Not emailing a card nobody could spend.`
+      );
+      continue;
+    }
+    if (await deliverGiftCard({ ...card, code })) sent++;
   }
 
-  return { due: cards.length, sent };
+  return { due: due.length, sent };
 }
