@@ -1,0 +1,5 @@
+# The Remotion project renders videos on a laptop. Vercel builds the shop and
+# has no reason to receive it — or the design mockups in dist/.
+video
+dist
+merchant-center
