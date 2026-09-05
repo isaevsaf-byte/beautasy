@@ -163,16 +163,19 @@ export default function AtelierBookingForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {/* ── Pick a time ── */}
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+      {/* ── Pick a time ──
+          min-w-0 matters more than it looks: a grid item will not shrink below
+          its own content, so without it the strip of days stretches the whole
+          form instead of scrolling inside it, and takes the page sideways. */}
       {bookable && (
-        <fieldset className="sm:col-span-2 border-0 p-0 m-0">
+        <fieldset className="sm:col-span-2 min-w-0 border-0 p-0 m-0">
           <legend className="flex items-center gap-2 text-xs tracking-wider uppercase text-charcoal-light mb-3">
             <CalendarClock size={14} aria-hidden="true" />
             Choose a time
           </legend>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+          <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-2 -mx-1 px-1">
             {days!.map((d) => {
               const active = d.date === activeDate;
               return (
