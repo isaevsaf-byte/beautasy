@@ -38,6 +38,87 @@ export function instagramConfigured(): boolean {
   return credentials() !== null;
 }
 
+export interface ConnectionReport {
+  configured: boolean;
+  /** The account posts would actually appear on */
+  username?: string;
+  accountType?: string;
+  /** Instagram allows 50 posts per rolling 24 hours */
+  postsUsedToday?: number;
+  postsAllowed?: number;
+  error?: string;
+}
+
+/**
+ * Whether the connection actually works — asked without posting anything.
+ *
+ * Setting IG_USER_ID and IG_ACCESS_TOKEN is easy to get subtly wrong: the
+ * @handle instead of the numeric id, a token for the personal account rather
+ * than the business one, a token missing instagram_content_publish, or one
+ * that quietly expired sixty days later. Every one of those looks identical
+ * from outside — the queue simply stops posting. This asks Instagram who the
+ * credentials belong to, so the answer is a username rather than a silence.
+ */
+export async function checkConnection(): Promise<ConnectionReport> {
+  const creds = credentials();
+  if (!creds) {
+    return {
+      configured: false,
+      error: "IG_USER_ID and IG_ACCESS_TOKEN are not set",
+    };
+  }
+
+  try {
+    const res = await fetch(
+      `${GRAPH}/${creds.userId}?fields=username,account_type&access_token=${encodeURIComponent(creds.token)}`,
+      { cache: "no-store" }
+    );
+    const data = (await res.json().catch(() => ({}))) as {
+      username?: string;
+      account_type?: string;
+      error?: { message?: string };
+    };
+
+    if (!res.ok) {
+      return {
+        configured: true,
+        error: data.error?.message ?? `Instagram returned ${res.status}`,
+      };
+    }
+
+    const report: ConnectionReport = {
+      configured: true,
+      username: data.username,
+      accountType: data.account_type,
+    };
+
+    // How much of today's posting allowance is left. Never fatal.
+    try {
+      const quotaRes = await fetch(
+        `${GRAPH}/${creds.userId}/content_publishing_limit?access_token=${encodeURIComponent(creds.token)}`,
+        { cache: "no-store" }
+      );
+      const quota = (await quotaRes.json()) as {
+        data?: { quota_usage?: number; config?: { quota_total?: number } }[];
+      };
+      const row = quota.data?.[0];
+      if (row) {
+        report.postsUsedToday = row.quota_usage;
+        report.postsAllowed = row.config?.quota_total;
+      }
+    } catch {
+      // The allowance is a nicety; the account name is the answer that matters
+    }
+
+    return report;
+  } catch (error) {
+    return {
+      configured: true,
+      error: error instanceof Error ? error.message : "Could not reach Instagram",
+    };
+  }
+}
+
 async function graphPost(
   path: string,
   params: Record<string, string>
