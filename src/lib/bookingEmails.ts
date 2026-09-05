@@ -20,7 +20,7 @@ const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 // "completed" is the thank-you after collection — and the one moment a
 // customer is glad enough to say so in public, if they are asked.
 const NOTIFIABLE = ["confirmed", "declined", "completed"] as const;
-type NotifiableStatus = (typeof NOTIFIABLE)[number];
+export type NotifiableStatus = (typeof NOTIFIABLE)[number];
 
 export interface NotifiableBooking {
   _id: string;
@@ -39,7 +39,7 @@ export interface NotifiableBooking {
   replyNote?: string;
 }
 
-function bookingEmailHtml(booking: NotifiableBooking, status: NotifiableStatus): string {
+export function bookingEmailHtml(booking: NotifiableBooking, status: NotifiableStatus): string {
   const firstName = escapeHtml(booking.displayName ?? "there");
   const service = escapeHtml(booking.service ?? "your appointment");
   const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");

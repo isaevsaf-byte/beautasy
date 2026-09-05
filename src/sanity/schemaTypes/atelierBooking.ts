@@ -27,11 +27,19 @@ export const atelierBooking = defineType({
     defineField({ name: "notesSealed", title: "Notes (sealed)", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "service", title: "Service", type: "string", readOnly: true }),
     defineField({
+      name: "slotStart",
+      title: "Booked Slot",
+      type: "string",
+      readOnly: true,
+      description:
+        "Set when the customer picked a time themselves — that time is then held for them and offered to nobody else.",
+    }),
+    defineField({
       name: "preferredDate",
       title: "Preferred Date",
       type: "string",
       readOnly: true,
-      description: "What the customer asked for.",
+      description: "What the customer asked for, when they could not pick a time.",
     }),
     defineField({
       name: "status",
@@ -72,11 +80,18 @@ export const atelierBooking = defineType({
     defineField({ name: "createdAt", title: "Requested At", type: "datetime", readOnly: true }),
   ],
   preview: {
-    select: { title: "displayName", service: "service", status: "status", date: "preferredDate" },
-    prepare({ title, service, status, date }) {
+    select: {
+      title: "displayName",
+      service: "service",
+      status: "status",
+      date: "preferredDate",
+      confirmedFor: "confirmedFor",
+    },
+    prepare({ title, service, status, date, confirmedFor }) {
+      const when = confirmedFor ? ` · ${confirmedFor}` : date ? ` · asked for ${date}` : "";
       return {
         title: `${title ?? "Someone"} — ${service ?? "booking"}`,
-        subtitle: `${status ?? "new"}${date ? ` · asked for ${date}` : ""}`,
+        subtitle: `${status ?? "new"}${when}`,
       };
     },
   },

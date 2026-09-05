@@ -53,6 +53,9 @@ export const structure: StructureResolver = (S) =>
       S.divider(),
 
       S.documentTypeListItem("atelierBooking").title("Atelier Bookings"),
+      S.listItem()
+        .title("Fitting Times")
+        .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
       S.documentTypeListItem("order").title("Orders"),
       S.documentTypeListItem("review").title("Reviews"),
       S.documentTypeListItem("subscriber").title("Subscribers"),

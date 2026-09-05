@@ -11,6 +11,7 @@ import { subscriber } from "./subscriber";
 import { abandonedCart } from "./abandonedCart";
 import { giftCard } from "./giftCard";
 import { atelierBooking } from "./atelierBooking";
+import { atelierSchedule } from "./atelierSchedule";
 import { socialPost } from "./socialPost";
 
 export const schemaTypes = [
@@ -27,5 +28,6 @@ export const schemaTypes = [
   abandonedCart,
   giftCard,
   atelierBooking,
+  atelierSchedule,
   socialPost,
 ];
