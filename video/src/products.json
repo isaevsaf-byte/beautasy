@@ -1,0 +1,32 @@
+[
+  {
+    "file": "products/01.jpg",
+    "name": "The \"Essence\" Cotton Soft Bra",
+    "price": 2800,
+    "category": "Lingerie"
+  },
+  {
+    "file": "products/05.jpg",
+    "name": "The \"Aria\" Lace & Mesh Brazilian",
+    "price": 2500,
+    "category": "Lingerie"
+  },
+  {
+    "file": "products/02.jpg",
+    "name": "The \"Silk Road\" Quilted Uzbek Ikat Pouch",
+    "price": 2200,
+    "category": "Accessories"
+  },
+  {
+    "file": "products/03.jpg",
+    "name": "The \"Cloud\" Mulberry Silk Sleeping Mask",
+    "price": 2500,
+    "category": "Accessories"
+  },
+  {
+    "file": "products/04.jpg",
+    "name": "The \"Woodland Friends\" Kids' Briefs",
+    "price": 1000,
+    "category": "Kids"
+  }
+]

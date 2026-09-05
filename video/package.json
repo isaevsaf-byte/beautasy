@@ -1,0 +1,21 @@
+{
+  "name": "beautasy-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Instagram videos built from the shop's own product photos",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.410",
+    "@remotion/google-fonts": "^4.0.521",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.410"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}
