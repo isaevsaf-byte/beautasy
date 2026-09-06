@@ -47,6 +47,34 @@ export interface ConnectionReport {
   postsUsedToday?: number;
   postsAllowed?: number;
   error?: string;
+  /**
+   * What the token can actually reach, listed when the configured id does not
+   * work. Meta hands out several long numbers under the same brand name — a
+   * portfolio, a Page, an account — and the only way to tell which is the
+   * Instagram account is to ask the token what it sees.
+   */
+  candidates?: { page: string; pageId: string; instagramId?: string; username?: string }[];
+}
+
+/** Pages this token can reach, and the Instagram account on each. */
+async function discoverAccounts(creds: { token: string }): Promise<ConnectionReport["candidates"]> {
+  try {
+    const res = await fetch(
+      `${GRAPH}/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(creds.token)}`,
+      { cache: "no-store" }
+    );
+    const body = (await res.json().catch(() => ({}))) as {
+      data?: { id: string; name: string; instagram_business_account?: { id: string; username?: string } }[];
+    };
+    return (body.data ?? []).map((page) => ({
+      page: page.name,
+      pageId: page.id,
+      instagramId: page.instagram_business_account?.id,
+      username: page.instagram_business_account?.username,
+    }));
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -80,9 +108,12 @@ export async function checkConnection(): Promise<ConnectionReport> {
     };
 
     if (!res.ok) {
+      // The id is wrong or invisible. Say what the token *can* see, so the
+      // right id is one line away rather than another hour in Meta's console.
       return {
         configured: true,
         error: data.error?.message ?? `Instagram returned ${res.status}`,
+        candidates: await discoverAccounts(creds),
       };
     }
 
