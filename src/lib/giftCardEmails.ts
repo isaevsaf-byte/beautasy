@@ -98,10 +98,20 @@ export async function deliverGiftCard(card: DeliverableCard): Promise<boolean> {
 
 // Scheduled cards whose morning has come, plus any "send now" card whose first
 // attempt failed (no deliverAt, no sentAt) — those used to be lost for good.
+//
+// The recipient is stored sealed (see @/lib/pii), so that is the field to ask
+// for. The filter used to name the clear-text field, which no card has carried
+// since sealing, and the job quietly matched nothing: a card bought for a
+// birthday three weeks away would never have arrived.
+//
+// Friends credit (source == "referral") is a gift card too, but its delivery
+// is the reward email; it marks itself sent at creation and is left out here
+// as well, so a change to either side cannot put it in this queue.
 const DUE_QUERY = `*[
   _type == "giftCard"
   && !defined(sentAt)
-  && defined(recipientEmail)
+  && defined(recipientEmailSealed)
+  && source != "referral"
   && (!defined(deliverAt) || deliverAt <= $now)
 ] [0...50] {
   _id, codeSealed, codeHint, initialAmount, expiresAt,
