@@ -295,8 +295,26 @@ export default function ProductDetail({
   ]
     .filter(Boolean)
     .join(" · ");
-  const measurementsComplete =
-    !!measurements.bust && !!measurements.waist && !!measurements.hips;
+  // A child has no bust, and being asked for one is the kind of small
+  // wrongness that makes a parent close the tab. Children's pieces are cut
+  // from waist, hips and height instead.
+  const forChild = product.category === "Kids";
+  const measurementFields = forChild
+    ? ([
+        ["waist", "Waist"],
+        ["hips", "Hips"],
+        ["height", "Height"],
+      ] as const)
+    : ([
+        ["bust", "Bust"],
+        ["waist", "Waist"],
+        ["hips", "Hips"],
+        ["height", "Height"],
+      ] as const);
+  const requiredMeasurements: readonly ("bust" | "waist" | "hips" | "height")[] = forChild
+    ? ["waist", "hips"]
+    : ["bust", "waist", "hips"];
+  const measurementsComplete = requiredMeasurements.every((field) => !!measurements[field]);
 
   const images = product.images;
   // If the selected colour has a variant image, show that instead of the gallery index
@@ -723,9 +741,13 @@ export default function ProductDetail({
                     />
                     <Ruler size={18} className="text-lavender shrink-0" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-charcoal">Made to your measurements</p>
+                      <p className="text-sm font-medium text-charcoal">
+                        {forChild ? "Made to their measurements" : "Made to your measurements"}
+                      </p>
                       <p className="text-xs text-charcoal-light">
-                        Cut for you in our Southampton atelier
+                        {forChild
+                          ? "Cut to fit your child, in our Southampton atelier"
+                          : "Cut for you in our Southampton atelier"}
                       </p>
                     </div>
                     <span className="text-sm font-medium text-charcoal">
@@ -744,16 +766,13 @@ export default function ProductDetail({
                       >
                         <div className="mt-3 p-4 rounded-xl bg-white border border-lavender-soft/40 space-y-3">
                           <div className="grid grid-cols-2 gap-3">
-                            {([
-                              ["bust", "Bust"],
-                              ["waist", "Waist"],
-                              ["hips", "Hips"],
-                              ["height", "Height"],
-                            ] as const).map(([field, label]) => (
+                            {measurementFields.map(([field, label]) => (
                               <label key={field} className="block">
                                 <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
                                   {label}
-                                  {field !== "height" && <span className="text-rose-400"> *</span>}
+                                  {requiredMeasurements.includes(field) && (
+                                    <span className="text-rose-400"> *</span>
+                                  )}
                                 </span>
                                 <input
                                   type="text"
