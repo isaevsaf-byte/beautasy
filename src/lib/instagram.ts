@@ -6,18 +6,33 @@
  * container. Sanity's CDN URLs are public, so the picture never has to be
  * uploaded twice.
  *
- * Needs a Business or Creator Instagram account linked to a Facebook Page,
- * and two values in the environment:
- *   IG_USER_ID       — the Instagram *business account* id (not the @handle)
- *   IG_ACCESS_TOKEN  — a long-lived Page token with instagram_content_publish
- *                      (falls back to META_ACCESS_TOKEN, the catalogue token,
- *                      when it carries the same permission)
+ * Meta offers two ways in, and this takes whichever the token belongs to:
  *
- * With either missing, every call reports "not configured" rather than
+ *   Instagram Login   graph.instagram.com — the account signs in as itself.
+ *                     No Facebook Page, no business portfolio, no Page
+ *                     permissions.
+ *   Facebook Login    graph.facebook.com — the older route, where the account
+ *                     hangs off a Page the token can see.
+ *
+ * Only one value is required:
+ *   IG_ACCESS_TOKEN  — falls back to META_ACCESS_TOKEN
+ *
+ * IG_USER_ID is optional and exists only to pin a specific account when a
+ * token can reach several. Leaving it unset is the safer choice: an id typed
+ * by hand is the single most common way this breaks, and every id Meta shows
+ * on its dashboard — the app's, the Page's, the portfolio's — looks exactly
+ * like the one that is wanted. The token already knows which account it is,
+ * so we ask it rather than the person.
+ *
+ * With the token missing, every call reports "not configured" rather than
  * throwing — the rest of the daily job must keep running.
  */
 
-const GRAPH = "https://graph.facebook.com/v21.0";
+const FACEBOOK = "https://graph.facebook.com/v21.0";
+const INSTAGRAM = "https://graph.instagram.com/v21.0";
+
+/** The Facebook graph, for the questions only it can answer (Pages, portfolios). */
+const GRAPH = FACEBOOK;
 
 export interface PublishResult {
   ok: boolean;
@@ -27,11 +42,13 @@ export interface PublishResult {
   skipped?: "not-configured";
 }
 
-function credentials(): { userId: string; token: string } | null {
-  const userId = process.env.IG_USER_ID;
+function credentials(): { userId?: string; token: string } | null {
   const token = process.env.IG_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN;
-  if (!userId || !token) return null;
-  return { userId, token };
+  if (!token) return null;
+  // Blank and whitespace-only values are what a half-filled Vercel field
+  // actually contains, and they are not a configured account.
+  const userId = process.env.IG_USER_ID?.trim();
+  return { userId: userId || undefined, token };
 }
 
 export function instagramConfigured(): boolean {
@@ -43,6 +60,10 @@ export interface ConnectionReport {
   /** The account posts would actually appear on */
   username?: string;
   accountType?: string;
+  /** The id that was used, whether it came from the token or the environment */
+  accountId?: string;
+  /** Which of Meta's two doors the token opened */
+  via?: "instagram-login" | "facebook-page";
   /** Instagram allows 50 posts per rolling 24 hours */
   postsUsedToday?: number;
   postsAllowed?: number;
@@ -67,7 +88,7 @@ export interface ConnectionReport {
  * token belonging to the wrong thing, a missing permission. Asking these three
  * questions separates them. The token itself is never included in the answer.
  */
-async function diagnose(creds: { userId: string; token: string }) {
+async function diagnose(creds: { userId?: string; token: string }) {
   const ask = async (path: string, query: string) => {
     try {
       const res = await fetch(`${GRAPH}/${path}?${query}&access_token=${encodeURIComponent(creds.token)}`, {
@@ -83,7 +104,7 @@ async function diagnose(creds: { userId: string; token: string }) {
   const [tokenInfo, identity, object] = await Promise.all([
     ask("debug_token", `input_token=${encodeURIComponent(creds.token)}`),
     ask("me", "fields=id,name"),
-    ask(creds.userId, "fields=id,name,link"),
+    creds.userId ? ask(creds.userId, "fields=id,name,link") : Promise.resolve(undefined),
   ]);
 
   const data = (tokenInfo as { data?: Record<string, unknown> }).data ?? tokenInfo;
@@ -103,7 +124,7 @@ async function diagnose(creds: { userId: string; token: string }) {
         ? new Date(expiresAt * 1000).toISOString()
         : "never",
     tokenBelongsTo: identity,
-    configuredObject: object,
+    configuredObject: object ?? "IG_USER_ID is not set — nothing to look up",
   };
 }
 
@@ -191,6 +212,108 @@ async function discoverAccounts(creds: { token: string }): Promise<ConnectionRep
   }
 }
 
+
+interface ResolvedAccount {
+  /** Which graph answers for this account */
+  base: string;
+  id: string;
+  username?: string;
+  accountType?: string;
+  via: "instagram-login" | "facebook-page";
+}
+
+/**
+ * Who this token actually posts as.
+ *
+ * Asked of the token rather than read from configuration, because a typed id
+ * has been wrong every time so far and the failure it produces — an object
+ * that exists and answers but has no username — reads like a permissions
+ * problem rather than a typo.
+ *
+ * The order matters. An Instagram Login token identifies itself in one call
+ * and needs nothing else, so it is tried first. Only if that door is shut do
+ * we go the long way round through Facebook: an id if one was pinned, and
+ * failing that, whatever account the token's Pages lead to.
+ */
+async function resolveAccount(creds: {
+  userId?: string;
+  token: string;
+}): Promise<ResolvedAccount | { error: string }> {
+  const token = encodeURIComponent(creds.token);
+
+  // 1. Instagram Login — the token says who it is
+  try {
+    const res = await fetch(
+      `${INSTAGRAM}/me?fields=user_id,username,account_type&access_token=${token}`,
+      { cache: "no-store" }
+    );
+    const body = (await res.json().catch(() => ({}))) as {
+      user_id?: string | number;
+      id?: string | number;
+      username?: string;
+      account_type?: string;
+    };
+    const id = body.user_id ?? body.id;
+    if (res.ok && id && body.username) {
+      return {
+        base: INSTAGRAM,
+        id: String(id),
+        username: body.username,
+        accountType: body.account_type,
+        via: "instagram-login",
+      };
+    }
+  } catch {
+    // Not an Instagram Login token, or that graph is unreachable — try Facebook
+  }
+
+  // 2. Facebook Login with an id someone pinned
+  let pinnedFailure: string | undefined;
+  if (creds.userId) {
+    try {
+      const res = await fetch(
+        `${FACEBOOK}/${creds.userId}?fields=username,account_type&access_token=${token}`,
+        { cache: "no-store" }
+      );
+      const body = (await res.json().catch(() => ({}))) as {
+        username?: string;
+        account_type?: string;
+        error?: { message?: string };
+      };
+      if (res.ok && body.username) {
+        return {
+          base: FACEBOOK,
+          id: creds.userId,
+          username: body.username,
+          accountType: body.account_type,
+          via: "facebook-page",
+        };
+      }
+      pinnedFailure = body.error?.message ?? `Instagram returned ${res.status}`;
+    } catch {
+      pinnedFailure = "Could not reach Instagram";
+    }
+  }
+
+  // 3. Facebook Login, working it out from the Pages the token can see
+  const candidates = await discoverAccounts(creds);
+  const found = candidates?.find((c) => c.instagramId);
+  if (found?.instagramId) {
+    return {
+      base: FACEBOOK,
+      id: found.instagramId,
+      username: found.username,
+      via: "facebook-page",
+    };
+  }
+
+  return {
+    error:
+      pinnedFailure ??
+      "This token does not belong to an Instagram account, and reaches no Page that has one",
+  };
+}
+
 /**
  * Whether the connection actually works — asked without posting anything.
  *
@@ -206,74 +329,54 @@ export async function checkConnection(): Promise<ConnectionReport> {
   if (!creds) {
     return {
       configured: false,
-      error: "IG_USER_ID and IG_ACCESS_TOKEN are not set",
+      error: "IG_ACCESS_TOKEN (or META_ACCESS_TOKEN) is not set",
     };
   }
 
+  const account = await resolveAccount(creds);
+
+  if ("error" in account) {
+    // Say what the token *can* see, so the answer is one line away rather
+    // than another hour in Meta's console.
+    const [candidates, diagnosis] = await Promise.all([discoverAccounts(creds), diagnose(creds)]);
+    return { configured: true, error: account.error, candidates, diagnosis };
+  }
+
+  const report: ConnectionReport = {
+    configured: true,
+    username: account.username,
+    accountType: account.accountType,
+    accountId: account.id,
+    via: account.via,
+  };
+
+  // How much of today's posting allowance is left. Never fatal.
   try {
-    const res = await fetch(
-      `${GRAPH}/${creds.userId}?fields=username,account_type&access_token=${encodeURIComponent(creds.token)}`,
+    const quotaRes = await fetch(
+      `${account.base}/${account.id}/content_publishing_limit?access_token=${encodeURIComponent(creds.token)}`,
       { cache: "no-store" }
     );
-    const data = (await res.json().catch(() => ({}))) as {
-      username?: string;
-      account_type?: string;
-      error?: { message?: string };
+    const quota = (await quotaRes.json()) as {
+      data?: { quota_usage?: number; config?: { quota_total?: number } }[];
     };
-
-    if (!res.ok) {
-      // The id is wrong or invisible. Say what the token *can* see, so the
-      // right id is one line away rather than another hour in Meta's console.
-      const [candidates, diagnosis] = await Promise.all([
-        discoverAccounts(creds),
-        diagnose(creds),
-      ]);
-      return {
-        configured: true,
-        error: data.error?.message ?? `Instagram returned ${res.status}`,
-        candidates,
-        diagnosis,
-      };
+    const row = quota.data?.[0];
+    if (row) {
+      report.postsUsedToday = row.quota_usage;
+      report.postsAllowed = row.config?.quota_total;
     }
-
-    const report: ConnectionReport = {
-      configured: true,
-      username: data.username,
-      accountType: data.account_type,
-    };
-
-    // How much of today's posting allowance is left. Never fatal.
-    try {
-      const quotaRes = await fetch(
-        `${GRAPH}/${creds.userId}/content_publishing_limit?access_token=${encodeURIComponent(creds.token)}`,
-        { cache: "no-store" }
-      );
-      const quota = (await quotaRes.json()) as {
-        data?: { quota_usage?: number; config?: { quota_total?: number } }[];
-      };
-      const row = quota.data?.[0];
-      if (row) {
-        report.postsUsedToday = row.quota_usage;
-        report.postsAllowed = row.config?.quota_total;
-      }
-    } catch {
-      // The allowance is a nicety; the account name is the answer that matters
-    }
-
-    return report;
-  } catch (error) {
-    return {
-      configured: true,
-      error: error instanceof Error ? error.message : "Could not reach Instagram",
-    };
+  } catch {
+    // The allowance is a nicety; the account name is the answer that matters
   }
+
+  return report;
 }
 
 async function graphPost(
+  base: string,
   path: string,
   params: Record<string, string>
 ): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
-  const res = await fetch(`${GRAPH}/${path}`, {
+  const res = await fetch(`${base}/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params).toString(),
@@ -290,13 +393,14 @@ async function graphPost(
 
 /** Containers are usually ready at once, but a large image can take a moment. */
 async function waitForContainer(
+  base: string,
   creationId: string,
   token: string,
   attempts = 5
 ): Promise<string | null> {
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(
-      `${GRAPH}/${creationId}?fields=status_code&access_token=${encodeURIComponent(token)}`
+      `${base}/${creationId}?fields=status_code&access_token=${encodeURIComponent(token)}`
     );
     const data = (await res.json().catch(() => ({}))) as { status_code?: string };
     if (data.status_code === "FINISHED") return null;
@@ -317,7 +421,10 @@ export async function publishToInstagram(
   const creds = credentials();
   if (!creds) return { ok: false, skipped: "not-configured", error: "Instagram is not connected" };
 
-  const container = await graphPost(`${creds.userId}/media`, {
+  const account = await resolveAccount(creds);
+  if ("error" in account) return { ok: false, error: account.error };
+
+  const container = await graphPost(account.base, `${account.id}/media`, {
     image_url: imageUrl,
     caption,
     access_token: creds.token,
@@ -327,10 +434,10 @@ export async function publishToInstagram(
   const creationId = String(container.data.id ?? "");
   if (!creationId) return { ok: false, error: "Instagram did not return a container id" };
 
-  const notReady = await waitForContainer(creationId, creds.token);
+  const notReady = await waitForContainer(account.base, creationId, creds.token);
   if (notReady) return { ok: false, error: notReady };
 
-  const published = await graphPost(`${creds.userId}/media_publish`, {
+  const published = await graphPost(account.base, `${account.id}/media_publish`, {
     creation_id: creationId,
     access_token: creds.token,
   });
@@ -343,7 +450,7 @@ export async function publishToInstagram(
   let permalink: string | undefined;
   try {
     const res = await fetch(
-      `${GRAPH}/${mediaId}?fields=permalink&access_token=${encodeURIComponent(creds.token)}`
+      `${account.base}/${mediaId}?fields=permalink&access_token=${encodeURIComponent(creds.token)}`
     );
     const data = (await res.json()) as { permalink?: string };
     permalink = data.permalink;
