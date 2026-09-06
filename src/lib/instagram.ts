@@ -87,13 +87,21 @@ async function diagnose(creds: { userId: string; token: string }) {
   ]);
 
   const data = (tokenInfo as { data?: Record<string, unknown> }).data ?? tokenInfo;
+  const expiresAt = (data as { expires_at?: number }).expires_at;
+  // A rejected token answers with nothing at all. Reporting "never" about it
+  // would be the most confident wrong answer this endpoint could give, and it
+  // points the reader at the id when the token is the thing that is broken.
+  const readable = (data as { type?: string; scopes?: string[] }).type !== undefined ||
+    (data as { scopes?: string[] }).scopes !== undefined;
 
   return {
     tokenType: (data as { type?: string }).type,
     tokenScopes: (data as { scopes?: string[] }).scopes,
-    tokenExpires: (data as { expires_at?: number }).expires_at
-      ? new Date(((data as { expires_at: number }).expires_at) * 1000).toISOString()
-      : "never",
+    tokenExpires: !readable
+      ? "unknown — Meta would not read this token"
+      : expiresAt
+        ? new Date(expiresAt * 1000).toISOString()
+        : "never",
     tokenBelongsTo: identity,
     configuredObject: object,
   };
