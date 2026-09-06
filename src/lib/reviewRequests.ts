@@ -3,6 +3,7 @@ import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { generateReviewToken, reviewTokenFingerprint } from "@/lib/reviewToken";
 import { SITE_URL } from "@/lib/site";
+import { BUSINESS } from "@/lib/business";
 import { open } from "@/lib/pii";
 
 /**
@@ -71,6 +72,10 @@ function requestEmail(order: PendingOrder, token: string): string {
       </p>
       <p style="color:#777;font-size:13px;line-height:1.7;margin:24px 0 0;text-align:center;">
         No account needed — the link opens straight onto the form. Photos welcome.
+      </p>
+      <p style="color:#777;font-size:13px;line-height:1.7;margin:18px 0 0;text-align:center;">
+        Happier writing it on Google? That one helps people in Southampton find us —
+        <a href="${BUSINESS.googleReviewUrl}" style="color:#7a6d9a;">leave it here instead</a>.
       </p>
     </div>
     <div style="padding:20px 40px;border-top:1px solid #f0eaf8;text-align:center;">

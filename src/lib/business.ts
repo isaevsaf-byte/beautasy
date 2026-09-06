@@ -25,16 +25,37 @@ export const BUSINESS = {
     region: "Hampshire",
     country: "GB",
   },
+  /**
+   * Copied from Google Business Profile, which is where Kristina keeps them
+   * and what a customer sees in Maps. They differ per day, so this is a list
+   * of blocks rather than one range — the site used to claim Mon–Sat 9–6,
+   * which was wrong on all seven days and read to Google as a second business.
+   */
   hours: {
-    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-    opens: "09:00",
-    closes: "18:00",
-    label: "Mon–Sat, 9am–6pm, by appointment",
+    blocks: [
+      {
+        days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        opens: "09:00",
+        closes: "19:00",
+      },
+      { days: ["Saturday"], opens: "11:00", closes: "17:00" },
+      { days: ["Sunday"], opens: "11:00", closes: "16:00" },
+    ],
+    label: "Mon–Fri 9am–7pm · Sat 11am–5pm · Sun 11am–4pm",
   },
+  /**
+   * The Google Business Profile listing. `googleMapsUrl` is the stable cid
+   * form, which survives the listing being renamed; `googleReviewUrl` opens
+   * the review box directly, with no hunting for the button.
+   */
+  googleMapsUrl: "https://maps.google.com/?cid=5155324499486741351",
+  googleReviewUrl: "https://g.page/r/CWeTxnVRZItHEBM/review",
+
   /** Public profiles, canonical URLs — no tracking parameters */
   sameAs: [
     "https://www.instagram.com/beautasy_lingerie_uk/",
     "https://www.pinterest.co.uk/beautasy_studio/",
+    "https://maps.google.com/?cid=5155324499486741351",
   ],
   /** Stable ids so every page points at the same two entities */
   organizationId: `${SITE_URL}#organization`,
@@ -48,14 +69,12 @@ export function whatsappLink(text: string): string {
 
 /** schema.org opening hours, from the same facts the page prints. */
 export function openingHoursSpecification() {
-  return [
-    {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: [...BUSINESS.hours.days],
-      opens: BUSINESS.hours.opens,
-      closes: BUSINESS.hours.closes,
-    },
-  ];
+  return BUSINESS.hours.blocks.map((block) => ({
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: [...block.days],
+    opens: block.opens,
+    closes: block.closes,
+  }));
 }
 
 export function postalAddress() {
