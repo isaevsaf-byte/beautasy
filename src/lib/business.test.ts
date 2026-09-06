@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BUSINESS, openingHoursSpecification } from "./business";
+import {
+  BUSINESS,
+  GOOGLE_SERVICES,
+  googleServiceCatalog,
+  openingHoursSpecification,
+} from "./business";
 
 test("every day of the week is covered exactly once", () => {
   const days = BUSINESS.hours.blocks.flatMap((b) => b.days);
@@ -39,4 +44,27 @@ test("the Google listing is claimed as the same entity", () => {
 
 test("the review link points at the Beautasy listing", () => {
   assert.match(BUSINESS.googleReviewUrl, /^https:\/\/g\.page\/r\/[A-Za-z0-9_-]+\/review$/);
+});
+
+test("the site lists exactly the twelve services the Google profile does", () => {
+  assert.equal(GOOGLE_SERVICES.length, 12);
+  assert.equal(new Set(GOOGLE_SERVICES.map((s) => s.name)).size, 12);
+});
+
+test("every listed service points somewhere the site actually serves", () => {
+  for (const service of GOOGLE_SERVICES) {
+    assert.match(
+      service.path,
+      /^\/(alterations(\/[a-z-]+)?|atelier)$/,
+      `${service.name} points at ${service.path}`
+    );
+  }
+});
+
+test("the catalogue gives every service an absolute url", () => {
+  const catalog = googleServiceCatalog("https://www.beautasy.co.uk");
+  assert.equal(catalog.itemListElement.length, 12);
+  for (const entry of catalog.itemListElement) {
+    assert.match(entry.itemOffered.url, /^https:\/\/www\.beautasy\.co\.uk\//);
+  }
 });

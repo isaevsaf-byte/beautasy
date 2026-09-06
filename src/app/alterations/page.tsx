@@ -5,7 +5,13 @@ import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
-import { BUSINESS, openingHoursSpecification, postalAddress } from "@/lib/business";
+import {
+  BUSINESS,
+  GOOGLE_SERVICES,
+  googleServiceCatalog,
+  openingHoursSpecification,
+  postalAddress,
+} from "@/lib/business";
 
 export const revalidate = 86400;
 
@@ -55,18 +61,9 @@ export default function AlterationsHub() {
       { "@type": "City", name: "Southampton" },
       { "@type": "AdministrativeArea", name: "Hampshire" },
     ],
-    hasOfferCatalog: {
-      "@type": "OfferCatalog",
-      name: "Alterations and repairs",
-      itemListElement: LOCAL_SERVICES.map((s) => ({
-        "@type": "Offer",
-        itemOffered: {
-          "@type": "Service",
-          name: s.serviceName,
-          url: `${SITE_URL}/alterations/${s.slug}`,
-        },
-      })),
-    },
+    // The same twelve services the Business Profile lists, so the listing and
+    // the site describe one business rather than two similar ones.
+    hasOfferCatalog: googleServiceCatalog(SITE_URL),
   };
 
   return (
@@ -154,6 +151,30 @@ export default function AlterationsHub() {
             ))}
           </div>
         </section>
+
+        {/* ──── Everything we do ──── */}
+        {/* The same list, in the same words, as the Google Business Profile —
+            someone who arrived from Maps should recognise what they clicked. */}
+        <section className="max-w-4xl mx-auto px-6 mt-16">
+          <h2 className="font-serif text-2xl sm:text-3xl mb-3">Everything we alter and tailor</h2>
+          <p className="text-sm text-charcoal-light mb-7 max-w-xl leading-relaxed">
+            If what you need isn&apos;t on the list, bring it in anyway — most things
+            can be taken in, let out, shortened or mended.
+          </p>
+          <ul className="flex flex-wrap gap-2.5 list-none p-0">
+            {GOOGLE_SERVICES.map((service) => (
+              <li key={service.name}>
+                <Link
+                  href={service.path}
+                  className="inline-block px-4 py-2 rounded-full border border-lavender-soft/60 bg-white text-sm text-charcoal hover:border-lavender hover:bg-lavender/10 transition-colors"
+                >
+                  {service.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
 
         <section className="max-w-4xl mx-auto px-6 mt-16">
           <div className="bg-lavender-bg rounded-3xl p-7 sm:p-10">

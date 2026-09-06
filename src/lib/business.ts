@@ -77,6 +77,49 @@ export function openingHoursSpecification() {
   }));
 }
 
+/**
+ * The services listed on the Google Business Profile, word for word.
+ *
+ * Google matches a business across the web by comparing what it says about
+ * itself in each place. The profile names twelve services; the site named six.
+ * Spelling them identically here — and pointing each at the page that answers
+ * it — tells Google the listing and the site are one business, and gives a
+ * visitor the same menu Maps gave them.
+ *
+ * Change these only alongside the profile: a name that exists in one place and
+ * not the other is worse than a name in neither.
+ */
+export const GOOGLE_SERVICES: { name: string; path: string }[] = [
+  { name: "Alterations", path: "/alterations" },
+  { name: "Bridesmaid dress alterations", path: "/alterations/wedding-dress-southampton" },
+  { name: "Children's clothing alterations", path: "/alterations/school-uniform-southampton" },
+  { name: "Coat & jacket alterations", path: "/alterations/zip-replacement-southampton" },
+  { name: "Custom-made clothing", path: "/atelier" },
+  { name: "Custom tailoring", path: "/atelier" },
+  { name: "Drapery & curtains alterations", path: "/alterations/curtains-and-home-southampton" },
+  { name: "Dress alterations", path: "/alterations/prom-and-evening-dress-southampton" },
+  { name: "Shirt tailoring", path: "/atelier" },
+  { name: "Suit resizing", path: "/atelier" },
+  { name: "Suit tailoring", path: "/atelier" },
+  { name: "Trouser alterations", path: "/alterations/jeans-and-trousers-southampton" },
+];
+
+/** The profile's service list as a schema.org catalogue. */
+export function googleServiceCatalog(siteUrl: string) {
+  return {
+    "@type": "OfferCatalog",
+    name: "Alterations and tailoring",
+    itemListElement: GOOGLE_SERVICES.map((service) => ({
+      "@type": "Offer",
+      itemOffered: {
+        "@type": "Service",
+        name: service.name,
+        url: `${siteUrl}${service.path}`,
+      },
+    })),
+  };
+}
+
 export function postalAddress() {
   return {
     "@type": "PostalAddress",
