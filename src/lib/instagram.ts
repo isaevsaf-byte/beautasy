@@ -47,6 +47,9 @@ export interface ConnectionReport {
   postsUsedToday?: number;
   postsAllowed?: number;
   error?: string;
+  /** Filled in when the lookup fails: what the token is and what the id is */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  diagnosis?: any;
   /**
    * What the token can actually reach, listed when the configured id does not
    * work. Meta hands out several long numbers under the same brand name — a
@@ -54,6 +57,46 @@ export interface ConnectionReport {
    * Instagram account is to ask the token what it sees.
    */
   candidates?: { page: string; pageId: string; instagramId?: string; username?: string }[];
+}
+
+/**
+ * What Meta thinks the token is, and what the configured id actually is.
+ *
+ * Run only when the account lookup fails, because that failure has half a
+ * dozen indistinguishable causes: a portfolio id instead of an account id, a
+ * token belonging to the wrong thing, a missing permission. Asking these three
+ * questions separates them. The token itself is never included in the answer.
+ */
+async function diagnose(creds: { userId: string; token: string }) {
+  const ask = async (path: string, query: string) => {
+    try {
+      const res = await fetch(`${GRAPH}/${path}?${query}&access_token=${encodeURIComponent(creds.token)}`, {
+        cache: "no-store",
+      });
+      const body = await res.json().catch(() => ({}));
+      return res.ok ? body : { error: body?.error?.message ?? `HTTP ${res.status}` };
+    } catch {
+      return { error: "unreachable" };
+    }
+  };
+
+  const [tokenInfo, identity, object] = await Promise.all([
+    ask("debug_token", `input_token=${encodeURIComponent(creds.token)}`),
+    ask("me", "fields=id,name"),
+    ask(creds.userId, "fields=id,name,link"),
+  ]);
+
+  const data = (tokenInfo as { data?: Record<string, unknown> }).data ?? tokenInfo;
+
+  return {
+    tokenType: (data as { type?: string }).type,
+    tokenScopes: (data as { scopes?: string[] }).scopes,
+    tokenExpires: (data as { expires_at?: number }).expires_at
+      ? new Date(((data as { expires_at: number }).expires_at) * 1000).toISOString()
+      : "never",
+    tokenBelongsTo: identity,
+    configuredObject: object,
+  };
 }
 
 /** Pages this token can reach, and the Instagram account on each. */
@@ -110,10 +153,15 @@ export async function checkConnection(): Promise<ConnectionReport> {
     if (!res.ok) {
       // The id is wrong or invisible. Say what the token *can* see, so the
       // right id is one line away rather than another hour in Meta's console.
+      const [candidates, diagnosis] = await Promise.all([
+        discoverAccounts(creds),
+        diagnose(creds),
+      ]);
       return {
         configured: true,
         error: data.error?.message ?? `Instagram returned ${res.status}`,
-        candidates: await discoverAccounts(creds),
+        candidates,
+        diagnosis,
       };
     }
 
