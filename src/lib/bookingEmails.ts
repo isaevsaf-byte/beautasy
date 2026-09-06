@@ -7,6 +7,7 @@ import { open } from "@/lib/pii";
 import { friendsBlockHtml, ownLinkFor, referralSettings, rewardReferral } from "@/lib/referrals";
 import type { ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
+import { googleReviewUrl } from "@/lib/siteSettings";
 
 /**
  * Confirming atelier bookings.
@@ -51,13 +52,19 @@ export function bookingEmailHtml(
   booking: NotifiableBooking,
   status: NotifiableStatus,
   /** The customer's own "Give £5, get £5" link, for the thank-you */
-  friends: { code: string; settings: ReferralSettings } | null = null
+  friends: { code: string; settings: ReferralSettings } | null = null,
+  /**
+   * Where to send someone who is pleased. Passed in rather than read here so
+   * the link can live in the Studio, where Kristina can change it, instead of
+   * behind a redeploy.
+   */
+  reviewLink: string | null = process.env.GOOGLE_REVIEW_URL ?? null
 ): string {
   const firstName = escapeHtml(booking.displayName ?? "there");
   const service = escapeHtml(booking.service ?? "your appointment");
   const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
 
-  const reviewUrl = process.env.GOOGLE_REVIEW_URL;
+  const reviewUrl = reviewLink || undefined;
 
   const heading =
     status === "confirmed"
@@ -158,6 +165,9 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
     // The thank-you after a fitting is the one moment a customer is glad
     // enough to tell someone — so it carries their own Friends link
     let friends: { code: string; settings: ReferralSettings } | null = null;
+    // Asking for a review is worth doing once, on the way out, and only of
+    // someone who has actually been seen.
+    const reviewLink = status === "completed" ? await googleReviewUrl() : null;
     if (status === "completed") {
       const code = await ownLinkFor(open(booking.nameSealed) ?? booking.displayName, email, "booking");
       if (code) friends = { code, settings: await referralSettings() };
@@ -179,7 +189,7 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
               : status === "completed"
               ? "Thank you from the Beautasy atelier 💜"
               : "About your Beautasy atelier booking",
-          html: bookingEmailHtml(booking, status, friends),
+          html: bookingEmailHtml(booking, status, friends, reviewLink),
         })
     );
     if (outcome === "sent") sent++;

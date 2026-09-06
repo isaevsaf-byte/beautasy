@@ -92,6 +92,27 @@ export const siteSettings = defineType({
       placeholder: "Write a short note to include with the gift card…",
     }),
 
+    defineField({
+      name: "googleReviewUrl",
+      title: "Google Review Link",
+      type: "url",
+      description:
+        "The 'write a review' link from your Google Business Profile. Paste it here and every customer whose fitting is marked Completed is asked for a review. Leave it empty and nobody is asked. Find it in Google Business Profile → Read reviews → Get more reviews → copy link.",
+      validation: (Rule) =>
+        Rule.uri({ scheme: ["http", "https"] }).custom((value) => {
+          if (!value) return true;
+          const url = String(value);
+          // A profile link shows the reviews; only the write link opens the box
+          // with the stars already in it, and the difference is most of the
+          // reviews you get.
+          const writesAReview =
+            url.includes("writereview") || /\/review\b/.test(url) || url.includes("g.page/r/");
+          return writesAReview
+            ? true
+            : "That looks like a link to your profile rather than the review box. Use Get more reviews → copy link.";
+        }),
+    }),
+
     /* ── Beautasy Friends ── */
     defineField({
       name: "referral",

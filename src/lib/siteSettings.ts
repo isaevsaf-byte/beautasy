@@ -14,6 +14,8 @@ export interface SiteSettings {
     freeShippingThreshold: number;
   };
   giftCardPlaceholder?: string;
+  /** Where a happy customer is sent to leave a Google review */
+  googleReviewUrl?: string;
   socialLinks?: {
     instagram?: string;
     tiktok?: string;
@@ -35,6 +37,7 @@ const SITE_SETTINGS_QUERY = `*[_type == "siteSettings"][0]{
   announcementBar,
   shipping,
   giftCardPlaceholder,
+  googleReviewUrl,
   socialLinks,
   paymentIcons,
   referral
@@ -52,6 +55,32 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   } catch {
     return {};
   }
+}
+
+/**
+ * The review link, wherever it happens to live.
+ *
+ * It began as an environment variable, which put a piece of ordinary shop
+ * copy behind a redeploy and a developer — so it moved into the Studio where
+ * Kristina can paste it herself. The variable is still read, because it costs
+ * one line and silently dropping a value someone already set would be worse
+ * than the small untidiness of two places.
+ *
+ * Reads fresh rather than through the cached settings: this is asked once per
+ * email, and a link pasted five minutes ago should work.
+ */
+export async function googleReviewUrl(): Promise<string | null> {
+  try {
+    const fromStudio = await sanityClient.fetch<string | null>(
+      `*[_type == "siteSettings"][0].googleReviewUrl`,
+      {},
+      { cache: "no-store" }
+    );
+    if (fromStudio) return fromStudio;
+  } catch {
+    // Falling through to the variable is the right answer, not an error
+  }
+  return process.env.GOOGLE_REVIEW_URL || null;
 }
 
 /* ── Defaults ── */
