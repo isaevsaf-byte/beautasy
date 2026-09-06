@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripeInstance } from "@/lib/stripe";
 import Stripe from "stripe";
+import { ownLinkFor, referralSettings } from "@/lib/referrals";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,22 @@ export async function GET(req: NextRequest) {
 
     const lineItems = (session.line_items?.data ?? []) as Stripe.LineItem[];
 
+    // The buyer's own Friends link, for the "Give £5, get £5" block on the
+    // thank-you page. Minted here rather than awaited from the webhook, which
+    // may not have run yet when the page loads — both make the same document.
+    const friendsCode = await ownLinkFor(
+      session.customer_details?.name,
+      session.customer_details?.email,
+      "order"
+    );
+    const friendsOffer = friendsCode
+      ? await referralSettings().then((s) => ({ give: s.friendShopDiscount, get: s.referrerReward }))
+      : null;
+
     return NextResponse.json({
       paid: true,
+      friendsCode,
+      friendsOffer,
       // Short, human-quotable reference — the full session id is unwieldy
       reference: sessionId.slice(-8).toUpperCase(),
       total: session.amount_total ?? 0,

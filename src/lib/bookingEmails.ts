@@ -4,6 +4,9 @@ import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 import { claimThenSend } from "@/lib/claim";
 import { open } from "@/lib/pii";
+import { friendsBlockHtml, ownLinkFor, referralSettings, rewardReferral } from "@/lib/referrals";
+import type { ReferralSettings } from "@/lib/referralRules";
+import { pounds } from "@/lib/friendsLink";
 
 /**
  * Confirming atelier bookings.
@@ -37,9 +40,19 @@ export interface NotifiableBooking {
   preferredDate?: string;
   confirmedFor?: string;
   replyNote?: string;
+  createdAt?: string;
+  /** A friend sent them: who, and what to take off when they pay */
+  referrer?: { _ref: string };
+  referredBy?: string;
+  referralDiscount?: number;
 }
 
-export function bookingEmailHtml(booking: NotifiableBooking, status: NotifiableStatus): string {
+export function bookingEmailHtml(
+  booking: NotifiableBooking,
+  status: NotifiableStatus,
+  /** The customer's own "Give £5, get £5" link, for the thank-you */
+  friends: { code: string; settings: ReferralSettings } | null = null
+): string {
   const firstName = escapeHtml(booking.displayName ?? "there");
   const service = escapeHtml(booking.service ?? "your appointment");
   const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
@@ -86,9 +99,15 @@ export function bookingEmailHtml(booking: NotifiableBooking, status: NotifiableS
              </div>`
           : ""
       }
+      ${
+        status === "confirmed" && booking.referralDiscount
+          ? `<p style="color:#3d3d3d;line-height:1.7;margin:0;">Your <strong>${pounds(booking.referralDiscount)} off</strong>${booking.referredBy ? ` from ${escapeHtml(booking.referredBy)}` : ""} is noted — it comes off when you pay at the atelier.</p>`
+          : ""
+      }
       <p style="text-align:center;margin:26px 0 0;">
         <a href="${escapeHtml(button.href)}" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">${button.label}</a>
       </p>
+      ${status === "completed" && friends ? friendsBlockHtml(friends.code, friends.settings) : ""}
     </div>
     <div style="padding:20px 40px;border-top:1px solid #f0eaf8;text-align:center;">
       <p style="margin:0;font-size:11px;color:#aaa;">Made with 💜 in Southampton</p>
@@ -105,7 +124,8 @@ const PENDING_QUERY = `*[
   && (!defined(notifiedStatus) || notifiedStatus != status)
 ] | order(createdAt desc) [0...$limit] {
   _id, _rev, status, notifiedStatus, displayName, nameSealed, emailSealed,
-  service, preferredDate, confirmedFor, replyNote
+  service, preferredDate, confirmedFor, replyNote, createdAt,
+  referrer, referredBy, referralDiscount
 }`;
 
 /**
@@ -135,6 +155,14 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
       continue;
     }
 
+    // The thank-you after a fitting is the one moment a customer is glad
+    // enough to tell someone — so it carries their own Friends link
+    let friends: { code: string; settings: ReferralSettings } | null = null;
+    if (status === "completed") {
+      const code = await ownLinkFor(open(booking.nameSealed) ?? booking.displayName, email, "booking");
+      if (code) friends = { code, settings: await referralSettings() };
+    }
+
     const outcome = await claimThenSend(
       sanityWriteClient,
       booking,
@@ -151,10 +179,28 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
               : status === "completed"
               ? "Thank you from the Beautasy atelier 💜"
               : "About your Beautasy atelier booking",
-          html: bookingEmailHtml(booking, status),
+          html: bookingEmailHtml(booking, status, friends),
         })
     );
     if (outcome === "sent") sent++;
+
+    // Done, and told so: now the friend who sent them is credited. The
+    // reward is keyed on the booking, so a second run finds it already paid.
+    if (outcome === "sent" && status === "completed" && booking.referrer?._ref) {
+      try {
+        const result = await rewardReferral({
+          kind: "booking",
+          referrerId: booking.referrer._ref,
+          friend: { name: open(booking.nameSealed) ?? booking.displayName, email },
+          sourceId: booking._id,
+          createdAt: booking.createdAt,
+          discount: booking.referralDiscount ?? 0,
+        });
+        console.log("Referral reward for booking", booking._id, "→", result);
+      } catch (err) {
+        console.error(`Failed to reward the referral for booking ${booking._id}:`, err);
+      }
+    }
   }
 
   return { checked: bookings.length, sent };

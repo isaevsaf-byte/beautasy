@@ -4,6 +4,8 @@ import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 import { claimThenSend } from "@/lib/claim";
 import { open } from "@/lib/pii";
+import { friendsBlockHtml, ownLinkFor, referralSettings } from "@/lib/referrals";
+import type { ReferralSettings } from "@/lib/referralRules";
 
 /**
  * Keeps the customer in the loop while their order is being made.
@@ -53,7 +55,12 @@ const COPY: Record<NotifiableStatus, { subject: string; heading: string; body: s
   },
 };
 
-function statusEmail(order: NotifiableOrder, status: NotifiableStatus): string {
+function statusEmail(
+  order: NotifiableOrder,
+  status: NotifiableStatus,
+  /** The customer's own "Give £5, get £5" link — offered once the parcel has arrived */
+  friends: { code: string; settings: ReferralSettings } | null = null
+): string {
   const { heading, body } = COPY[status];
   const firstName = escapeHtml(order.displayName ?? "there");
   const pieces = (order.items ?? [])
@@ -86,6 +93,7 @@ function statusEmail(order: NotifiableOrder, status: NotifiableStatus): string {
       <p style="color:#777;font-size:13px;line-height:1.7;margin:24px 0 0;text-align:center;">
         Questions? Just reply — Kristina reads every message.
       </p>
+      ${status === "delivered" && friends ? friendsBlockHtml(friends.code, friends.settings) : ""}
     </div>
     <div style="padding:20px 40px;border-top:1px solid #f0eaf8;text-align:center;">
       <p style="margin:0;font-size:11px;color:#aaa;">Made with 💜 in Southampton</p>
@@ -131,6 +139,13 @@ export async function sendPendingStatusEmails(limit = 50): Promise<{ checked: nu
       continue;
     }
 
+    // The parcel has arrived and been tried on: the moment to offer a link
+    let friends: { code: string; settings: ReferralSettings } | null = null;
+    if (status === "delivered") {
+      const code = await ownLinkFor(order.displayName, email, "order");
+      if (code) friends = { code, settings: await referralSettings() };
+    }
+
     const outcome = await claimThenSend(
       sanityWriteClient,
       order,
@@ -142,7 +157,7 @@ export async function sendPendingStatusEmails(limit = 50): Promise<{ checked: nu
           to: email,
           replyTo: KRISTINA_EMAIL,
           subject: COPY[status].subject,
-          html: statusEmail(order, status),
+          html: statusEmail(order, status, friends),
         })
     );
     if (outcome === "sent") sent++;

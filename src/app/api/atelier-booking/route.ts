@@ -3,8 +3,17 @@ import { Resend } from "resend";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { sanityWriteClient } from "@/lib/sanity";
-import { sealOptional, maskEmail, firstNameOf } from "@/lib/pii";
+import { sealOptional, maskEmail, firstNameOf, emailFingerprint } from "@/lib/pii";
 import { secretsConfigured } from "@/lib/secrets";
+import {
+  findReferrerByCode,
+  judgeFriendFor,
+  referralSettings,
+  referralsConfigured,
+  type Referrer,
+} from "@/lib/referrals";
+import { verdictMessage } from "@/lib/referralRules";
+import { pounds } from "@/lib/friendsLink";
 import { getAvailableSlots } from "@/lib/schedule";
 import { slotIsOffered, slotLabel, slotDocumentId } from "@/lib/slots";
 import { bookingEmailHtml } from "@/lib/bookingEmails";
@@ -28,6 +37,8 @@ interface BookingBody {
   slot?: string;
   preferredDate?: string;
   notes?: string;
+  /** A friend's link code, left on this device by /r/CODE */
+  referralCode?: string;
 }
 
 const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -58,6 +69,35 @@ export async function POST(req: NextRequest) {
     if (!service || typeof service !== "string") {
       return NextResponse.json({ error: "Please select a service" }, { status: 400 });
     }
+
+    // A friend's link: the discount is noted on the booking and taken off by
+    // hand when they pay, and whoever sent them is credited once the fitting
+    // is marked done. Judged now, so the customer hears straight away if it
+    // does not apply — a returning customer is welcome, just not as a first visit.
+    let friend: { referrer: Referrer; discount: number } | null = null;
+    let referralNote: string | null = null;
+    const referralCode =
+      typeof body.referralCode === "string" && body.referralCode.trim() ? body.referralCode : undefined;
+    if (referralCode && referralsConfigured()) {
+      try {
+        const settings = await referralSettings();
+        const referrer = await findReferrerByCode(referralCode);
+        if (!referrer) {
+          referralNote = "That friend code isn't valid.";
+        } else {
+          const verdict = await judgeFriendFor({ referrer, friendEmail: email, kind: "booking", settings });
+          if (verdict === "ok" && settings.friendAtelierDiscount > 0) {
+            friend = { referrer, discount: settings.friendAtelierDiscount };
+          } else {
+            referralNote = verdictMessage(verdict === "ok" ? "disabled" : verdict, "booking");
+          }
+        }
+      } catch (err) {
+        // The booking matters more than the discount: carry on without it
+        console.error("Could not judge a friend code on a booking:", err);
+      }
+    }
+    const referredBy = friend ? friend.referrer.displayName ?? "a friend" : undefined;
 
     // A booked time is only real if it is written down, so a chosen slot may
     // not fall back to "we will email you" the way a request can.
@@ -105,7 +145,16 @@ export async function POST(req: NextRequest) {
           emailSealed: sealOptional(email),
           phoneSealed: sealOptional(phone),
           notesSealed: sealOptional(notes),
+          // Keyed and one-way: what "first visit?" is asked of next time
+          emailFingerprint: emailFingerprint(email),
           service,
+          ...(friend
+            ? {
+                referrer: { _type: "reference", _ref: friend.referrer._id, _weak: true },
+                referredBy,
+                referralDiscount: friend.discount,
+              }
+            : {}),
           // One shape either way; Sanity drops the fields left undefined
           slotStart: slot,
           confirmedFor: slot ? slotLabel(slot) : undefined,
@@ -151,9 +200,11 @@ export async function POST(req: NextRequest) {
       to: KRISTINA_EMAIL,
       replyTo: email,
       // A subject line is plain text, not HTML — escaping it shows "&#39;" in the inbox
-      subject: slot
-        ? `Booked — ${name.trim()}, ${slotLabel(slot)}`
-        : `New atelier booking request — ${name.trim()}`,
+      subject: `${friend ? `${pounds(friend.discount)} REF · ` : ""}${
+        slot
+          ? `Booked — ${name.trim()}, ${slotLabel(slot)}`
+          : `New atelier booking request — ${name.trim()}`
+      }`,
       html: `
         <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;">
           <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#9b7fd4;">Atelier Booking</p>
@@ -165,6 +216,11 @@ export async function POST(req: NextRequest) {
             <strong>Email:</strong> ${escapeHtml(email)}<br/>
             ${phone ? `<strong>Phone:</strong> ${escapeHtml(phone)}<br/>` : ""}
           </p>
+          ${
+            friend
+              ? `<p style="padding:12px 16px;background:#f7f3ff;border-radius:10px;color:#5e4b9a;line-height:1.6;">💜 Sent by <strong>${escapeHtml(referredBy)}</strong> — take <strong>${pounds(friend.discount)} off</strong> when they pay. Marking the booking Done credits ${escapeHtml(referredBy)} automatically.</p>`
+              : ""
+          }
           ${notes ? `<p style="color:#3d3d3d;line-height:1.7;"><strong>Notes:</strong><br/>${escapeHtml(notes)}</p>` : ""}
         </div>`,
         });
@@ -192,6 +248,8 @@ export async function POST(req: NextRequest) {
               displayName: firstNameOf(name),
               service,
               confirmedFor: slotLabel(slot),
+              referredBy,
+              referralDiscount: friend?.discount,
             },
             "confirmed"
           )
@@ -203,6 +261,11 @@ export async function POST(req: NextRequest) {
             We've received your request for <strong>${escapeHtml(service)}</strong>${preferredDate ? ` on ${escapeHtml(preferredDate)}` : ""}.
             Kristina will confirm your time by email shortly — you'll get a message either way, so nothing is left hanging.
           </p>
+          ${
+            friend
+              ? `<p style="color:#3d3d3d;line-height:1.8;">Your <strong>${pounds(friend.discount)} off</strong> from ${escapeHtml(referredBy)} is noted — it comes off when you pay at the atelier.</p>`
+              : ""
+          }
         </div>`,
         });
       } catch (err) {
@@ -219,7 +282,16 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { ok: true, emailed, ...(slot ? { confirmedFor: slotLabel(slot) } : {}) },
+      {
+        ok: true,
+        emailed,
+        ...(slot ? { confirmedFor: slotLabel(slot) } : {}),
+        ...(friend
+          ? { referral: { applied: true, discount: friend.discount, referredBy } }
+          : referralCode
+          ? { referral: { applied: false, reason: referralNote } }
+          : {}),
+      },
       { status: 201 }
     );
   } catch (error) {

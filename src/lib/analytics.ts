@@ -136,6 +136,24 @@ export function trackLead(params: {
   }
 }
 
+/**
+ * Beautasy Friends ("Give £5, get £5"): a link shared, a link opened, a
+ * discount applied. Three events are enough to see whether people share at
+ * all, whether the links get opened, and whether the friends then use them —
+ * the three places a referral programme quietly dies.
+ */
+export function trackReferralShare(method: "whatsapp" | "copy"): void {
+  send("share", { method, content_type: "referral_link" });
+}
+
+export function trackReferralLand(): void {
+  send("referral_land", {});
+}
+
+export function trackReferralApply(where: "shop" | "atelier"): void {
+  send("referral_apply", { where });
+}
+
 export function trackSearch(term: string): void {
   send("search", { search_term: term });
   sendMeta("Search", { search_string: term });

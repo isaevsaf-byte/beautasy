@@ -108,6 +108,29 @@ export const giftCard = defineType({
       readOnly: true,
     }),
     defineField({
+      name: "source",
+      title: "Kind",
+      type: "string",
+      readOnly: true,
+      initialValue: "purchase",
+      options: {
+        list: [
+          { title: "Bought as a gift", value: "purchase" },
+          { title: "Friends credit — earned by referring", value: "referral" },
+        ],
+      },
+    }),
+    defineField({
+      name: "referrer",
+      title: "Belongs To (Friend Link)",
+      type: "reference",
+      to: [{ type: "referrer" }],
+      weak: true,
+      readOnly: true,
+      description:
+        "For Friends credit: whose balance this is. Their £5s land here. Spent in the bag like any gift card — or at the atelier, in which case take it off the Balance above by hand.",
+    }),
+    defineField({
       name: "createdAt",
       title: "Issued At",
       type: "datetime",
@@ -115,10 +138,16 @@ export const giftCard = defineType({
     }),
   ],
   preview: {
-    select: { hint: "codeHint", balance: "balance", initial: "initialAmount", active: "active" },
-    prepare({ hint, balance, initial, active }) {
+    select: { hint: "codeHint", balance: "balance", initial: "initialAmount", active: "active", source: "source", owner: "referrer.displayName" },
+    prepare({ hint, balance, initial, active, source, owner }) {
       const left = typeof balance === "number" ? `£${(balance / 100).toFixed(2)}` : "—";
       const face = typeof initial === "number" ? `£${(initial / 100).toFixed(2)}` : "—";
+      if (source === "referral") {
+        return {
+          title: `Friends credit — ${owner ?? "someone"}${hint ? ` …${hint}` : ""}`,
+          subtitle: `${left} left, ${face} earned${active ? "" : " · disabled"}`,
+        };
+      }
       return {
         title: hint ? `Gift card …${hint}` : "Gift card",
         subtitle: `${left} left of ${face}${active ? "" : " · disabled"}`,

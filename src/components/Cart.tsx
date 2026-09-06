@@ -3,14 +3,23 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package } from "lucide-react";
+import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package, Sparkles } from "lucide-react";
 /* eslint-disable @next/next/no-img-element */
 import { usePathname } from "next/navigation";
 import { useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
 import { useIsClient } from "@/lib/useIsClient";
 import { DEFAULT_FREE_THRESHOLD } from "@/lib/siteSettings";
-import { trackBeginCheckout } from "@/lib/analytics";
+import { trackBeginCheckout, trackReferralApply } from "@/lib/analytics";
+import {
+  clearReferralCookie,
+  looksLikeReferralCode,
+  pounds,
+  readReferralCookie,
+  writeReferralCookie,
+} from "@/lib/friendsLink";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * The bag icon in the header. Open/closed state lives in the `useCartUI`
@@ -67,11 +76,20 @@ export function CartDrawer({
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(
     propThreshold ?? DEFAULT_FREE_THRESHOLD
   );
-  // Gift card applied to this order, if any
-  const [giftCardCode, setGiftCardCode] = useState("");
+  // One field takes both kinds of code. A gift card pays part of the order;
+  // a friend's code ("ANNA-K7P2") takes £5 off a first order and needs the
+  // email it will be checked against.
+  const [codeInput, setCodeInput] = useState("");
   const [giftCard, setGiftCard] = useState<{ code: string; balance: number } | null>(null);
-  const [giftCardError, setGiftCardError] = useState<string | null>(null);
-  const [checkingCard, setCheckingCard] = useState(false);
+  const [friend, setFriend] = useState<{
+    code: string;
+    firstName: string | null;
+    discount: number;
+    minBasket: number;
+  } | null>(null);
+  const [friendEmail, setFriendEmail] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [checkingCode, setCheckingCode] = useState(false);
   // Where the parcel is going. Preselected from the shopper's country, but
   // theirs to change — a UK customer might be sending a gift abroad.
   const [region, setRegion] = useState<"uk" | "international">("uk");
@@ -112,6 +130,33 @@ export function CartDrawer({
       })
       .catch(() => {/* keep the default */});
   }, [propThreshold]);
+
+  // A friend's link left its code on this device: apply it without any typing
+  useEffect(() => {
+    if (!isOpen || friend) return;
+    const code = readReferralCookie();
+    if (!code) return;
+    let cancelled = false;
+    fetch(`/api/referrals?code=${encodeURIComponent(code)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.valid) {
+          setFriend({
+            code: data.code,
+            firstName: data.firstName ?? null,
+            discount: data.shopDiscount ?? 0,
+            minBasket: data.minBasket ?? 0,
+          });
+        } else {
+          clearReferralCookie();
+        }
+      })
+      .catch(() => {/* no discount is the safe default */});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, friend]);
 
   // Preselect the delivery region from where the shopper appears to be
   useEffect(() => {
@@ -180,6 +225,14 @@ export function CartDrawer({
       return;
     }
 
+    // The friend discount is checked against an email — "first order", "not
+    // your own link" — so the server needs it before Stripe does
+    if (friend && !EMAIL_RE.test(friendEmail.trim())) {
+      setError(`Add the email you'll check out with, so we can apply ${friend.firstName ? `${friend.firstName}'s` : "the friend"} discount.`);
+      setIsLoading(false);
+      return;
+    }
+
     trackBeginCheckout(
       items.map((item) => ({
         id: item.id,
@@ -199,12 +252,19 @@ export function CartDrawer({
           items,
           region,
           ...(giftCard ? { giftCardCode: giftCard.code } : {}),
+          ...(friend ? { referralCode: friend.code, email: friendEmail.trim() } : {}),
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        // A friend code the server refused (own email, not a first order…)
+        // is dropped here, so the next attempt goes through without it
+        if (data?.referralInvalid) {
+          setFriend(null);
+          clearReferralCookie();
+        }
         throw new Error(data.error || "Something went wrong");
       }
 
@@ -436,65 +496,144 @@ export function CartDrawer({
                   </div>
                 </div>
 
-                {/* Gift card */}
+                {/* Friend discount — from the cookie a friend's link left, or a typed code */}
+                {friend && (() => {
+                  const short = Math.max(0, friend.minBasket - totalPrice());
+                  const applies = friend.discount > 0 && short === 0;
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2 text-xs bg-lavender-bg/60 border border-lavender-soft/40 rounded-lg px-3 py-2">
+                        <span className="text-charcoal inline-flex items-start gap-1.5">
+                          <Sparkles size={13} className="text-lavender shrink-0 mt-0.5" aria-hidden="true" />
+                          <span>
+                            {applies ? (
+                              <>
+                                <strong>{pounds(friend.discount)} off</strong> your first order
+                                {friend.firstName ? `, from ${friend.firstName}` : ""}
+                              </>
+                            ) : (
+                              <>
+                                Add <strong>{pounds(short)}</strong> more for{" "}
+                                {friend.firstName ? `${friend.firstName}'s` : "the"} {pounds(friend.discount)} off
+                              </>
+                            )}
+                          </span>
+                        </span>
+                        <button
+                          onClick={() => {
+                            setFriend(null);
+                            clearReferralCookie();
+                          }}
+                          className="text-charcoal-light hover:text-charcoal underline underline-offset-2 shrink-0"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      {applies && (
+                        <div>
+                          <input
+                            type="email"
+                            value={friendEmail}
+                            onChange={(e) => setFriendEmail(e.target.value)}
+                            placeholder="Email you'll check out with"
+                            aria-label="Email you'll check out with"
+                            autoComplete="email"
+                            className="w-full text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                          />
+                          <p className="text-[11px] text-charcoal-light mt-1">
+                            First orders only, so we check by email. Not combined with other codes.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Gift card, or a friend's code typed by hand */}
                 <div>
-                  {giftCard ? (
-                    <div className="flex items-center justify-between gap-2 text-xs bg-lavender-bg/60 border border-lavender-soft/40 rounded-lg px-3 py-2">
+                  {giftCard && (
+                    <div className="flex items-center justify-between gap-2 text-xs bg-lavender-bg/60 border border-lavender-soft/40 rounded-lg px-3 py-2 mb-2">
                       <span className="text-charcoal">
                         Gift card <strong>{giftCard.code}</strong> — £
-                        {(Math.min(giftCard.balance, totalPrice()) / 100).toFixed(2)} off
+                        {(Math.min(giftCard.balance, Math.max(0, totalPrice() - (friend?.discount ?? 0))) / 100).toFixed(2)} off
                       </span>
                       <button
                         onClick={() => {
                           setGiftCard(null);
-                          setGiftCardCode("");
+                          setCodeInput("");
                         }}
                         className="text-charcoal-light hover:text-charcoal underline underline-offset-2"
                       >
                         Remove
                       </button>
                     </div>
-                  ) : (
+                  )}
+                  {(!giftCard || !friend) && (
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
-                        setCheckingCard(true);
-                        setGiftCardError(null);
+                        setCheckingCode(true);
+                        setCodeError(null);
+                        const typed = codeInput.trim();
                         try {
-                          const res = await fetch(
-                            `/api/gift-cards?code=${encodeURIComponent(giftCardCode)}`
-                          );
-                          const data = await res.json();
-                          if (!res.ok || !data.valid) {
-                            setGiftCardError(data.error ?? "That code isn't valid");
+                          // A friend code has a shape of its own; everything else is tried as a gift card
+                          if (looksLikeReferralCode(typed)) {
+                            if (friend) {
+                              setCodeError("One friend code per order — remove the current one first");
+                            } else {
+                              const res = await fetch(`/api/referrals?code=${encodeURIComponent(typed)}`);
+                              const data = await res.json();
+                              if (!res.ok || !data.valid) {
+                                setCodeError(data.error ?? "That code isn't valid");
+                              } else {
+                                setFriend({
+                                  code: data.code,
+                                  firstName: data.firstName ?? null,
+                                  discount: data.shopDiscount ?? 0,
+                                  minBasket: data.minBasket ?? 0,
+                                });
+                                writeReferralCookie(data.code);
+                                trackReferralApply("shop");
+                                setCodeInput("");
+                              }
+                            }
+                          } else if (giftCard) {
+                            setCodeError("One gift card per order — remove the current one first");
                           } else {
-                            setGiftCard({ code: data.code, balance: data.balance });
+                            const res = await fetch(`/api/gift-cards?code=${encodeURIComponent(typed)}`);
+                            const data = await res.json();
+                            if (!res.ok || !data.valid) {
+                              setCodeError(data.error ?? "That code isn't valid");
+                            } else {
+                              setGiftCard({ code: data.code, balance: data.balance });
+                              setCodeInput("");
+                            }
                           }
                         } catch {
-                          setGiftCardError("Could not check that code");
+                          setCodeError("Could not check that code");
                         }
-                        setCheckingCard(false);
+                        setCheckingCode(false);
                       }}
                       className="flex gap-2"
                     >
                       <input
                         type="text"
-                        value={giftCardCode}
-                        onChange={(e) => setGiftCardCode(e.target.value.toUpperCase().slice(0, 30))}
-                        placeholder="Gift card code"
-                        aria-label="Gift card code"
+                        value={codeInput}
+                        onChange={(e) => setCodeInput(e.target.value.toUpperCase().slice(0, 30))}
+                        placeholder={giftCard ? "Friend code" : friend ? "Gift card code" : "Gift card or friend code"}
+                        aria-label="Gift card or friend code"
                         className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
                       />
                       <button
                         type="submit"
-                        disabled={checkingCard || giftCardCode.length < 4}
+                        disabled={checkingCode || codeInput.trim().length < 4}
                         className="shrink-0 px-3 py-2 rounded-lg bg-lavender/20 hover:bg-lavender/30 text-charcoal text-xs font-medium transition-colors disabled:opacity-50"
                       >
-                        {checkingCard ? "…" : "Apply"}
+                        {checkingCode ? "…" : "Apply"}
                       </button>
                     </form>
                   )}
-                  {giftCardError && <p className="text-[11px] text-red-500 mt-1">{giftCardError}</p>}
+                  {codeError && <p className="text-[11px] text-red-500 mt-1">{codeError}</p>}
                 </div>
 
                 {/* Total */}

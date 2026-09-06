@@ -92,6 +92,70 @@ export const siteSettings = defineType({
       placeholder: "Write a short note to include with the gift card…",
     }),
 
+    /* ── Beautasy Friends ── */
+    defineField({
+      name: "referral",
+      title: "Beautasy Friends (Give £5, get £5)",
+      type: "object",
+      description:
+        "The refer-a-friend programme. Friends get money off their first order or first alteration; the person who sent them earns credit to spend in the shop or at the atelier. Amounts are in pence: 500 = £5.",
+      fields: [
+        defineField({
+          name: "enabled",
+          title: "Programme On",
+          type: "boolean",
+          initialValue: true,
+          description: "Off: links still open, but no discounts are given and no credit is earned.",
+        }),
+        defineField({
+          name: "friendShopDiscount",
+          title: "Friend's Discount In The Shop (pence)",
+          type: "number",
+          initialValue: 500,
+          validation: (Rule) => Rule.required().min(0),
+        }),
+        defineField({
+          name: "friendMinBasket",
+          title: "Smallest Basket For It (pence)",
+          type: "number",
+          initialValue: 1500,
+          description: "e.g. 1500 = the friend discount needs a £15 basket. 0 = no minimum.",
+          validation: (Rule) => Rule.required().min(0),
+        }),
+        defineField({
+          name: "friendAtelierDiscount",
+          title: "Friend's Discount At The Atelier (pence)",
+          type: "number",
+          initialValue: 500,
+          description: "Taken off by hand when they pay — the booking says so.",
+          validation: (Rule) => Rule.required().min(0),
+        }),
+        defineField({
+          name: "referrerReward",
+          title: "Credit Earned Per Friend (pence)",
+          type: "number",
+          initialValue: 500,
+          validation: (Rule) => Rule.required().min(0),
+        }),
+        defineField({
+          name: "creditValidityMonths",
+          title: "Credit Lasts (months)",
+          type: "number",
+          initialValue: 12,
+          description: "Counted from the last time credit was added.",
+          validation: (Rule) => Rule.required().min(1).max(60),
+        }),
+        defineField({
+          name: "maxRewardsPerYear",
+          title: "Friends Rewarded Per Person Per Year",
+          type: "number",
+          initialValue: 20,
+          description: "Stops a code posted on a voucher site from paying out forever.",
+          validation: (Rule) => Rule.required().min(1),
+        }),
+      ],
+    }),
+
     /* ── Social Links ── */
     defineField({
       name: "socialLinks",

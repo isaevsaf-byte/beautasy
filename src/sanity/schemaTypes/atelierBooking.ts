@@ -25,7 +25,31 @@ export const atelierBooking = defineType({
     defineField({ name: "emailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "phoneSealed", title: "Phone (sealed)", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "notesSealed", title: "Notes (sealed)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailFingerprint", title: "Email Fingerprint", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "service", title: "Service", type: "string", readOnly: true }),
+    defineField({
+      name: "referredBy",
+      title: "Referred By",
+      type: "string",
+      readOnly: true,
+      description: "A friend sent them. Take the friend discount below off when they pay — it is not taken online.",
+    }),
+    defineField({
+      name: "referralDiscount",
+      title: "Friend Discount To Take Off (pence)",
+      type: "number",
+      readOnly: true,
+      description: "e.g. 500 = £5 off this first visit. Marking the booking Done credits the friend who sent them.",
+    }),
+    defineField({
+      name: "referrer",
+      title: "Came Through (Friend Link)",
+      type: "reference",
+      to: [{ type: "referrer" }],
+      weak: true,
+      readOnly: true,
+      hidden: true,
+    }),
     defineField({
       name: "slotStart",
       title: "Booked Slot",
@@ -86,12 +110,18 @@ export const atelierBooking = defineType({
       status: "status",
       date: "preferredDate",
       confirmedFor: "confirmedFor",
+      referralDiscount: "referralDiscount",
+      referredBy: "referredBy",
     },
-    prepare({ title, service, status, date, confirmedFor }) {
+    prepare({ title, service, status, date, confirmedFor, referralDiscount, referredBy }) {
       const when = confirmedFor ? ` · ${confirmedFor}` : date ? ` · asked for ${date}` : "";
+      const friend =
+        typeof referralDiscount === "number" && referralDiscount > 0
+          ? ` · £${(referralDiscount / 100).toFixed(0)} off, sent by ${referredBy ?? "a friend"}`
+          : "";
       return {
         title: `${title ?? "Someone"} — ${service ?? "booking"}`,
-        subtitle: `${status ?? "new"}${when}`,
+        subtitle: `${status ?? "new"}${when}${friend}`,
       };
     },
   },

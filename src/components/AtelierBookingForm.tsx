@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, CheckCircle2, CalendarClock } from "lucide-react";
-import { trackLead } from "@/lib/analytics";
+import { Loader2, CheckCircle2, CalendarClock, Sparkles } from "lucide-react";
+import { trackLead, trackReferralApply } from "@/lib/analytics";
+import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 
 /**
  * Google Ads conversion for a fitting request. Create a "Lead" conversion in
@@ -64,6 +65,33 @@ export default function AtelierBookingForm({
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
+  // A friend's link left its code on this device; the discount is noted on the
+  // booking and taken off when they pay
+  const [friend, setFriend] = useState<{ code: string; firstName: string | null; discount: number } | null>(null);
+  const [referralResult, setReferralResult] = useState<
+    { applied: true; discount: number; referredBy?: string } | { applied: false; reason?: string | null } | null
+  >(null);
+
+  useEffect(() => {
+    const code = readReferralCookie();
+    if (!code) return;
+    let cancelled = false;
+    fetch(`/api/referrals?code=${encodeURIComponent(code)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.valid) {
+          setFriend({ code: data.code, firstName: data.firstName ?? null, discount: data.atelierDiscount ?? 0 });
+        } else {
+          clearReferralCookie();
+        }
+      })
+      .catch(() => {/* no discount is the safe default */});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // The diary
   const [days, setDays] = useState<SlotDay[] | null>(null);
   const [activeDate, setActiveDate] = useState<string | null>(null);
@@ -116,6 +144,7 @@ export default function AtelierBookingForm({
           service,
           notes,
           ...(slot ? { slot } : { preferredDate }),
+          ...(friend ? { referralCode: friend.code } : {}),
         }),
       });
       const data = await res.json();
@@ -130,6 +159,8 @@ export default function AtelierBookingForm({
       }
 
       setConfirmedFor(data.confirmedFor ?? null);
+      setReferralResult(data.referral ?? null);
+      if (data.referral?.applied) trackReferralApply("atelier");
       setStatus("done");
       trackLead({ service, adsConversionLabel: ADS_LEAD_CONVERSION });
     } catch (err) {
@@ -157,6 +188,16 @@ export default function AtelierBookingForm({
               We&apos;ll confirm your appointment by email or WhatsApp shortly.
             </p>
           </>
+        )}
+        {referralResult?.applied && (
+          <p className="text-sm text-charcoal mt-4 inline-flex items-center gap-2">
+            <Sparkles size={14} className="text-lavender" aria-hidden="true" />
+            {pounds(referralResult.discount)} off{referralResult.referredBy ? ` from ${referralResult.referredBy}` : ""} is
+            noted — it comes off when you pay.
+          </p>
+        )}
+        {referralResult && !referralResult.applied && referralResult.reason && (
+          <p className="text-xs text-charcoal-light mt-4 max-w-sm">{referralResult.reason}</p>
         )}
       </div>
     );
@@ -323,6 +364,17 @@ export default function AtelierBookingForm({
           className={`${FIELD_CLASS} resize-none`}
         />
       </div>
+
+      {friend && friend.discount > 0 && (
+        <p className="sm:col-span-2 flex items-start gap-2 text-sm text-charcoal bg-lavender-bg/70 border border-lavender-soft/40 rounded-xl px-4 py-3">
+          <Sparkles size={16} className="text-lavender shrink-0 mt-0.5" aria-hidden="true" />
+          <span>
+            <strong>{pounds(friend.discount)} off your first alteration</strong>
+            {friend.firstName ? `, from ${friend.firstName}` : ""}. It comes off when you pay — first visits only, so
+            we check by email.
+          </span>
+        </p>
+      )}
 
       <div className="sm:col-span-2 flex flex-wrap items-center gap-4">
         <button

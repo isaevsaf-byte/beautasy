@@ -23,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/shop/home`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "weekly", priority: 0.8 },
     { url: `${base}/gift-boxes`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "weekly", priority: 0.8 },
     { url: `${base}/gift-cards`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/refer`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/atelier`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/alterations`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "monthly", priority: 0.85 },
     // The local service pages are the ones competing for "alterations near me",

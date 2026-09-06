@@ -39,6 +39,7 @@ const navLinks = [
 const legalLinks = [
   { label: "About Us", href: "/pages/about-us" },
   { label: "Gift Cards", href: "/gift-cards" },
+  { label: "Give £5, get £5", href: "/refer" },
   { label: "Delivery & Returns", href: "/pages/delivery-and-returns" },
   { label: "Privacy Policy", href: "/pages/privacy-policy" },
   { label: "Contact", href: "/contact" },

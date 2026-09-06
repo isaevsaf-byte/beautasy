@@ -58,6 +58,15 @@ export const structure: StructureResolver = (S) =>
         .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
       S.documentTypeListItem("order").title("Orders"),
       S.documentTypeListItem("review").title("Reviews"),
+
+      S.divider(),
+
+      // "Give £5, get £5": who has a link, and every friend who came through one
+      S.documentTypeListItem("referrer").title("Friend Links"),
+      S.documentTypeListItem("referral").title("Friend Rewards"),
+
+      S.divider(),
+
       S.documentTypeListItem("subscriber").title("Subscribers"),
       S.documentTypeListItem("stockAlert").title("Stock Alerts"),
       S.documentTypeListItem("abandonedCart").title("Abandoned Carts"),

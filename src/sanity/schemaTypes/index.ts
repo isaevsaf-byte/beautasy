@@ -13,6 +13,8 @@ import { giftCard } from "./giftCard";
 import { atelierBooking } from "./atelierBooking";
 import { atelierSchedule } from "./atelierSchedule";
 import { socialPost } from "./socialPost";
+import { referrer } from "./referrer";
+import { referral } from "./referral";
 
 export const schemaTypes = [
   product,
@@ -30,4 +32,6 @@ export const schemaTypes = [
   atelierBooking,
   atelierSchedule,
   socialPost,
+  referrer,
+  referral,
 ];

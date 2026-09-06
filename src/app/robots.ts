@@ -7,7 +7,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/studio/", "/api/", "/sign-in/", "/sign-up/"],
+        // /r/ is a friend's personal landing page — one per person, not a page to find
+        disallow: ["/studio/", "/api/", "/sign-in/", "/sign-up/", "/r/"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

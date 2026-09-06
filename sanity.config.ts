@@ -37,6 +37,7 @@ export default defineConfig({
         "subscriber",
         "stockAlert",
         "abandonedCart",
+        "referrer",
       ];
       if (context.schemaType === "order" || context.schemaType === "atelierBooking") {
         return [...prev, notifyCustomerAction, revealContactAction];

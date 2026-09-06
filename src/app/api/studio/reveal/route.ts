@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanityWriteClient, sanityConfig } from "@/lib/sanity";
 import { open } from "@/lib/pii";
 import { revealCode } from "@/lib/giftCards";
+import { revealReferralCode } from "@/lib/referrals";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { fromThisSite } from "@/lib/sameOrigin";
 
@@ -46,6 +47,7 @@ const SEALED_FIELDS: Record<string, { field: string; label: string }[]> = {
   subscriber: [{ field: "emailSealed", label: "Email" }],
   stockAlert: [{ field: "emailSealed", label: "Email" }],
   abandonedCart: [{ field: "emailSealed", label: "Email" }],
+  referrer: [{ field: "emailSealed", label: "Email" }],
 };
 
 async function isProjectMember(token: string): Promise<boolean> {
@@ -115,6 +117,13 @@ export async function POST(req: NextRequest) {
   if (doc._type === "giftCard") {
     const code = revealCode(doc as { codeSealed?: string });
     if (code) fields.unshift({ label: "Code", value: code });
+  }
+
+  // A Friends link code is sealed the same way — for when someone asks
+  // Kristina "what was my link again?"
+  if (doc._type === "referrer") {
+    const code = revealReferralCode(doc as { codeSealed?: string });
+    if (code) fields.unshift({ label: "Link code", value: code });
   }
 
   if (fields.length === 0) {

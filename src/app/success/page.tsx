@@ -10,6 +10,8 @@ import Footer from "@/components/Footer";
 import { fadeUp, stagger } from "@/components/animations";
 import { useCart } from "@/store/useCart";
 import { trackPurchase } from "@/lib/analytics";
+import { pounds } from "@/lib/friendsLink";
+import FriendsShare from "@/components/FriendsShare";
 
 const ADS_PURCHASE_CONVERSION = "AW-18152477897/AdUTCNCJjKscEMmp489D";
 
@@ -27,6 +29,9 @@ interface OrderSummary {
   total?: number;
   shippingTotal?: number;
   items?: OrderItem[];
+  /** The buyer's own Beautasy Friends link, when the programme is on */
+  friendsCode?: string | null;
+  friendsOffer?: { give: number; get: number } | null;
 }
 
 /* ── Order summary: clears the bag, reports the purchase, and shows the
@@ -72,7 +77,27 @@ function OrderDetails() {
 
   if (!order?.paid || !order.items?.length) return null;
 
+  const give = order.friendsOffer ? pounds(order.friendsOffer.give) : "£5";
+  const get = order.friendsOffer ? pounds(order.friendsOffer.get) : "£5";
+
   return (
+    <>
+    {/* The moment they are most likely to tell someone: their own link, right here */}
+    {order.friendsCode && (
+      <motion.div
+        variants={fadeUp}
+        custom={4}
+        className="bg-lavender-bg rounded-2xl p-6 mb-8 text-left"
+      >
+        <p className="text-xs tracking-[0.2em] uppercase text-charcoal-light mb-2">Give {give}, get {get}</p>
+        <p className="text-sm text-charcoal-light leading-relaxed mb-4">
+          Know someone who&apos;d love a piece made for them, or has a dress that never quite fitted? Send them
+          your link: they get {give} off their first order or first alteration, and {get} of Beautasy credit lands
+          with you when they do.
+        </p>
+        <FriendsShare code={order.friendsCode} />
+      </motion.div>
+    )}
     <motion.div
       variants={fadeUp}
       custom={4}
@@ -110,6 +135,7 @@ function OrderDetails() {
         Handmade to order — please allow 3–5 business days in the atelier before dispatch.
       </p>
     </motion.div>
+    </>
   );
 }
 

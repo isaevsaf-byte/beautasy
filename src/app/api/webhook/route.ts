@@ -14,7 +14,10 @@ import {
 } from "@/lib/giftCards";
 import { deliverGiftCard, emailGiftCardPurchase } from "@/lib/giftCardEmails";
 import { getSiteSettings, DEFAULT_INT_RATE } from "@/lib/siteSettings";
-import { sealOptional, maskEmail, firstNameOf } from "@/lib/pii";
+import { sealOptional, maskEmail, firstNameOf, emailFingerprint } from "@/lib/pii";
+import { friendsBlockHtml, ownLinkFor, referralSettings, rewardReferral } from "@/lib/referrals";
+import { splitDiscount, type ReferralSettings } from "@/lib/referralRules";
+import { pounds } from "@/lib/friendsLink";
 import {
   collectOrdered,
   planStockDecrement,
@@ -89,8 +92,13 @@ function formatItems(items: Stripe.LineItem[]): string {
 }
 
 /* ─── Customer confirmation email (HTML) ─── */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function customerEmailHtml(session: any, items: Stripe.LineItem[]): string {
+function customerEmailHtml(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  session: any,
+  items: Stripe.LineItem[],
+  /** The buyer's own "Give £5, get £5" link, when the programme is on */
+  friends: { code: string; settings: ReferralSettings } | null
+): string {
   const address = formatAddress(shippingOf(session));
   const total = `£${((session.amount_total ?? 0) / 100).toFixed(2)}`;
   const name = shippingOf(session)?.name ?? session.customer_details?.name ?? "there";
@@ -160,6 +168,7 @@ function customerEmailHtml(session: any, items: Stripe.LineItem[]): string {
           <a href="${SITE_URL}/contact" style="color:#9b7fd4;text-decoration:none;">beautasy.co.uk/contact</a>
         </p>
       </div>
+      ${friends ? friendsBlockHtml(friends.code, friends.settings) : ""}
     </div>
 
     <!-- Footer -->
@@ -185,6 +194,11 @@ function adminEmailHtml(session: any, items: Stripe.LineItem[], internationalRat
   const customer = escapeHtml(session.customer_details?.email ?? "Unknown");
   const phone = escapeHtml(session.customer_details?.phone ?? "Not provided");
   const itemList = formatItems(items);
+  // A friend's link brought this order — worth knowing which of them is bringing people in
+  const referralDiscount = Number(session.metadata?.referral_discount ?? 0);
+  const referredBy = session.metadata?.referrer_name
+    ? `<p style="margin:0 0 20px;padding:12px 16px;background:#f7f3ff;border-radius:10px;color:#5e4b9a;font-size:13px;line-height:1.6;">💜 Came through <strong>${escapeHtml(session.metadata.referrer_name)}</strong>'s Friends link${referralDiscount > 0 ? ` — ${pounds(referralDiscount)} off applied` : ""}. Their credit is topped up automatically.</p>`
+    : "";
 
   return `
 <!DOCTYPE html>
@@ -206,6 +220,7 @@ function adminEmailHtml(session: any, items: Stripe.LineItem[], internationalRat
       <p style="margin:0 0 24px;color:#3d3d3d;">${phone}</p>
 
       ${ukRateMismatch ? `<p style="margin:0 0 20px;padding:12px 16px;background:#fff4e5;border-radius:10px;color:#8a5a00;font-size:13px;line-height:1.6;">⚠️ Delivery address is outside the UK (${escapeHtml(country)}) but only £${(shippingPaid / 100).toFixed(2)} of shipping was paid. You may want to ask for the difference before dispatch.</p>` : ""}
+      ${referredBy}
 
       <h2 style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#7a6d9a;margin:0 0 12px;">Delivery Address</h2>
       <p style="margin:0 0 24px;color:#3d3d3d;line-height:1.8;white-space:pre-line;">${address}</p>
@@ -474,7 +489,12 @@ async function spendGiftCard(session: Stripe.Checkout.Session): Promise<void> {
   const cardId = session.metadata?.gift_card_id;
   if (!cardId) return;
 
-  const spent = session.total_details?.amount_discount ?? 0;
+  // One coupon carried both a friend's discount and the card; the friend's
+  // part is not the card's to pay
+  const { giftCard: spent } = splitDiscount(
+    session.total_details?.amount_discount ?? 0,
+    Number(session.metadata?.referral_discount ?? 0) || 0
+  );
   if (spent <= 0) {
     await releaseCard(cardId, session.id);
     return;
@@ -547,6 +567,7 @@ export async function POST(req: NextRequest) {
     }
 
     const customerEmail = session.customer_details?.email;
+    const customerName = shippingOf(session)?.name ?? session.customer_details?.name;
 
     // A gift card purchase is not a normal order — issue the card and stop
     if (session.metadata?.gift_card === "true") {
@@ -566,18 +587,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Save the order to Sanity so signed-in customers can see it in "My Orders".
+    const referrerId = session.metadata?.referrer_id || undefined;
+    const referralDiscount = Number(session.metadata?.referral_discount ?? 0) || 0;
     try {
       await sanityWriteClient.create({
         _type: "order",
         stripeSessionId: session.id,
         userId: session.client_reference_id || undefined,
         // Readable enough to find the order, sealed everywhere it matters
-        displayName: firstNameOf(shippingOf(session)?.name ?? session.customer_details?.name),
+        displayName: firstNameOf(customerName),
         emailHint: maskEmail(customerEmail),
         customerEmailSealed: sealOptional(customerEmail),
-        customerNameSealed: sealOptional(
-          shippingOf(session)?.name ?? session.customer_details?.name
-        ),
+        customerNameSealed: sealOptional(customerName),
+        // Keyed and one-way: what "has this address ordered before?" is asked of
+        emailFingerprint: customerEmail ? emailFingerprint(customerEmail) : undefined,
+        ...(referrerId
+          ? {
+              referrer: { _type: "reference", _ref: referrerId, _weak: true },
+              referredBy: session.metadata?.referrer_name || undefined,
+              referralDiscount: referralDiscount || undefined,
+            }
+          : {}),
         items: items.map((item) => {
           const product = item.price?.product;
           const productId =
@@ -601,6 +631,33 @@ export async function POST(req: NextRequest) {
       console.error("Failed to save order to Sanity:", err);
     }
 
+    // A friend's link brought this order: credit whoever shared it. The event
+    // is keyed on the session, so a retried webhook cannot pay twice.
+    if (referrerId) {
+      try {
+        const outcome = await rewardReferral({
+          kind: "order",
+          referrerId,
+          friend: { name: customerName, email: customerEmail },
+          sourceId: session.id,
+          discount: referralDiscount,
+        });
+        console.log("Referral reward for session", session.id, "→", outcome);
+      } catch (err) {
+        console.error("Failed to reward a referral:", err);
+      }
+    }
+
+    // The buyer gets a link of their own — the confirmation is the moment they
+    // are most likely to tell someone
+    let friends: { code: string; settings: ReferralSettings } | null = null;
+    try {
+      const code = await ownLinkFor(customerName, customerEmail, "order");
+      if (code) friends = { code, settings: await referralSettings() };
+    } catch (err) {
+      console.error("Could not prepare the buyer's Friends link:", err);
+    }
+
     // Keep the ready-made stock counters honest (never blocks made-to-order sales)
     try {
       await decrementStock(items);
@@ -616,7 +673,7 @@ export async function POST(req: NextRequest) {
           to: customerEmail,
           replyTo: KRISTINA_EMAIL,
           subject: "Your Beautasy order is confirmed 💜",
-          html: customerEmailHtml(session, items),
+          html: customerEmailHtml(session, items, friends),
         });
         console.log("Customer confirmation sent to:", customerEmail);
       } catch (err) {

@@ -15,6 +15,15 @@ import {
   reserveCard,
   type SpendableCard,
 } from "@/lib/giftCards";
+import {
+  findReferrerByCode,
+  judgeFriendFor,
+  referralSettings,
+  referralsConfigured,
+  type Referrer,
+} from "@/lib/referrals";
+import { friendShopDiscount, shortOfMinBasket, verdictMessage } from "@/lib/referralRules";
+import { pounds } from "@/lib/friendsLink";
 import type Stripe from "stripe";
 
 /**
@@ -44,6 +53,9 @@ export const dynamic = "force-dynamic";
 
 const GIFTBOX_ADDON_SUFFIX = "-giftbox";
 const MADE_TO_MEASURE_SUFFIX = "-madetomeasure";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Stripe shows a coupon's name at checkout and caps it at forty characters */
+const COUPON_NAME_MAX = 40;
 
 interface CheckoutItem {
   id: string;
@@ -123,6 +135,12 @@ export async function POST(req: NextRequest) {
     const items: CheckoutItem[] = body?.items;
     const giftCardCode: string | undefined =
       typeof body?.giftCardCode === "string" ? body.giftCardCode : undefined;
+    // A friend's link, from the bag: the code the landing page left behind (or
+    // one typed in) and the email the friend will pay under
+    const referralCode: string | undefined =
+      typeof body?.referralCode === "string" && body.referralCode.trim() ? body.referralCode : undefined;
+    const referralEmail: string | undefined =
+      typeof body?.email === "string" ? body.email.trim().toLowerCase() : undefined;
     // Where it's going, chosen in the bag. Stripe shows every shipping option to
     // every customer and can't filter them by address, so a US order could pick
     // the £3.50 UK rate. Deciding the region before the session means only the
@@ -237,10 +255,49 @@ export async function POST(req: NextRequest) {
       ? 0
       : siteSettings.shipping?.ukRate ?? DEFAULT_UK_RATE;
 
+    // A friend's discount is decided here, where it can still be refused, not
+    // in the webhook where the money has already moved. It needs the friend's
+    // email: "first order" and "not your own link" are both checked on it, and
+    // it is then passed to Stripe as the address the order has to be paid under.
+    let friend: { referrer: Referrer; discount: number } | null = null;
+    if (referralCode) {
+      if (!referralsConfigured()) {
+        return NextResponse.json(
+          { error: "Friend discounts are temporarily unavailable. Remove the code to check out.", referralInvalid: true },
+          { status: 503 }
+        );
+      }
+      if (!referralEmail || !EMAIL_RE.test(referralEmail)) {
+        return NextResponse.json(
+          { error: "Add the email you'll check out with, so we can apply the friend discount." },
+          { status: 400 }
+        );
+      }
+      const settings = await referralSettings();
+      const referrer = await findReferrerByCode(referralCode);
+      if (!referrer) {
+        return NextResponse.json({ error: "That friend code isn't valid.", referralInvalid: true }, { status: 400 });
+      }
+      const verdict = await judgeFriendFor({ referrer, friendEmail: referralEmail, kind: "order", settings });
+      if (verdict !== "ok") {
+        return NextResponse.json({ error: verdictMessage(verdict), referralInvalid: true }, { status: 400 });
+      }
+      const discount = friendShopDiscount(subtotal, settings);
+      if (discount <= 0) {
+        return NextResponse.json(
+          {
+            error: `The friend discount needs a basket of ${pounds(settings.friendMinBasket)} or more — add ${pounds(shortOfMinBasket(subtotal, settings))} to use it.`,
+          },
+          { status: 400 }
+        );
+      }
+      friend = { referrer, discount };
+    }
+
     // A gift card pays for part (or all) of the order. Stripe applies a coupon
     // we mint for exactly the redeemable amount; the webhook then deducts what
     // was actually spent, so any remaining balance stays on the card.
-    let giftCardDiscount: { couponId: string; cardId: string; amount: number } | null = null;
+    let giftCardHold: { cardId: string; amount: number } | null = null;
     let card: SpendableCard | null = null;
     if (giftCardCode) {
       card = await findSpendableCard(giftCardCode);
@@ -261,27 +318,57 @@ export async function POST(req: NextRequest) {
           );
         }
       }
-      const amount = redeemableAmount(card, subtotal);
-      if (amount > 0) {
-        const coupon = await stripe.coupons.create({
-          amount_off: amount,
-          currency: "gbp",
-          duration: "once",
-          name: `Gift card …${card.codeHint}`,
-          max_redemptions: 1,
-          metadata: { gift_card_id: card._id, gift_card_hint: card.codeHint },
-        });
-        giftCardDiscount = { couponId: coupon.id, cardId: card._id, amount };
-      }
+      // The friend's £5 comes off first; the card covers what is left
+      const amount = redeemableAmount(card, Math.max(0, subtotal - (friend?.discount ?? 0)));
+      if (amount > 0) giftCardHold = { cardId: card._id, amount };
     }
+
+    // Stripe Checkout takes exactly one discount per session, so a friend's
+    // £5 and a gift card are minted as a single coupon. The webhook divides it
+    // back — friend first, card for the rest — from the metadata below.
+    let discount: { couponId: string; amount: number } | null = null;
+    const discountAmount = Math.min(subtotal, (friend?.discount ?? 0) + (giftCardHold?.amount ?? 0));
+    if (discountAmount > 0) {
+      const parts = [
+        ...(friend ? [`${pounds(friend.discount)} from ${friend.referrer.displayName ?? "a friend"}`] : []),
+        ...(giftCardHold && card ? [`Gift card …${card.codeHint}`] : []),
+      ];
+      const coupon = await stripe.coupons.create({
+        amount_off: discountAmount,
+        currency: "gbp",
+        duration: "once",
+        name: parts.join(" + ").slice(0, COUPON_NAME_MAX),
+        max_redemptions: 1,
+        metadata: {
+          ...(giftCardHold && card ? { gift_card_id: giftCardHold.cardId, gift_card_hint: card.codeHint } : {}),
+          ...(friend ? { referrer_id: friend.referrer._id } : {}),
+        },
+      });
+      discount = { couponId: coupon.id, amount: discountAmount };
+    }
+
+    // What the webhook needs to know about the discount, and about the friend
+    const sessionMetadata: Record<string, string> = {
+      ...(giftCardHold ? { gift_card_id: giftCardHold.cardId } : {}),
+      ...(friend
+        ? {
+            referrer_id: friend.referrer._id,
+            referrer_name: friend.referrer.displayName ?? "",
+            referral_discount: String(friend.discount),
+          }
+        : {}),
+    };
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       currency: "gbp",
       // Stripe allows either a pre-applied discount or a promo code field, not both
-      ...(giftCardDiscount
-        ? { discounts: [{ coupon: giftCardDiscount.couponId }] }
+      ...(discount
+        ? { discounts: [{ coupon: discount.couponId }] }
         : { allow_promotion_codes: true }),
+      // The friend discount was checked against this address, so this is the
+      // address the order is paid under — Stripe will not let it be changed
+      ...(friend && referralEmail ? { customer_email: referralEmail } : {}),
       // Expire in three hours so `checkout.session.expired` fires (and the
       // abandoned-cart reminder goes out) while the decision is still fresh,
       // rather than a day later as Stripe would default to.
@@ -350,9 +437,7 @@ export async function POST(req: NextRequest) {
               },
             ],
       ...(userId ? { client_reference_id: userId } : {}),
-      ...(giftCardDiscount
-        ? { metadata: { gift_card_id: giftCardDiscount.cardId } }
-        : {}),
+      ...(Object.keys(sessionMetadata).length > 0 ? { metadata: sessionMetadata } : {}),
       line_items: pricedItems.map((item) => {
         // Build a descriptive product name including size and colour
         let productName = item.name;
@@ -419,8 +504,8 @@ export async function POST(req: NextRequest) {
     // The card is held for this session before the customer is sent to pay.
     // Losing the race means another checkout read the same card a moment ago
     // and got there first; this session must then never be payable.
-    if (giftCardDiscount && card) {
-      const reserved = await reserveCard(card, session.id, giftCardDiscount.amount, session.expires_at);
+    if (giftCardHold && card) {
+      const reserved = await reserveCard(card, session.id, giftCardHold.amount, session.expires_at);
       if (!reserved) {
         await stripe.checkout.sessions.expire(session.id).catch(() => {});
         return NextResponse.json(

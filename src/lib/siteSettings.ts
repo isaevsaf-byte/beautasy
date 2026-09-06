@@ -1,4 +1,5 @@
 import { sanityClient } from "./sanity";
+import type { ReferralSettings } from "@/lib/referralRules";
 
 export interface SiteSettings {
   announcementBar?: {
@@ -26,6 +27,8 @@ export interface SiteSettings {
     showGooglePay: boolean;
     showAmex: boolean;
   };
+  /** Beautasy Friends — read through referralSettingsFrom() so missing fields keep their defaults */
+  referral?: Partial<ReferralSettings>;
 }
 
 const SITE_SETTINGS_QUERY = `*[_type == "siteSettings"][0]{
@@ -33,7 +36,8 @@ const SITE_SETTINGS_QUERY = `*[_type == "siteSettings"][0]{
   shipping,
   giftCardPlaceholder,
   socialLinks,
-  paymentIcons
+  paymentIcons,
+  referral
 }`;
 
 // Cached at the module level for the lifetime of a server render (ISR-safe)
