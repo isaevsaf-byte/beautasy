@@ -15,7 +15,13 @@ import {
 import { deliverGiftCard, emailGiftCardPurchase } from "@/lib/giftCardEmails";
 import { getSiteSettings, DEFAULT_INT_RATE } from "@/lib/siteSettings";
 import { sealOptional, maskEmail, firstNameOf, emailFingerprint } from "@/lib/pii";
-import { friendsBlockHtml, ownLinkFor, referralSettings, rewardReferral } from "@/lib/referrals";
+import {
+  friendsBlockHtml,
+  ownLinkFor,
+  referralSettings,
+  rewardReferral,
+  reverseReferralReward,
+} from "@/lib/referrals";
 import { splitDiscount, type ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import {
@@ -694,6 +700,41 @@ export async function POST(req: NextRequest) {
       console.log("Admin notification sent to Kristina");
     } catch (err) {
       console.error("Failed to send admin email:", err);
+    }
+  }
+
+  // A refunded order undoes the friend's reward. Without this, paying £15 and
+  // then asking for the money back still leaves £5 of spendable credit on
+  // someone's card — buying money at a discount.
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge;
+
+    // Part of an order coming back is not the order coming undone: the friend
+    // still bought something, so the reward stands.
+    if (charge.amount_refunded < charge.amount) {
+      return NextResponse.json({ received: true, partialRefund: true });
+    }
+
+    try {
+      const paymentIntent =
+        typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+
+      if (paymentIntent) {
+        // The referral event is keyed on the Checkout session, and a charge
+        // only knows its payment intent, so ask Stripe for the session.
+        const stripe = getStripeInstance();
+        const sessions = await stripe.checkout.sessions.list({
+          payment_intent: paymentIntent,
+          limit: 1,
+        });
+        const session = sessions.data[0];
+        if (session) {
+          const outcome = await reverseReferralReward("order", session.id);
+          console.log("Refund of session", session.id, "→ referral", outcome);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to take back a referral reward after a refund:", err);
     }
   }
 

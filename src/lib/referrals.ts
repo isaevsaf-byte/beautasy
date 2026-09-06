@@ -256,6 +256,13 @@ export interface RewardInput {
 }
 
 export type RewardOutcome = FriendVerdict | "duplicate" | "missing" | "unconfigured" | "failed";
+export type ReversalOutcome =
+  | "reversed"
+  | "already-reversed"
+  | "not-found"
+  | "not-rewarded"
+  | "unconfigured"
+  | "failed";
 
 interface Credit {
   cardId: string;
@@ -390,6 +397,101 @@ export async function rewardReferral(input: RewardInput): Promise<RewardOutcome>
   } catch (err) {
     // The event stays "pending" where Kristina can see it in Friend Rewards
     console.error(`Referral ${eventId}: could not credit the reward`, err);
+    return "failed";
+  }
+}
+
+/**
+ * Takes the reward back when the friend's order is refunded.
+ *
+ * Without this, £15 paid and then refunded still leaves £5 of real credit on
+ * someone's card: the cheapest way there is to buy money. The reversal has to
+ * be as careful as the payment was, because Stripe retries refund webhooks and
+ * a second run must not take the £5 twice.
+ *
+ * The event document is the lock. Moving its outcome off "rewarded" is done
+ * with ifRevisionId, so of two callers arriving together exactly one wins the
+ * patch and goes on to touch the money; the loser is told the work is already
+ * done. Only then is the balance changed.
+ *
+ * A partial refund is deliberately not handled here — the caller decides what
+ * counts as the order coming undone.
+ */
+export async function reverseReferralReward(
+  kind: "order" | "booking",
+  sourceId: string
+): Promise<ReversalOutcome> {
+  if (!referralsConfigured()) return "unconfigured";
+
+  const eventId = eventIdFor(kind, sourceId);
+  const event = await sanityWriteClient.fetch<{
+    _id: string;
+    _rev: string;
+    outcome?: string;
+    reward?: number;
+    referrer?: { _ref?: string };
+  } | null>(`*[_id == $id][0]{ _id, _rev, outcome, reward, referrer }`, { id: eventId });
+
+  if (!event) return "not-found";
+  if (event.outcome === "reversed") return "already-reversed";
+  if (event.outcome !== "rewarded") return "not-rewarded";
+
+  const reward = event.reward ?? 0;
+  const now = new Date().toISOString();
+
+  // Claim the reversal before moving a penny. Losing this race means someone
+  // else is already doing it, which is the right answer, not an error.
+  try {
+    await sanityWriteClient
+      .patch(event._id)
+      .ifRevisionId(event._rev)
+      .set({ outcome: "reversed", reversedAt: now })
+      .commit();
+  } catch {
+    return "already-reversed";
+  }
+
+  if (reward <= 0) return "reversed";
+
+  try {
+    const referrerId = event.referrer?._ref;
+    const referrer = referrerId ? await findReferrerById(referrerId) : null;
+    const cardId = referrer?.creditCard?._ref;
+
+    if (cardId) {
+      const card = await sanityWriteClient.fetch<{ balance?: number; initialAmount?: number } | null>(
+        `*[_id == $id][0]{ balance, initialAmount }`,
+        { id: cardId }
+      );
+      // Only what is still there can be taken back: credit already spent on a
+      // real order is Kristina's cost of the refund, not a debt to chase.
+      const take = Math.max(0, Math.min(reward, card?.balance ?? 0));
+      if (take > 0) {
+        await sanityWriteClient
+          .patch(cardId)
+          .dec({ balance: take, initialAmount: Math.min(take, card?.initialAmount ?? take) })
+          .commit();
+      }
+    }
+
+    if (referrerId) {
+      const current = await sanityWriteClient.fetch<{ rewardsCount?: number } | null>(
+        `*[_id == $id][0]{ rewardsCount }`,
+        { id: referrerId }
+      );
+      // The yearly cap counts rewards, so a reversed one must stop counting —
+      // otherwise a refunded order quietly uses up someone's allowance.
+      await sanityWriteClient
+        .patch(referrerId)
+        .set({ rewardsCount: Math.max(0, (current?.rewardsCount ?? 1) - 1) })
+        .commit();
+    }
+
+    return "reversed";
+  } catch (err) {
+    // The event already reads "reversed", so nothing will try to take the
+    // money twice; what is left is a card Kristina can correct by hand.
+    console.error(`Referral ${eventId}: could not take the reward back`, err);
     return "failed";
   }
 }

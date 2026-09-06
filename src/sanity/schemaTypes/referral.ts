@@ -50,6 +50,7 @@ export const referral = defineType({
       options: {
         list: [
           { title: "Rewarded", value: "rewarded" },
+          { title: "Taken back — the order was refunded", value: "reversed" },
           { title: "Pending — crediting", value: "pending" },
           { title: "Not rewarded: own email", value: "self" },
           { title: "Not rewarded: not their first time", value: "repeat" },
@@ -61,13 +62,23 @@ export const referral = defineType({
     }),
     defineField({ name: "claim", title: "Claim", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "rewardEmailedAt", title: "Reward Email Sent", type: "datetime", readOnly: true }),
+    defineField({
+      name: "reversedAt",
+      title: "Reward Taken Back",
+      type: "datetime",
+      readOnly: true,
+      description: "Set when the friend's order was refunded and the credit was withdrawn.",
+    }),
     defineField({ name: "createdAt", title: "Created At", type: "datetime", readOnly: true }),
   ],
   preview: {
     select: { friend: "friendName", via: "referrer.displayName", outcome: "outcome", kind: "kind", reward: "reward" },
     prepare({ friend, via, outcome, kind, reward }) {
       const what = kind === "booking" ? "came to the atelier" : "ordered";
-      const credited = typeof reward === "number" && reward > 0 ? ` · £${(reward / 100).toFixed(0)} to ${via ?? "the referrer"}` : "";
+      const credited =
+        outcome !== "reversed" && typeof reward === "number" && reward > 0
+          ? ` · £${(reward / 100).toFixed(0)} to ${via ?? "the referrer"}`
+          : "";
       return {
         title: `${friend ?? "A friend"} ${what} via ${via ?? "a link"}`,
         subtitle: `${outcome ?? "pending"}${credited}`,
