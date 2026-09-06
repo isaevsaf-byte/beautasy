@@ -12,6 +12,12 @@
  *
  *   META_TOKEN='EAA...' node scripts/find-instagram-id.mjs
  *
+ * Meta hands out several ids that look alike — a Page, a business portfolio
+ * and an Instagram account are all long numbers. Pass one to find out which
+ * of them you are holding:
+ *
+ *   META_TOKEN='EAA...' node scripts/find-instagram-id.mjs 15644994432119909
+ *
  * It only reads. It publishes nothing and changes nothing.
  */
 
@@ -77,6 +83,51 @@ try {
     if (missing.length) {
       console.log(`\n  ⚠ Missing, publishing will fail: ${missing.join(", ")}`);
     }
+  }
+
+  // Asked about one specific id: say what it actually is and stop
+  const subject = process.argv[2];
+  if (subject) {
+    console.log(`\n  Asking Meta what ${subject} is…\n`);
+    const attempts = [
+      ["an Instagram account", "username,name,account_type,followers_count"],
+      ["a Facebook Page", "name,category,instagram_business_account{id,username}"],
+      ["a business portfolio", "name,verification_status"],
+    ];
+    for (const [what, fields] of attempts) {
+      try {
+        const found = await graph(subject, fields);
+        if (found.username) {
+          console.log(`  It is ${what}: @${found.username}`);
+          console.log(`  Type: ${found.account_type ?? "?"}\n`);
+          console.log(`  ── This is the one for Vercel ──`);
+          console.log(`  IG_USER_ID = ${subject}\n`);
+        } else if (found.category) {
+          const ig = found.instagram_business_account;
+          console.log(`  It is ${what}: ${found.name}`);
+          console.log(
+            ig
+              ? `  Instagram linked to it: @${ig.username ?? "?"} — that id is the one you want: ${ig.id}\n`
+              : `  No Instagram account is linked to it. Link it in Business settings first.\n`
+          );
+        } else {
+          console.log(`  It looks like ${what}: ${found.name ?? subject}`);
+          console.log(`  Not what goes in IG_USER_ID — that has to be the Instagram account itself.\n`);
+        }
+        process.exit(0);
+      } catch {
+        // Not that kind of object, or this token cannot see it — try the next
+      }
+    }
+    console.log(`  This token cannot see ${subject} at all.
+
+  Usually that means the id belongs to a business portfolio the token has no
+  access to, or the account was never added to the app. Run without an id to
+  see everything the token *can* reach:
+
+    META_TOKEN='…' node scripts/find-instagram-id.mjs
+`);
+    process.exit(1);
   }
 
   const pages = (await graph("me/accounts", "id,name,instagram_business_account{id,username}"))?.data ?? [];
