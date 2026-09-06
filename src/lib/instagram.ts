@@ -99,6 +99,67 @@ async function diagnose(creds: { userId: string; token: string }) {
   };
 }
 
+/**
+ * The same question asked of the business portfolios.
+ *
+ * me/accounts only lists Pages the person granted this app directly. An
+ * account owned by a business portfolio is invisible there even when every
+ * permission is in place, which is exactly the case that looks like "nothing
+ * is connected" while the account sits right there in Business settings.
+ */
+async function discoverViaBusinesses(creds: { token: string }): Promise<ConnectionReport["candidates"]> {
+  const ask = async (path: string, fields: string) => {
+    try {
+      const res = await fetch(
+        `${GRAPH}/${path}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(creds.token)}`,
+        { cache: "no-store" }
+      );
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const businesses = (await ask("me/businesses", "id,name"))?.data ?? [];
+  const found: NonNullable<ConnectionReport["candidates"]> = [];
+
+  for (const business of businesses as { id: string; name: string }[]) {
+    const detail = await ask(
+      business.id,
+      "name,owned_instagram_accounts{id,username},client_instagram_accounts{id,username},owned_pages{id,name,instagram_business_account{id,username}},client_pages{id,name,instagram_business_account{id,username}}"
+    );
+    if (!detail) continue;
+
+    for (const key of ["owned_instagram_accounts", "client_instagram_accounts"] as const) {
+      for (const account of (detail[key]?.data ?? []) as { id: string; username?: string }[]) {
+        found.push({
+          page: `${business.name} → ${key === "owned_instagram_accounts" ? "owned" : "client"} Instagram`,
+          pageId: business.id,
+          instagramId: account.id,
+          username: account.username,
+        });
+      }
+    }
+
+    for (const key of ["owned_pages", "client_pages"] as const) {
+      for (const page of (detail[key]?.data ?? []) as {
+        id: string;
+        name: string;
+        instagram_business_account?: { id: string; username?: string };
+      }[]) {
+        found.push({
+          page: `${business.name} → ${page.name}`,
+          pageId: page.id,
+          instagramId: page.instagram_business_account?.id,
+          username: page.instagram_business_account?.username,
+        });
+      }
+    }
+  }
+
+  return found;
+}
+
 /** Pages this token can reach, and the Instagram account on each. */
 async function discoverAccounts(creds: { token: string }): Promise<ConnectionReport["candidates"]> {
   try {
@@ -109,12 +170,14 @@ async function discoverAccounts(creds: { token: string }): Promise<ConnectionRep
     const body = (await res.json().catch(() => ({}))) as {
       data?: { id: string; name: string; instagram_business_account?: { id: string; username?: string } }[];
     };
-    return (body.data ?? []).map((page) => ({
+    const pages = (body.data ?? []).map((page) => ({
       page: page.name,
       pageId: page.id,
       instagramId: page.instagram_business_account?.id,
       username: page.instagram_business_account?.username,
     }));
+    if (pages.length > 0) return pages;
+    return await discoverViaBusinesses(creds);
   } catch {
     return undefined;
   }
