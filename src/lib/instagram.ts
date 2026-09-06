@@ -391,23 +391,145 @@ async function graphPost(
   return { ok: true, data };
 }
 
-/** Containers are usually ready at once, but a large image can take a moment. */
+/** What a container is doing, without deciding what to do about it. */
+export type ContainerState = "ready" | "working" | "failed";
+
+async function containerState(
+  base: string,
+  creationId: string,
+  token: string
+): Promise<{ state: ContainerState; error?: string }> {
+  try {
+    const res = await fetch(
+      `${base}/${creationId}?fields=status_code,status&access_token=${encodeURIComponent(token)}`,
+      { cache: "no-store" }
+    );
+    const data = (await res.json().catch(() => ({}))) as { status_code?: string; status?: string };
+    if (data.status_code === "FINISHED") return { state: "ready" };
+    if (data.status_code === "ERROR" || data.status_code === "EXPIRED") {
+      return { state: "failed", error: data.status ?? "Instagram could not process the upload" };
+    }
+    return { state: "working" };
+  } catch {
+    return { state: "working" };
+  }
+}
+
+/**
+ * Waits for a container, for as long as it is worth waiting.
+ *
+ * A photo is ready almost at once. A Reel is transcoded, which routinely takes
+ * longer than the sixty seconds a Vercel function is allowed to live — so the
+ * budget is passed in, and running out is reported as "still working" rather
+ * than as a failure. Publishing a Reel is finished by a later run, not
+ * abandoned.
+ */
 async function waitForContainer(
   base: string,
   creationId: string,
   token: string,
-  attempts = 5
-): Promise<string | null> {
-  for (let i = 0; i < attempts; i++) {
-    const res = await fetch(
-      `${base}/${creationId}?fields=status_code&access_token=${encodeURIComponent(token)}`
-    );
-    const data = (await res.json().catch(() => ({}))) as { status_code?: string };
-    if (data.status_code === "FINISHED") return null;
-    if (data.status_code === "ERROR") return "Instagram could not process the picture";
-    await new Promise((r) => setTimeout(r, 2000));
+  budgetMs = 10_000
+): Promise<ContainerState> {
+  const until = Date.now() + budgetMs;
+  let wait = 1500;
+  for (;;) {
+    const { state } = await containerState(base, creationId, token);
+    if (state !== "working") return state;
+    if (Date.now() + wait >= until) return "working";
+    await new Promise((r) => setTimeout(r, wait));
+    wait = Math.min(wait * 1.5, 6000);
   }
-  return "The picture was still processing after 10 seconds";
+}
+
+export interface ReelStart {
+  ok: boolean;
+  /** The upload Instagram is preparing. Kept so a later run can finish it. */
+  creationId?: string;
+  /** True when Instagram finished transcoding inside our budget */
+  ready?: boolean;
+  error?: string;
+  skipped?: "not-configured";
+}
+
+/**
+ * Begins a Reel, and finishes it only if Instagram is quick about it.
+ *
+ * Video is the one thing here that does not fit inside a request. Instagram
+ * transcodes before it will publish, and that regularly outlasts the sixty
+ * seconds a function on this plan is given — so this is deliberately two
+ * halves. Starting the upload always succeeds or fails cleanly; whether the
+ * publish happens now or on the next run is Instagram's business, not the
+ * caller's.
+ *
+ * The cover comes from the post's own picture, so a Reel opens on a frame
+ * Kristina chose rather than whatever the first frame happens to be.
+ */
+export async function startReel(
+  videoUrl: string,
+  caption: string,
+  coverUrl?: string,
+  budgetMs = 35_000
+): Promise<ReelStart> {
+  const creds = credentials();
+  if (!creds) return { ok: false, skipped: "not-configured", error: "Instagram is not connected" };
+
+  const account = await resolveAccount(creds);
+  if ("error" in account) return { ok: false, error: account.error };
+
+  const container = await graphPost(account.base, `${account.id}/media`, {
+    media_type: "REELS",
+    video_url: videoUrl,
+    caption,
+    // Without this a Reel appears only under the Reels tab, and the people who
+    // already follow the shop never see it in their feed.
+    share_to_feed: "true",
+    ...(coverUrl ? { cover_url: coverUrl } : {}),
+    access_token: creds.token,
+  });
+  if (!container.ok) return { ok: false, error: container.error };
+
+  const creationId = String(container.data.id ?? "");
+  if (!creationId) return { ok: false, error: "Instagram did not return a container id" };
+
+  const state = await waitForContainer(account.base, creationId, creds.token, budgetMs);
+  if (state === "failed") return { ok: false, creationId, error: "Instagram could not process the video" };
+
+  return { ok: true, creationId, ready: state === "ready" };
+}
+
+/**
+ * Publishes a container that is already prepared — the second half of a Reel,
+ * and the whole of resuming one that was still transcoding last time.
+ */
+export async function finishReel(creationId: string): Promise<PublishResult> {
+  const creds = credentials();
+  if (!creds) return { ok: false, skipped: "not-configured", error: "Instagram is not connected" };
+
+  const account = await resolveAccount(creds);
+  if ("error" in account) return { ok: false, error: account.error };
+
+  const state = await waitForContainer(account.base, creationId, creds.token, 8_000);
+  if (state === "failed") return { ok: false, error: "Instagram could not process the video" };
+  if (state === "working") return { ok: false, error: "still-processing" };
+
+  const published = await graphPost(account.base, `${account.id}/media_publish`, {
+    creation_id: creationId,
+    access_token: creds.token,
+  });
+  if (!published.ok) return { ok: false, error: published.error };
+
+  const mediaId = String(published.data.id ?? "");
+  let permalink: string | undefined;
+  try {
+    const res = await fetch(
+      `${account.base}/${mediaId}?fields=permalink&access_token=${encodeURIComponent(creds.token)}`
+    );
+    permalink = ((await res.json()) as { permalink?: string }).permalink;
+  } catch {
+    permalink = undefined;
+  }
+
+  return { ok: true, mediaId, permalink };
 }
 
 /**
@@ -434,8 +556,9 @@ export async function publishToInstagram(
   const creationId = String(container.data.id ?? "");
   if (!creationId) return { ok: false, error: "Instagram did not return a container id" };
 
-  const notReady = await waitForContainer(account.base, creationId, creds.token);
-  if (notReady) return { ok: false, error: notReady };
+  const state = await waitForContainer(account.base, creationId, creds.token);
+  if (state === "failed") return { ok: false, error: "Instagram could not process the picture" };
+  if (state === "working") return { ok: false, error: "The picture was still processing" };
 
   const published = await graphPost(account.base, `${account.id}/media_publish`, {
     creation_id: creationId,

@@ -14,13 +14,42 @@ export const socialPost = defineType({
   type: "document",
   fields: [
     defineField({
+      name: "format",
+      title: "Photo or Reel",
+      type: "string",
+      options: {
+        list: [
+          { title: "Photo — goes in the feed", value: "photo" },
+          { title: "Reel — a video, shown to people who don't follow you", value: "reel" },
+        ],
+        layout: "radio",
+      },
+      initialValue: "photo",
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
       name: "image",
       title: "Picture",
       type: "image",
       description:
-        "What people will see. Instagram needs a JPEG or PNG — square or 4:5 works best.",
+        "What people will see. Instagram needs a JPEG or PNG — square or 4:5 works best. On a Reel this becomes the cover.",
       options: { hotspot: true },
       validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: "video",
+      title: "Video",
+      type: "file",
+      options: { accept: "video/mp4" },
+      description:
+        "MP4, upright (9:16), 3 seconds to 15 minutes, under 300MB. The film in the video/ folder renders exactly this.",
+      hidden: ({ parent }) => parent?.format !== "reel",
+      validation: (Rule) =>
+        Rule.custom((value, context) => {
+          const parent = context.parent as { format?: string } | undefined;
+          if (parent?.format === "reel" && !value) return "A Reel needs a video.";
+          return true;
+        }),
     }),
     defineField({
       name: "caption",
@@ -105,6 +134,15 @@ export const socialPost = defineType({
       title: "Link To The Post",
       type: "url",
       readOnly: true,
+    }),
+    defineField({
+      name: "igCreationId",
+      title: "Instagram Container",
+      type: "string",
+      readOnly: true,
+      hidden: true,
+      description:
+        "Instagram spends up to several minutes preparing a video, which is longer than one run of the publisher lasts. The half-finished upload is remembered here so the next run can finish it rather than start again.",
     }),
     defineField({
       name: "lastError",

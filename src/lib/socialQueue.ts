@@ -6,7 +6,7 @@ import {
   generateCaptionsWithClaude,
   type CaptionSource,
 } from "@/lib/socialCaptions";
-import { publishToInstagram, instagramConfigured } from "@/lib/instagram";
+import { publishToInstagram, startReel, finishReel, instagramConfigured } from "@/lib/instagram";
 
 /**
  * The queue between "a product exists" and "a post went out".
@@ -137,6 +137,11 @@ interface DuePost {
   hashtags?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   image?: any;
+  format?: "photo" | "reel";
+  /** Sanity's own CDN url for the uploaded file — public, which is what Instagram needs */
+  videoUrl?: string;
+  /** An upload Instagram was still transcoding when the last run ended */
+  igCreationId?: string;
 }
 
 /**
@@ -151,12 +156,32 @@ const DUE_POSTS = `*[
   && !defined(publishedAt)
   && (!defined(scheduledFor) || scheduledFor <= $now)
 ] | order(coalesce(scheduledFor, createdAt) asc)[0...$limit]{
-  _id, _rev, caption, hashtags, image
+  _id, _rev, caption, hashtags, image, format,
+  "videoUrl": video.asset->url,
+  igCreationId
 }`;
 
 const ONE_POST = `*[_type == "socialPost" && !(_id in path("drafts.**")) && _id == $id && status == "approved" && !defined(publishedAt)][0]{
-  _id, _rev, caption, hashtags, image
+  _id, _rev, caption, hashtags, image, format,
+  "videoUrl": video.asset->url,
+  igCreationId
 }`;
+
+/**
+ * Reels caught mid-transcode.
+ *
+ * A video left on "publishing" with a container id is not stuck — it is
+ * waiting on Instagram, and the only thing to do is ask again. Without this
+ * query every Reel would have to be finished by hand, because a post on
+ * "publishing" belongs to no other list.
+ */
+const RESUMABLE = `*[
+  _type == "socialPost"
+  && !(_id in path("drafts.**"))
+  && status == "publishing"
+  && defined(igCreationId)
+  && !defined(publishedAt)
+] | order(createdAt asc)[0...$limit]{ _id, _rev, igCreationId }`;
 
 export interface PublishSummary {
   published: number;
@@ -233,13 +258,20 @@ async function record(
 
 async function publishOne(post: DuePost) {
   const caption = post.hashtags ? `${post.caption}\n\n${post.hashtags}` : post.caption;
+  const isReel = post.format === "reel";
+
+  if (isReel && !post.videoUrl) {
+    return { id: post._id, ok: false, error: "This Reel has no video uploaded" };
+  }
 
   let imageUrl: string;
   try {
     imageUrl = instagramImages
       .image(post.image)
+      // A Reel is upright and its cover has to match, or Instagram crops the
+      // middle out of a picture that was chosen for its edges.
       .width(1080)
-      .height(1350)
+      .height(isReel ? 1920 : 1350)
       .fit("crop")
       .format("jpg")
       .url();
@@ -255,6 +287,8 @@ async function publishOne(post: DuePost) {
       error: "Another run is already sending this one",
     };
   }
+
+  if (isReel) return await publishReel(post, caption, imageUrl);
 
   const result = await publishToInstagram(imageUrl, caption);
 
@@ -286,6 +320,88 @@ async function publishOne(post: DuePost) {
   };
 }
 
+/**
+ * A Reel, which may not finish in this run.
+ *
+ * Instagram transcodes video before it will publish, and that often outlasts
+ * the function. Rather than fail a post that is going perfectly well, the
+ * container id is written down and the post is left on "publishing" — the
+ * status it already uses for "on its way" — so the next run picks it up. The
+ * claim taken before any of this is what stops two runs uploading the same
+ * film twice.
+ */
+async function publishReel(post: DuePost, caption: string, coverUrl: string) {
+  const started = await startReel(post.videoUrl!, caption, coverUrl);
+
+  if (!started.ok || !started.creationId) {
+    await record(post._id, { status: "failed", lastError: started.error ?? "Unknown error" });
+    return { id: post._id, ok: false, error: started.error };
+  }
+
+  // Written before publishing, so a crash between the two leaves something to
+  // resume rather than an upload nobody can find again.
+  await record(post._id, { igCreationId: started.creationId });
+
+  const result = await finishReel(started.creationId);
+
+  if (!result.ok && result.error === "still-processing") {
+    return {
+      id: post._id,
+      ok: false,
+      skipped: true,
+      error: "Instagram is still preparing the video — the next run will finish it",
+    };
+  }
+
+  const recorded = result.ok
+    ? await record(
+        post._id,
+        { status: "published", publishedAt: new Date().toISOString(), permalink: result.permalink },
+        ["lastError", "igCreationId"]
+      )
+    : await record(post._id, { status: "failed", lastError: result.error ?? "Unknown error" }, [
+        "igCreationId",
+      ]);
+
+  return {
+    id: post._id,
+    ok: result.ok,
+    permalink: result.permalink,
+    error:
+      result.ok && !recorded
+        ? "Posted, but saving the status failed — it is still showing as Publishing"
+        : result.error,
+  };
+}
+
+/** Finishes Reels that Instagram was still transcoding when a run ended. */
+async function resumeReels(limit: number): Promise<PublishSummary["posts"]> {
+  const waiting = await sanityWriteClient.fetch<
+    { _id: string; _rev: string; igCreationId: string }[]
+  >(RESUMABLE, { limit });
+
+  const done: PublishSummary["posts"] = [];
+  for (const post of waiting) {
+    const result = await finishReel(post.igCreationId);
+
+    if (!result.ok && result.error === "still-processing") continue;
+
+    if (result.ok) {
+      await record(
+        post._id,
+        { status: "published", publishedAt: new Date().toISOString(), permalink: result.permalink },
+        ["lastError", "igCreationId"]
+      );
+    } else {
+      await record(post._id, { status: "failed", lastError: result.error ?? "Unknown error" }, [
+        "igCreationId",
+      ]);
+    }
+    done.push({ id: post._id, ok: result.ok, permalink: result.permalink, error: result.error });
+  }
+  return done;
+}
+
 /** Sends out everything approved and due. */
 export async function publishDuePosts(limit = 5): Promise<PublishSummary> {
   if (!process.env.SANITY_API_WRITE_TOKEN) {
@@ -295,12 +411,16 @@ export async function publishDuePosts(limit = 5): Promise<PublishSummary> {
     return { published: 0, failed: 0, skipped: "Instagram is not connected", posts: [] };
   }
 
+  // Finishing comes before starting: a Reel already uploaded is closer to
+  // being published than anything still in the queue, and leaving it for later
+  // is how a video sits on "publishing" for a day.
+  const posts: PublishSummary["posts"] = await resumeReels(limit);
+
   const due = await sanityWriteClient.fetch<DuePost[]>(DUE_POSTS, {
     now: new Date().toISOString(),
     limit,
   });
 
-  const posts = [];
   for (const post of due) {
     posts.push(await publishOne(post));
   }

@@ -34,6 +34,17 @@ export const structure: StructureResolver = (S) =>
             .defaultOrdering([{ field: "scheduledFor", direction: "asc" }])
         ),
       S.listItem()
+        .title("Reels")
+        .child(
+          S.documentList()
+            .title("Video posts")
+            // Reels are their own job: a video has to be rendered and uploaded
+            // before it can be approved, so they collect here rather than
+            // sitting among photos that are ready to go in one click.
+            .filter('_type == "socialPost" && format == "reel"')
+            .defaultOrdering([{ field: 'createdAt', direction: 'desc' }])
+        ),
+      S.listItem()
         .title("Posted already")
         .child(
           S.documentList()
