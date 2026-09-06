@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { productionTimeLabel } from "@/lib/productionTime";
 import {
   ChevronLeft,
   ChevronRight,
@@ -574,10 +575,10 @@ export default function ProductDetail({
                     </span>
                   ) : null;
                 })}
-                {product.productionTime && (
+                {productionTimeLabel(product.productionTime) && (
                   <span className="flex items-center gap-1 text-xs text-charcoal-light">
                     <Package size={12} className="text-lavender" />
-                    {product.productionTime} production
+                    Made in {productionTimeLabel(product.productionTime)}
                   </span>
                 )}
               </div>

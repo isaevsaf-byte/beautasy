@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { productionTimeLabel } from "@/lib/productionTime";
 
 /**
  * Writing the words that go under the picture.
@@ -50,7 +51,8 @@ export function buildCaptionOptions(product: CaptionSource): string[] {
   const price = formatPrice(product.price);
   const what = product.name;
   const colour = product.color ? `${product.color.toLowerCase()} ` : "";
-  const madeTime = product.productionTime ? ` Made to order in ${product.productionTime}.` : "";
+  const made = productionTimeLabel(product.productionTime);
+  const madeTime = made ? ` Made to order in ${made}.` : "";
 
   const options = [
     // The maker's hands
@@ -111,7 +113,9 @@ export async function generateCaptionsWithClaude(
     product.subcategory ? `Subcategory: ${product.subcategory}` : null,
     price ? `Price: ${price}` : null,
     product.color ? `Colour: ${product.color}` : null,
-    product.productionTime ? `Made to order in: ${product.productionTime}` : null,
+    productionTimeLabel(product.productionTime)
+      ? `Made to order in: ${productionTimeLabel(product.productionTime)}`
+      : null,
     product.madeToMeasureAvailable ? "Can be made to the customer's measurements." : null,
     product.description ? `Description from the shop: ${product.description}` : null,
   ]
