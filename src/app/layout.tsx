@@ -66,6 +66,12 @@ export const metadata: Metadata = {
       },
     ],
   },
+  // Proof to a platform that this domain is ours, so Pins made from the shop
+  // carry the Beautasy name and its analytics come back to us. Public by
+  // design — it is meant to be read by anyone who views the source.
+  verification: {
+    other: { "p:domain_verify": "3cac142afd3077ef4fb7bc5dab4807e5" },
+  },
   twitter: {
     card: "summary_large_image",
     title: "BEAUTASY — Handmade Lingerie & Accessories | Southampton",
