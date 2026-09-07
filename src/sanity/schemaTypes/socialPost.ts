@@ -91,6 +91,28 @@ export const socialPost = defineType({
       initialValue: "product",
     }),
     defineField({
+      name: "pinToPinterest",
+      title: "Also pin this to Pinterest",
+      type: "boolean",
+      initialValue: true,
+      description:
+        "An Instagram post is gone in a day; a Pin is still being found next year, and it carries a link to the product. Turn this off for anything that isn't worth keeping.",
+    }),
+    defineField({
+      name: "pinUrl",
+      title: "The Pin",
+      type: "url",
+      readOnly: true,
+    }),
+    defineField({
+      name: "pinError",
+      title: "Pinterest Said",
+      type: "string",
+      readOnly: true,
+      description:
+        "Filled in only when a Pin could not be made. The Instagram post still went out — the two are independent on purpose.",
+    }),
+    defineField({
       name: "product",
       title: "About this product",
       type: "reference",

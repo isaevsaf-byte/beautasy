@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkConnection } from "@/lib/instagram";
+import { checkPinterest } from "@/lib/pinterest";
 import { fromThisSite } from "@/lib/sameOrigin";
 
 export const dynamic = "force-dynamic";
@@ -26,9 +27,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not for you" }, { status: 403 });
   }
 
-  const report = await checkConnection();
-  return NextResponse.json(report, {
-    status: report.configured && !report.error ? 200 : 503,
-    headers: { "Cache-Control": "no-store" },
-  });
+  const [instagram, pinterest] = await Promise.all([checkConnection(), checkPinterest()]);
+
+  // Instagram decides the status code. Pinterest is the second channel: not
+  // having it is a shop that posts less, not a shop that is broken.
+  return NextResponse.json(
+    { ...instagram, pinterest },
+    {
+      status: instagram.configured && !instagram.error ? 200 : 503,
+      headers: { "Cache-Control": "no-store" },
+    }
+  );
 }

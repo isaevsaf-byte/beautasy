@@ -7,6 +7,8 @@ import {
   type CaptionSource,
 } from "@/lib/socialCaptions";
 import { publishToInstagram, startReel, finishReel, instagramConfigured } from "@/lib/instagram";
+import { createPin, pinTextFrom, pinterestConfigured } from "@/lib/pinterest";
+import { SITE_URL } from "@/lib/site";
 
 /**
  * The queue between "a product exists" and "a post went out".
@@ -138,6 +140,11 @@ interface DuePost {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   image?: any;
   format?: "photo" | "reel";
+  pinToPinterest?: boolean;
+  /** The product page a Pin points at — the whole reason Pinterest is worth doing */
+  productSlug?: string;
+  productName?: string;
+  productCategory?: string;
   /** Sanity's own CDN url for the uploaded file — public, which is what Instagram needs */
   videoUrl?: string;
   /** An upload Instagram was still transcoding when the last run ended */
@@ -156,14 +163,20 @@ const DUE_POSTS = `*[
   && !defined(publishedAt)
   && (!defined(scheduledFor) || scheduledFor <= $now)
 ] | order(coalesce(scheduledFor, createdAt) asc)[0...$limit]{
-  _id, _rev, caption, hashtags, image, format,
+  _id, _rev, caption, hashtags, image, format, pinToPinterest,
   "videoUrl": video.asset->url,
+  "productSlug": product->slug.current,
+  "productName": product->name,
+  "productCategory": product->category,
   igCreationId
 }`;
 
 const ONE_POST = `*[_type == "socialPost" && !(_id in path("drafts.**")) && _id == $id && status == "approved" && !defined(publishedAt)][0]{
-  _id, _rev, caption, hashtags, image, format,
+  _id, _rev, caption, hashtags, image, format, pinToPinterest,
   "videoUrl": video.asset->url,
+  "productSlug": product->slug.current,
+  "productName": product->name,
+  "productCategory": product->category,
   igCreationId
 }`;
 
@@ -181,7 +194,12 @@ const RESUMABLE = `*[
   && status == "publishing"
   && defined(igCreationId)
   && !defined(publishedAt)
-] | order(createdAt asc)[0...$limit]{ _id, _rev, igCreationId }`;
+] | order(createdAt asc)[0...$limit]{
+  _id, _rev, igCreationId, caption, hashtags, image, pinToPinterest,
+  "productSlug": product->slug.current,
+  "productName": product->name,
+  "productCategory": product->category
+}`;
 
 export interface PublishSummary {
   published: number;
@@ -299,6 +317,7 @@ async function publishOne(post: DuePost) {
           status: "published",
           publishedAt: new Date().toISOString(),
           permalink: result.permalink,
+          ...(await pinIfWanted(post)),
         },
         // A note from an earlier failed attempt would otherwise sit there
         // contradicting the success.
@@ -318,6 +337,50 @@ async function publishOne(post: DuePost) {
         ? "Posted, but saving the status failed — it is still showing as Publishing"
         : result.error,
   };
+}
+
+/**
+ * Pins the post, after Instagram has it.
+ *
+ * Second in every sense: it runs only once the Instagram post is public, it
+ * cannot fail the post, and what it writes is a separate pair of fields. A
+ * shop that pinned but did not post would be the wrong way round — the Pin is
+ * the long tail, the post is the moment.
+ *
+ * Called exactly where a post becomes "published", which happens once per
+ * document, so a resumed Reel cannot pin twice.
+ */
+async function pinIfWanted(post: DuePost): Promise<Record<string, unknown>> {
+  if (post.pinToPinterest === false || !pinterestConfigured()) return {};
+
+  try {
+    const { title, description } = pinTextFrom({
+      productName: post.productName,
+      caption: post.caption,
+      category: post.productCategory,
+    });
+
+    // 2:3 is what Pinterest gives the most room to. The same picture cropped
+    // for the feed would sit in the results as a small square.
+    const imageUrl = instagramImages
+      .image(post.image)
+      .width(1000)
+      .height(1500)
+      .fit("crop")
+      .format("jpg")
+      .url();
+
+    const pin = await createPin({
+      imageUrl,
+      title,
+      description,
+      link: post.productSlug ? `${SITE_URL}/shop/${post.productSlug}` : SITE_URL,
+    });
+
+    return pin.ok ? { pinUrl: pin.url } : { pinError: pin.error };
+  } catch (error) {
+    return { pinError: error instanceof Error ? error.message : "Could not pin" };
+  }
 }
 
 /**
@@ -356,7 +419,12 @@ async function publishReel(post: DuePost, caption: string, coverUrl: string) {
   const recorded = result.ok
     ? await record(
         post._id,
-        { status: "published", publishedAt: new Date().toISOString(), permalink: result.permalink },
+        {
+          status: "published",
+          publishedAt: new Date().toISOString(),
+          permalink: result.permalink,
+          ...(await pinIfWanted(post)),
+        },
         ["lastError", "igCreationId"]
       )
     : await record(post._id, { status: "failed", lastError: result.error ?? "Unknown error" }, [
@@ -376,9 +444,10 @@ async function publishReel(post: DuePost, caption: string, coverUrl: string) {
 
 /** Finishes Reels that Instagram was still transcoding when a run ended. */
 async function resumeReels(limit: number): Promise<PublishSummary["posts"]> {
-  const waiting = await sanityWriteClient.fetch<
-    { _id: string; _rev: string; igCreationId: string }[]
-  >(RESUMABLE, { limit });
+  const waiting = await sanityWriteClient.fetch<(DuePost & { igCreationId: string })[]>(
+    RESUMABLE,
+    { limit }
+  );
 
   const done: PublishSummary["posts"] = [];
   for (const post of waiting) {
@@ -387,9 +456,16 @@ async function resumeReels(limit: number): Promise<PublishSummary["posts"]> {
     if (!result.ok && result.error === "still-processing") continue;
 
     if (result.ok) {
+      // A Reel finished on a later run is still a post going out for the
+      // first time, so it earns its Pin exactly like any other.
       await record(
         post._id,
-        { status: "published", publishedAt: new Date().toISOString(), permalink: result.permalink },
+        {
+          status: "published",
+          publishedAt: new Date().toISOString(),
+          permalink: result.permalink,
+          ...(await pinIfWanted(post)),
+        },
         ["lastError", "igCreationId"]
       );
     } else {
