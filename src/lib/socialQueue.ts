@@ -40,6 +40,9 @@ interface ProductForPost {
   subcategory?: string;
   color?: string;
   productionTime?: string;
+  /** How many times this piece has been posted about — decides the angle */
+  timesPosted?: number;
+  lastPostAt?: string;
   madeToMeasureAvailable?: boolean;
   description?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,12 +50,32 @@ interface ProductForPost {
 }
 
 /** Products with no social post yet, newest first. */
-const UNPOSTED_PRODUCTS = `*[
+/** A piece is not shown again for this long. Long enough not to nag, short
+ *  enough that sixteen products still fill a year. */
+const COOLDOWN_DAYS = 45;
+
+/** How many drafts should be waiting for Kristina. More than this and the
+ *  Studio becomes a chore instead of a two-minute job. */
+const TARGET_BACKLOG = 10;
+
+/**
+ * The piece it has been longest since we talked about.
+ *
+ * The first version of this asked for products with no post at all, which
+ * emptied the moment every product had one — sixteen posts and then silence,
+ * permanently, with nothing in the logs to say why. A shop does not run out of
+ * things to say about what it makes; it just needs to come round again.
+ *
+ * So: order by when each product was last posted, oldest first, and skip
+ * anything shown inside the cooldown. `timesPosted` comes back too, because it
+ * decides which of the five angles is used — the second time these knickers
+ * come round they are not described the same way.
+ */
+const NEXT_TO_POST = `*[
   _type == "product"
   && !(_id in path("drafts.**"))
   && defined(images)
-  && count(*[_type == "socialPost" && product._ref == ^._id]) == 0
-] | order(_createdAt desc)[0...$limit]{
+]{
   _id,
   name,
   "slug": slug.current,
@@ -63,8 +86,21 @@ const UNPOSTED_PRODUCTS = `*[
   productionTime,
   madeToMeasureAvailable,
   "description": pt::text(description),
-  "image": images[0]
-}`;
+  "image": images[0],
+  "timesPosted": count(*[_type == "socialPost" && product._ref == ^._id]),
+  "lastPostAt": *[_type == "socialPost" && product._ref == ^._id] | order(createdAt desc)[0].createdAt
+}[!defined(lastPostAt) || lastPostAt < $notSince]
+ | order(coalesce(lastPostAt, "") asc)[0...$limit]`;
+
+/** How many drafts are already waiting to be looked at. */
+const WAITING = `count(*[_type == "socialPost" && !(_id in path("drafts.**")) && status == "draft"])`;
+
+/**
+ * What each of the five angles actually is, in the Studio's own words. The
+ * order matches buildCaptionOptions, so a post about the making of something
+ * is filed as process rather than as another product shot.
+ */
+const ANGLE_KIND = ["process", "product", "education", "product", "seasonal"] as const;
 
 export interface DraftResult {
   created: number;
@@ -83,8 +119,22 @@ export async function draftPostsForNewProducts(limit = 3): Promise<DraftResult> 
     return { created: 0, writtenBy: "templates", skipped: "No Sanity write token" };
   }
 
-  const products = await sanityWriteClient.fetch<ProductForPost[]>(UNPOSTED_PRODUCTS, { limit });
-  if (products.length === 0) return { created: 0, writtenBy: "templates" };
+  // Top up to a backlog rather than draft on every run. Left unchecked this
+  // writes three posts a day forever and buries the one job Kristina has here.
+  const waiting = await sanityWriteClient.fetch<number>(WAITING);
+  const room = Math.min(limit, TARGET_BACKLOG - waiting);
+  if (room <= 0) {
+    return { created: 0, writtenBy: "templates", skipped: `${waiting} drafts already waiting` };
+  }
+
+  const notSince = new Date(Date.now() - COOLDOWN_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const products = await sanityWriteClient.fetch<ProductForPost[]>(NEXT_TO_POST, {
+    limit: room,
+    notSince,
+  });
+  if (products.length === 0) {
+    return { created: 0, writtenBy: "templates", skipped: "everything was posted recently" };
+  }
 
   let usedClaude = 0;
   let created = 0;
@@ -106,14 +156,21 @@ export async function draftPostsForNewProducts(limit = 3): Promise<DraftResult> 
     if (written) usedClaude++;
     const options = written ?? buildCaptionOptions(source);
 
+    // Five angles exist and only the first was ever used, which is why twelve
+    // posts read as one post twelve times. Coming round again on a different
+    // angle is what makes a repeat worth reading.
+    const turn = (product.timesPosted ?? 0) % options.length;
+
     try {
       await sanityWriteClient.create({
         _type: "socialPost",
         image: product.image,
-        caption: options[0],
-        captionOptions: options,
+        caption: options[turn],
+        // The chosen one first, so the Studio suggests the others as
+        // alternatives rather than repeating what is already in the box.
+        captionOptions: [...options.slice(turn), ...options.slice(0, turn)],
         hashtags: buildHashtags(source),
-        kind: "product",
+        kind: ANGLE_KIND[turn] ?? "product",
         product: { _type: "reference", _ref: product._id },
         status: "draft",
         source: "auto",

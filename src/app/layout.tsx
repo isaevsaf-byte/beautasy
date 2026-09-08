@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Playfair_Display, Inter } from "next/font/google";
 import Script from "next/script";
@@ -154,6 +155,12 @@ export default function RootLayout({
         {content}
         <MetaPixel />
         <CookieConsent />
+        {/* Counts pages and where people came from. No cookies and no visitor
+            id, so it sits outside the consent banner rather than behind it —
+            which matters, because a banner nobody accepts measures nothing.
+            The shop has taken no orders yet and there has been no way to tell
+            whether that is nobody arriving or everybody leaving. */}
+        <Analytics />
       </body>
     </html>
   );

@@ -16,6 +16,7 @@
     "@sanity/image-url": "^2.0.3",
     "@stripe/stripe-js": "^8.7.0",
     "@tailwindcss/typography": "^0.5.19",
+    "@vercel/analytics": "^2.0.1",
     "framer-motion": "^12.34.0",
     "lucide-react": "^0.563.0",
     "next": "^16.3.4",
