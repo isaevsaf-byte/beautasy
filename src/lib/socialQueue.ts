@@ -535,6 +535,28 @@ async function resumeReels(limit: number): Promise<PublishSummary["posts"]> {
   return done;
 }
 
+/**
+ * One post a day, however many are due.
+ *
+ * The account has a few dozen followers. Approving a backlog of fifteen used
+ * to mean fifteen posts within a day and a half — which reads as spam, and
+ * Instagram shows each of them to fewer people for it. Scheduled dates help,
+ * but a date set two weeks ago and approved today is already overdue, and so
+ * is every one after it. So the rhythm is enforced here rather than trusted
+ * to the calendar.
+ *
+ * Twenty hours rather than twenty-four, so a post that went out at 19:00 does
+ * not block the next evening's 19:00 run by a few minutes. The Studio's
+ * "Post this now" button goes round this on purpose: that is Kristina asking.
+ */
+const PACE_HOURS = 20;
+const PUBLISHED_RECENTLY = `count(*[
+  _type == "socialPost"
+  && !(_id in path("drafts.**"))
+  && defined(publishedAt)
+  && publishedAt > $since
+])`;
+
 /** Sends out everything approved and due. */
 export async function publishDuePosts(limit = 5): Promise<PublishSummary> {
   if (!process.env.SANITY_API_WRITE_TOKEN) {
@@ -549,10 +571,18 @@ export async function publishDuePosts(limit = 5): Promise<PublishSummary> {
   // is how a video sits on "publishing" for a day.
   const posts: PublishSummary["posts"] = await resumeReels(limit);
 
-  const due = await sanityWriteClient.fetch<DuePost[]>(DUE_POSTS, {
-    now: new Date().toISOString(),
-    limit,
-  });
+  const since = new Date(Date.now() - PACE_HOURS * 60 * 60 * 1000).toISOString();
+  const recent = await sanityWriteClient.fetch<number>(PUBLISHED_RECENTLY, { since });
+  // Reels finished just now count too: they went out today.
+  const allowance = Math.max(0, 1 - recent - posts.filter((p) => p.ok).length);
+
+  const due =
+    allowance === 0
+      ? []
+      : await sanityWriteClient.fetch<DuePost[]>(DUE_POSTS, {
+          now: new Date().toISOString(),
+          limit: Math.min(limit, allowance),
+        });
 
   for (const post of due) {
     posts.push(await publishOne(post));

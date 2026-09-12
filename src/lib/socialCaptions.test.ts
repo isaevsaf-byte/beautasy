@@ -55,3 +55,34 @@ test("an unknown category still gets usable hashtags", () => {
   assert.match(tags, /#handmadeuk/);
   assert.match(tags, /#beautasy/);
 });
+
+/*
+ * Her voice, not a copywriter's. The first brief banned emoji and warmth, and
+ * the drafts it produced were accurate and never approved — so these guard the
+ * shape of how Kristina actually writes.
+ */
+
+test("captions keep their paragraph breaks — they are how she writes", () => {
+  for (const caption of buildCaptionOptions(bralette)) {
+    assert.match(caption, /\n\n/, `No blank line in: ${caption}`);
+  }
+});
+
+test("captions open with a feeling, not with the product name", () => {
+  for (const caption of buildCaptionOptions(bralette)) {
+    assert.ok(!caption.startsWith(bralette.name), `Opens with the name: ${caption}`);
+  }
+});
+
+test("each caption carries a little of her warmth — an emoji, but never a row of them", () => {
+  const emoji = /\p{Extended_Pictographic}/gu;
+  for (const caption of buildCaptionOptions(bralette)) {
+    const count = (caption.match(emoji) ?? []).length;
+    assert.ok(count >= 1 && count <= 3, `${count} emoji in: ${caption}`);
+  }
+});
+
+test("a product name reads as a sentence, never 'Every The ...'", () => {
+  const options = buildCaptionOptions({ name: 'The "Cloud" Silk Scrunchie', price: 1500 }).join(" ");
+  assert.doesNotMatch(options, /\b(Every|each) The\b/i);
+});
