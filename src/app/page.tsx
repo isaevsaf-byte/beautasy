@@ -127,10 +127,13 @@ function Hero() {
         </motion.div>
 
         {/* Logo Image */}
+        {/* Settles into place rather than fading in: at opacity 0 the logo is
+            invisible until scripts load, and it is the largest thing on the
+            page — the moment Google times as "loaded". */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 1, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
+          transition={{ duration: 1, delay: 0.1, ease: "easeOut" }}
           className="order-1 lg:order-2 relative"
         >
           <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF] flex items-center justify-center">
@@ -140,7 +143,8 @@ function Hero() {
               width={600}
               height={600}
               className="w-[250px] sm:w-[280px] lg:w-[300px] h-auto object-contain drop-shadow-lg"
-              priority
+              preload
+              fetchPriority="high"
             />
           </div>
           {/* Decorative floating badge */}

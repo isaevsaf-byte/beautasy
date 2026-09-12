@@ -346,6 +346,9 @@ export default function ShopContent({
                     key={cat.title}
                     variants={fadeUp}
                     custom={i}
+                    // The first card is on screen before anything scrolls; waiting
+                    // for it to scroll into view left it hidden until scripts ran.
+                    initial={i === 0 ? false : undefined}
                     className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center p-6 rounded-3xl transition-colors"
                   >
                     {/* Image */}
@@ -358,6 +361,7 @@ export default function ShopContent({
                             width={600}
                             height={600}
                             className="w-[60%] h-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-700 ease-out"
+                            {...(i === 0 ? { preload: true, fetchPriority: "high" as const } : {})}
                           />
                         </div>
                       </Link>

@@ -444,7 +444,11 @@ export default function ProductDetail({
             className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16"
           >
             {/* ──── Left: Image Gallery ──── */}
-            <motion.div variants={fadeUp} custom={0}>
+            {/* initial={false}: the photo is the page's largest paint, and fading it
+                in from opacity 0 kept it invisible until every script had loaded
+                and the animation had run — measured on a phone, 6.3 seconds after
+                the picture itself had already arrived. The details still animate. */}
+            <motion.div variants={fadeUp} custom={0} initial={false}>
               {/* Main Image */}
               <div
                 className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white/60 mb-4"
@@ -468,7 +472,8 @@ export default function ProductDetail({
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-cover"
-                  priority
+                  preload
+                  fetchPriority="high"
                 />
                 {/* Zoom button */}
                 <button
