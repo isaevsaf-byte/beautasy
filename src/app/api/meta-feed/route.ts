@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { sanityClient, urlFor } from "@/lib/sanity";
+import { createImageUrlBuilder } from "@sanity/image-url";
+import { sanityClient, sanityConfig } from "@/lib/sanity";
 import { SITE_URL } from "@/lib/site";
 
 // Always fetch fresh; Meta pulls this on its own schedule.
@@ -64,13 +65,38 @@ function plainText(blocks: SanityProduct["description"], fallback: string): stri
   return text || fallback;
 }
 
+/**
+ * Pictures for catalogues are pinned to JPEG.
+ *
+ * The shop's urlFor adds auto=format, which lets Sanity answer WebP to any
+ * fetcher that says it can take it. Browsers want that; catalogue crawlers do
+ * not reliably — Pinterest documents JPEG and PNG, and the same format switch
+ * is what would have failed the first Instagram post. Checked 13.09: the very
+ * same URL came back image/jpeg for Accept *\/* and image/webp for
+ * Accept image/webp.
+ */
+const catalogueImages = createImageUrlBuilder(sanityConfig);
+
+/**
+ * Who a piece is for, when the product itself does not say.
+ *
+ * Catalogues sort apparel by age group and gender, and without them children's
+ * briefs compete in the same results as adult lingerie. Only what the category
+ * settles is filled in: lingerie here is women's, and kids is kids. A child's
+ * gender is not guessed from the print.
+ */
+const AUDIENCE: Record<string, { gender?: string; ageGroup?: string }> = {
+  Lingerie: { gender: "female", ageGroup: "adult" },
+  Kids: { ageGroup: "kids" },
+};
+
 function buildItem(p: SanityProduct): string {
   const id = `BEAUTASY_${p.slug}`;
   const link = `${SITE_URL}/shop/${p.slug}`;
   const allImages = (p.images ?? [])
     .map((image) => {
       try {
-        return urlFor(image).width(1200).url();
+        return catalogueImages.image(image).width(1200).format("jpg").url();
       } catch {
         return null;
       }
@@ -92,8 +118,11 @@ function buildItem(p: SanityProduct): string {
 
   const optional: string[] = [];
   if (googleCat) optional.push(`<g:google_product_category>${xml(googleCat)}</g:google_product_category>`);
-  if (p.gender) optional.push(`<g:gender>${xml(p.gender)}</g:gender>`);
-  if (p.ageGroup) optional.push(`<g:age_group>${xml(p.ageGroup)}</g:age_group>`);
+  const audience = AUDIENCE[p.category ?? ""] ?? {};
+  const gender = p.gender || audience.gender;
+  const ageGroup = p.ageGroup || audience.ageGroup;
+  if (gender) optional.push(`<g:gender>${xml(gender)}</g:gender>`);
+  if (ageGroup) optional.push(`<g:age_group>${xml(ageGroup)}</g:age_group>`);
   if (p.color) optional.push(`<g:color>${xml(p.color)}</g:color>`);
 
   return `    <item>
