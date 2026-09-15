@@ -2,7 +2,7 @@ name: Publish approved social posts
 
 # Vercel's Hobby plan allows one cron, and it is already spoken for by the
 # morning email run. This gives the content queue its own schedule so a post
-# can go out at a sensible hour rather than only at 9am.
+# goes out close to the time Kristina set, not only at 9am.
 #
 # Needs two repository secrets:
 #   SITE_URL     e.g. https://www.beautasy.co.uk
@@ -10,10 +10,26 @@ name: Publish approved social posts
 
 on:
   schedule:
-    # 11:00 and 18:00 UTC — the two windows that get the most engagement in the UK
-    - cron: "0 11 * * *"
-    - cron: "0 18 * * *"
+    # Every 15 minutes, off the hour.
+    #
+    # This used to be two runs, at 11:00 and 18:00 UTC. GitHub runs scheduled
+    # workflows on a best-effort queue that is busiest on the hour, and over
+    # 9–15 September 2026 those runs arrived a median of 2h19m (18:00) and
+    # 3h54m (11:00) late — the longest nearly six hours. A post set for 21:21
+    # sat approved and due with nothing coming to send it.
+    #
+    # Frequent runs at odd minutes mean a late one is soon followed by another,
+    # so a post leaves within minutes of its time. Frequency does not turn into
+    # volume: the publisher sends at most one post in 20 hours however often it
+    # is asked. Public repository, so these minutes cost nothing.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
+
+# A slow run and the next one must not both be sending. The publisher's claim
+# already stops a double post; this stops them queueing up behind each other.
+concurrency:
+  group: social-publish
+  cancel-in-progress: false
 
 jobs:
   publish:

@@ -124,7 +124,7 @@ export const socialPost = defineType({
       title: "Go out on",
       type: "datetime",
       description:
-        "Leave empty to post at the next run once approved. The site publishes what is due each morning.",
+        "Leave empty to post as soon as it is approved. With a date, it goes out within about 15 minutes of that time — and never more than one post a day, so a later one waits for the next day.",
     }),
     defineField({
       name: "status",
