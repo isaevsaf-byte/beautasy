@@ -1,5 +1,10 @@
 name: Publish approved social posts
 
+# SPARE ALARM CLOCK. Since 16 September 2026 the publisher is woken every 15
+# minutes by a Cloudflare Worker (workers/publish-cron) — GitHub ran this
+# schedule 4 times in 96 that day. This stays as a backup; the publisher's
+# claim means both arriving at once still sends a post only once.
+
 # Vercel's Hobby plan allows one cron, and it is already spoken for by the
 # morning email run. This gives the content queue its own schedule so a post
 # goes out close to the time Kristina set, not only at 9am.

@@ -34,5 +34,5 @@
   // Without this the shop's build tries to type-check it, which passes on a
   // machine where video/node_modules happens to exist and fails everywhere
   // else — as it did on Vercel and in CI.
-  "exclude": ["node_modules", "video"]
+  "exclude": ["node_modules", "video", "workers"]
 }

@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Its own project, its own tooling — see the note in tsconfig.json
     "video/**",
+    "workers/**",
   ]),
 ]);
 

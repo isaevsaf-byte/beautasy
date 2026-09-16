@@ -1,0 +1,36 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  // The alarm clock for the social publisher.
+  //
+  // GitHub's scheduled workflows turned out to be best-effort in the worst
+  // sense: over 16 September 2026 the every-15-minutes schedule ran 4 times
+  // out of 96, and a post approved for 21:21 went out at 00:08. Cloudflare's
+  // Cron Triggers fire on time, cost nothing on the free plan, and the account
+  // already holds the shop's DNS. GitHub stays on as a spare.
+  "name": "beautasy-publish-cron",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "account_id": "ce4444b01bb0a7e25e5779637a08eccf",
+
+  // Nothing to serve: this Worker is only ever woken by the schedule, so it
+  // gets no public workers.dev address for strangers to poke.
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // UTC, like every Cloudflare cron. Off the hour and off GitHub's minutes,
+  // so the two never arrive together — though the publisher's claim would
+  // stop a double post if they did.
+  "triggers": {
+    "crons": ["4,19,34,49 * * * *"]
+  },
+
+  "vars": {
+    "SITE_URL": "https://www.beautasy.co.uk"
+  },
+  // CRON_SECRET is a secret, set with `wrangler secret put CRON_SECRET` —
+  // the same value as in Vercel and GitHub. Never in this file.
+
+  "observability": {
+    "enabled": true
+  }
+}
