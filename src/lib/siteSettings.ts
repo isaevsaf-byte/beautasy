@@ -1,5 +1,6 @@
 import { sanityClient } from "./sanity";
 import { SITE_SETTINGS } from "./siteSettingsDocument";
+import { BUSINESS } from "./business";
 import type { ReferralSettings } from "@/lib/referralRules";
 
 export interface SiteSettings {
@@ -69,6 +70,12 @@ export async function getSiteSettings(): Promise<SiteSettings> {
  *
  * Reads fresh rather than through the cached settings: this is asked once per
  * email, and a link pasted five minutes ago should work.
+ *
+ * Last comes the link copied from the Google Business Profile into
+ * business.ts, which the shop's order emails already use. Without it the
+ * Studio field sat empty and every completed fitting went out without a
+ * review ask — the cheapest local marketing there is, switched off because
+ * nobody had pasted a link the code already knew.
  */
 export async function googleReviewUrl(): Promise<string | null> {
   try {
@@ -81,7 +88,7 @@ export async function googleReviewUrl(): Promise<string | null> {
   } catch {
     // Falling through to the variable is the right answer, not an error
   }
-  return process.env.GOOGLE_REVIEW_URL || null;
+  return process.env.GOOGLE_REVIEW_URL || BUSINESS.googleReviewUrl || null;
 }
 
 /* ── Defaults ── */

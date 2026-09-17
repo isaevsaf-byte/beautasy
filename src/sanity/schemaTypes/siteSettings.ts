@@ -103,7 +103,7 @@ export const siteSettings = defineType({
       title: "Google Review Link",
       type: "url",
       description:
-        "The 'write a review' link from your Google Business Profile. Paste it here and every customer whose fitting is marked Completed is asked for a review. Leave it empty and nobody is asked. Find it in Google Business Profile → Read reviews → Get more reviews → copy link.",
+        "The 'write a review' link sent to every customer whose fitting is marked Completed. Leave it empty to use Beautasy Atelier's own Google profile link, which the site already has. Paste a different one only if the profile changes — from Google Business Profile → Read reviews → Get more reviews → copy link.",
       validation: (Rule) =>
         Rule.uri({ scheme: ["http", "https"] }).custom((value) => {
           if (!value) return true;
