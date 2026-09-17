@@ -1,4 +1,5 @@
 import type { StructureResolver } from "sanity/structure";
+import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
 
 /**
  * The Studio sidebar.
@@ -87,5 +88,5 @@ export const structure: StructureResolver = (S) =>
       S.documentTypeListItem("legalPage").title("Info Pages"),
       S.listItem()
         .title("Site Settings")
-        .child(S.document().schemaType("siteSettings").documentId("siteSettings")),
+        .child(S.document().schemaType("siteSettings").documentId(SITE_SETTINGS_ID)),
     ]);

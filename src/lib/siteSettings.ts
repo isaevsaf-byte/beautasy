@@ -1,4 +1,5 @@
 import { sanityClient } from "./sanity";
+import { SITE_SETTINGS } from "./siteSettingsDocument";
 import type { ReferralSettings } from "@/lib/referralRules";
 
 export interface SiteSettings {
@@ -33,7 +34,7 @@ export interface SiteSettings {
   referral?: Partial<ReferralSettings>;
 }
 
-const SITE_SETTINGS_QUERY = `*[_type == "siteSettings"][0]{
+const SITE_SETTINGS_QUERY = `(${SITE_SETTINGS}){
   announcementBar,
   shipping,
   giftCardPlaceholder,
@@ -72,7 +73,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
 export async function googleReviewUrl(): Promise<string | null> {
   try {
     const fromStudio = await sanityClient.fetch<string | null>(
-      `*[_type == "siteSettings"][0].googleReviewUrl`,
+      `${SITE_SETTINGS}.googleReviewUrl`,
       {},
       { cache: "no-store" }
     );

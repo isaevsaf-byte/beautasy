@@ -124,7 +124,7 @@ export const socialPost = defineType({
       title: "Go out on",
       type: "datetime",
       description:
-        "Leave empty to post as soon as it is approved. With a date, it goes out within about 15 minutes of that time — and never more than one post a day, so a later one waits for the next day.",
+        "Leave empty to post as soon as it is approved. With a date, it goes out within about 15 minutes of that time — unless that falls in quiet hours or the day already has its posts (both set in Site Settings → Instagram Posting); then it waits for the next opening.",
     }),
     defineField({
       name: "status",

@@ -9,6 +9,13 @@ import {
 import { publishToInstagram, startReel, finishReel, instagramConfigured } from "@/lib/instagram";
 import { createPin, pinTextFrom, pinterestConfigured } from "@/lib/pinterest";
 import { SITE_URL } from "@/lib/site";
+import { SITE_SETTINGS } from "@/lib/siteSettingsDocument";
+import {
+  mayPublish,
+  postingSettingsFrom,
+  startOfSouthamptonDay,
+  type PostingHold,
+} from "@/lib/postingRules";
 
 /**
  * The queue between "a product exists" and "a post went out".
@@ -219,7 +226,10 @@ const DUE_POSTS = `*[
   && status == "approved"
   && !defined(publishedAt)
   && (!defined(scheduledFor) || scheduledFor <= $now)
-] | order(coalesce(scheduledFor, createdAt) asc)[0...$limit]{
+]
+// Dated posts first: a date is a promise about a day, and with one post a day
+// an older undated approval would otherwise keep pushing it back.
+| order(defined(scheduledFor) desc, coalesce(scheduledFor, createdAt) asc)[0...$limit]{
   _id, _rev, caption, hashtags, image, format, pinToPinterest,
   "videoUrl": video.asset->url,
   "productSlug": product->slug.current,
@@ -264,6 +274,10 @@ export interface PublishSummary {
   /** Posts another run had already claimed. Not failures — nothing went wrong. */
   alreadyRunning?: number;
   skipped?: string;
+  /** Why nothing new was started this run, when that was a rule rather than an empty queue */
+  held?: PostingHold;
+  /** The rules this run applied, as read from Site Settings — for "why didn't it post?" */
+  rules?: { postsPerDay: number; quietHours: string; publishedToday: number };
   posts: {
     id: string;
     ok: boolean;
@@ -536,26 +550,44 @@ async function resumeReels(limit: number): Promise<PublishSummary["posts"]> {
 }
 
 /**
- * One post a day, however many are due.
+ * What the posting rules need to know, read in one query.
  *
- * The account has a few dozen followers. Approving a backlog of fifteen used
- * to mean fifteen posts within a day and a half — which reads as spam, and
- * Instagram shows each of them to fewer people for it. Scheduled dates help,
- * but a date set two weeks ago and approved today is already overdue, and so
- * is every one after it. So the rhythm is enforced here rather than trusted
- * to the calendar.
+ * The rules themselves live in @/lib/postingRules; this is only the data.
+ * Read fresh through the write client, because a cached count of today's
+ * posts is exactly how a second post would slip out.
  *
- * Twenty hours rather than twenty-four, so a post that went out at 19:00 does
- * not block the next evening's 19:00 run by a few minutes. The Studio's
- * "Post this now" button goes round this on purpose: that is Kristina asking.
+ * "In flight" is limited to posts touched in the last two hours. A post whose
+ * run crashed after claiming it keeps the status "publishing" forever, and
+ * without the limit that one stuck document would stop every post after it.
+ *
+ * Counting today is wider than "has a publishedAt". A run can die after
+ * Instagram accepted the picture but before the date was written, and the
+ * Studio tells Kristina to mark such a post Published by hand — publishedAt
+ * is read-only, so it stays empty. Both still went out, so both count, timed
+ * by when the document last changed.
  */
-const PACE_HOURS = 20;
-const PUBLISHED_RECENTLY = `count(*[
-  _type == "socialPost"
-  && !(_id in path("drafts.**"))
-  && defined(publishedAt)
-  && publishedAt > $since
-])`;
+const POSTING_STATE = `{
+  "settings": ${SITE_SETTINGS}.socialPosting,
+  "publishedToday": count(*[
+    _type == "socialPost"
+    && !(_id in path("drafts.**"))
+    && (defined(publishedAt) || status in ["publishing", "published"])
+    && dateTime(coalesce(publishedAt, _updatedAt)) >= dateTime($dayStart)
+  ]),
+  "lastPublishedAt": *[
+    _type == "socialPost"
+    && !(_id in path("drafts.**"))
+    && (defined(publishedAt) || status in ["publishing", "published"])
+  ] | order(coalesce(publishedAt, _updatedAt) desc)[0]{ "at": coalesce(publishedAt, _updatedAt) }.at,
+  "inFlight": count(*[
+    _type == "socialPost"
+    && !(_id in path("drafts.**"))
+    && status == "publishing"
+    && dateTime(_updatedAt) > dateTime($staleBefore)
+  ])
+}`;
+
+const IN_FLIGHT_STALE_HOURS = 2;
 
 /** Sends out everything approved and due. */
 export async function publishDuePosts(limit = 5): Promise<PublishSummary> {
@@ -571,18 +603,33 @@ export async function publishDuePosts(limit = 5): Promise<PublishSummary> {
   // is how a video sits on "publishing" for a day.
   const posts: PublishSummary["posts"] = await resumeReels(limit);
 
-  const since = new Date(Date.now() - PACE_HOURS * 60 * 60 * 1000).toISOString();
-  const recent = await sanityWriteClient.fetch<number>(PUBLISHED_RECENTLY, { since });
-  // Reels finished just now count too: they went out today.
-  const allowance = Math.max(0, 1 - recent - posts.filter((p) => p.ok).length);
+  // Asked after the Reels are finished, so one that went out a moment ago is
+  // already counted against today and against the gap.
+  const now = new Date();
+  const state = await sanityWriteClient.fetch<{
+    settings: Record<string, unknown> | null;
+    publishedToday: number;
+    lastPublishedAt: string | null;
+    inFlight: number;
+  }>(POSTING_STATE, {
+    dayStart: startOfSouthamptonDay(now).toISOString(),
+    staleBefore: new Date(now.getTime() - IN_FLIGHT_STALE_HOURS * 60 * 60 * 1000).toISOString(),
+  });
 
-  const due =
-    allowance === 0
-      ? []
-      : await sanityWriteClient.fetch<DuePost[]>(DUE_POSTS, {
-          now: new Date().toISOString(),
-          limit: Math.min(limit, allowance),
-        });
+  const settings = postingSettingsFrom(state.settings);
+  const verdict = mayPublish({
+    now,
+    settings,
+    publishedToday: state.publishedToday,
+    lastPublishedAt: state.lastPublishedAt,
+    inFlight: state.inFlight,
+  });
+
+  // One at a time. The gap between automatic posts is measured from the last
+  // one, so a second in the same run would always be too soon anyway.
+  const due = verdict.ok
+    ? await sanityWriteClient.fetch<DuePost[]>(DUE_POSTS, { now: now.toISOString(), limit: 1 })
+    : [];
 
   for (const post of due) {
     posts.push(await publishOne(post));
@@ -594,11 +641,25 @@ export async function publishDuePosts(limit = 5): Promise<PublishSummary> {
     // as one would make a healthy run look broken in the logs.
     failed: posts.filter((p) => !p.ok && !p.skipped).length,
     alreadyRunning: posts.filter((p) => p.skipped).length || undefined,
+    held: verdict.ok ? undefined : verdict.hold,
+    rules: {
+      postsPerDay: settings.postsPerDay,
+      quietHours:
+        settings.quietHoursEnabled && settings.quietFrom !== settings.quietUntil
+          ? `${String(settings.quietFrom).padStart(2, "0")}:00–${String(settings.quietUntil).padStart(2, "0")}:00`
+          : "off",
+      publishedToday: state.publishedToday,
+    },
     posts,
   };
 }
 
-/** Sends one specific approved post, for the "Post this now" button in the Studio. */
+/**
+ * Sends one specific approved post, for the "Post this now" button in the Studio.
+ *
+ * Quiet hours and the daily limit do not apply here: pressing the button is
+ * Kristina deciding, and the rules exist to stand in for her when she isn't.
+ */
 export async function publishPostById(id: string): Promise<PublishSummary> {
   if (!instagramConfigured()) {
     return { published: 0, failed: 0, skipped: "Instagram is not connected", posts: [] };

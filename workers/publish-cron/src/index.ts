@@ -42,12 +42,23 @@ async function knock(env: Env, cron: string): Promise<void> {
   const text = await res.text();
   let summary: unknown = text.slice(0, 300);
   try {
-    const body = JSON.parse(text) as { published?: number; failed?: number; alreadyRunning?: number; skipped?: string };
+    const body = JSON.parse(text) as {
+      published?: number;
+      failed?: number;
+      alreadyRunning?: number;
+      skipped?: string;
+      held?: string;
+      rules?: unknown;
+    };
     summary = {
       published: body.published,
       failed: body.failed,
       alreadyRunning: body.alreadyRunning,
       skipped: body.skipped,
+      // Why nothing went out when something was due: quiet hours, the daily
+      // number, the gap, or a post still on its way.
+      held: body.held,
+      rules: body.rules,
     };
   } catch {
     // Not JSON — an error page; the first few hundred characters say enough.

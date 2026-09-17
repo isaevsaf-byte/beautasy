@@ -7,6 +7,7 @@ import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import { SITE_URL } from "@/lib/site";
 import { getSiteSettings, DEFAULT_UK_RATE } from "@/lib/siteSettings";
+import { SITE_SETTINGS } from "@/lib/siteSettingsDocument";
 
 /* ─── Safe image URL builder (won't crash on incomplete data) ─── */
 function safeImageUrl(image: unknown): string | null {
@@ -102,7 +103,7 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
   "collectionId": collection._ref,
   "collection": collection->{ name, "slug": slug.current, season },
   "sizeGuide": sizeGuide->{ name, notes, rows[]{ size, uk, eu, bust, waist, hips } },
-  "giftCardPlaceholder": *[_type == "siteSettings"][0].giftCardPlaceholder
+  "giftCardPlaceholder": ${SITE_SETTINGS}.giftCardPlaceholder
 }`;
 
 /* Approved reviews — fetched server-side so the text is in the HTML (and so we

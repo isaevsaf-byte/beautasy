@@ -1,5 +1,11 @@
 import { defineField, defineType } from "sanity";
 
+/** Southampton clock hours, shown as 22:00 rather than 22. */
+const HOURS = Array.from({ length: 24 }, (_, hour) => ({
+  title: `${String(hour).padStart(2, "0")}:00`,
+  value: hour,
+}));
+
 export const siteSettings = defineType({
   name: "siteSettings",
   title: "Site Settings",
@@ -111,6 +117,49 @@ export const siteSettings = defineType({
             ? true
             : "That looks like a link to your profile rather than the review box. Use Get more reviews → copy link.";
         }),
+    }),
+
+    /* ── Instagram posting ── */
+    defineField({
+      name: "socialPosting",
+      title: "Instagram Posting",
+      type: "object",
+      description:
+        "How the site sends approved posts on its own. The 'Post this now' button on a post sends straight away whatever these say — and still counts as one of that day's posts.",
+      fields: [
+        defineField({
+          name: "postsPerDay",
+          title: "Posts Per Day",
+          type: "number",
+          initialValue: 1,
+          description:
+            "The most posts that go out in one day. Posts beyond it wait for the next day. There are always at least 3 hours between two posts.",
+          validation: (Rule) => Rule.required().integer().min(1).max(5),
+        }),
+        defineField({
+          name: "quietHoursEnabled",
+          title: "Quiet Hours",
+          type: "boolean",
+          initialValue: true,
+          description: "Nothing goes out during these hours. A post due then waits until they end.",
+        }),
+        defineField({
+          name: "quietFrom",
+          title: "Quiet From",
+          type: "number",
+          initialValue: 22,
+          options: { list: HOURS },
+          hidden: ({ parent }) => parent?.quietHoursEnabled === false,
+        }),
+        defineField({
+          name: "quietUntil",
+          title: "Quiet Until",
+          type: "number",
+          initialValue: 8,
+          options: { list: HOURS },
+          hidden: ({ parent }) => parent?.quietHoursEnabled === false,
+        }),
+      ],
     }),
 
     /* ── Beautasy Friends ── */
