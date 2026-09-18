@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createImageUrlBuilder } from "@sanity/image-url";
 import { sanityClient, sanityConfig } from "@/lib/sanity";
 import { SITE_URL } from "@/lib/site";
+import { SOCIAL_CARD_URL } from "@/lib/socialCard";
 
 // Always fetch fresh; Meta pulls this on its own schedule.
 export const dynamic = "force-dynamic";
@@ -102,7 +103,13 @@ function buildItem(p: SanityProduct): string {
       }
     })
     .filter((u): u is string => !!u);
-  const imageLink = allImages[0] ?? `${SITE_URL}/beautasy-icon.png`;
+  // A piece with no photograph yet still has to carry a picture, and it used to
+  // borrow the favicon. That file is 512x438, and Meta rejects a catalogue image
+  // shorter than 500 on either side, so the fallback quietly disqualified the
+  // very products that most needed to look finished. The generated social card
+  // is 1200x630, clears the minimum on both sides, and says "Beautasy" rather
+  // than showing a logo stretched into a product frame.
+  const imageLink = allImages[0] ?? SOCIAL_CARD_URL;
   // Meta shows these in the product detail view; up to 10 are allowed
   const extraImages = allImages.slice(1, 10);
   const price = `${(p.price / 100).toFixed(2)} GBP`;

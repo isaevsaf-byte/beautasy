@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/site";
+import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 
 const siteUrl = SITE_URL;
 
@@ -15,21 +16,19 @@ export const metadata: Metadata = {
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
-    images: [
-      {
-        url: `${siteUrl}/beautasy-icon.png`,
-        width: 1200,
-        height: 630,
-        alt: "Contact Beautasy",
-      },
-    ],
+    // This named /beautasy-icon.png and declared it 1200x630. That file is
+    // 1378x1179, so the tag was a lie and chat apps cropped the logo through
+    // the middle. The generated card has to be named explicitly here, because
+    // an openGraph block of our own replaces the root's rather than adding to
+    // it — see src/lib/socialCard.ts.
+    images: SOCIAL_CARD_IMAGES,
   },
   twitter: {
     card: "summary_large_image",
     title: "Contact Beautasy — Get in Touch",
     description:
       "Reach out via Email, WhatsApp, or Telegram. Southampton, UK.",
-    images: [`${siteUrl}/beautasy-icon.png`],
+    // No images: with the key absent Next copies the Open Graph ones here.
   },
 };
 

@@ -30,11 +30,14 @@ export const metadata: Metadata = {
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
+    // The atelier's own picture stays — it sells alterations, which the shop's
+    // card does not mention. The declared height was 1029; the file is
+    // 1200x1028. Still the wrong shape for a chat card, see atelier/layout.tsx.
     images: [
       {
         url: `${SITE_URL}/beautasy-atelier-og.jpg`,
         width: 1200,
-        height: 1029,
+        height: 1028,
         alt: "Beautasy alterations in Southampton",
       },
     ],

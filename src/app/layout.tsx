@@ -10,6 +10,7 @@ import { clerkEnabled } from "@/lib/clerk";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
 import { BUSINESS } from "@/lib/business";
+import { domainVerificationTags } from "@/lib/domainVerification";
 
 /**
  * The brand as one schema.org entity, on every page. The atelier's
@@ -58,27 +59,31 @@ export const metadata: Metadata = {
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
-    images: [
-      {
-        url: "/beautasy-icon.png",
-        width: 1378,
-        height: 1179,
-        alt: "Beautasy — Handmade Lingerie & Accessories",
-      },
-    ],
+    // No images key here on purpose. This block used to name the site icon,
+    // which is nearly square and arrived in chat apps with its top and bottom
+    // cropped off. Leaving the key out lets Next fill og:image from
+    // opengraph-image.tsx, which renders the card at the 1200x630 those apps
+    // actually crop from.
+    //
+    // This works because the file and this metadata export sit in the same
+    // route segment, and that is as far as it goes. A page further down that
+    // exports an openGraph block replaces this one whole, images included, so
+    // it has to name the card again from src/lib/socialCard.ts.
   },
   // Proof to a platform that this domain is ours, so Pins made from the shop
-  // carry the Beautasy name and its analytics come back to us. Public by
-  // design — it is meant to be read by anyone who views the source.
+  // carry the Beautasy name and its analytics come back to us, and so Meta
+  // will let a product catalogue hang off the Instagram account.
   verification: {
-    other: { "p:domain_verify": "3cac142afd3077ef4fb7bc5dab4807e5" },
+    other: domainVerificationTags(),
   },
   twitter: {
     card: "summary_large_image",
     title: "BEAUTASY — Handmade Lingerie & Accessories | Southampton",
     description:
       "Handmade lingerie, kids' clothing, and accessories tailored with love in Southampton, UK. Made to feel, not just wear.",
-    images: ["/beautasy-icon.png"],
+    // Also no images key: Next copies the Open Graph ones onto the Twitter
+    // card whenever it is absent, so the generated picture is used here too.
+    // Naming a file here would silently opt back out of that.
   },
 };
 

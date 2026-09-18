@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import GiftBoxDetail from "./GiftBoxDetail";
 import { notFound } from "next/navigation";
-import { SITE_URL } from "@/lib/site";
+import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 
 /* ─── Safe image URL builder ─── */
 function safeImageUrl(image: unknown): string | null {
@@ -20,8 +20,6 @@ function safeThumbUrl(image: unknown): string | null {
     return null;
   }
 }
-
-const siteUrl = SITE_URL;
 
 export const revalidate = 30;
 
@@ -58,9 +56,9 @@ export async function generateMetadata({
     return { title: "Gift Box Not Found | Beautasy" };
   }
 
-  const ogImage = giftBox.images?.[0]
-    ? safeImageUrl(giftBox.images[0])
-    : `${siteUrl}/beautasy-icon.png`;
+  // The box shares as its own photograph at 800x1000. Without one this fell
+  // back to the site icon and still called it 800x1000; the file is 1378x1179.
+  const boxPhoto = giftBox.images?.[0] ? safeImageUrl(giftBox.images[0]) : null;
 
   return {
     title: `${giftBox.name} | Beautasy Gift Boxes`,
@@ -68,9 +66,9 @@ export async function generateMetadata({
     openGraph: {
       title: `${giftBox.name} | Beautasy Gift Boxes`,
       description: `Curated gift box set from Beautasy.`,
-      images: ogImage
-        ? [{ url: ogImage, width: 800, height: 1000, alt: giftBox.name }]
-        : [],
+      images: boxPhoto
+        ? [{ url: boxPhoto, width: 800, height: 1000, alt: giftBox.name }]
+        : SOCIAL_CARD_IMAGES,
     },
   };
 }

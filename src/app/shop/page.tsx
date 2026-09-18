@@ -4,6 +4,7 @@ import ShopContent from "./ShopContent";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import { SITE_URL } from "@/lib/site";
+import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 
 const siteUrl = SITE_URL;
 
@@ -19,21 +20,18 @@ export const metadata: Metadata = {
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
-    images: [
-      {
-        url: `${siteUrl}/beautasy-icon.png`,
-        width: 1200,
-        height: 630,
-        alt: "Beautasy Shop",
-      },
-    ],
+    // The shop is the most forwarded page on the site and it was sending the
+    // square site icon, declared 1200x630 while the file is 1378x1179. The
+    // generated card is named here rather than inherited, because this page's
+    // own openGraph block replaces the root's — see src/lib/socialCard.ts.
+    images: SOCIAL_CARD_IMAGES,
   },
   twitter: {
     card: "summary_large_image",
     title: "Beautasy Shop — Handmade Lingerie & Accessories",
     description:
       "Handmade silk lingerie and accessories crafted in Southampton.",
-    images: [`${siteUrl}/beautasy-icon.png`],
+    // No images: with the key absent Next copies the Open Graph ones here.
   },
 };
 

@@ -3,6 +3,7 @@ import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import GiftCardPurchase from "./GiftCardPurchase";
 import { SITE_URL } from "@/lib/site";
+import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 
 export const metadata: Metadata = {
   title: "Gift Cards | Beautasy",
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
+    // A gift card is sent to someone, so this link is shared more than it is
+    // searched for — and it was going out with no picture at all, because an
+    // openGraph block here replaces the root's rather than adding to it.
+    // See src/lib/socialCard.ts.
+    images: SOCIAL_CARD_IMAGES,
   },
 };
 

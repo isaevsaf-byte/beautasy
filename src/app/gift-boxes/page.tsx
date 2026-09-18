@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { sanityClient, urlFor } from "@/lib/sanity";
+import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 import GiftBoxesContent from "./GiftBoxesContent";
 
 /* ─── Safe image URL builder ─── */
@@ -21,6 +22,10 @@ export const metadata: Metadata = {
     title: "Gift Boxes | Beautasy",
     description:
       "Curated handmade gift box sets from Beautasy. Beautifully packaged bundles of our finest silk and handcrafted products.",
+    // Was sharing with no picture at all: an openGraph block here replaces the
+    // root's, so the generated card never reached this page.
+    // See src/lib/socialCard.ts.
+    images: SOCIAL_CARD_IMAGES,
   },
 };
 

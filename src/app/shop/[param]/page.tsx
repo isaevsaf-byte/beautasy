@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import { SITE_URL } from "@/lib/site";
+import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 import { getSiteSettings, DEFAULT_UK_RATE } from "@/lib/siteSettings";
 import { SITE_SETTINGS } from "@/lib/siteSettingsDocument";
 
@@ -143,14 +144,11 @@ export async function generateMetadata({
       openGraph: {
         title: meta.title,
         description: meta.description,
-        images: [
-          {
-            url: `${siteUrl}/beautasy-icon.png`,
-            width: 1200,
-            height: 630,
-            alt: meta.title,
-          },
-        ],
+        // A category has no single picture of its own, and the site icon it
+        // used to send was declared 1200x630 when the file is 1378x1179.
+        // Named rather than inherited because this openGraph block replaces
+        // the root's — see src/lib/socialCard.ts.
+        images: SOCIAL_CARD_IMAGES,
       },
     };
   }
@@ -163,9 +161,12 @@ export async function generateMetadata({
     return { title: "Product Not Found | Beautasy" };
   }
 
-  const ogImage = product.images?.[0]
-    ? safeImageUrl(product.images[0])
-    : `${siteUrl}/beautasy-icon.png`;
+  // A product shares as its own photograph, built at 800x1000 by safeImageUrl.
+  // When there is no photograph — a draft in Sanity, or an image Sanity cannot
+  // build a URL for — this fell back to the site icon while still declaring
+  // 800x1000, which the icon has never been. The brand card is the honest
+  // stand-in.
+  const productPhoto = product.images?.[0] ? safeImageUrl(product.images[0]) : null;
 
   return {
     title: `${product.name} | Beautasy`,
@@ -174,7 +175,9 @@ export async function generateMetadata({
     openGraph: {
       title: `${product.name} | Beautasy`,
       description: `Handmade ${product.category?.toLowerCase() || "product"} from Beautasy.`,
-      images: ogImage ? [{ url: ogImage, width: 800, height: 1000, alt: product.name }] : [],
+      images: productPhoto
+        ? [{ url: productPhoto, width: 800, height: 1000, alt: product.name }]
+        : SOCIAL_CARD_IMAGES,
     },
   };
 }

@@ -5,6 +5,7 @@ import FooterWrapper from "@/components/FooterWrapper";
 import { referralSettings } from "@/lib/referrals";
 import { pounds } from "@/lib/friendsLink";
 import { SITE_URL } from "@/lib/site";
+import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 import ReferForm from "./ReferForm";
 
 /**
@@ -30,6 +31,11 @@ export const metadata: Metadata = {
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
+    // This page exists to be pasted into a chat, and until now it was pasted
+    // with no picture at all: declaring an openGraph block of our own drops
+    // the root's images instead of adding to them, so the generated card never
+    // reached here. See src/lib/socialCard.ts.
+    images: SOCIAL_CARD_IMAGES,
   },
 };
 

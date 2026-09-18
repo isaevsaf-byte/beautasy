@@ -36,7 +36,9 @@ export async function generateMetadata({
       siteName: "Beautasy",
       locale: "en_GB",
       type: "website",
-      images: [{ url: `${SITE_URL}/beautasy-atelier-og.jpg`, width: 1200, height: 1029, alt: service.h1 }],
+      // 1029 was a typo for the file's real 1200x1028. See atelier/layout.tsx
+      // for why these pages keep their own picture rather than the shop card.
+      images: [{ url: `${SITE_URL}/beautasy-atelier-og.jpg`, width: 1200, height: 1028, alt: service.h1 }],
     },
     twitter: {
       card: "summary_large_image",
