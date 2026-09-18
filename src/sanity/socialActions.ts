@@ -92,7 +92,7 @@ export const publishNowAction: DocumentActionComponent = (props: DocumentActionP
           );
         }
       } catch {
-        window.alert("Could not reach the site. The morning run will send it instead.");
+        window.alert("Could not reach the site. The schedule will send it within fifteen minutes.");
       }
       props.onComplete();
     },

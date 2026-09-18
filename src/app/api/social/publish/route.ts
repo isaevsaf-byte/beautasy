@@ -18,8 +18,12 @@ export const maxDuration = 60;
  * keeps the open endpoint harmless: the most an outsider can do is make an
  * already-approved post go out earlier than its date.
  *
- * The scheduled caller (Vercel cron, or GitHub Actions) sends CRON_SECRET and
- * gets a larger batch; that is the only privileged difference.
+ * The scheduled caller sends CRON_SECRET and gets a larger batch; that is the
+ * only privileged difference. That caller is the Cloudflare Worker every
+ * fifteen minutes, with the GitHub workflow as a spare. The daily Vercel cron
+ * used to call this too and no longer does: it runs in the same request as the
+ * watchdog that reads the publisher's heartbeat, so whichever of the two went
+ * first decided whether a dead schedule was noticed at all.
  */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));

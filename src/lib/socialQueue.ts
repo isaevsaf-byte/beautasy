@@ -589,11 +589,196 @@ const POSTING_STATE = `{
 
 const IN_FLIGHT_STALE_HOURS = 2;
 
+/**
+ * Where the publisher says it was here at all.
+ *
+ * One document under one id, patched on every run. The schedule wakes this
+ * every fifteen minutes, so that is ninety-six writes a day into the same
+ * place rather than ninety-six new documents.
+ *
+ * It exists because the watchman in siteHealth.ts used to work out whether the
+ * publisher was alive from the only thing it could see — whether anything new
+ * had reached the feed since yesterday morning. That is a guess from a side
+ * effect, and it was wrong in both directions. Measured on the code before
+ * this: publisher dead for forty-five days, Kristina posting by hand every day
+ * with "Post this now", the feed moving every morning — forty-two approved
+ * posts stranded, forty-five green mornings, not one email. And the other way,
+ * a morning the watchman could not judge wiped out what it had gathered, so a
+ * Meta that was busy every fifth morning was enough to keep it silent for ever.
+ *
+ * The publisher can simply be asked instead of inferred from, and it costs one
+ * write.
+ */
+export const HEARTBEAT_ID = "publisherHeartbeat";
+
+/** What a run did, in the one word the watchman reads back. */
+export type PublisherOutcome = "published" | "held" | "skipped" | "nothing-due" | "failed";
+
+export interface HeartbeatMark {
+  outcome: PublisherOutcome;
+  /** Which hold, which skip, which error — for the morning somebody looks */
+  detail?: string;
+  /** True only when this run actually put something on the feed */
+  sent?: boolean;
+  /** True when the posting rules let this run through — see `lastFreeAt` */
+  free?: boolean;
+}
+
+/**
+ * How long Sanity may take to accept the mark before the run stops waiting.
+ *
+ * This was the one call on the publishing path with no limit on it — the
+ * client in sanity.ts has none of its own — and it is made after the post has
+ * already gone out, so a Sanity that hangs cannot cost a post. What it can
+ * cost is the run: /api/social/publish has sixty seconds before Vercel kills
+ * it, and the Worker that knocks gives up at ninety, so a hanging mark turns a
+ * run that has already done its job into a failed invocation in the Cloudflare
+ * dashboard — noise pointing at the one place where nothing is wrong. Three
+ * seconds is generous for a single-document patch that normally answers in a
+ * fraction of one, and a mark nobody waited for is no worse than a mark that
+ * was never written: the watchman reads a missing mark as "the schedule is not
+ * knocking", and the next run fifteen minutes later puts that right.
+ */
+export const PULSE_WRITE_TIMEOUT_MS = 3000;
+
+/**
+ * Stop waiting for a write, and let it finish on its own if it ever does.
+ *
+ * `Promise.race` keeps a handler attached to `work`, so a rejection that
+ * arrives after the deadline is still handled and never surfaces as an
+ * unhandled rejection killing the process.
+ *
+ * Exported only so a test can watch it give up without the suite standing
+ * still for as long as the constant says — which is the shape of test that
+ * catches nothing and costs three seconds on every run.
+ */
+export function waitAtMost<T>(ms: number, work: Promise<T>): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Leave a mark that this run happened, and say what it did.
+ *
+ * Three dates, and the differences between them are the point. `at` is every
+ * run, whatever came of it, so a publisher that is running but holding back by
+ * the rules still says so. `lastSentAt` moves only when this run actually put
+ * something on the feed, which is what tells "running and rightly quiet" from
+ * "running and nothing ever comes out".
+ *
+ * `lastFreeAt` is the third, and it was bought with a measured false alarm.
+ * Kristina's daily post by hand counts against the daily number — POSTING_STATE
+ * counts everything that reached the feed today, not only what this code sent —
+ * so at the Studio's own defaults, one post a day and quiet hours until eight,
+ * a hand-written post at seven in the morning leaves every run of the rest of
+ * that day rightly held. `lastSentAt` then sits still at a shop where nothing
+ * whatever is wrong, and the watchman called it a publisher that had stopped
+ * sending: twelve emails over forty-five days, half of them red, at a shop in
+ * perfect health. So the run also writes down when the rules last let it
+ * through. "It has been free to send and sent nothing" is a fault; "the rules
+ * have held it the whole time" is the rules working, and the two are now told
+ * apart by a date rather than by whichever of the ninety-six runs in a day the
+ * watchman happened to read.
+ *
+ * This is written here rather than in the route on purpose, and the choice is
+ * the whole reason the mark can be trusted. The same route serves the Studio's
+ * "Post this now" button, which comes in with an id and goes through
+ * `publishPostById` below — and a post Kristina sends herself is exactly what
+ * used to hide a dead schedule. Nothing she does by hand reaches this line.
+ *
+ * A mark that cannot be written must never stop a post going out. Publishing
+ * is the job; watching it happen is not, and the watchman has its own line for
+ * a database that will not take a write.
+ */
+async function leaveAPulse(mark: HeartbeatMark): Promise<void> {
+  try {
+    const now = new Date().toISOString();
+    await waitAtMost(
+      PULSE_WRITE_TIMEOUT_MS,
+      sanityWriteClient
+        .transaction()
+        .createIfNotExists({ _id: HEARTBEAT_ID, _type: "publisherHeartbeat" })
+        .patch(HEARTBEAT_ID, (patch) =>
+          patch.set({
+            at: now,
+            outcome: mark.outcome,
+            detail: mark.detail ?? null,
+            ...(mark.sent ? { lastSentAt: now } : {}),
+            ...(mark.free ? { lastFreeAt: now } : {}),
+          })
+        )
+        .commit()
+    );
+  } catch (error) {
+    console.error("Could not record that the publisher ran:", error);
+  }
+}
+
+/**
+ * Exported so a test can hold the one judgement in here, rather than read it.
+ *
+ * Which word a run leaves behind is the whole of what the watchman can say
+ * about a publisher that is running and producing nothing, and the words are
+ * not interchangeable: a run whose posts Instagram refused and a run with an
+ * empty queue leave exactly the same silent feed and mean opposite things.
+ */
+export function pulseOf(summary: PublishSummary): HeartbeatMark {
+  // Whether the rules let this run through is a separate question from what
+  // came of it, and it has to be asked separately: a run can be free to send
+  // and still send nothing (an empty queue, an Instagram that refused), and a
+  // run held by the rules is not evidence of anything at all. `held` is the
+  // hold the rules returned and `skipped` is a run that never reached them —
+  // no Instagram connection, so nothing was ever asked of the rules. Either
+  // way this run had no chance to send, and it must not read as one that did.
+  // It is spread into every answer below rather than only the ones it can be
+  // true for, so that this line is the only place the question is decided: a
+  // branch that quietly could not say "free" would be a second answer to it.
+  const free = summary.held === undefined && summary.skipped === undefined;
+  const wasFree = free ? { free: true as const } : {};
+
+  // Published first, because a run that got something out is working whatever
+  // else it also did. Then the reasons, in the order they can be acted on: a
+  // post Instagram refused, a skip, a rule holding the run back, and last the
+  // ordinary answer of a publisher with nothing to do. A run that failed has
+  // to be distinguishable from one with an empty queue: they leave the same
+  // empty feed and mean opposite things.
+  if (summary.published > 0) return { outcome: "published", sent: true, ...wasFree };
+  if (summary.failed > 0) {
+    return { outcome: "failed", detail: `${summary.failed} post(s) failed`, ...wasFree };
+  }
+  if (summary.skipped) return { outcome: "skipped", detail: summary.skipped, ...wasFree };
+  if (summary.held) return { outcome: "held", detail: summary.held, ...wasFree };
+  return { outcome: "nothing-due", ...wasFree };
+}
+
 /** Sends out everything approved and due. */
 export async function publishDuePosts(limit = 5): Promise<PublishSummary> {
   if (!process.env.SANITY_API_WRITE_TOKEN) {
+    // Nothing to write the mark with either. The watchman reports a missing
+    // write token by name on its own line, so this needs no second voice.
     return { published: 0, failed: 0, skipped: "No Sanity write token", posts: [] };
   }
+  let summary: PublishSummary;
+  try {
+    summary = await sendWhatIsDue(limit);
+  } catch (error) {
+    // A run that reached Sanity and threw is still a run that happened, and it
+    // is a different breakage from a schedule that has stopped knocking. Say
+    // which, then let the error out as before.
+    await leaveAPulse({
+      outcome: "failed",
+      detail: error instanceof Error ? error.message : "the run failed",
+    });
+    throw error;
+  }
+  await leaveAPulse(pulseOf(summary));
+  return summary;
+}
+
+async function sendWhatIsDue(limit: number): Promise<PublishSummary> {
   if (!instagramConfigured()) {
     return { published: 0, failed: 0, skipped: "Instagram is not connected", posts: [] };
   }
