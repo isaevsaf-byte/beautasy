@@ -1,9 +1,9 @@
-import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
-import { claimThenSend } from "@/lib/claim";
+import { claimThenSend, type ClaimClient, type ClaimOutcome } from "@/lib/claim";
 import { open } from "@/lib/pii";
+import { sendEmail } from "@/lib/sendEmail";
 import { friendsBlockHtml, ownLinkFor, referralSettings, rewardReferral } from "@/lib/referrals";
 import type { ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
@@ -124,7 +124,11 @@ export function bookingEmailHtml(
 </html>`;
 }
 
-const PENDING_QUERY = `*[
+/**
+ * Exported so a test can run it rather than read it: it is the only thing that
+ * says whether a customer the mail service refused is ever looked at again.
+ */
+export const PENDING_QUERY = `*[
   _type == "atelierBooking"
   && defined(emailSealed)
   && status in ["confirmed", "declined", "completed"]
@@ -142,13 +146,42 @@ const PENDING_QUERY = `*[
  * the Sanity webhook, and the "Email the customer now" button is usually
  * pressed a second later; without the claim that was two confirmations.
  */
+/**
+ * Claim the booking, send, and hand the claim back if the mail service refuses.
+ *
+ * Its own function so a test can run the real claim and the real release
+ * rather than a copy of them. `notifiedStatus` is what PENDING_QUERY reads to
+ * decide who is still owed an email, so a mark left standing after a refusal
+ * is the one mistake this queue cannot recover from: nothing looks at that
+ * booking again, from any of the three ways in. Better a second confirmation
+ * than a fitting nobody was ever told about — and inline, the release could be
+ * turned into the claim again without a test noticing.
+ *
+ * The same route's own confirmation works this way too, by hand, because there
+ * is no document to claim until it writes one. See `confirmationMark` in
+ * src/app/api/atelier-booking/route.ts.
+ */
+export function claimBookingEmail(
+  client: ClaimClient,
+  booking: { _id: string; _rev: string; notifiedStatus?: string },
+  status: NotifiableStatus,
+  send: () => Promise<unknown>
+): Promise<ClaimOutcome> {
+  return claimThenSend(
+    client,
+    booking,
+    { notifiedStatus: status },
+    booking.notifiedStatus ? { notifiedStatus: booking.notifiedStatus } : ["notifiedStatus"],
+    send
+  );
+}
+
 export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: number; sent: number }> {
   if (!process.env.RESEND_API_KEY || !process.env.SANITY_API_WRITE_TOKEN) {
     return { checked: 0, sent: 0 };
   }
 
   const bookings: NotifiableBooking[] = await sanityWriteClient.fetch(PENDING_QUERY, { limit });
-  const resend = new Resend(process.env.RESEND_API_KEY);
   let sent = 0;
 
   for (const booking of bookings) {
@@ -173,13 +206,8 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
       if (code) friends = { code, settings: await referralSettings() };
     }
 
-    const outcome = await claimThenSend(
-      sanityWriteClient,
-      booking,
-      { notifiedStatus: status },
-      booking.notifiedStatus ? { notifiedStatus: booking.notifiedStatus } : ["notifiedStatus"],
-      () =>
-        resend.emails.send({
+    const outcome = await claimBookingEmail(sanityWriteClient, booking, status, () =>
+        sendEmail({
           from: FROM_EMAIL,
           to: email,
           replyTo: KRISTINA_EMAIL,

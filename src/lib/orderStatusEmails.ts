@@ -1,9 +1,9 @@
-import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
-import { claimThenSend } from "@/lib/claim";
+import { claimThenSend, type ClaimClient, type ClaimOutcome } from "@/lib/claim";
 import { open } from "@/lib/pii";
+import { sendEmail } from "@/lib/sendEmail";
 import { friendsBlockHtml, ownLinkFor, referralSettings } from "@/lib/referrals";
 import type { ReferralSettings } from "@/lib/referralRules";
 
@@ -103,7 +103,11 @@ function statusEmail(
 </html>`;
 }
 
-const PENDING_QUERY = `*[
+/**
+ * Exported so a test can run it rather than read it: it is the only thing that
+ * says whether a customer the mail service refused is ever looked at again.
+ */
+export const PENDING_QUERY = `*[
   _type == "order"
   && defined(customerEmailSealed)
   && status in ["in-production", "shipped", "delivered"]
@@ -120,13 +124,44 @@ const PENDING_QUERY = `*[
  * the email goes out, so the Studio button, the Sanity webhook and the daily
  * job can overlap without anyone hearing the same news twice.
  */
+/**
+ * Claim the order, send, and hand the claim back if the mail service refuses.
+ *
+ * Its own function so a test can run the real claim and the real release
+ * instead of a copy written beside the assertion — and the release is the half
+ * that matters. `notifiedStatus` is the only record of who has been told, and
+ * PENDING_QUERY excludes an order whose notifiedStatus already matches its
+ * status, so a mark left standing after a refusal meant the parcel went out,
+ * the customer was never told, and neither the cron, nor the Sanity webhook,
+ * nor the Studio button would ever look at that order again. Written inline,
+ * that release could be replaced with `{ notifiedStatus: status }` — the bug
+ * itself — without a single test going red.
+ *
+ * What it hands back is what was there before, not nothing: an order that had
+ * been told about "shipped" and is now being told about "delivered" must go
+ * back to "shipped", or the shipping email is sent a second time.
+ */
+export function claimStatusEmail(
+  client: ClaimClient,
+  order: { _id: string; _rev: string; notifiedStatus?: string },
+  status: NotifiableStatus,
+  send: () => Promise<unknown>
+): Promise<ClaimOutcome> {
+  return claimThenSend(
+    client,
+    order,
+    { notifiedStatus: status },
+    order.notifiedStatus ? { notifiedStatus: order.notifiedStatus } : ["notifiedStatus"],
+    send
+  );
+}
+
 export async function sendPendingStatusEmails(limit = 50): Promise<{ checked: number; sent: number }> {
   if (!process.env.RESEND_API_KEY || !process.env.SANITY_API_WRITE_TOKEN) {
     return { checked: 0, sent: 0 };
   }
 
   const orders: NotifiableOrder[] = await sanityWriteClient.fetch(PENDING_QUERY, { limit });
-  const resend = new Resend(process.env.RESEND_API_KEY);
   let sent = 0;
 
   for (const order of orders) {
@@ -146,13 +181,8 @@ export async function sendPendingStatusEmails(limit = 50): Promise<{ checked: nu
       if (code) friends = { code, settings: await referralSettings() };
     }
 
-    const outcome = await claimThenSend(
-      sanityWriteClient,
-      order,
-      { notifiedStatus: status },
-      order.notifiedStatus ? { notifiedStatus: order.notifiedStatus } : ["notifiedStatus"],
-      () =>
-        resend.emails.send({
+    const outcome = await claimStatusEmail(sanityWriteClient, order, status, () =>
+        sendEmail({
           from: FROM_EMAIL,
           to: email,
           replyTo: KRISTINA_EMAIL,

@@ -101,6 +101,29 @@ export const atelierBooking = defineType({
       readOnly: true,
       description: "The last status the customer was emailed about. Set automatically.",
     }),
+    /**
+     * When Kristina herself was told this booking exists.
+     *
+     * Not the same question as `status`, and that difference is the whole
+     * reason for the field. A customer who picks a time on the site is written
+     * down as "confirmed" straight away, because the site has just confirmed it
+     * to them — so `status` says nothing about whether anyone at the atelier
+     * knows. On 5 September the email that would have told her was refused,
+     * counted as sent, and the booking sat in the diary looking answered. A
+     * watchman reading `status` could not have seen it; one reading this can.
+     *
+     * Stamped only after her notification has actually been taken by the mail
+     * service, and by nothing else. Hidden because it is the site's own
+     * bookkeeping: there is nothing here for her to fill in, and a date she
+     * could type into would be a date the watchman has to distrust.
+     */
+    defineField({
+      name: "kristinaNotifiedAt",
+      title: "Kristina Told At",
+      type: "datetime",
+      readOnly: true,
+      hidden: true,
+    }),
     defineField({ name: "createdAt", title: "Requested At", type: "datetime", readOnly: true }),
   ],
   preview: {

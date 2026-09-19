@@ -16,7 +16,11 @@ const ROUTE = readFileSync(join(process.cwd(), "src", "app", "api", "atelier-boo
 
 test("the reward follows the claimed, sent thank-you for a completed booking", () => {
   const job = EMAILS.slice(EMAILS.indexOf("export async function sendPendingBookingEmails"));
-  const claimAt = job.indexOf("claimThenSend(");
+  // The claim and its release now live in `claimBookingEmail` beside the job,
+  // so that a test can run the real pair rather than a copy of it — see
+  // emailRetries.test.ts. What this line is about is unchanged: the reward
+  // comes after the send, in the run that won the claim.
+  const claimAt = job.indexOf("claimBookingEmail(");
   const rewardAt = job.indexOf("rewardReferral(");
   assert.ok(claimAt !== -1 && rewardAt !== -1, "booking job shape changed — update this test");
   assert.ok(claimAt < rewardAt, "Claim and send first; reward only the run that won the claim.");

@@ -1,9 +1,9 @@
-import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
 import { revealCode } from "@/lib/giftCards";
 import { open } from "@/lib/pii";
+import { sendEmail, viaResend, type Deliver } from "@/lib/sendEmail";
 
 /**
  * Delivering gift cards: immediately, or on the date the buyer chose (which is
@@ -22,6 +22,11 @@ export interface DeliverableCard {
   recipientName?: string;
   message?: string;
   expiresAt?: string;
+}
+
+/** The stamp DUE_QUERY reads. Separate so `deliverGiftCard` can be watched. */
+async function markSent(id: string, at: string): Promise<unknown> {
+  return sanityWriteClient.patch(id).set({ sentAt: at }).commit();
 }
 
 export function giftCardEmailHtml(card: DeliverableCard): string {
@@ -75,25 +80,78 @@ export function giftCardEmailHtml(card: DeliverableCard): string {
 </html>`;
 }
 
-/** Emails one card to its recipient and stamps it as sent. */
-export async function deliverGiftCard(card: DeliverableCard): Promise<boolean> {
+/**
+ * Emails one card to its recipient and stamps it as sent.
+ *
+ * The stamp goes on only once the mail service has actually taken the email,
+ * and that is the whole of this function's job. `sentAt` is what DUE_QUERY
+ * below reads to decide a card has been delivered, so a stamp written after a
+ * refusal was a paid-for present nobody would ever receive and no run would
+ * ever pick up again — and `true` came back, so the cron's own count said it
+ * had gone. A refusal throws now (see @/lib/sendEmail), the stamp is never
+ * reached, and the next run finds the card exactly where it left it.
+ *
+ * Both halves are seams so that a test can watch which of them happened. The
+ * order is the whole behaviour here and it is invisible from the outside: a
+ * card that came back `false` and a card that came back `false` with a stamp
+ * on it look identical to the caller, and only the second one is money the
+ * recipient never sees.
+ *
+ * The price of choosing that order, said here rather than left to be found:
+ * when the email goes and the stamp does not, the recipient gets the same
+ * present twice, with the same code on it, on two consecutive mornings. That
+ * is the cheaper of the two mistakes — the code is one document, so a card
+ * delivered twice cannot be spent twice — and the write is tried again once
+ * before it is accepted, below.
+ */
+export async function deliverGiftCard(
+  card: DeliverableCard,
+  deps: { deliver?: Deliver; stamp?: (id: string, at: string) => Promise<unknown> } = {}
+): Promise<boolean> {
   if (!card.recipientEmail || !process.env.RESEND_API_KEY) return false;
 
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
-      from: FROM_EMAIL,
-      to: card.recipientEmail,
-      replyTo: KRISTINA_EMAIL,
-      subject: `You've been given a Beautasy gift card 💜`,
-      html: giftCardEmailHtml(card),
-    });
-    await sanityWriteClient.patch(card._id).set({ sentAt: new Date().toISOString() }).commit();
-    return true;
+    await sendEmail(
+      {
+        from: FROM_EMAIL,
+        to: card.recipientEmail,
+        replyTo: KRISTINA_EMAIL,
+        subject: `You've been given a Beautasy gift card 💜`,
+        html: giftCardEmailHtml(card),
+      },
+      deps.deliver ?? viaResend
+    );
   } catch (err) {
     console.error(`Failed to deliver gift card ${card._id}:`, err);
     return false;
   }
+
+  // The email has gone. From here on the only question left is whether this
+  // shop can remember that it went, and the two failures are not the same
+  // size, so they are no longer in the same try block.
+  //
+  // A stamp that does not get written leaves a card DUE_QUERY will find again
+  // tomorrow morning, and the recipient is given the same present a second
+  // time, with the same code on it — embarrassing, and not money lost, because
+  // the card is one document and spending it twice is not possible. A stamp
+  // written after a refusal is the other way round: a present somebody paid
+  // for that no run will ever send. So the order stays as it is, and the one
+  // thing worth adding is a second try at the write before giving up, because
+  // the usual reason it fails is a moment of Sanity being busy.
+  const stamp = deps.stamp ?? markSent;
+  const at = new Date().toISOString();
+  try {
+    await stamp(card._id, at);
+  } catch (err) {
+    console.error(`Gift card ${card._id} was sent but not stamped — trying once more:`, err);
+    try {
+      await stamp(card._id, at);
+    } catch (again) {
+      console.error(`Gift card ${card._id} will be sent a second time tomorrow:`, again);
+      return false;
+    }
+  }
+  return true;
 }
 
 // Scheduled cards whose morning has come, plus any "send now" card whose first
@@ -107,7 +165,7 @@ export async function deliverGiftCard(card: DeliverableCard): Promise<boolean> {
 // Friends credit (source == "referral") is a gift card too, but its delivery
 // is the reward email; it marks itself sent at creation and is left out here
 // as well, so a change to either side cannot put it in this queue.
-const DUE_QUERY = `*[
+export const DUE_QUERY = `*[
   _type == "giftCard"
   && !defined(sentAt)
   && defined(recipientEmailSealed)
@@ -167,19 +225,22 @@ function purchaseReceiptHtml(
  * Neither used to hear anything: the webhook returned early for gift cards, so
  * the person who paid had no receipt and no code, and a mistyped recipient
  * address quietly swallowed the money. Both emails are best-effort — a mail
- * problem must not undo the card, which is already issued.
+ * problem must not undo the card, which is already issued. Best-effort means
+ * the reason reaches the log rather than nowhere: neither of these marks
+ * anything and neither is ever retried, so a refusal here costs a receipt and
+ * a "gift card sold" line, and until now the only way to find out was to go
+ * looking in the Studio.
  */
 export async function emailGiftCardPurchase(
   card: DeliverableCard,
   opts: { purchaserEmail?: string; deliverAt?: string; total: number }
 ): Promise<void> {
   if (!process.env.RESEND_API_KEY) return;
-  const resend = new Resend(process.env.RESEND_API_KEY);
   const amount = `£${(card.initialAmount / 100).toFixed(2)}`;
 
   if (opts.purchaserEmail) {
     try {
-      await resend.emails.send({
+      await sendEmail({
         from: FROM_EMAIL,
         to: opts.purchaserEmail,
         replyTo: KRISTINA_EMAIL,
@@ -192,7 +253,7 @@ export async function emailGiftCardPurchase(
   }
 
   try {
-    await resend.emails.send({
+    await sendEmail({
       from: FROM_EMAIL,
       to: KRISTINA_EMAIL,
       subject: `Gift card sold — ${amount}`,

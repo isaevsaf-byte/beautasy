@@ -1,10 +1,11 @@
-import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { generateReviewToken, reviewTokenFingerprint } from "@/lib/reviewToken";
 import { SITE_URL } from "@/lib/site";
 import { BUSINESS } from "@/lib/business";
 import { open } from "@/lib/pii";
+import { claimThenSend, type ClaimClient, type ClaimOutcome } from "@/lib/claim";
+import { sendEmail } from "@/lib/sendEmail";
 
 /**
  * Asks recent customers for a review, with a tokenised link so they don't need
@@ -14,11 +15,6 @@ import { open } from "@/lib/pii";
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 
-function getResend() {
-  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
-  return new Resend(process.env.RESEND_API_KEY);
-}
-
 /** Wait this long after the order before asking — production plus delivery. */
 const DAYS_BEFORE_ASKING = 14;
 /** Cap per run so one cron invocation can't hit the function timeout. */
@@ -26,6 +22,8 @@ const MAX_PER_RUN = 25;
 
 interface PendingOrder {
   _id: string;
+  /** Revision the order was read at — the claim is conditional on it */
+  _rev: string;
   /** Sealed address — see @/lib/pii */
   customerEmailSealed?: string;
   /** First name, readable, for the greeting */
@@ -33,14 +31,18 @@ interface PendingOrder {
   items: { productId?: string; name: string }[];
 }
 
-const PENDING_QUERY = `*[
+/**
+ * Exported so a test can run it rather than read it: it is the only thing that
+ * says whether a customer the mail service refused is ever looked at again.
+ */
+export const PENDING_QUERY = `*[
   _type == "order"
   && defined(customerEmailSealed)
   && !defined(reviewRequestSentAt)
   && createdAt < $cutoff
   && status in ["paid", "in-production", "shipped", "delivered"]
 ] | order(createdAt asc) [0...$limit] {
-  _id, customerEmailSealed, displayName, "items": items[]{ productId, name }
+  _id, _rev, customerEmailSealed, displayName, "items": items[]{ productId, name }
 }`;
 
 function requestEmail(order: PendingOrder, token: string): string {
@@ -87,6 +89,40 @@ function requestEmail(order: PendingOrder, token: string): string {
 }
 
 
+/**
+ * Claim the order, ask for the review, and hand the claim back on a refusal.
+ *
+ * Its own function so a test can run the real pair rather than a copy. Both
+ * fields go on together and both come off together, and the release is the
+ * half worth watching: PENDING_QUERY selects on !defined(reviewRequestSentAt),
+ * so a stamp left standing after a refusal meant that customer was never asked
+ * again — and the stamp used to go on before the send, in the same try, with
+ * no undo at all, so even a thrown error left it there. Written inline, an
+ * empty release passed every test in the project.
+ *
+ * The fingerprint goes on first because an order that can accept a link nobody
+ * received is recoverable, while an emailed link the order will not recognise
+ * is dead. The token itself lives only in the email; the next run mints a
+ * fresh one, and the one from a refused attempt reached nobody.
+ */
+export function claimReviewRequest(
+  client: ClaimClient,
+  order: { _id: string; _rev: string },
+  token: string,
+  send: () => Promise<unknown>
+): Promise<ClaimOutcome> {
+  return claimThenSend(
+    client,
+    order,
+    {
+      reviewTokenFingerprint: reviewTokenFingerprint(token),
+      reviewRequestSentAt: new Date().toISOString(),
+    },
+    ["reviewTokenFingerprint", "reviewRequestSentAt"],
+    send
+  );
+}
+
 export async function runReviewRequests(): Promise<{ candidates: number; sent: number }> {
   if (!process.env.RESEND_API_KEY || !process.env.SANITY_API_WRITE_TOKEN) {
     return { candidates: 0, sent: 0 };
@@ -115,29 +151,28 @@ export async function runReviewRequests(): Promise<{ candidates: number; sent: n
     }
 
     const token = generateReviewToken();
-    try {
-      // Store the token's fingerprint first: an order that can accept a link
-      // nobody received is recoverable, an emailed link the order will not
-      // recognise is dead. The token itself lives only in the email.
-      await sanityWriteClient
-        .patch(order._id)
-        .set({
-          reviewTokenFingerprint: reviewTokenFingerprint(token),
-          reviewRequestSentAt: new Date().toISOString(),
+    // The fingerprint is stored first: an order that can accept a link nobody
+    // received is recoverable, an emailed link the order will not recognise is
+    // dead. The token itself lives only in the email.
+    //
+    // And it is taken back off when the mail service refuses the email, which
+    // is what `claimThenSend` is for. PENDING_QUERY selects on
+    // `!defined(reviewRequestSentAt)`, so a stamp left standing after a
+    // refusal meant that customer was never asked for a review again — and the
+    // stamp went on before the send, in the same try, with no undo at all, so
+    // even a thrown error left it there. The next run mints a fresh token; the
+    // one from the refused attempt reached nobody, so nothing is orphaned by
+    // forgetting it.
+    const outcome = await claimReviewRequest(sanityWriteClient, order, token, () =>
+        sendEmail({
+          from: FROM_EMAIL,
+          to: email,
+          replyTo: KRISTINA_EMAIL,
+          subject: "How are your Beautasy pieces wearing? 💜",
+          html: requestEmail(order, token),
         })
-        .commit();
-
-      await getResend().emails.send({
-        from: FROM_EMAIL,
-        to: email,
-        replyTo: KRISTINA_EMAIL,
-        subject: "How are your Beautasy pieces wearing? 💜",
-        html: requestEmail(order, token),
-      });
-      sent++;
-    } catch (err) {
-      console.error(`Failed to send review request for order ${order._id}:`, err);
-    }
+    );
+    if (outcome === "sent") sent++;
   }
 
   return { candidates: orders.length, sent };

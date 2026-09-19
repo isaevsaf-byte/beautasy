@@ -1,5 +1,4 @@
 import { randomBytes } from "crypto";
-import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { fingerprint, seal, unseal, secretsConfigured } from "@/lib/secrets";
 import { emailFingerprint, maskEmail, firstNameOf, normaliseEmail, open } from "@/lib/pii";
@@ -7,6 +6,7 @@ import { generateGiftCardCode, codeFields as giftCardCodeFields, revealCode } fr
 import { getSiteSettings } from "@/lib/siteSettings";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
+import { sendEmail } from "@/lib/sendEmail";
 import {
   looksLikeReferralCode,
   normaliseReferralCode,
@@ -43,11 +43,6 @@ import {
 
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
-
-function getResend() {
-  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
-  return new Resend(process.env.RESEND_API_KEY);
-}
 
 export type ReferrerSource = "order" | "booking" | "page";
 
@@ -616,7 +611,7 @@ async function emailReward(
   if (!email || !code || !process.env.RESEND_API_KEY) return;
   try {
     const friendName = firstNameOf(input.friend.name) ?? "A friend";
-    await getResend().emails.send({
+    await sendEmail({
       from: FROM_EMAIL,
       to: email,
       replyTo: KRISTINA_EMAIL,
@@ -635,11 +630,29 @@ async function emailReward(
     });
     await sanityWriteClient.patch(eventId).set({ rewardEmailedAt: new Date().toISOString() }).commit();
   } catch (err) {
+    // 🚨 The one place in the shop a refused email cannot be tried again, and
+    // it is worth being plain about rather than pretending otherwise. The
+    // referral event is created with `createIfNotExists`, so a second
+    // `rewardReferral` answers "duplicate" and never reaches this function —
+    // which is exactly what stops the same £5 being credited twice. Sending
+    // from here on a later run would need the reward and the telling to be
+    // separately claimable, which is a bigger change than this one. What is
+    // true now: the credit is safe on their card, `rewardEmailedAt` is absent
+    // rather than lying about it, and the reason is in the log instead of
+    // nowhere at all.
     console.error(`Referral ${eventId}: reward credited but the email failed`, err);
   }
 }
 
-/** Emails someone their own link. Best-effort: the link exists either way. */
+/**
+ * Emails someone their own link. Best-effort: the link exists either way.
+ *
+ * The boolean is the honest part. It goes back in the answer to /api/referrals
+ * and becomes "we've sent it" on the page, and it used to be `true` whatever
+ * Resend said — so a refusal told the person to go and watch an inbox nothing
+ * was coming to. Asking again is allowed (five an hour), and now each answer
+ * is about that attempt.
+ */
 export async function sendReferralLinkEmail(
   email: string,
   firstName: string | undefined,
@@ -648,7 +661,7 @@ export async function sendReferralLinkEmail(
 ): Promise<boolean> {
   if (!process.env.RESEND_API_KEY) return false;
   try {
-    await getResend().emails.send({
+    await sendEmail({
       from: FROM_EMAIL,
       to: email,
       replyTo: KRISTINA_EMAIL,

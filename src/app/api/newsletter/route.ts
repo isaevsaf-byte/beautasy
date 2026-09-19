@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { escapeHtml } from "@/lib/escapeHtml";
@@ -7,17 +6,13 @@ import { createWelcomeCode, WELCOME_VALID_DAYS } from "@/lib/discounts";
 import { SITE_URL } from "@/lib/site";
 import { emailFingerprint, maskEmail, sealOptional } from "@/lib/pii";
 import { secretsConfigured } from "@/lib/secrets";
+import { sendEmail } from "@/lib/sendEmail";
 
 export const dynamic = "force-dynamic";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
-
-function getResend() {
-  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
-  return new Resend(process.env.RESEND_API_KEY);
-}
 
 function welcomeEmail(code: string | null): string {
   return `
@@ -114,7 +109,7 @@ export async function POST(req: NextRequest) {
 
     if (process.env.RESEND_API_KEY) {
       try {
-        await getResend().emails.send({
+        await sendEmail({
           from: FROM_EMAIL,
           to: normalised,
           replyTo: KRISTINA_EMAIL,
@@ -124,7 +119,13 @@ export async function POST(req: NextRequest) {
           html: welcomeEmail(code),
         });
       } catch (err) {
-        // Subscriber is saved; the email can be resent by hand
+        // Subscriber is saved; the email can be resent by hand — and now the
+        // log says why it has to be. Asking again does not help: the second
+        // request matches on emailFingerprint and answers alreadySubscribed
+        // without sending anything, so the discount code sits sealed on the
+        // subscriber document until somebody goes and gets it. Nothing here
+        // marks the welcome as sent, so there is no stamp to take back;
+        // whether it went out is now only knowable from this line.
         console.error("Failed to send welcome email:", err);
       }
     }

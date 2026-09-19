@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { sanityWriteClient } from "@/lib/sanity";
@@ -17,16 +16,12 @@ import { pounds } from "@/lib/friendsLink";
 import { getAvailableSlots } from "@/lib/schedule";
 import { slotIsOffered, slotLabel, slotDocumentId } from "@/lib/slots";
 import { bookingEmailHtml } from "@/lib/bookingEmails";
+import { sendEmail } from "@/lib/sendEmail";
 
 export const dynamic = "force-dynamic";
 
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
-
-function getResend() {
-  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
-  return new Resend(process.env.RESEND_API_KEY);
-}
 
 interface BookingBody {
   name: string;
@@ -44,6 +39,93 @@ interface BookingBody {
 const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Whether this request reached nobody at all.
+ *
+ * A function of its own, and tested as one, because the version that was
+ * written inline had nothing standing over it: move `emailed = true` out of
+ * the try block it sits in and every test in the project stayed green. That is
+ * not a hypothetical mutation, it is the 5 September bug written out — the
+ * handler recorded an email the mail service had refused, this guard read the
+ * lie, and the customer was told everything was fine.
+ *
+ * Saved but not emailed is not lost: the row is in the Studio and the watchman
+ * chases it. Emailed but not saved is not lost either: it is in her inbox.
+ * Only neither is worth telling the customer to go and use WhatsApp.
+ */
+export function bookingReachedNobody(saved: boolean, emailed: boolean): boolean {
+  return !saved && !emailed;
+}
+
+/** What to do with the "the customer has been told" mark once the emails are done. */
+export type ConfirmationMark = "keep" | "release" | "none";
+
+/**
+ * Whether a booked slot keeps the mark it was born with, or hands it back.
+ *
+ * The document is created with `notifiedStatus: "confirmed"` already on it,
+ * and that is a claim rather than a record — the same claim-then-release the
+ * four email queues make (see @/lib/claim), made here by hand because there is
+ * no document to claim until this request writes one.
+ *
+ * It has to be the claim and not a later stamp. Between `create` and the
+ * confirmation email are two round trips to Resend, about a second, and a
+ * Sanity webhook fires on create: for that second the booking is visible to
+ * PENDING_QUERY in bookingEmails.ts, which would claim it and send the very
+ * same "your appointment is confirmed" email a fraction of a second before
+ * this handler sends its own. Measured through the real query, not reasoned
+ * about — two identical confirmations to one customer.
+ *
+ * So the mark goes on at birth and comes off when the confirmation is refused,
+ * which leaves the booking exactly where the nightly job can finish the job
+ * this request started. Marked and never told was the 5 September shape and it
+ * is the one thing this must not do.
+ *
+ * "none" for a request with no chosen time: it is born "new", nobody has been
+ * confirmed anything, and there is no claim to hand back.
+ */
+export function confirmationMark(input: {
+  slot: boolean;
+  saved: boolean;
+  confirmed: boolean;
+}): ConfirmationMark {
+  if (!input.slot || !input.saved) return "none";
+  return input.confirmed ? "keep" : "release";
+}
+
+/** What the booking is left carrying, once both emails have had their turn. */
+export interface BookingWriteBack {
+  /** When Kristina was told, or null when she was not */
+  set: { kristinaNotifiedAt: string } | null;
+  /** Marks handed back, because the email they stood for was refused */
+  unset: string[];
+}
+
+/**
+ * The one write that settles both marks, worked out on its own so it can be
+ * measured on its own.
+ *
+ * `kristinaNotifiedAt` is the only thing in the shop that says the atelier
+ * knows a booking exists, and it is what the watchman reads (see HEALTH_QUERY
+ * in @/lib/siteHealth). So it may go on for one reason and one reason only:
+ * her email was taken. Stamping it regardless is 5 September again in a new
+ * field — the booking looks known about, the morning check stays quiet, and
+ * somebody turns up to a locked door.
+ *
+ * Null when there is nothing to write, so an ordinary request with no chosen
+ * time and a working mail service costs no round trip at all.
+ */
+export function writeBackAfterEmails(input: {
+  emailed: boolean;
+  mark: ConfirmationMark;
+  at: string;
+}): BookingWriteBack | null {
+  const set = input.emailed ? { kristinaNotifiedAt: input.at } : null;
+  const unset = input.mark === "release" ? ["notifiedStatus"] : [];
+  if (set === null && unset.length === 0) return null;
+  return { set, unset };
+}
 
 export async function POST(req: NextRequest) {
   // Two emails go out per booking, one of them to an address the caller types in
@@ -129,9 +211,11 @@ export async function POST(req: NextRequest) {
     // to answer is how a fitting quietly goes unbooked — and if the mail
     // service is down or misconfigured, the request must still survive.
     let saved = false;
+    /** The document, once it exists — the write-back below settles its marks */
+    let bookingId: string | null = null;
     if (process.env.SANITY_API_WRITE_TOKEN && secretsConfigured()) {
       try {
-        await sanityWriteClient.create({
+        const created = await sanityWriteClient.create({
           // A slot's id is the slot itself, so the second person to reach for
           // the same time is refused by the database rather than by a check
           // that another request could have slipped past.
@@ -160,12 +244,15 @@ export async function POST(req: NextRequest) {
           confirmedFor: slot ? slotLabel(slot) : undefined,
           preferredDate: slot ? undefined : preferredDate || undefined,
           status: slot ? "confirmed" : "new",
-          // A picked time is confirmed and the customer told in the same
-          // breath, so the nightly job sends no second confirmation.
+          // A picked time is marked as told at birth, and that mark is a claim
+          // rather than a record — see `confirmationMark` above for why it
+          // cannot wait until the confirmation below has gone, and for what is
+          // done when that confirmation is refused.
           notifiedStatus: slot ? "confirmed" : undefined,
           createdAt: new Date().toISOString(),
         });
         saved = true;
+        bookingId = created._id;
       } catch (err) {
         if (slot) {
           // The id was taken between the check above and this write
@@ -189,13 +276,19 @@ export async function POST(req: NextRequest) {
     // notification must not turn into an error the customer answers by
     // submitting again, which is how one fitting became three bookings.
     let emailed = false;
+    /** Whether the customer's own email went out — a booked slot is told once */
+    let confirmed = false;
     if (!process.env.RESEND_API_KEY) {
       console.error("RESEND_API_KEY is not set — booking saved without email");
     } else {
-      const resend = getResend();
-
       try {
-        await resend.emails.send({
+        // The one email this whole change is about. On 5 September this was
+        // refused, `emailed` was set to true regardless, and the guard at the
+        // end of the handler — the one that answers "please WhatsApp us
+        // instead" when a request has reached neither the Studio nor
+        // Kristina's inbox — was switched off by the lie. The customer was
+        // told everything was fine and waited a fortnight.
+        await sendEmail({
       from: FROM_EMAIL,
       to: KRISTINA_EMAIL,
       replyTo: email,
@@ -230,7 +323,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        await resend.emails.send({
+        await sendEmail({
       from: FROM_EMAIL,
       to: email,
       replyTo: KRISTINA_EMAIL,
@@ -268,13 +361,54 @@ export async function POST(req: NextRequest) {
           }
         </div>`,
         });
+        confirmed = true;
       } catch (err) {
         console.error("Failed to send booking acknowledgement:", err);
       }
     }
 
+    // What the two answers above mean for the document, in one write. Outside
+    // the RESEND_API_KEY branch on purpose: a shop with no mail key at all
+    // sends neither email, and a slot booking left holding its claim in that
+    // state would never be confirmed by anything, even after the key came back.
+    //
+    // `kristinaNotifiedAt` goes on only when her own email was taken, and it is
+    // the only thing that says the atelier knows this booking exists. `status`
+    // cannot say it: a picked time is born "confirmed" because the site has
+    // just confirmed it to the customer, which is a fact about the customer and
+    // not about Kristina. The watchman reads this field, so a booking she was
+    // never told about is chased whatever its status — see HEALTH_QUERY in
+    // @/lib/siteHealth.
+    //
+    // The claim on the confirmation comes off here when that email was refused,
+    // which puts the booking back in front of the nightly job. See
+    // `confirmationMark`.
+    //
+    // Two risks swapped in rather than removed, named so they are not
+    // rediscovered. If her email went and this write is what fails, the watchman
+    // chases a booking she already knows about — a false alarm she can close in
+    // the Studio in one click. And if the confirmation was refused AND this
+    // write fails, the claim stands and nothing sends that customer a
+    // confirmation; that needs two failures in a row, and the first of them
+    // already has a line in the morning email.
+    const marks = writeBackAfterEmails({
+      emailed,
+      mark: confirmationMark({ slot: Boolean(slot), saved, confirmed }),
+      at: new Date().toISOString(),
+    });
+    if (bookingId && marks) {
+      try {
+        let write = sanityWriteClient.patch(bookingId);
+        if (marks.set) write = write.set(marks.set);
+        if (marks.unset.length > 0) write = write.unset(marks.unset);
+        await write.commit();
+      } catch (err) {
+        console.error("Could not write back what happened to booking", bookingId, err);
+      }
+    }
+
     // Lost only if neither the Studio nor Kristina's inbox has it
-    if (!saved && !emailed) {
+    if (bookingReachedNobody(saved, emailed)) {
       return NextResponse.json(
         { error: "Booking is temporarily unavailable — please WhatsApp or email us instead." },
         { status: 503 }

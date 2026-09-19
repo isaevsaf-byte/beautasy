@@ -15,6 +15,8 @@ import {
   HEALTH_QUERY,
   runHealthWatchdog,
   troublesIn,
+  answerClockStartsAt,
+  workingDaysWaiting,
   questionsAsked,
   within,
   INSTAGRAM_DISCONNECTED,
@@ -22,6 +24,7 @@ import {
   PUBLISHER_NOT_SENDING,
   PUBLISHER_SILENT,
   NO_MEMORY,
+  KRISTINA_NOTICE_SINCE,
   type HealthCheck,
   type HealthFacts,
   type HealthMemory,
@@ -105,9 +108,21 @@ function queue(over: Partial<QueueFacts> = {}): QueueFacts {
     lastFailureError: null,
     lastFailureAt: null,
     settingsDocumentExists: true,
+    bookingsUnanswered: [],
     publisherPulse: pulse(),
     ...over,
   };
+}
+
+/**
+ * A fitting request that arrived at this Southampton local minute.
+ *
+ * Local rather than UTC, because every line this feeds is about the atelier's
+ * own working day — "half past seven on a Friday evening" is the input, and
+ * writing it as 18:30Z would hide the one thing the test is about.
+ */
+function arrived(localMinute: string): string {
+  return instantOf(localMinute).toISOString();
 }
 
 function facts(over: Partial<HealthFacts> = {}): HealthFacts {
@@ -1214,6 +1229,7 @@ const ASKED_EVERYTHING = [
   "Shop database",
   "Site settings",
   "Instagram renewal",
+  "Booking requests",
   "Failed posts",
   "Posts waiting to go out",
   "Posting",
@@ -1762,6 +1778,292 @@ test("this morning's email is claimed under a date, so two runs collide instead 
   );
 });
 
+/* ─── Somebody is waiting ─── */
+
+/**
+ * The check that would have caught the fortnight.
+ *
+ * On 5 September a fitting request arrived, saved perfectly, and the email
+ * telling Kristina was refused and counted as sent. Every line above this one
+ * was green that morning and every morning after it, because from the outside
+ * a request nobody has answered looks exactly like a request answered five
+ * minutes ago. The customer waited fourteen days. Nothing in this file could
+ * have said so, so this is the one measurement here that is about a person.
+ *
+ * Every date below is given as the minute the request arrived, because the
+ * judgement is made from that minute and from the atelier's working week. NOW
+ * is nine o'clock UTC on Friday 18 September, which is ten in Southampton.
+ */
+test("a customer who has waited three days for an answer is worth an email", () => {
+  const morning = evaluateHealth(
+    // Tuesday morning, three working days back with no weekend in between
+    facts({ queue: queue({ bookingsUnanswered: [arrived("2026-09-15T10:00")] }) })
+  );
+  const waiting = check(morning, "Booking requests");
+  assert.equal(waiting.status, "warn");
+  assert.match(waiting.detail, /One fitting request has had no answer/);
+  assert.match(waiting.detail, /waiting 3 days/);
+  assert.match(waiting.detail, /Atelier Bookings/, "It has to say where to go and what to do there.");
+});
+
+test("a shop where the fitting requests get answered hears nothing about them", async () => {
+  const sameDay = evaluateHealth(facts({ queue: queue() }));
+  assert.equal(check(sameDay, "Booking requests").status, "ok");
+  assert.match(check(sameDay, "Booking requests").detail, /Every fitting request has been answered/);
+
+  // And a request that came in a few hours ago is not late
+  const w = watchdog({ queue: queue({ bookingsUnanswered: [arrived("2026-09-18T07:00")] }) });
+  const result = await runHealthWatchdog(w.deps);
+  assert.equal(result.alerted, false);
+  assert.equal(w.sent.length, 0, "Two days of not being in your inbox is a normal week, not a fault.");
+});
+
+test("two days is the line, and the morning of the third is when it is said", () => {
+  const justUnder = evaluateHealth(
+    // Wednesday lunchtime: forty-six hours, and every one of them a working hour
+    facts({ queue: queue({ bookingsUnanswered: [arrived("2026-09-16T12:24")] }) })
+  );
+  assert.deepEqual(problemsIn(justUnder), [], "Nobody is past the line yet, so there is nothing to say.");
+
+  const justOver = evaluateHealth(
+    facts({ queue: queue({ bookingsUnanswered: [arrived("2026-09-16T09:00")] }) })
+  );
+  assert.equal(check(justOver, "Booking requests").status, "warn");
+});
+
+/**
+ * 🚨 The weekend, which is what broke this line before anybody deployed it.
+ *
+ * The threshold was calendar days. A request arrives at half past seven on a
+ * Friday evening, Kristina answers it at one on Monday — an ordinary weekend
+ * at a one-person atelier — and the nine o'clock run on Monday beat her to it
+ * by four hours and wrote to say somebody had been waiting two days. It then
+ * went away, so the Monday after it was news again: five emails in a month at
+ * a shop where nothing at all was wrong.
+ *
+ * Everything in this test is that Friday request, looked at from four
+ * different mornings.
+ */
+test("a request that arrives on Friday evening has not been ignored by Monday", () => {
+  const fridayEvening = arrived("2026-09-18T19:30");
+  const silent = ["2026-09-19T09:00", "2026-09-20T09:00", "2026-09-21T09:00"];
+  for (const morning of silent) {
+    const looked = evaluateHealth(
+      facts({
+        now: new Date(`${morning}:00Z`).toISOString(),
+        queue: queue({ bookingsUnanswered: [fridayEvening] }),
+      })
+    );
+    assert.equal(
+      check(looked, "Booking requests").status,
+      "ok",
+      `Nobody had a chance to answer it by ${morning} — the atelier was shut.`
+    );
+  }
+
+  // And the clock does start: two working days after Monday's opening.
+  const wednesday = evaluateHealth(
+    facts({
+      now: "2026-09-23T09:00:00Z",
+      queue: queue({ bookingsUnanswered: [fridayEvening] }),
+    })
+  );
+  assert.equal(
+    check(wednesday, "Booking requests").status,
+    "warn",
+    "Two working days after the atelier opened is the line, weekend or no weekend."
+  );
+});
+
+test("the clock on a weekend request starts when the atelier next opens", () => {
+  // Nine on Monday morning, Southampton, for every one of these
+  const monday = instantOf("2026-09-21T09:00").toISOString();
+  for (const late of ["2026-09-18T18:30", "2026-09-19T11:00", "2026-09-20T23:00", "2026-09-21T07:30"]) {
+    assert.equal(
+      answerClockStartsAt(new Date(arrived(late))).toISOString(),
+      monday,
+      `A request at ${late} cannot be answered before the atelier opens.`
+    );
+  }
+  // A request inside working hours starts its own clock, unchanged
+  const tuesdayAfternoon = arrived("2026-09-15T14:20");
+  assert.equal(answerClockStartsAt(new Date(tuesdayAfternoon)).toISOString(), tuesdayAfternoon);
+});
+
+/**
+ * A request that arrives after the atelier has shut, and the day it costs.
+ *
+ * Wednesday at eleven at night. Nobody could look at it that evening, so the
+ * clock starts on Thursday morning — and two working days from Thursday
+ * morning is Monday morning, because Saturday and Sunday are not days anybody
+ * was going to answer on. Measured from the arrival instead, it is late on the
+ * Saturday: an email on a weekend morning about a request she had two working
+ * days to answer, which is the shape of alarm this whole line has to avoid.
+ *
+ * What that costs, said plainly: a request arriving on a Wednesday night is
+ * chased two days later than one arriving on a Wednesday morning. The
+ * alternative is writing to her at nine on a Saturday.
+ */
+test("a request that arrives after closing waits for the next morning to start counting", () => {
+  const wednesdayNight = arrived("2026-09-16T23:00");
+  const saturday = evaluateHealth(
+    facts({ now: "2026-09-19T09:00:00Z", queue: queue({ bookingsUnanswered: [wednesdayNight] }) })
+  );
+  assert.equal(
+    check(saturday, "Booking requests").status,
+    "ok",
+    "Thursday and Friday are not two working days yet, and Saturday is not one at all."
+  );
+
+  const monday = evaluateHealth(
+    facts({ now: "2026-09-21T09:00:00Z", queue: queue({ bookingsUnanswered: [wednesdayNight] }) })
+  );
+  assert.equal(
+    check(monday, "Booking requests").status,
+    "warn",
+    "Two working days on from Thursday morning is Monday morning, and then it is said."
+  );
+});
+
+test("a weekday wait is counted exactly as it was before, hour for hour", () => {
+  // The behaviour that was already right and must not move: forty-seven hours
+  // between two weekday mornings is not two days.
+  assert.ok(workingDaysWaiting(arrived("2026-09-15T10:00"), new Date("2026-09-17T08:00:00Z")) < 2);
+  assert.ok(workingDaysWaiting(arrived("2026-09-15T10:00"), new Date("2026-09-17T09:00:00Z")) >= 2);
+});
+
+/**
+ * Why five days is red rather than another amber morning.
+ *
+ * A warning repeats after a week (REPEAT_AFTER_DAYS), which is right for a
+ * date in the diary and wrong for a person: told on the Wednesday and then not
+ * again until the following Wednesday, the watchman would go quiet for exactly
+ * the week in which the customer gives up and books somewhere else.
+ */
+test("a wait that turns into five days is said again rather than left for the week", () => {
+  const fifthDay = evaluateHealth(
+    // Last Friday morning: five working days back, with a weekend that does not count
+    facts({ queue: queue({ bookingsUnanswered: [arrived("2026-09-11T10:00")] }) })
+  );
+  const waiting = check(fifthDay, "Booking requests");
+  assert.equal(waiting.status, "fail");
+
+  // Told about it as a warning two days ago, and nothing else has changed
+  const told = memoryOf({
+    lookedAt: inDays(-1),
+    previousProblems: ["Booking requests ×1"],
+    lastEmail: {
+      at: inDays(-2),
+      problems: ["Booking requests ×1"],
+      worst: "warn",
+      looked: ASKED_EVERYTHING,
+    },
+  });
+  assert.equal(
+    alertDecision([waiting], told, NOW).send,
+    true,
+    "Amber going red is news; a second amber morning inside the week is not."
+  );
+});
+
+/**
+ * 🚨 The ceiling, which is the other way this line ruins itself.
+ *
+ * Kristina's email about a request carries the customer's own address as the
+ * reply-to, so the natural way to answer one is to reply straight from the
+ * inbox — and that changes nothing in the Studio. The row stays "new" for
+ * ever. Past the serious line a fault repeats every second day, and one such
+ * row produced twelve emails in thirty days with no end to them.
+ *
+ * So past a fortnight it is still counted and still named, and it no longer
+ * raises the status on its own. See BOOKING_CHASE_STOPS_AFTER_DAYS for what
+ * that gives up.
+ */
+test("a request nobody ever marked stops being an email after a fortnight", () => {
+  // Sixteen days back on a calendar, and only twelve of them working days.
+  // The ceiling is deliberately the calendar one: a person does not stop
+  // existing at the weekend, and counting the ceiling in working days would
+  // push it out to three weeks of emails every second day.
+  const forgotten = arrived("2026-09-02T10:00");
+  const old = evaluateHealth(facts({ queue: queue({ bookingsUnanswered: [forgotten] }) }));
+  const line = check(old, "Booking requests");
+  assert.equal(line.status, "ok", "A fortnight on, the customer is long gone and this is a tidy-up.");
+  assert.equal(line.tally, 0, "It counts for nothing, so it cannot make a morning look worse.");
+  assert.match(line.detail, /One request from more than a fortnight ago was never marked in the Studio/);
+  assert.deepEqual(problemsIn(old), [], "And nothing about it can send an email.");
+
+  // But a new one going unanswered beside it starts the whole escalation again
+  const andANewOne = evaluateHealth(
+    facts({ queue: queue({ bookingsUnanswered: [forgotten, arrived("2026-09-15T10:00")] }) })
+  );
+  const both = check(andANewOne, "Booking requests");
+  assert.equal(both.status, "warn");
+  assert.equal(both.tally, 1, "One person is waiting; the other is history.");
+  assert.match(both.detail, /One fitting request has had no answer/);
+  assert.match(both.detail, /One request from more than a fortnight ago was never marked/);
+});
+
+test("a second person joining the queue is news, and the same one waiting is not", () => {
+  const one = check(
+    evaluateHealth(facts({ queue: queue({ bookingsUnanswered: [arrived("2026-09-15T10:00")] }) })),
+    "Booking requests"
+  );
+  const two = check(
+    evaluateHealth(
+      facts({
+        queue: queue({
+          bookingsUnanswered: [arrived("2026-09-15T10:00"), arrived("2026-09-16T09:00")],
+        }),
+      })
+    ),
+    "Booking requests"
+  );
+  const told = memoryOf({
+    lookedAt: inDays(-1),
+    previousProblems: ["Booking requests ×1"],
+    lastEmail: {
+      at: inDays(-1),
+      problems: ["Booking requests ×1"],
+      worst: "warn",
+      looked: ASKED_EVERYTHING,
+    },
+  });
+  assert.equal(alertDecision([one], told, NOW).send, false, "The same one person, said again, is noise.");
+  assert.equal(alertDecision([two], told, NOW).send, true, "A second person waiting is a different morning.");
+});
+
+/**
+ * 🚨 The details stay in the Studio.
+ *
+ * This dataset is public, which is why every name, address and telephone
+ * number on a booking is sealed (see @/lib/pii). An email that quoted one to
+ * say who was waiting would be the single place in the shop where they travel
+ * in the clear, and it would do it by design rather than by accident.
+ */
+test("the email about somebody waiting carries numbers and a path, never a person", () => {
+  const morning = evaluateHealth(
+    facts({
+      queue: queue({
+        bookingsUnanswered: [
+          arrived("2026-09-11T10:00"),
+          arrived("2026-09-14T10:00"),
+          arrived("2026-09-15T10:00"),
+        ],
+      }),
+    })
+  );
+  const waiting = check(morning, "Booking requests");
+  const subject = alertSubject([waiting]);
+
+  for (const text of [waiting.detail, subject]) {
+    assert.doesNotMatch(text, /@/, "No address, not even a masked one.");
+    assert.doesNotMatch(text, /\+?\d[\d ]{6,}/, "No telephone number.");
+  }
+  assert.match(waiting.detail, /3 fitting requests have had no answer/);
+  assert.match(waiting.detail, /waiting 7 days/);
+  assert.match(waiting.detail, /never carries a customer's details/);
+});
+
 /* ─── The one that matters: an ordinary month ─── */
 
 const MINUTE = 60 * 1000;
@@ -1824,7 +2126,8 @@ function queueAt(
   posts: Post[],
   at: number,
   publisher?: (at: number, lastSent: string | null, lastFree?: number | null) => PublisherPulse | null,
-  freeRuns: number[] = []
+  freeRuns: number[] = [],
+  requests: Request[] = []
 ): QueueFacts {
   const approved = posts.filter((post) => statusAt(post, at) === "approved");
   const due = approved.filter((post) => post.scheduledFor === undefined || post.scheduledFor <= at);
@@ -1855,6 +2158,23 @@ function queueAt(
     failedRecently: 0,
     lastFailureError: null,
     lastFailureAt: null,
+    // The requests that have arrived by now and that nobody has answered yet,
+    // worked out from the diary rather than written in.
+    //
+    // This used to be a flat zero, and a flat zero is a shop with no customers
+    // in it: the whole sweep below ran against a month where this line could
+    // not have spoken whatever it did, so it proved nothing about the one check
+    // that was new. It now models an atelier that gets requests and answers
+    // them in a day or two — including the Friday evening ones, which is the
+    // case that turned a quiet month into an email every Monday.
+    //
+    // Handed over whole, without the query's own calendar line. That line can
+    // only ever narrow this list, so the model gives the watchman MORE to be
+    // noisy about than production would, which is the direction a silence test
+    // wants to be wrong in.
+    bookingsUnanswered: requests
+      .filter((request) => request.at <= at && request.answeredAt > at)
+      .map((request) => new Date(request.at).toISOString()),
     settingsDocumentExists: true,
     publisherPulse: (publisher ?? aliveSince)(
       at,
@@ -2080,6 +2400,58 @@ function cronOn(day: number): number {
  * published since Friday, nothing approved yet, and a dozen drafts. That one
  * morning is why this test exists.
  */
+/**
+ * A fitting request, and the moment Kristina dealt with it in the Studio.
+ *
+ * Both instants, because this is the half of the month the check about people
+ * reads, and it is judged on the atelier's working week rather than on the
+ * calendar. A request answered on Monday morning was never ignored, however
+ * many dates the weekend covered.
+ */
+interface Request {
+  at: number;
+  answeredAt: number;
+}
+
+/**
+ * The requests an ordinary month brings, and when they get answered.
+ *
+ * Every one of these is a shop where nothing is wrong: Kristina answers within
+ * a day or two, sometimes in the same afternoon, sometimes the morning after,
+ * and over the weekend on the Monday. The month must be silent about all of
+ * them, and it is the Friday and Saturday ones that decide whether it is —
+ * measured against the version before this, where a request at half past seven
+ * on a Friday evening answered at one o'clock on the Monday produced one email
+ * every Monday for a month.
+ *
+ * The Tuesday one is the other end of the same line: forty-six hours, entirely
+ * inside the working week, and still silent. That is the behaviour the
+ * calendar version had right, and it has to stay right.
+ */
+function requestsThrough(mornings: number): Request[] {
+  const made: Request[] = [];
+  const add = (day: number, at: string, answerDay: number, answerAt: string) => {
+    made.push({
+      at: instantOf(`${dateOf(day)}T${at}`).getTime(),
+      answeredAt: instantOf(`${dateOf(answerDay)}T${answerAt}`).getTime(),
+    });
+  };
+  for (let day = -7; day < mornings; day += 1) {
+    const weekday = new Date(`${dateOf(day)}T12:00:00Z`).getUTCDay();
+    // Monday, answered the same afternoon
+    if (weekday === 1) add(day, "11:00", day, "16:00");
+    // Tuesday, answered on Thursday morning — forty-six hours
+    if (weekday === 2) add(day, "10:00", day + 2, "08:00");
+    // Wednesday night, after the atelier shut, answered the next afternoon
+    if (weekday === 3) add(day, "21:40", day + 1, "15:00");
+    // 🚨 Friday evening, answered at one o'clock on the Monday
+    if (weekday === 5) add(day, "19:30", day + 3, "13:00");
+    // Saturday morning, answered on the Monday
+    if (weekday === 6) add(day, "10:15", day + 2, "11:00");
+  }
+  return made;
+}
+
 function ordinaryMonth(options: MonthOptions = {}): HealthFacts[] {
   const approveAt = options.approveAt ?? "13:05";
   const mornings = options.mornings ?? 30;
@@ -2125,6 +2497,7 @@ function ordinaryMonth(options: MonthOptions = {}): HealthFacts[] {
     (at) => at < death,
     byHand
   );
+  const requests = requestsThrough(mornings);
 
   const month: HealthFacts[] = [];
   for (let day = 0; day < mornings; day += 1) {
@@ -2148,7 +2521,7 @@ function ordinaryMonth(options: MonthOptions = {}): HealthFacts[] {
               expiryKnown: false,
               error: "Error validating access token: Session has expired",
             },
-      queue: queueAt(posts, at, undefined, freeRuns),
+      queue: queueAt(posts, at, undefined, freeRuns, requests),
       missingSettings: [],
       memory: NO_MEMORY,
     });
@@ -2218,6 +2591,23 @@ test("an ordinary month at a working shop sends no email at all", async () => {
   assert.equal(new Date(monday.now).getUTCDay(), 1, "Day seven is a Monday.");
   assert.equal(mondayQueue.approvedWaiting, 0, "The week's batch is not approved until lunchtime.");
   assert.ok(mondayQueue.draftsWaiting >= 4, "Drafts she has not got to are piling up behind it.");
+  // 🚨 And somebody IS waiting on this Monday morning — the request that came
+  // in at half past seven on the Friday evening, which Kristina answers at one
+  // o'clock this afternoon. That is the input the silence below is worth
+  // something for: with the threshold counted in calendar days it is two days
+  // old at nine o'clock and the month sends an email every Monday. A model
+  // that handed over an empty list here, as this one used to, would prove
+  // nothing at all about the check that reads it.
+  const fridayEvening = instantOf(`${dateOf(4)}T19:30`).toISOString();
+  assert.deepEqual(
+    mondayQueue.bookingsUnanswered,
+    [fridayEvening, instantOf(`${dateOf(5)}T10:15`).toISOString()],
+    "Friday evening's request and Saturday morning's are both still unanswered at nine on Monday, and neither may be an email."
+  );
+  assert.ok(
+    Math.floor((Date.parse(monday.now) - Date.parse(fridayEvening)) / DAY_MS) >= 2,
+    "Two whole calendar days old, which is exactly what the old threshold counted."
+  );
   assert.equal(
     Math.floor((Date.parse(monday.now) - Date.parse(mondayQueue.lastPublishedAt)) / DAY_MS),
     3,
@@ -3205,7 +3595,15 @@ test("the watchman runs inside allSettled, where it cannot take the other jobs d
  */
 async function askTheRealQuery(
   documents: Record<string, unknown>[],
-  now: Date
+  now: Date,
+  /**
+   * The line before which a booking is too old to be judged by a field that
+   * did not exist yet. Overridable because this file's clock is 18 September
+   * and the field's own dateline is the day after, so every fixture here would
+   * otherwise fall the wrong side of it. The real constant is measured on its
+   * own, below.
+   */
+  kristinaNoticeSince: string = KRISTINA_NOTICE_SINCE
 ): Promise<Record<string, number>> {
   const answer = await evaluate(parse(HEALTH_QUERY), {
     dataset: documents,
@@ -3216,6 +3614,12 @@ async function askTheRealQuery(
       reelsAbandonedBefore: new Date(now.getTime() - 3 * DAY_MS).toISOString(),
       failuresSince: new Date(now.getTime() - 7 * DAY_MS).toISOString(),
       lateBefore: new Date(now.getTime() - DAY_MS).toISOString(),
+      // The watchman's own calendar line: two days, exactly as askTheDatabase
+      // works it out. A change to ANSWER_BOOKING_WITHIN_DAYS that this did not
+      // follow would show up as a failure here rather than as a customer
+      // waiting a month.
+      bookingsUnansweredBefore: new Date(now.getTime() - 2 * DAY_MS).toISOString(),
+      kristinaNoticeSince,
       todayId: healthAlertDocumentId(now),
     },
   });
@@ -3458,4 +3862,167 @@ test("the real query reads all of the publisher's dates, and the absence of them
     null,
     "A shop where the publisher has never run has no record, and that is its own answer."
   );
+});
+
+/* ─── The one line that is about a person, measured in GROQ ─── */
+
+/**
+ * The check the 5 September incident was written for, run rather than read.
+ *
+ * Everything above judges a count that a fixture hands it, and for a while
+ * that was the whole of the cover this check had: the query itself could be
+ * changed to count a document type that does not exist, or to draw its line at
+ * thirty days instead of two, and every test in the project stayed green while
+ * the watchman went permanently blind. That is not a hypothetical either —
+ * both mutations were tried, and both passed.
+ *
+ * So these run the real HEALTH_QUERY through Sanity's own parser against
+ * documents shaped like the real ones. `arrivedAt` is deliberately `createdAt`
+ * on some and `_createdAt` on others, because the query coalesces the two and
+ * a booking written before that field existed has only the second.
+ */
+const NOTICE_LINE = "2026-09-01T00:00:00Z";
+
+function bookingDoc(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    _id: `booking-${Math.random().toString(36).slice(2)}`,
+    _type: "atelierBooking",
+    status: "new",
+    emailSealed: "sealed:…",
+    displayName: "A",
+    service: "Alterations",
+    createdAt: inDays(-4),
+    _createdAt: inDays(-4),
+    ...over,
+  };
+}
+
+function waitingIn(answer: Record<string, number>): string[] {
+  return ((answer.bookingsUnanswered ?? []) as unknown as { at: string }[]).map((row) => row.at);
+}
+
+test("the real query finds a request that has had no answer, and only once it is old", async () => {
+  const waiting = bookingDoc({ _id: "old-one", createdAt: inDays(-4) });
+  const justArrived = bookingDoc({ _id: "new-one", createdAt: inDays(-0.5) });
+
+  const answer = await askTheRealQuery([waiting, justArrived], NOW, NOTICE_LINE);
+  assert.deepEqual(
+    waitingIn(answer),
+    [inDays(-4)],
+    "Four days is a customer who has gone elsewhere; half a day is a normal morning."
+  );
+});
+
+test("the real query reads the date off _createdAt when a booking has no createdAt of its own", async () => {
+  const older = bookingDoc({ createdAt: undefined, _createdAt: inDays(-6) });
+  const answer = await askTheRealQuery([older], NOW, NOTICE_LINE);
+  assert.deepEqual(
+    waitingIn(answer),
+    [inDays(-6)],
+    "A booking from before the site stamped its own date is still somebody waiting."
+  );
+});
+
+/**
+ * 🚨 The booking the incident was really about.
+ *
+ * A customer who picks their own time is written down as "confirmed" in the
+ * same request, because the site has just confirmed it to them. Read `status`
+ * alone and that booking is indistinguishable from one Kristina answered
+ * herself — which is how a fitting sat in the diary for a fortnight with
+ * nobody at the atelier knowing it existed. The only honest marker is whether
+ * HER email was taken, and that is `kristinaNotifiedAt`.
+ */
+test("the real query sees a booked slot Kristina was never told about", async () => {
+  const neverTold = bookingDoc({
+    _id: "atelierBooking-2026-09-22T14:00",
+    status: "confirmed",
+    slotStart: "2026-09-22T14:00",
+    createdAt: inDays(-4),
+  });
+  const answer = await askTheRealQuery([neverTold], NOW, NOTICE_LINE);
+  assert.deepEqual(
+    waitingIn(answer),
+    [inDays(-4)],
+    "Booked, confirmed to the customer, and nobody at the atelier knows. This is the whole point."
+  );
+});
+
+test("the real query leaves alone a booked slot Kristina was told about", async () => {
+  const told = bookingDoc({
+    status: "confirmed",
+    slotStart: "2026-09-22T14:00",
+    kristinaNotifiedAt: inDays(-4),
+    createdAt: inDays(-4),
+  });
+  assert.deepEqual(waitingIn(await askTheRealQuery([told], NOW, NOTICE_LINE)), []);
+});
+
+test("the real query does not chase Kristina about a booking she confirmed herself", async () => {
+  // No slotStart: this is a request that came in as "new" and that she set to
+  // Confirmed in the Studio. There is no kristinaNotifiedAt on it and there
+  // never will be — that field is only written by the booking route — so
+  // without the slotStart clause every booking she ever answers by hand would
+  // be chased for ever.
+  const herOwn = bookingDoc({ status: "confirmed", confirmedFor: "Tuesday, 2pm", createdAt: inDays(-9) });
+  assert.deepEqual(waitingIn(await askTheRealQuery([herOwn], NOW, NOTICE_LINE)), []);
+});
+
+test("the real query counts an answer of any kind as an answer", async () => {
+  const declined = bookingDoc({ status: "declined", createdAt: inDays(-9) });
+  const completed = bookingDoc({ status: "completed", createdAt: inDays(-9) });
+  // Even with a slot on it: she can only have set either of these by hand.
+  const slotDone = bookingDoc({
+    status: "completed",
+    slotStart: "2026-09-10T14:00",
+    createdAt: inDays(-9),
+  });
+  assert.deepEqual(waitingIn(await askTheRealQuery([declined, completed, slotDone], NOW, NOTICE_LINE)), []);
+});
+
+test("the real query ignores the copy of a booking that is still being edited", async () => {
+  const beingEdited = bookingDoc({ _id: "drafts.booking-1", createdAt: inDays(-4) });
+  const published = bookingDoc({ _id: "booking-1", createdAt: inDays(-4) });
+  assert.deepEqual(
+    waitingIn(await askTheRealQuery([beingEdited, published], NOW, NOTICE_LINE)),
+    [inDays(-4)],
+    "Sanity keeps an unpublished copy under drafts. — counting it doubles every booking she opens."
+  );
+});
+
+test("the real query judges no booking by a field that did not exist when it was written", async () => {
+  // The dateline itself, with the value that ships. Without it, every slot
+  // booking ever taken lights up on the first morning after the deploy — a
+  // dozen red rows about fittings that already happened, in the first email
+  // the new check ever sends.
+  const before = new Date(Date.parse(KRISTINA_NOTICE_SINCE) - 3 * DAY_MS);
+  const after = new Date(Date.parse(KRISTINA_NOTICE_SINCE) + 3 * DAY_MS);
+  const ancient = bookingDoc({
+    status: "confirmed",
+    slotStart: "2026-08-20T14:00",
+    createdAt: before.toISOString(),
+  });
+  const modern = bookingDoc({
+    status: "confirmed",
+    slotStart: "2026-09-30T14:00",
+    createdAt: after.toISOString(),
+  });
+  const morning = new Date(after.getTime() + 5 * DAY_MS);
+
+  assert.deepEqual(
+    waitingIn(await askTheRealQuery([ancient, modern], morning)),
+    [after.toISOString()],
+    "Only the booking taken after the site started stamping that field can be judged by it."
+  );
+});
+
+test("the real query asks about atelier bookings and nothing else", async () => {
+  // The mutation this is here for: point the clause at a document type that
+  // does not exist and the watchman goes blind for ever, silently, with every
+  // other test in the project still green.
+  const notABooking = { _id: "x", _type: "order", status: "new", createdAt: inDays(-9) };
+  const booking = bookingDoc({ createdAt: inDays(-9) });
+  assert.deepEqual(waitingIn(await askTheRealQuery([notABooking, booking], NOW, NOTICE_LINE)), [
+    inDays(-9),
+  ]);
 });

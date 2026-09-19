@@ -1,9 +1,9 @@
-import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
-import { claimThenSend } from "@/lib/claim";
+import { claimThenSend, type ClaimClient, type ClaimOutcome } from "@/lib/claim";
 import { open } from "@/lib/pii";
+import { sendEmail } from "@/lib/sendEmail";
 
 /**
  * Emails everyone waiting on a piece that is ready-made again.
@@ -12,11 +12,6 @@ import { open } from "@/lib/pii";
  */
 
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
-
-function getResend() {
-  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
-  return new Resend(process.env.RESEND_API_KEY);
-}
 
 interface PendingAlert {
   _id: string;
@@ -33,7 +28,11 @@ interface PendingAlert {
   } | null;
 }
 
-const PENDING_ALERTS_QUERY = `*[_type == "stockAlert" && notified == false] {
+/**
+ * Exported so a test can run it rather than read it: it is the only thing that
+ * says whether a customer the mail service refused is ever looked at again.
+ */
+export const PENDING_ALERTS_QUERY = `*[_type == "stockAlert" && notified == false] {
   _id,
   _rev,
   emailSealed,
@@ -50,6 +49,25 @@ function isBackInStock(alert: PendingAlert): boolean {
   return alert.product.stock > 0;
 }
 
+
+/**
+ * Claim the alert, send, and hand the claim back if the mail service refuses.
+ *
+ * A function of its own so that a test can run the real claim and the real
+ * release rather than a copy of them written beside the assertion. The pair
+ * was inline, and inverting it — `{ notified: false }` to claim and
+ * `{ notified: true }` to release — left every test in the project green while
+ * every refused alert was marked as told for ever. PENDING_ALERTS_QUERY looks
+ * only at the ones still marked false, so the person who asked to be told
+ * never heard, and the one piece that came back went to somebody else.
+ */
+export function claimStockAlert(
+  client: ClaimClient,
+  alert: { _id: string; _rev: string },
+  send: () => Promise<unknown>
+): Promise<ClaimOutcome> {
+  return claimThenSend(client, alert, { notified: true }, { notified: false }, send);
+}
 
 export async function runStockAlerts(): Promise<{ checked: number; sent: number }> {
   if (!process.env.RESEND_API_KEY || !process.env.SANITY_API_WRITE_TOKEN) {
@@ -68,14 +86,8 @@ export async function runStockAlerts(): Promise<{ checked: number; sent: number 
       console.error(`Stock alert ${alert._id} has no readable email — not notifying`);
       continue;
     }
-    // Claimed before it is sent, so two overlapping runs cannot both email
-    const outcome = await claimThenSend(
-      sanityWriteClient,
-      alert,
-      { notified: true },
-      { notified: false },
-      () =>
-        getResend().emails.send({
+    const outcome = await claimStockAlert(sanityWriteClient, alert, () =>
+        sendEmail({
         from: FROM_EMAIL,
         to: email,
         subject: `Back in stock: ${product.name}${alert.size ? ` (${alert.size})` : ""} 💜`,

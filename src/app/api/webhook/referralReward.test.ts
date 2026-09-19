@@ -48,3 +48,30 @@ test("a friend who has already ordered is refused before the discount and again 
   const fn = REFERRALS.slice(REFERRALS.indexOf("export async function rewardReferral"));
   assert.match(fn, /judgeFriendFor\(/, "Judge again at reward time: the discount was granted on a promise, the reward on a paid order.");
 });
+
+/**
+ * One payment, one order document, whatever Stripe does with its retries.
+ *
+ * The lookup above the write catches the ordinary retry — Stripe resends on
+ * any non-2xx and on a timeout, and without it every retry made a second order
+ * record with its own status emails and its own review request. It cannot
+ * catch two retries in flight at once, both reading "no order yet" before
+ * either writes, and that race got likelier the moment a hung Resend socket
+ * could push the handler past Vercel's limit. So the id is the payment, the
+ * way a booked slot's id is the slot: Sanity refuses the second write.
+ */
+test("the order's id is the payment, so one session can only ever be one order", () => {
+  const handler = WEBHOOK.slice(WEBHOOK.indexOf("export async function POST"));
+  assert.match(
+    handler,
+    /_id: `order-\$\{session\.id\}`/,
+    "Without a deterministic id, two retries that both pass the duplicate check both write an order."
+  );
+  const lookupAt = handler.indexOf('stripeSessionId == $id');
+  const writeAt = handler.indexOf("_id: `order-${session.id}`");
+  assert.ok(lookupAt !== -1 && writeAt !== -1, "webhook shape changed — update this test");
+  assert.ok(
+    lookupAt < writeAt,
+    "Look for the order before writing one: the cheap check still handles every ordinary retry."
+  );
+});

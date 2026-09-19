@@ -1,3 +1,5 @@
+import { refusedTheEmail } from "@/lib/sendEmail";
+
 /**
  * Claim a document before acting on it, so nothing is done twice.
  *
@@ -11,6 +13,16 @@
  * `ifRevisionId` makes the claim atomic: Sanity accepts the patch only if the
  * document is unchanged since it was read, so of two callers exactly one wins.
  * If sending then fails, the claim is handed back so the next run retries.
+ *
+ * "Fails" used to mean "threw", and for three of the four callers that branch
+ * could never run in production: they all send through Resend, and Resend
+ * answers a refusal rather than throwing it (see @/lib/sendEmail). So a
+ * revoked key or an unverified domain claimed the document, resolved, and left
+ * it marked as told — the order was right and the verdict was wrong. Everyone
+ * goes through `sendEmail` now, which throws, but the answer is read here as
+ * well: this is the one place all of it funnels through, and a caller that
+ * hands a raw `emails.send` straight to it must not be able to bring the bug
+ * back on its own.
  */
 
 export interface ClaimClient {
@@ -41,7 +53,8 @@ export async function claimThenSend(
   }
 
   try {
-    await send();
+    const refused = refusedTheEmail(await send());
+    if (refused) throw new Error(refused);
     return "sent";
   } catch (err) {
     console.error(`Send failed for ${doc._id}, releasing the claim:`, err);

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripeInstance } from "@/lib/stripe";
 import Stripe from "stripe";
-import { Resend } from "resend";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { SITE_URL } from "@/lib/site";
+import { sendEmail } from "@/lib/sendEmail";
 import {
   generateGiftCardCode,
   codeFields,
@@ -33,12 +33,6 @@ import {
 } from "@/lib/stock";
 
 export const dynamic = "force-dynamic";
-
-// Lazy init — avoids build-time crash when env var isn't set yet
-function getResend() {
-  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
-  return new Resend(process.env.RESEND_API_KEY);
-}
 
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
@@ -388,7 +382,7 @@ async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<vo
 
   if (process.env.RESEND_API_KEY) {
     try {
-      await getResend().emails.send({
+      await sendEmail({
         from: FROM_EMAIL,
         to: email,
         replyTo: KRISTINA_EMAIL,
@@ -397,6 +391,13 @@ async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<vo
       });
       reminderSent = true;
     } catch (err) {
+      // `reminderSent` is written onto the document below, and it used to be
+      // true whatever Resend answered — so the Studio said a nudge had gone to
+      // somebody who never got one. It is the honest answer now. What it is
+      // not is a retry: the document itself is the only-one-reminder guard,
+      // the `already` check above finds it next time, and nothing reads this
+      // field looking for work to redo. A nudge is the cheapest thing on this
+      // list to lose, and losing it silently was the part worth fixing.
       console.error("Failed to send abandoned cart email:", err);
     }
   }
@@ -417,7 +418,11 @@ async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<vo
     createdAt: new Date().toISOString(),
   });
 
-  console.log("Abandoned cart reminder handled for", email);
+  // Masked, like everything else about a customer that leaves this shop.
+  // The Vercel log is not a safer place for an address than the dataset is —
+  // see withoutAddresses in @/lib/sendEmail, which strips them out of refusal
+  // reasons heading for the same log.
+  console.log("Abandoned cart reminder handled for", maskEmail(email));
 }
 
 /* ─── Gift cards ─── */
@@ -597,6 +602,20 @@ export async function POST(req: NextRequest) {
     const referralDiscount = Number(session.metadata?.referral_discount ?? 0) || 0;
     try {
       await sanityWriteClient.create({
+        // The id is the payment, the way a booked slot's id is the slot. The
+        // check above catches the ordinary retry; this catches the one it
+        // cannot — two retries in flight at once, both reading "no order yet"
+        // before either writes. Sanity refuses a second document with an id
+        // that exists, so what used to be two order records for one payment,
+        // each with its own set of status emails and its own review request,
+        // is now a write that fails and is logged.
+        //
+        // What it does not fix, named rather than left to be found: the rest
+        // of this handler still runs on that losing retry, so the stock is
+        // decremented twice and the confirmation goes out twice. Both are
+        // visible and both are mendable by hand; a duplicate order document is
+        // neither.
+        _id: `order-${session.id}`,
         _type: "order",
         stripeSessionId: session.id,
         userId: session.client_reference_id || undefined,
@@ -674,14 +693,19 @@ export async function POST(req: NextRequest) {
     // Send customer confirmation
     if (customerEmail) {
       try {
-        await getResend().emails.send({
+        // Best-effort, and it has to be: Stripe's webhook is answered 200
+        // whatever happens here, so nothing comes back for a second go. The
+        // order itself is in Sanity, so a confirmation that was refused can be
+        // sent by hand — but only by somebody who knows it was, which before
+        // this was nobody.
+        await sendEmail({
           from: FROM_EMAIL,
           to: customerEmail,
           replyTo: KRISTINA_EMAIL,
           subject: "Your Beautasy order is confirmed 💜",
           html: customerEmailHtml(session, items, friends),
         });
-        console.log("Customer confirmation sent to:", customerEmail);
+        console.log("Customer confirmation sent to:", maskEmail(customerEmail));
       } catch (err) {
         console.error("Failed to send customer email:", err);
       }
@@ -691,7 +715,7 @@ export async function POST(req: NextRequest) {
     try {
       const settings = await getSiteSettings();
       const internationalRate = settings.shipping?.internationalRate ?? DEFAULT_INT_RATE;
-      await getResend().emails.send({
+      await sendEmail({
         from: FROM_EMAIL,
         to: KRISTINA_EMAIL,
         subject: `New order — ${shippingOf(session)?.name ?? customerEmail} · £${((session.amount_total ?? 0) / 100).toFixed(2)}`,

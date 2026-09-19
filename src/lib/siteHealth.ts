@@ -1,8 +1,9 @@
-import { Resend } from "resend";
+import { refusedTheEmail, sendEmail } from "@/lib/sendEmail";
 import { checkConnection, instagramConfigured } from "@/lib/instagram";
 import { sanityWriteClient } from "@/lib/sanity";
 import { escapeHtml } from "@/lib/escapeHtml";
-import { ATELIER_TIME_ZONE, localDateOf } from "@/lib/slots";
+import { ATELIER_TIME_ZONE, instantOf, localDateOf } from "@/lib/slots";
+import { southamptonHour } from "@/lib/postingRules";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
 import { HEARTBEAT_ID } from "@/lib/socialQueue";
 
@@ -204,6 +205,105 @@ const REEL_ABANDONED_AFTER_DAYS = 3;
  * week's failure explains nothing about this morning. See `failureExplainsTheSilence`.
  */
 const FAILURES_WITHIN_DAYS = 7;
+
+/**
+ * How long a fitting request may sit with nobody having answered it.
+ *
+ * Everything else in this file watches machinery. This one watches a person
+ * waiting, and it is here because the machinery was all green on the morning
+ * that mattered: a request came in on 5 September, it saved perfectly, the
+ * email telling Kristina was refused and counted as sent, and the customer
+ * waited fourteen days for a reply nobody knew was owed. Nothing above this
+ * line could have said so — from the outside a booking nobody has answered
+ * looks exactly like a booking answered five minutes ago.
+ *
+ * Two days, and the number is a compromise between two real things. Kristina
+ * sews alone and is not sitting in her inbox; a request that arrives on Friday
+ * evening and is answered on Sunday is a normal week at a one-person atelier,
+ * and an email about it would be noise. But somebody who has asked for a
+ * fitting and heard nothing for two or three days has gone elsewhere — that is
+ * the whole of what this is protecting. So it says nothing for two days, which
+ * costs nothing, and speaks on the morning of the third, while there is still
+ * somebody to answer.
+ *
+ * Five days is the second line, and it is red. A warning is repeated weekly
+ * (REPEAT_AFTER_DAYS), which is the right rhythm for a date in the diary and
+ * the wrong one here: said once on the Wednesday and then not again until the
+ * following Wednesday, it would go quiet for exactly the week in which the
+ * customer gives up. Past five days the person is almost certainly lost
+ * already, and what is left to save is the next one.
+ */
+const ANSWER_BOOKING_WITHIN_DAYS = 2;
+const BOOKING_WAIT_IS_SERIOUS_DAYS = 5;
+
+/**
+ * Both numbers above are WORKING days, and that word is the whole of this
+ * note.
+ *
+ * They were calendar days, and measured over an honest month that sent an
+ * email every Monday for a shop where nothing was wrong. A request arrives on
+ * Friday at half past seven in the evening, Kristina answers it on Monday at
+ * one — a completely ordinary weekend at a one-person atelier, and exactly the
+ * case the paragraph above says must stay silent. The nine o'clock run on
+ * Monday beat her to it by four hours, counted two calendar days, and wrote.
+ * Then the problem went away, so the following Monday it was news again.
+ *
+ * So the clock only runs when the atelier is open. It does not start until the
+ * next morning it opens — a request at eight on Friday evening starts its
+ * clock at nine on Monday — and Saturdays and Sundays are not counted at all.
+ * Nothing changes for a weekday request: Tuesday morning to Thursday morning
+ * is still forty-seven hours and still silent, which is the behaviour that was
+ * already right.
+ *
+ * Opening hours rather than a whole day, because "arrived at 23:00 on
+ * Wednesday" and "arrived at 09:00 on Thursday" are the same request as far as
+ * anybody being able to answer it goes.
+ */
+const ATELIER_OPENS_AT = 9;
+const ATELIER_CLOSES_AT = 18;
+
+/**
+ * When chasing one request stops being worth an email.
+ *
+ * The other way this line can ruin itself, and it was measured too: a request
+ * answered by replying straight from the inbox — which is the natural thing to
+ * do, because her email about it carries the customer's address as the
+ * reply-to — never changes anything in the Studio. It stays "new" for ever.
+ * Past the serious line that is a fault, faults repeat every second day, and
+ * one such row produced twelve emails in thirty days and would have gone on
+ * producing them until somebody opened the Studio. That is how every other
+ * line in this file ends up filtered.
+ *
+ * A fortnight, in ordinary calendar days, because this one is about a person
+ * and people do not stop existing at the weekend. Past it the request is not
+ * silenced — it is still counted and still named in any email that goes out
+ * for another reason — but it no longer raises the status on its own, so it
+ * cannot send one. What is being given up is honest and worth writing down:
+ * if she has genuinely never seen a request, the site stops chasing her about
+ * it after a fortnight. By then it has chased her six times, the customer has
+ * long since gone elsewhere, and what is left is a row to tidy rather than
+ * somebody to save. A new request that goes unanswered starts the whole
+ * escalation again, which is the part that has to keep working.
+ *
+ * Deliberately not a button in the Studio. A "dismiss this" field would be one
+ * more thing to learn and remember, and the trap it walks into is the one this
+ * check exists for: a booking she never opens in the Studio is exactly the
+ * booking she would never dismiss. The status dropdown she already uses —
+ * Confirmed, Can't make it, Done — is the existing way of saying "dealt with",
+ * and it silences this line the moment she touches it.
+ */
+const BOOKING_CHASE_STOPS_AFTER_DAYS = 14;
+
+/**
+ * The day `kristinaNotifiedAt` started being written.
+ *
+ * Bookings older than this cannot be judged by a field that did not exist when
+ * they were made, and without this line every one of them would light up on
+ * the first morning after the deploy — a dozen red rows about fittings that
+ * happened weeks ago, in the first email the new check ever sent, which is the
+ * fastest possible way to teach somebody to ignore it.
+ */
+export const KRISTINA_NOTICE_SINCE = "2026-09-19T00:00:00Z";
 
 /**
  * How long before the same news is worth saying again.
@@ -504,6 +604,23 @@ export interface QueueFacts {
   lastFailureAt: string | null;
   /** Whether the document the Studio edits is the one the site reads */
   settingsDocumentExists: boolean;
+  /**
+   * When each unanswered fitting request came in. Dates, and nothing else.
+   *
+   * Dates rather than a count, because the line between "waiting" and "waited
+   * long enough" is drawn in working days and GROQ cannot count those. The
+   * query narrows it to requests already past the calendar line, which can
+   * only ever be a superset of the working one, and `bookingsNeedingAnAnswer`
+   * makes the real judgement here where it can be tested.
+   *
+   * Two hundred of them at most, oldest first. A shop with two hundred
+   * unanswered fitting requests has been left alone for years, and the cap is
+   * only here so that a runaway query cannot become a runaway email.
+   *
+   * No name, no address, no telephone number: this dataset is public and the
+   * details are sealed (see @/lib/pii). A date is all this file ever needs.
+   */
+  bookingsUnanswered: string[];
   /** The publisher's own word that it ran. Null where it never has — see PublisherPulse */
   publisherPulse: PublisherPulse | null;
 }
@@ -694,6 +811,41 @@ export const HEALTH_QUERY = `{
     && status == "failed" && dateTime(_updatedAt) > dateTime($failuresSince)
   ] | order(_updatedAt desc)[0]._updatedAt,
   "settingsDocumentExists": defined(*[_id == "${SITE_SETTINGS_ID}"][0]._id),
+  // A person waiting, which is the only thing here that is not machinery.
+  //
+  // Two different ways that happens, and the second one is why there is a
+  // second clause. "new" is the schema's own word for "needs a reply", and it
+  // covers a request where the customer could not pick a time: it stays "new"
+  // until Kristina answers it, and declined, completed and a confirmed she set
+  // herself are all answers.
+  //
+  // A customer who picks their own time is never "new". The site writes that
+  // booking down as "confirmed" in the same breath, because the site has just
+  // confirmed it to them — which is a fact about the customer and says nothing
+  // at all about whether anybody at the atelier knows. On 5 September the one
+  // email that would have told her was refused and counted as sent; a check
+  // reading only the status would have watched that booking sit in the diary
+  // looking perfectly answered until the customer turned up at a locked door.
+  // Measured through this very query before the clause was added: a fortnight
+  // old, nobody told, and the count came back zero.
+  //
+  // So the second clause reads kristinaNotifiedAt, which is stamped only once
+  // her notification has actually been taken by the mail service and by
+  // nothing else — see the route that writes it. The slotStart clause keeps
+  // this to bookings the SITE confirmed: a request Kristina confirms by hand
+  // in the Studio also has no stamp, and chasing her about a booking she just
+  // opened would be the check crying wolf about its own owner.
+  "bookingsUnanswered": *[
+    _type == "atelierBooking" && !(_id in path("drafts.**"))
+    && (
+      status == "new"
+      || (
+        defined(slotStart) && status == "confirmed" && !defined(kristinaNotifiedAt)
+        && dateTime(coalesce(createdAt, _createdAt)) > dateTime($kristinaNoticeSince)
+      )
+    )
+    && dateTime(coalesce(createdAt, _createdAt)) < dateTime($bookingsUnansweredBefore)
+  ] | order(coalesce(createdAt, _createdAt) asc)[0...200]{ "at": coalesce(createdAt, _createdAt) },
   // The publisher's own word that it ran, left by publishDuePosts every
   // fifteen minutes. Absent at a shop where it has never run at all.
   // _createdAt is Sanity's own, and it is here because the absence of
@@ -726,6 +878,7 @@ interface HealthQueryResult {
   lastFailureError: string | null;
   lastFailureAt: string | null;
   settingsDocumentExists: boolean;
+  bookingsUnanswered: { at?: string | null }[] | null;
   publisherPulse: {
     at?: string;
     lastSentAt?: string | null;
@@ -773,6 +926,15 @@ async function askTheDatabase(now: Date): Promise<QueueAnswer> {
       ).toISOString(),
       failuresSince: new Date(now.getTime() - FAILURES_WITHIN_DAYS * DAY).toISOString(),
       lateBefore: new Date(now.getTime() - DUE_LATE_MS).toISOString(),
+      // A calendar line, and deliberately the loosest one that can matter: a
+      // request cannot have waited two WORKING days without also having waited
+      // two calendar ones, so this can only ever hand over too many. The real
+      // judgement is `bookingsNeedingAnAnswer`, below, where a weekend counts
+      // for nothing.
+      bookingsUnansweredBefore: new Date(
+        now.getTime() - ANSWER_BOOKING_WITHIN_DAYS * DAY
+      ).toISOString(),
+      kristinaNoticeSince: KRISTINA_NOTICE_SINCE,
       todayId: healthAlertDocumentId(now),
     });
     return {
@@ -790,6 +952,9 @@ async function askTheDatabase(now: Date): Promise<QueueAnswer> {
         lastFailureError: state.lastFailureError ?? null,
         lastFailureAt: state.lastFailureAt ?? null,
         settingsDocumentExists: state.settingsDocumentExists === true,
+        bookingsUnanswered: (state.bookingsUnanswered ?? [])
+          .map((row) => row?.at)
+          .filter((at): at is string => typeof at === "string"),
         // A document with no `at` on it is not a pulse: it would read as a
         // publisher that ran at the epoch, which is the loud answer given for
         // the quietest reason.
@@ -1029,6 +1194,155 @@ const DAY = 24 * 60 * 60 * 1000;
 
 function wholeDaysBetween(from: string, to: Date): number {
   return Math.floor((to.getTime() - new Date(from).getTime()) / DAY);
+}
+
+/* ─── Working days, because a weekend is not a wait ─── */
+
+/** Southampton's calendar day for an instant, as whole days since 1970. */
+function southamptonDayNumber(at: number): number {
+  return Math.floor(Date.parse(`${localDateOf(new Date(at))}T12:00:00Z`) / DAY);
+}
+
+/** Sunday is 0, because 1 January 1970 was a Thursday. */
+function isWeekendDay(day: number): boolean {
+  const weekday = (((day + 4) % 7) + 7) % 7;
+  return weekday === 0 || weekday === 6;
+}
+
+/**
+ * Midnight in Southampton at the start of a calendar day, remembered.
+ *
+ * `instantOf` reads the time zone twice per call and the sweep in the tests
+ * runs a month of mornings a couple of hundred times over. The answer for a
+ * given day never changes, and there is one entry per calendar day.
+ */
+const southamptonMidnights = new Map<number, number>();
+function southamptonDayStart(day: number): number {
+  const known = southamptonMidnights.get(day);
+  if (known !== undefined) return known;
+  const at = instantOf(`${new Date(day * DAY).toISOString().slice(0, 10)}T00:00`).getTime();
+  southamptonMidnights.set(day, at);
+  return at;
+}
+
+/** Southampton's calendar date one day after this one, as "2026-09-20". */
+function dayAfter(date: string): string {
+  return new Date(Date.parse(`${date}T12:00:00Z`) + DAY).toISOString().slice(0, 10);
+}
+
+/** Nobody waits longer than this before every line has been crossed anyway. */
+const LONGEST_WAIT_WORTH_COUNTING_DAYS = 400;
+
+/**
+ * Milliseconds of a span that fall on a Saturday or a Sunday in Southampton.
+ *
+ * The hour the clocks change is not corrected for. It would move an answer by
+ * an hour, twice a year, against a line drawn at two days.
+ */
+function weekendMsBetween(from: number, to: number): number {
+  if (to <= from) return 0;
+  const first = southamptonDayNumber(from);
+  const last = Math.min(southamptonDayNumber(to), first + LONGEST_WAIT_WORTH_COUNTING_DAYS);
+  let total = 0;
+  for (let day = first; day <= last; day += 1) {
+    if (!isWeekendDay(day)) continue;
+    const start = southamptonDayStart(day);
+    const end = southamptonDayStart(day + 1);
+    total += Math.max(0, Math.min(to, end) - Math.max(from, start));
+  }
+  return total;
+}
+
+/**
+ * The moment the clock on a request starts running.
+ *
+ * The request itself, when it arrives during opening hours on a day the
+ * atelier is open. Otherwise nine o'clock on the next morning it opens: a
+ * request at half past seven on a Friday evening has had no chance of an
+ * answer at all until Monday, and counting that weekend against Kristina is
+ * what turned an ordinary month into an email every Monday.
+ *
+ * Exported so the tests can measure it rather than infer it from the count.
+ */
+export function answerClockStartsAt(arrived: Date): Date {
+  if (!Number.isFinite(arrived.getTime())) return arrived;
+  let date = localDateOf(arrived);
+  let hour = southamptonHour(arrived);
+  // A week and a day is more than enough to reach the next open morning from
+  // anywhere; the bound is here so a broken date cannot spin.
+  for (let step = 0; step < 8; step += 1) {
+    if (!isWeekendDay(Math.floor(Date.parse(`${date}T12:00:00Z`) / DAY))) {
+      if (hour < ATELIER_OPENS_AT) {
+        return instantOf(`${date}T${String(ATELIER_OPENS_AT).padStart(2, "0")}:00`);
+      }
+      // Only reachable on the first pass — every later one arrives with the
+      // hour set to the start of a fresh day and is caught above.
+      if (hour < ATELIER_CLOSES_AT) return arrived;
+    }
+    date = dayAfter(date);
+    hour = 0;
+  }
+  return arrived;
+}
+
+/**
+ * How long a request has been waiting, counted the way the atelier works.
+ *
+ * Fractional on purpose: the cron fires a few minutes either side of nine, and
+ * rounding here would make "two days" mean one thing on a fast morning and
+ * another on a slow one.
+ */
+export function workingDaysWaiting(arrived: string, now: Date): number {
+  const from = answerClockStartsAt(new Date(arrived)).getTime();
+  const to = now.getTime();
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return 0;
+  return (to - from - weekendMsBetween(from, to)) / DAY;
+}
+
+export interface WaitingBookings {
+  /** Past the line and still worth chasing her about */
+  chasing: number;
+  /** Past the line and past BOOKING_CHASE_STOPS_AFTER_DAYS: named, never loud */
+  stale: number;
+  /** Working days the oldest of the chased ones has waited */
+  oldestWorkingDays: number;
+  /** The same wait on a calendar, which is how the email says it */
+  oldestCalendarDays: number;
+}
+
+/**
+ * Which of the unanswered requests are worth saying something about.
+ *
+ * The query hands over everything past the calendar line; the two decisions
+ * that matter are made here, where a test can reach them. One is the weekend
+ * (see ATELIER_OPENS_AT), the other is the ceiling (see
+ * BOOKING_CHASE_STOPS_AFTER_DAYS).
+ *
+ * The email counts calendar days and the judging counts working ones, and that
+ * is deliberate rather than sloppy. "Waiting since Friday" is what Kristina
+ * would say herself looking at the row; telling her a Friday request has been
+ * waiting "one day" on a Wednesday would read as a mistake in the email.
+ */
+export function bookingsNeedingAnAnswer(arrivals: string[], now: Date): WaitingBookings {
+  const waiting: WaitingBookings = {
+    chasing: 0,
+    stale: 0,
+    oldestWorkingDays: 0,
+    oldestCalendarDays: 0,
+  };
+  for (const at of arrivals) {
+    const working = workingDaysWaiting(at, now);
+    if (working < ANSWER_BOOKING_WITHIN_DAYS) continue;
+    const calendar = wholeDaysBetween(at, now);
+    if (calendar >= BOOKING_CHASE_STOPS_AFTER_DAYS) {
+      waiting.stale += 1;
+      continue;
+    }
+    waiting.chasing += 1;
+    waiting.oldestWorkingDays = Math.max(waiting.oldestWorkingDays, working);
+    waiting.oldestCalendarDays = Math.max(waiting.oldestCalendarDays, calendar);
+  }
+  return waiting;
 }
 
 /** A date the database gave us, as an instant, or null if there was not one. */
@@ -1387,6 +1701,39 @@ export function evaluateHealth(facts: HealthFacts): HealthCheck[] {
       detail: `The shop's database did not answer, so this morning's checks on posts and settings could not be made, and nothing else here can be trusted this morning. It said: ${facts.queueError ?? "nothing"}. This will arrive again tomorrow if it is still quiet — what the site remembers about what it has already told you is kept in that same database, so it cannot know whether it has said this before.`,
     });
   } else {
+    // Somebody is waiting for an answer — the one line here that is about a
+    // person rather than about machinery, and the one the morning of
+    // 5 September needed. Every other check on this page was green while a
+    // fitting request sat unanswered for a fortnight, because from the outside
+    // a request nobody has replied to looks exactly like one replied to five
+    // minutes ago. See ANSWER_BOOKING_WITHIN_DAYS for the two numbers.
+    //
+    // No name, no address, no telephone number: this dataset is public and the
+    // details are sealed (see @/lib/pii), so an email that carried them would
+    // be the one place in the shop where they travel in the clear. It says how
+    // many and how long, which is all that is needed to go and look.
+    const unanswered = bookingsNeedingAnAnswer(queue.bookingsUnanswered, now);
+    const waitedDays = unanswered.oldestCalendarDays;
+    // Old rows are named but never shout — see BOOKING_CHASE_STOPS_AFTER_DAYS.
+    const olderOnes =
+      unanswered.stale === 0
+        ? ""
+        : ` ${unanswered.stale === 1 ? "One request" : `${unanswered.stale} requests`} from more than a fortnight ago ${unanswered.stale === 1 ? "was" : "were"} never marked in the Studio — worth tidying when you have a minute, but nobody is still waiting on ${unanswered.stale === 1 ? "it" : "them"}.`;
+    checks.push({
+      name: "Booking requests",
+      status:
+        unanswered.chasing === 0
+          ? "ok"
+          : unanswered.oldestWorkingDays >= BOOKING_WAIT_IS_SERIOUS_DAYS
+            ? "fail"
+            : "warn",
+      tally: unanswered.chasing,
+      detail:
+        unanswered.chasing === 0
+          ? `${unanswered.stale === 0 ? "Every fitting request has been answered." : "Nobody is waiting for an answer."}${olderOnes}`
+          : `${unanswered.chasing === 1 ? "One fitting request has" : `${unanswered.chasing} fitting requests have`} had no answer, and the oldest has been waiting ${waitedDays === 1 ? "one day" : `${waitedDays} days`}. Open the Studio, go to "Atelier Bookings", and set each one to Confirmed or Can't make it — the customer is emailed either way the moment you do. Who they are is in the Studio; this email never carries a customer's details.${olderOnes}`,
+    });
+
     const quiet = queue.lastPublishedAt ? wholeDaysBetween(queue.lastPublishedAt, now) : null;
     // Nothing has gone out for days, or nothing ever has. Wording only — this
     // raises no status and sends nothing; see QUIET_DAYS.
@@ -1575,6 +1922,7 @@ export function questionsAsked(facts: HealthFacts): string[] {
   if (facts.instagram.configured && facts.instagram.reachable) asked.push("Instagram renewal");
   if (facts.queue) {
     asked.push(
+      "Booking requests",
       "Failed posts",
       "Posts waiting to go out",
       "Posting",
@@ -1885,43 +2233,26 @@ async function forgetThisMorning(id: string): Promise<void> {
   }
 }
 
+/**
+ * The morning's email, through the shop's one sender.
+ *
+ * `sendEmail` reads Resend's answer and throws a reason when the email was
+ * refused — the thing this file worked out first, and the reason the whole
+ * shop now shares one implementation of it (see @/lib/sendEmail). Nothing is
+ * returned, so the reading below has nothing to find: what it is left standing
+ * over is the seam. `deps.send` is what a test hands in, it is free to answer
+ * in whichever of the two real shapes the test is about, and if the check in
+ * `telling` were dropped the seam could answer "refused" and the watchman
+ * would call the morning told.
+ */
 async function sendAlertEmail(message: { subject: string; html: string }): Promise<unknown> {
-  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  // The answer is handed straight back, refusal and all, and read by
-  // `refusedTheEmail` where the watchdog decides whether the morning was
-  // really told about. Reading it here instead would leave the one seam a test
-  // can stand in for — `deps.send` — free to answer in a shape the real thing
-  // produces and nothing checks.
-  return resend.emails.send({
+  await sendEmail({
     from: FROM_EMAIL,
     to: KRISTINA_EMAIL,
     subject: message.subject,
     html: message.html,
   });
-}
-
-/**
- * Whether Resend took the email, or only answered about it.
- *
- * This is the one thing in the file that could break "is she told at all"
- * rather than "which morning is she told on", and it was broken. The SDK does
- * not throw when the API refuses: every non-2xx comes back as a resolved
- * `{ data: null, error: { … } }` (resend/dist/index.mjs). The send was awaited
- * and `true` returned regardless — so a revoked key, an unverified
- * beautasy.co.uk, a 429 or any 5xx left the morning claimed as emailed, the
- * cron reporting `alerted: true`, and tomorrow reading it as news already
- * delivered. Nobody was ever told anything again, and the report stayed green:
- * exactly the class of silent breakage this file exists to catch, inside the
- * thing that catches it.
- *
- * Saying no here throws instead, which the existing catch turns into handing
- * the morning back, so tomorrow tries again.
- */
-function refusedTheEmail(answer: unknown): string | null {
-  const said = answer as { error?: { message?: string; name?: string } | null } | null;
-  if (!said?.error) return null;
-  return said.error.message ?? said.error.name ?? "Resend would not take the email";
+  return null;
 }
 
 /**
@@ -2068,7 +2399,10 @@ async function telling(
           subject: alertSubject(problems),
           html: alertEmailHtml(checks, now),
         });
-        // Answering is not the same as sending — see `refusedTheEmail`.
+        // Answering is not the same as sending — see `refusedTheEmail`. The
+        // real sender has already thrown by this point; what is left to guard
+        // is `deps.send`, which a test hands in and which can answer in either
+        // shape the real Resend produces.
         const refused = refusedTheEmail(answer);
         if (refused) throw new Error(refused);
         return true;
