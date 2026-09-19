@@ -8,6 +8,7 @@ import { notifyCustomerAction } from "./src/sanity/notifyAction";
 import { approvePostAction, publishNowAction } from "./src/sanity/socialActions";
 import { revealContactAction } from "./src/sanity/revealAction";
 import { structure } from "./src/sanity/structure";
+import { dashboardTool } from "./src/sanity/dashboardTool";
 
 export default defineConfig({
   name: "beautasy",
@@ -19,6 +20,12 @@ export default defineConfig({
   basePath: "/studio",
 
   plugins: [structureTool({ structure }), visionTool()],
+
+  // "Dashboard" goes in front of Structure so that opening the Studio answers
+  // "how is the shop doing" before it asks "which document did you want". The
+  // list is composed rather than replaced: `prev` is what the plugins above
+  // contributed, and overwriting it would take Structure and Vision away.
+  tools: (prev) => [dashboardTool, ...prev],
 
   schema: {
     types: schemaTypes,

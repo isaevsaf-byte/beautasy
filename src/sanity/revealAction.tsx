@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useClient } from "sanity";
 import type { DocumentActionComponent, DocumentActionProps } from "sanity";
 import { sanityConfig } from "@/lib/sanity";
+import { studioToken } from "./studioToken";
 
 /**
  * "Show contact details" — reads back what is sealed on a document.
@@ -18,25 +19,6 @@ import { sanityConfig } from "@/lib/sanity";
 interface Field {
   label: string;
   value: string;
-}
-
-/** The session token the Studio is already using for its own requests. */
-function studioToken(configToken: string | undefined): string | null {
-  if (configToken) return configToken;
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(`__studio_auth_token_${sanityConfig.projectId}`);
-    if (!raw) return null;
-    // Stored as JSON in current Studio versions, a bare string in older ones
-    try {
-      const parsed = JSON.parse(raw) as { token?: string };
-      return parsed.token ?? null;
-    } catch {
-      return raw;
-    }
-  } catch {
-    return null;
-  }
 }
 
 export const revealContactAction: DocumentActionComponent = (props: DocumentActionProps) => {

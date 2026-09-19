@@ -21,12 +21,23 @@ export const sanityConfig = {
   useCdn: process.env.NODE_ENV === "production",
 };
 
-// Read token for a private dataset. Server-only on purpose (no NEXT_PUBLIC_):
-// nothing in the browser talks to Sanity directly — components go through
-// /api/* — so the dataset can be private without a public token. Bookings,
-// stock alerts, orders and gift-card balances all live in this dataset, and a
-// public dataset serves every one of them to anyone with the project id.
-// The CDN honours the token, so cached reads keep working.
+// 🚨 This dataset is public, and on this plan it cannot be anything else:
+// Sanity's free tier has no private datasets (see @/lib/secrets). Anyone with
+// the project id — it is in the page source — can read every document in it
+// without a token. A reviewer did exactly that and got the shop's order counts
+// back with no credentials at all.
+//
+// So the read token below is not what protects a customer. Nothing here does.
+// The protection is that every name, email, phone number and address is
+// encrypted before it is written, and the key never leaves the server: see
+// @/lib/pii. Anything new that holds a person must be sealed the same way
+// before it is stored, and no reasoning that starts "the dataset is private"
+// is available to anybody reading this file.
+//
+// What the token is still for: it is a read token with no NEXT_PUBLIC_ on it,
+// so it stays on the server, and it lets server code read drafts and survive
+// the day the dataset is closed. The CDN honours it, so cached reads keep
+// working.
 const readToken = process.env.SANITY_API_READ_TOKEN;
 
 // Main client — use this in Server Components, API routes, etc.

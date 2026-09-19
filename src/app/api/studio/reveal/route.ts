@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sanityWriteClient, sanityConfig } from "@/lib/sanity";
+import { sanityWriteClient } from "@/lib/sanity";
+import { isProjectMember } from "@/lib/studioMember";
 import { open } from "@/lib/pii";
 import { revealCode } from "@/lib/giftCards";
 import { revealReferralCode } from "@/lib/referrals";
@@ -22,8 +23,6 @@ export const dynamic = "force-dynamic";
  * token is never stored, never logged, and never used for anything else. It is
  * the same check Sanity itself makes when Kristina opens the Studio.
  */
-
-const MANAGEMENT_API = "https://api.sanity.io/v2021-06-07/projects";
 
 /** Which sealed fields each document type has, and what to call them. */
 const SEALED_FIELDS: Record<string, { field: string; label: string }[]> = {
@@ -49,18 +48,6 @@ const SEALED_FIELDS: Record<string, { field: string; label: string }[]> = {
   abandonedCart: [{ field: "emailSealed", label: "Email" }],
   referrer: [{ field: "emailSealed", label: "Email" }],
 };
-
-async function isProjectMember(token: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${MANAGEMENT_API}/${sanityConfig.projectId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
 
 export async function POST(req: NextRequest) {
   if (!fromThisSite(req)) {
