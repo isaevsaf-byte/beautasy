@@ -51,7 +51,7 @@ const pricingCategories: ServiceCategory[] = [
     id: "dresses",
     label: "Dresses & Skirts",
     items: [
-      { name: "Day Dress Shorten", price: "from £25.00" },
+      { name: "Day Dress Shorten", price: "from £15.00" },
       { name: "Evening / Prom Dress Shorten", price: "from £30.00" },
       { name: "Take in Sides (Resize)", price: "from £28.00" },
       { name: "Strap Adjustments", price: "£20.00" },
