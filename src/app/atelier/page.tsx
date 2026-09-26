@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Scissors,
@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   Ruler,
   SparkleIcon,
+  MessageCircle,
 } from "lucide-react";
 import BeautasyLogo from "@/components/BeautasyLogo";
 import Image from "next/image";
@@ -22,7 +23,7 @@ import Footer from "@/components/Footer";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { LOCAL_SERVICES } from "@/lib/localServices";
-import { BUSINESS } from "@/lib/business";
+import { BUSINESS, whatsappLink as whatsappWith } from "@/lib/business";
 
 /* ─────────────── Data ─────────────── */
 
@@ -131,7 +132,37 @@ function PriceLine({ item, index }: { item: PriceItem; index: number }) {
 export default function AtelierPage() {
   const [activeTab, setActiveTab] = useState("denim");
   const whatsappLink = "https://wa.me/447729741116";
+  const photoLink = whatsappWith("Hi Kristina, I'd like a quote. Here's a photo of the garment:");
   const emailLink = "mailto:hello@beautasy.co.uk";
+
+  // Google sends people who search for the atelier here, and the booking
+  // form is seven screens down on a phone. The hero now has the button, and
+  // once it has scrolled away a bar keeps it in reach until the form is on
+  // screen — and not after, so it never sits over the form or the footer.
+  const heroCtaRef = useRef<HTMLAnchorElement>(null);
+  const bookRef = useRef<HTMLElement>(null);
+  const [showBookBar, setShowBookBar] = useState(false);
+  useEffect(() => {
+    // Worked out from where things are on every scroll, not remembered from
+    // crossings: a jump from the footer back up the page crosses nothing, and
+    // an observer that only hears about crossings would leave the bar hidden.
+    const place = () => {
+      const hero = heroCtaRef.current;
+      const book = bookRef.current;
+      if (!hero || !book) return;
+      const heroGone = hero.getBoundingClientRect().bottom < 0;
+      const formBelow = book.getBoundingClientRect().top > window.innerHeight;
+      setShowBookBar(heroGone && formBelow);
+    };
+    const frame = requestAnimationFrame(place);
+    window.addEventListener("scroll", place, { passive: true });
+    window.addEventListener("resize", place);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", place);
+      window.removeEventListener("resize", place);
+    };
+  }, []);
 
   const activeCategory = pricingCategories.find((c) => c.id === activeTab)!;
 
@@ -151,9 +182,11 @@ export default function AtelierPage() {
 
           <div className="relative z-10 max-w-6xl mx-auto px-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              {/* Left — Text */}
+              {/* Left — Text. Painted as it is, not faded in: at opacity 0 the
+                  heading waits for every script to load, and it is what a
+                  visitor from Google came to read. */}
               <motion.div
-                initial="hidden"
+                initial={false}
                 animate="visible"
                 variants={stagger}
                 className="max-w-xl"
@@ -187,6 +220,30 @@ export default function AtelierPage() {
                 <motion.div
                   variants={fadeUp}
                   custom={3}
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 mb-8"
+                >
+                  <a
+                    ref={heroCtaRef}
+                    href="#book"
+                    className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                  >
+                    Choose a time
+                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                  </a>
+                  <a
+                    href={photoLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+                  >
+                    <MessageCircle size={16} />
+                    Send a photo
+                  </a>
+                </motion.div>
+
+                <motion.div
+                  variants={fadeUp}
+                  custom={4}
                   className="flex flex-wrap gap-5"
                 >
                   <div className="flex items-center gap-2.5">
@@ -218,13 +275,11 @@ export default function AtelierPage() {
                     WhatsApp: +44 7729 741116
                   </a>
                   <a
-                    href={whatsappLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={BUSINESS.telephoneHref}
                     className="inline-flex items-center gap-2.5 text-sm text-charcoal-light hover:text-charcoal transition-colors"
                   >
                     <Phone size={16} className="text-lavender" />
-                    By appointment
+                    Call {BUSINESS.telephone}
                   </a>
                 </motion.div>
               </motion.div>
@@ -566,7 +621,7 @@ export default function AtelierPage() {
         </section>
 
         {/* ──── Booking Form ──── */}
-        <section id="book" className="py-20 md:py-28 bg-lavender-bg scroll-mt-24">
+        <section ref={bookRef} id="book" className="py-20 md:py-28 bg-lavender-bg scroll-mt-24">
           <div className="max-w-2xl mx-auto px-6">
             <motion.div
               initial="hidden"
@@ -660,6 +715,31 @@ export default function AtelierPage() {
           </div>
         </section>
       </main>
+
+      {/* Phones only: the way to the booking form, while it is still below */}
+      <div
+        inert={!showBookBar}
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center gap-3 transition-transform duration-300 ${
+          showBookBar ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        <a
+          href="#book"
+          className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium"
+        >
+          Choose a time
+          <ArrowRight size={16} />
+        </a>
+        <a
+          href={photoLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Send Kristina a photo on WhatsApp"
+          className="w-12 h-12 shrink-0 rounded-full border border-charcoal/15 flex items-center justify-center text-charcoal"
+        >
+          <MessageCircle size={18} />
+        </a>
+      </div>
       <Footer />
     </>
   );
