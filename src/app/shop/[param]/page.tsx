@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import { SITE_URL } from "@/lib/site";
+import { jsonLdScript } from "@/lib/jsonLd";
 import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 import { getSiteSettings, DEFAULT_UK_RATE } from "@/lib/siteSettings";
 import { SITE_SETTINGS } from "@/lib/siteSettingsDocument";
@@ -469,7 +470,7 @@ export default async function ShopParamPage({
       <HeaderWrapper />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
       />
       <ProductDetail
         product={{

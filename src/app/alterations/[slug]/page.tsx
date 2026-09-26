@@ -7,6 +7,7 @@ import FooterWrapper from "@/components/FooterWrapper";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK, getLocalService, seasonalNote } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
+import { jsonLdScript } from "@/lib/jsonLd";
 import { BUSINESS, openingHoursSpecification, postalAddress, whatsappLink } from "@/lib/business";
 
 export const revalidate = 86400;
@@ -144,15 +145,15 @@ export default async function LocalServicePage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(serviceLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(faqLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbLd) }}
       />
 
       <HeaderWrapper />

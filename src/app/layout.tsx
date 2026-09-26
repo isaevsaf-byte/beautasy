@@ -9,6 +9,7 @@ import { CONSENT_KEY } from "@/lib/consent";
 import { clerkEnabled } from "@/lib/clerk";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
+import { jsonLdScript } from "@/lib/jsonLd";
 import { BUSINESS } from "@/lib/business";
 import { domainVerificationTags } from "@/lib/domainVerification";
 
@@ -109,7 +110,7 @@ export default function RootLayout({
       <head>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(organizationLd) }}
         />
         {/* Google Analytics 4 */}
         <Script

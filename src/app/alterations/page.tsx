@@ -5,6 +5,7 @@ import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
+import { jsonLdScript } from "@/lib/jsonLd";
 import {
   BUSINESS,
   GOOGLE_SERVICES,
@@ -73,7 +74,7 @@ export default function AlterationsHub() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(localBusinessLd) }}
       />
 
       <HeaderWrapper />
