@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import {
   BUSINESS,
   GOOGLE_SERVICES,
@@ -67,4 +69,38 @@ test("the catalogue gives every service an absolute url", () => {
   for (const entry of catalog.itemListElement) {
     assert.match(entry.itemOffered.url, /^https:\/\/www\.beautasy\.co\.uk\//);
   }
+});
+
+/**
+ * The hours are Google's (checked against the live listing on 26 September
+ * 2026), and they are printed from BUSINESS.hours and nowhere else. The booking
+ * page used to carry its own "Mon–Sat: 9am – 6pm", which was wrong on every
+ * day of the week, disagreed with the listing Google shows next to it, and was
+ * quoted back by search engines as the atelier's hours. Any second spelling of
+ * a day range or a time range in the code fails here.
+ */
+test("the hours are written in one place", () => {
+  const DAY = "(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*";
+  const literals = [
+    new RegExp(`\\b${DAY}\\s*(?:–|-|to)\\s*${DAY}\\b`),
+    /\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\s*(?:–|-|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i,
+  ];
+  const files = (dir: string): string[] =>
+    readdirSync(dir).flatMap((entry) => {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) return files(path);
+      return /\.tsx?$/.test(entry) && !entry.includes(".test.") ? [path] : [];
+    });
+  const home = join(process.cwd(), "src", "lib", "business.ts");
+
+  const elsewhere = files(join(process.cwd(), "src"))
+    .filter((path) => path !== home)
+    .flatMap((path) =>
+      readFileSync(path, "utf8")
+        .split("\n")
+        .map((line, i) => `${path.replace(process.cwd(), "")}:${i + 1} ${line.trim()}`)
+        .filter((line) => literals.some((re) => re.test(line)))
+    );
+
+  assert.deepEqual(elsewhere, []);
 });

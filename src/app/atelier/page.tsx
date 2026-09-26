@@ -22,6 +22,7 @@ import Footer from "@/components/Footer";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { LOCAL_SERVICES } from "@/lib/localServices";
+import { BUSINESS } from "@/lib/business";
 
 /* ─────────────── Data ─────────────── */
 
@@ -197,7 +198,7 @@ export default function AtelierPage() {
                   <div className="flex items-center gap-2.5">
                     <Clock size={16} className="text-lavender" />
                     <span className="text-sm text-charcoal-light">
-                      Mon–Sat: 9am – 6pm
+                      {BUSINESS.hours.label}
                     </span>
                   </div>
                   <a

@@ -6,6 +6,7 @@ import FooterWrapper from "@/components/FooterWrapper";
 import { findReferrerByCode, referralSettings } from "@/lib/referrals";
 import { REFERRAL_COOKIE_DAYS, normaliseReferralCode, pounds } from "@/lib/friendsLink";
 import RememberReferral from "./RememberReferral";
+import { BUSINESS } from "@/lib/business";
 
 /**
  * Where a friend's link lands: /r/ANNA-K7P2.
@@ -97,7 +98,7 @@ export default async function FriendLandingPage({
               <p className="text-sm text-charcoal-light leading-relaxed mb-5">
                 {live
                   ? `${atelierOff} off your first alteration. Kristina takes it off when you pay.`
-                  : "Alterations and repairs, by appointment, Mon–Sat."}
+                  : `Alterations and repairs, by appointment. ${BUSINESS.hours.label}.`}
               </p>
               <span className="inline-flex items-center gap-2 text-xs tracking-wider uppercase font-medium text-charcoal">
                 Choose a time
