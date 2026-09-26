@@ -32,12 +32,32 @@ test("a chosen slot is checked against the diary before anything is written", ()
   assert.ok(check < write, "Check the slot before writing it, or 3am is bookable.");
 });
 
-test("the diary is read past the CDN when a booking is being taken", () => {
+test("the diary is read past the CDN, and strictly, when a booking is being taken", () => {
   assert.match(
     ROUTE,
-    /getAvailableSlots\(\{\s*fresh:\s*true\s*\}\)/,
-    "A cached diary still shows slots that have just gone. Read fresh here."
+    /getAvailableSlots\(\{\s*fresh:\s*true,\s*strict:\s*true\s*\}\)/,
+    "A cached diary still shows slots that have just gone, and a lenient one reads an outage as an empty diary. Read fresh and strict here."
   );
+});
+
+test("a diary that cannot be read is 'temporarily unavailable', not a taken time", () => {
+  const read = ROUTE.indexOf("getAvailableSlots({ fresh: true, strict: true })");
+  const handled = ROUTE.indexOf("Could not read the diary to take a booking", read);
+  const unavailable = ROUTE.indexOf("{ status: 503 }", handled);
+  const taken = ROUTE.indexOf("slotTaken: true", read);
+  assert.ok(read > -1 && handled > read, "the strict read must be caught");
+  assert.ok(unavailable > handled && unavailable < taken, "and answered 503 before any 'taken' is said");
+});
+
+test("a chosen slot is written through claimSlot, so a time given back can be booked again", () => {
+  assert.match(ROUTE, /await claimSlot\(\s*sanityDiaryStore\(sanityWriteClient\),/);
+});
+
+test("only a real 'taken' is answered as taken; a database outage is kept as a request", () => {
+  const claimed = ROUTE.slice(ROUTE.indexOf("const claim = await claimSlot("));
+  assert.match(claimed, /if \(claim === "taken"\) \{\s*return NextResponse\.json\(\s*\{\s*error: "Sorry — that time has just been taken/);
+  assert.doesNotMatch(ROUTE, /claim !== "claimed"[\s\S]{0,120}slotTaken/, "'failed' must not be told the time has gone");
+  assert.match(ROUTE, /if \(!held\) \{\s*try \{\s*const created = await sanityWriteClient\.create\(\{\s*\.\.\.person,\s*preferredDate: slot \? slotLabel\(slot\)/);
 });
 
 test("the booking's id is the slot, so the database refuses the second taker", () => {
@@ -88,11 +108,15 @@ test("a slot that loses the race is reported as taken, not as a generic failure"
  */
 
 test("a picked time is claimed at birth, so nothing else can confirm it first", () => {
+  const start = ROUTE.indexOf("const claim = await claimSlot(");
+  const booked = ROUTE.slice(start, ROUTE.indexOf("if (claim ===", start));
   assert.match(
-    ROUTE,
-    /notifiedStatus:\s*slot\s*\?\s*"confirmed"\s*:\s*undefined/,
+    booked,
+    /status: "confirmed",[\s\S]*notifiedStatus: "confirmed",/,
     "Created unclaimed, the booking is visible to the nightly job for the second it takes to send two emails — and that job sends the same confirmation."
   );
+  const request = ROUTE.slice(ROUTE.indexOf("if (!held) {"), ROUTE.indexOf("saved = true;", ROUTE.indexOf("if (!held) {")));
+  assert.doesNotMatch(request, /notifiedStatus/, "a request is born new; there is nothing to claim");
 });
 
 test("the claim is handed back when the confirmation is refused", () => {

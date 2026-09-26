@@ -17,8 +17,11 @@ const SCHEDULE_QUERY = `*[_type == "atelierSchedule"][0]{
   "closures": closures[]{ date, from, to, note }
 }`;
 
-/** Slots already spoken for. A declined booking frees its time again. */
-const TAKEN_QUERY = `*[
+/**
+ * Slots already spoken for. A booking declined or cancelled frees its time
+ * again — see HOLDING_STATUSES in @/lib/diary, which this list must match.
+ */
+export const TAKEN_QUERY = `*[
   _type == "atelierBooking"
   && defined(slotStart)
   && status in ["new", "confirmed", "completed"]
@@ -33,23 +36,38 @@ function withDefaults(raw: Partial<Schedule> | null): Schedule {
   };
 }
 
-export async function getSchedule(options?: { fresh?: boolean }): Promise<Schedule> {
+/**
+ * `strict` is for deciding whether a booking may be taken. The picker can shrug
+ * off a diary it cannot read — it falls back to asking for a preferred time —
+ * but a booking cannot: an unreadable diary used to read as an empty one, so
+ * every slot looked unoffered and every customer was told "that time has just
+ * been taken" while the database was simply not answering. Strict readers get
+ * the error and say what actually happened.
+ */
+interface DiaryReadOptions {
+  fresh?: boolean;
+  strict?: boolean;
+}
+
+export async function getSchedule(options?: DiaryReadOptions): Promise<Schedule> {
   const client = options?.fresh ? sanityWriteClient : sanityClient;
   try {
     const raw = await client.fetch<Partial<Schedule> | null>(SCHEDULE_QUERY);
     return withDefaults(raw);
-  } catch {
+  } catch (error) {
+    if (options?.strict) throw error;
     // A diary we cannot read is a diary with nothing in it: the form falls
     // back to asking for a preferred time rather than offering a wrong one.
     return DEFAULT_SCHEDULE;
   }
 }
 
-export async function getTakenSlots(options?: { fresh?: boolean }): Promise<string[]> {
+export async function getTakenSlots(options?: DiaryReadOptions): Promise<string[]> {
   const client = options?.fresh ? sanityWriteClient : sanityClient;
   try {
     return (await client.fetch<string[]>(TAKEN_QUERY)) ?? [];
-  } catch {
+  } catch (error) {
+    if (options?.strict) throw error;
     return [];
   }
 }
@@ -58,16 +76,25 @@ export async function getTakenSlots(options?: { fresh?: boolean }): Promise<stri
  * What the picker should show. `fresh` reads past the CDN — used when a
  * booking is being taken, where a stale diary would mean a double booking.
  */
-export async function getAvailableSlots(options?: {
-  fresh?: boolean;
-  now?: Date;
-}): Promise<{ schedule: Schedule; days: SlotDay[] }> {
+export async function getAvailableSlots(
+  options?: DiaryReadOptions & {
+    now?: Date;
+    /**
+     * The notice the atelier needs is for customers booking themselves.
+     * Kristina booking someone she has just agreed a time with on WhatsApp
+     * needs none, so the Studio passes 0.
+     */
+    leadTimeHours?: number;
+  }
+): Promise<{ schedule: Schedule; days: SlotDay[] }> {
   const [schedule, taken] = await Promise.all([
     getSchedule(options),
     getTakenSlots(options),
   ]);
+  const rules =
+    options?.leadTimeHours === undefined ? schedule : { ...schedule, leadTimeHours: options.leadTimeHours };
   return {
     schedule,
-    days: generateSlots({ schedule, now: options?.now ?? new Date(), taken }),
+    days: generateSlots({ schedule: rules, now: options?.now ?? new Date(), taken }),
   };
 }

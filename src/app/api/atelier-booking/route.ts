@@ -15,6 +15,7 @@ import { verdictMessage } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { getAvailableSlots } from "@/lib/schedule";
 import { slotIsOffered, slotLabel, slotDocumentId } from "@/lib/slots";
+import { claimSlot, sanityDiaryStore } from "@/lib/diary";
 import {
   bookingEmailHtml,
   bookingInvite,
@@ -231,9 +232,22 @@ export async function POST(req: NextRequest) {
     /** The diary's slot length, so the calendar invite is as long as the fitting */
     let slotMinutes: number | undefined;
     if (slot) {
-      const { days, schedule } = await getAvailableSlots({ fresh: true });
-      slotMinutes = schedule.slotMinutes;
-      if (!slotIsOffered(days, slot)) {
+      // Read strictly: a diary that cannot be read used to look empty, and
+      // every customer was told their time had gone while the database was
+      // simply not answering.
+      let offered: boolean;
+      try {
+        const { days, schedule } = await getAvailableSlots({ fresh: true, strict: true });
+        slotMinutes = schedule.slotMinutes;
+        offered = slotIsOffered(days, slot);
+      } catch (err) {
+        console.error("Could not read the diary to take a booking:", err);
+        return NextResponse.json(
+          { error: "Booking is temporarily unavailable — please WhatsApp or email us instead." },
+          { status: 503 }
+        );
+      }
+      if (!offered) {
         return NextResponse.json(
           {
             error: "Sorry — that time has just been taken. Please pick another.",
@@ -250,50 +264,60 @@ export async function POST(req: NextRequest) {
     let saved = false;
     /** The document, once it exists — the write-back below settles its marks */
     let bookingId: string | null = null;
+    /**
+     * Whether the customer now holds the time they picked. Not the same as
+     * `saved`: when the database refuses the booked time for any reason other
+     * than somebody holding it, the request is still kept, as a request.
+     */
+    let held = false;
     if (process.env.SANITY_API_WRITE_TOKEN && secretsConfigured()) {
-      try {
-        const created = await sanityWriteClient.create({
-          // A slot's id is the slot itself, so the second person to reach for
-          // the same time is refused by the database rather than by a check
-          // that another request could have slipped past.
-          ...(slot ? { _id: slotDocumentId(slot) } : {}),
-          _type: "atelierBooking",
-          // Readable: enough to recognise the row in the Studio
-          displayName: firstNameOf(name),
-          emailHint: maskEmail(email),
-          // Sealed: the details themselves. See @/lib/pii.
-          nameSealed: sealOptional(name),
-          emailSealed: sealOptional(email),
-          phoneSealed: sealOptional(phone),
-          notesSealed: sealOptional(notes),
-          // Keyed and one-way: what "first visit?" is asked of next time
-          emailFingerprint: emailFingerprint(email),
-          service,
-          ...(friend
-            ? {
-                referrer: { _type: "reference", _ref: friend.referrer._id, _weak: true },
-                referredBy,
-                referralDiscount: friend.discount,
-              }
-            : {}),
-          // One shape either way; Sanity drops the fields left undefined
-          slotStart: slot,
-          confirmedFor: slot ? slotLabel(slot) : undefined,
-          preferredDate: slot ? undefined : preferredDate || undefined,
-          status: slot ? "confirmed" : "new",
-          // A picked time is marked as told at birth, and that mark is a claim
-          // rather than a record — see `confirmationMark` above for why it
-          // cannot wait until the confirmation below has gone, and for what is
-          // done when that confirmation is refused.
-          notifiedStatus: slot ? "confirmed" : undefined,
-          createdAt: new Date().toISOString(),
-        });
-        saved = true;
-        bookingId = created._id;
-      } catch (err) {
-        if (slot) {
-          // The id was taken between the check above and this write
-          console.error("Slot was claimed by someone else:", slot, err);
+      const createdAt = new Date().toISOString();
+      // Who they are and what they want — the same on a booked time and on a request
+      const person = {
+        _type: "atelierBooking",
+        // Readable: enough to recognise the row in the Studio
+        displayName: firstNameOf(name),
+        emailHint: maskEmail(email),
+        // Sealed: the details themselves. See @/lib/pii.
+        nameSealed: sealOptional(name),
+        emailSealed: sealOptional(email),
+        phoneSealed: sealOptional(phone),
+        notesSealed: sealOptional(notes),
+        // Keyed and one-way: what "first visit?" is asked of next time
+        emailFingerprint: emailFingerprint(email),
+        service,
+        ...(friend
+          ? {
+              referrer: { _type: "reference", _ref: friend.referrer._id, _weak: true },
+              referredBy,
+              referralDiscount: friend.discount,
+            }
+          : {}),
+        createdAt,
+      };
+
+      if (slot) {
+        // A slot's id is the slot itself, so the second person to reach for
+        // the same time is refused by the database rather than by a check
+        // that another request could have slipped past. A booking that gave
+        // its time back is moved aside for this one — see @/lib/diary.
+        const claim = await claimSlot(
+          sanityDiaryStore(sanityWriteClient),
+          {
+            ...person,
+            _id: slotDocumentId(slot),
+            slotStart: slot,
+            confirmedFor: slotLabel(slot),
+            status: "confirmed",
+            // A picked time is marked as told at birth, and that mark is a claim
+            // rather than a record — see `confirmationMark` above for why it
+            // cannot wait until the confirmation below has gone, and for what is
+            // done when that confirmation is refused.
+            notifiedStatus: "confirmed",
+          },
+          createdAt
+        );
+        if (claim === "taken") {
           return NextResponse.json(
             {
               error: "Sorry — that time has just been taken. Please pick another.",
@@ -302,7 +326,29 @@ export async function POST(req: NextRequest) {
             { status: 409 }
           );
         }
-        console.error("Failed to save atelier booking:", err);
+        if (claim === "claimed") {
+          saved = true;
+          held = true;
+          bookingId = slotDocumentId(slot);
+        }
+        // "failed" is the database not answering. That is not the customer's
+        // problem and it is not a taken time, so it is not answered as one:
+        // the booking is kept below as a request for that time, Kristina is
+        // told it is not held, and the customer hears that she will confirm.
+      }
+
+      if (!held) {
+        try {
+          const created = await sanityWriteClient.create({
+            ...person,
+            preferredDate: slot ? slotLabel(slot) : preferredDate || undefined,
+            status: "new",
+          });
+          saved = true;
+          bookingId = created._id;
+        } catch (err) {
+          console.error("Failed to save atelier booking:", err);
+        }
       }
     } else if (!secretsConfigured()) {
       console.error("DATA_SECRET is not set — a booking cannot be stored without sealing the contact details");
@@ -331,8 +377,10 @@ export async function POST(req: NextRequest) {
       replyTo: email,
       // A subject line is plain text, not HTML — escaping it shows "&#39;" in the inbox
       subject: `${friend ? `${pounds(friend.discount)} REF · ` : ""}${
-        slot
+        held && slot
           ? `Booked — ${name.trim()}, ${slotLabel(slot)}`
+          : slot
+          ? `⚠️ Not held — ${name.trim()} asked for ${slotLabel(slot)}`
           : `New atelier booking request — ${name.trim()}`
       }`,
       html: `
@@ -341,7 +389,8 @@ export async function POST(req: NextRequest) {
           <h1 style="font-size:22px;font-weight:400;">${escapeHtml(name)}</h1>
           <p style="color:#3d3d3d;line-height:1.8;">
             <strong>Service:</strong> ${escapeHtml(service)}<br/>
-            ${slot ? `<strong>Booked for:</strong> ${escapeHtml(slotLabel(slot))}<br/>` : ""}
+            ${held && slot ? `<strong>Booked for:</strong> ${escapeHtml(slotLabel(slot))}<br/>` : ""}
+            ${!held && slot ? `<strong>Asked for:</strong> ${escapeHtml(slotLabel(slot))}<br/>` : ""}
             ${!slot && preferredDate ? `<strong>Preferred date:</strong> ${escapeHtml(preferredDate)}<br/>` : ""}
             <strong>Email:</strong> ${escapeHtml(email)}<br/>
             ${phone ? `<strong>Phone:</strong> ${escapeHtml(phone)}<br/>` : ""}
@@ -352,7 +401,12 @@ export async function POST(req: NextRequest) {
               : ""
           }
           ${notes ? `<p style="color:#3d3d3d;line-height:1.7;"><strong>Notes:</strong><br/>${escapeHtml(notes)}</p>` : ""}
-          ${replyToCustomerHtml({ name, phone, slot, service })}
+          ${
+            slot && !held
+              ? `<p style="padding:12px 16px;background:#fde8e4;border-radius:10px;color:#7a2a1a;line-height:1.6;">⚠️ <strong>This time is not held.</strong> The site could not write it into the diary, so somebody else could still book ${escapeHtml(slotLabel(slot))}. ${saved ? "It is in the Studio as a request." : "It is not in the Studio either."} Confirm with them, then use <strong>Book by hand</strong> in the Studio to hold the time.</p>`
+              : ""
+          }
+          ${replyToCustomerHtml({ name, phone, slot: held ? slot : undefined, service })}
         </div>`,
         });
         emailed = true;
@@ -363,7 +417,7 @@ export async function POST(req: NextRequest) {
       // A picked time is already an appointment, so it gets the confirmation
       // itself — with where to go and a calendar invite — rather than a
       // promise that one is coming
-      const confirmation: NotifiableBooking | null = slot
+      const confirmation: NotifiableBooking | null = held && slot
         ? {
             _id: "pending",
             _rev: "pending",
@@ -384,7 +438,7 @@ export async function POST(req: NextRequest) {
       from: FROM_EMAIL,
       to: email,
       replyTo: KRISTINA_EMAIL,
-      subject: slot
+      subject: confirmation
         ? "Your Beautasy atelier appointment is confirmed 💜"
         : "We've received your Beautasy atelier booking request 💜",
       html: confirmation
@@ -394,7 +448,9 @@ export async function POST(req: NextRequest) {
           <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#9b7fd4;">Beautasy Atelier</p>
           <h1 style="font-size:22px;font-weight:400;">Thanks, ${escapeHtml(name.split(" ")[0])}!</h1>
           <p style="color:#3d3d3d;line-height:1.8;">
-            We've received your request for <strong>${escapeHtml(service)}</strong>${preferredDate ? ` on ${escapeHtml(preferredDate)}` : ""}.
+            We've received your request for <strong>${escapeHtml(service)}</strong>${
+              slot ? ` on ${escapeHtml(slotLabel(slot))}` : preferredDate ? ` on ${escapeHtml(preferredDate)}` : ""
+            }.
             Kristina will confirm your time by email shortly — you'll get a message either way, so nothing is left hanging.
           </p>
           ${
@@ -436,7 +492,7 @@ export async function POST(req: NextRequest) {
     // already has a line in the morning email.
     const marks = writeBackAfterEmails({
       emailed,
-      mark: confirmationMark({ slot: Boolean(slot), saved, confirmed }),
+      mark: confirmationMark({ slot: held, saved, confirmed }),
       at: new Date().toISOString(),
     });
     if (bookingId && marks) {
@@ -462,7 +518,7 @@ export async function POST(req: NextRequest) {
       {
         ok: true,
         emailed,
-        ...(slot ? { confirmedFor: slotLabel(slot) } : {}),
+        ...(held && slot ? { confirmedFor: slotLabel(slot) } : {}),
         ...(friend
           ? { referral: { applied: true, discount: friend.discount, referredBy } }
           : referralCode
