@@ -72,6 +72,47 @@ test("the catalogue gives every service an absolute url", () => {
 });
 
 /**
+ * What a second copy of the opening hours would look like in the code: a
+ * range of days ("Mon–Sat", "Monday to Friday", schema.org's "Mo-Sa") or a
+ * range of clock times ("9am – 6pm"). Whole day names only, so a product
+ * called "Satin-Sateen" or a "Monochrome to Monogram" caption is not taken
+ * for a week.
+ */
+const DAY =
+  "(?:Mon|Monday|Tue|Tues|Tuesday|Wed|Weds|Wednesday|Thu|Thur|Thurs|Thursday|Fri|Friday|Sat|Saturday|Sun|Sunday)";
+const RANGE = "\\s*(?:–|—|-|to|through)\\s*";
+const HOURS_LITERALS = [
+  new RegExp(`\\b${DAY}${RANGE}${DAY}\\b`, "i"),
+  /\b(?:Mo|Tu|We|Th|Fr|Sa|Su)-(?:Mo|Tu|We|Th|Fr|Sa|Su)\b/,
+  /\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\s*(?:–|—|-|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i,
+];
+const looksLikeHours = (line: string) => HOURS_LITERALS.some((re) => re.test(line));
+
+test("the hours guard knows hours when it sees them, and only then", () => {
+  for (const hours of [
+    "Mon–Sat: 9am – 6pm",
+    "Monday to Friday",
+    "mon-fri",
+    "Tues—Sun",
+    "Mo-Sa 09:00-18:00",
+    "open 9:30am to 5pm",
+    "11AM–4PM",
+  ]) {
+    assert.ok(looksLikeHours(hours), hours);
+  }
+  for (const notHours of [
+    "Satin-Sateen",
+    "Monochrome to Monogram",
+    "Sundress to Saturated",
+    "Quiet hours 22:00–08:00",
+    "Delivered Monday",
+    "Mon 9am",
+  ]) {
+    assert.equal(looksLikeHours(notHours), false, notHours);
+  }
+});
+
+/**
  * The hours are Google's (checked against the live listing on 26 September
  * 2026), and they are printed from BUSINESS.hours and nowhere else. The booking
  * page used to carry its own "Mon–Sat: 9am – 6pm", which was wrong on every
@@ -80,11 +121,6 @@ test("the catalogue gives every service an absolute url", () => {
  * a day range or a time range in the code fails here.
  */
 test("the hours are written in one place", () => {
-  const DAY = "(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*";
-  const literals = [
-    new RegExp(`\\b${DAY}\\s*(?:–|-|to)\\s*${DAY}\\b`),
-    /\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\s*(?:–|-|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i,
-  ];
   const files = (dir: string): string[] =>
     readdirSync(dir).flatMap((entry) => {
       const path = join(dir, entry);
@@ -99,7 +135,7 @@ test("the hours are written in one place", () => {
       readFileSync(path, "utf8")
         .split("\n")
         .map((line, i) => `${path.replace(process.cwd(), "")}:${i + 1} ${line.trim()}`)
-        .filter((line) => literals.some((re) => re.test(line)))
+        .filter(looksLikeHours)
     );
 
   assert.deepEqual(elsewhere, []);
