@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   bookingEmailHtml,
   bookingInvite,
+  fittingOf,
+  sendConfirmation,
   whatsappNumberOf,
   type NotifiableBooking,
 } from "./bookingEmails";
@@ -120,7 +122,7 @@ test("without a readable number she is told to reply to the email", () => {
 
 test("a request with no time gets the WhatsApp link and no address reminder", () => {
   const html = replyToCustomerHtml({ name: "Anna", phone: "07700900123", service: "Repairs" });
-  assert.doesNotMatch(html, /the address/);
+  assert.doesNotMatch(html, /Send Anna the address/);
   assert.equal(
     whatsappHrefIn(html)?.searchParams.get("text"),
     "Hi Anna, it's Kristina from Beautasy, about your repairs request: "
@@ -137,7 +139,7 @@ test("a name typed with markup cannot break Kristina's email", () => {
   assert.doesNotMatch(html, /<script>/);
 });
 
-test("both ways a confirmation leaves carry the calendar invite", async () => {
+test("both ways a confirmation leaves carry the calendar invite, and survive its refusal", async () => {
   const { readFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const route = readFileSync(join(process.cwd(), "src/app/api/atelier-booking/route.ts"), "utf8");
@@ -145,12 +147,14 @@ test("both ways a confirmation leaves carry the calendar invite", async () => {
 
   // Straight away, from the booking itself…
   assert.match(route, /const invite = confirmation \? bookingInvite\(confirmation\) : null;/);
-  assert.match(route, /\.\.\.\(invite \? \{ attachments: \[invite\] \} : \{\}\)/);
+  assert.match(route, /await sendConfirmation\(\{[\s\S]*?\}, invite\);\s*confirmed = true;/);
   assert.match(route, /slotStart: slot,/);
   // …and from the nightly job, when the first attempt was refused
   assert.match(nightly, /const invite = status === "confirmed" \? bookingInvite\(booking\) : null;/);
-  assert.match(nightly, /\.\.\.\(invite \? \{ attachments: \[invite\] \} : \{\}\)/);
+  assert.match(nightly, /sendConfirmation\(\{[\s\S]*?\}, invite\)/);
   assert.match(nightly, /confirmedFor, slotStart, replyNote/);
+  // Nothing sends an attachment except through the fallback
+  assert.doesNotMatch(route + nightly, /attachments: \[invite\] \} : \{\}/);
 });
 
 test("the first line reads as a sentence", () => {
@@ -164,4 +168,65 @@ test("the first line reads as a sentence", () => {
     bookingEmailHtml({ ...booked, service: undefined }, "confirmed"),
     /your appointment for fitting is confirmed/
   );
+});
+
+
+test("a refused attachment does not cost the customer their confirmation", async () => {
+  const invite = bookingInvite(booked, new Date(Date.UTC(2026, 8, 26)))!;
+  const message = { from: "a@b.c", to: "anna@example.com", subject: "s", html: "h" };
+
+  // Taken with the file: one send, file attached
+  const once: unknown[] = [];
+  await sendConfirmation(message, invite, async (m) => void once.push(m));
+  assert.equal(once.length, 1);
+  assert.deepEqual((once[0] as { attachments?: unknown[] }).attachments, [invite]);
+
+  // Refused with the file: sent again without it
+  const twice: { attachments?: unknown[] }[] = [];
+  await sendConfirmation(message, invite, async (m) => {
+    twice.push(m);
+    if (m.attachments) throw new Error("Invalid attachment");
+  });
+  assert.equal(twice.length, 2);
+  assert.equal(twice[1].attachments, undefined);
+
+  // Refused either way: the caller hears about it, and hands its claim back
+  await assert.rejects(
+    sendConfirmation(message, invite, async () => {
+      throw new Error("Domain not verified");
+    }),
+    /Domain not verified/
+  );
+
+  // No invite: one plain send
+  const plain: { attachments?: unknown[] }[] = [];
+  await sendConfirmation(message, null, async (m) => void plain.push(m));
+  assert.equal(plain.length, 1);
+  assert.equal(plain[0].attachments, undefined);
+});
+
+test("a slot Kristina moved by hand gets no calendar for the old time", () => {
+  const moved: NotifiableBooking = { ...booked, confirmedFor: "Thursday 8 October, 2pm" };
+  assert.equal(fittingOf(moved), null);
+  assert.equal(bookingInvite(moved), null);
+  const html = bookingEmailHtml(moved, "confirmed");
+  assert.match(html, /Thursday 8 October, 2pm/);
+  assert.doesNotMatch(html, /calendar\.google\.com/);
+
+  // The label the booking was born with is the slot itself
+  assert.ok(fittingOf({ ...booked, confirmedFor: "Tuesday 6 October at 10:00am" }));
+  assert.ok(fittingOf({ ...booked, confirmedFor: undefined }));
+});
+
+test("a wrongly typed number gets no link rather than a stranger's", () => {
+  assert.equal(whatsappNumberOf("087 123 4567"), null, "an Irish mobile typed without its country");
+  assert.equal(whatsappNumberOf("044 7700 900123"), null);
+  assert.equal(whatsappNumberOf("07700 900123 ext 12"), null);
+  assert.equal(whatsappNumberOf("+353 (0)87 123 4567"), "353871234567");
+  assert.equal(whatsappNumberOf("+44 07700 900123"), "447700900123");
+});
+
+test("Kristina is reminded about the address for a request too", () => {
+  const html = replyToCustomerHtml({ name: "Anna", phone: "07700900123", service: "Repairs" });
+  assert.match(html, /When you confirm a time in the Studio, their email says you'll send the address/);
 });

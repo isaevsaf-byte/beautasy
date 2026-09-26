@@ -85,7 +85,7 @@ export const atelierBooking = defineType({
       title: "Confirmed For",
       type: "string",
       description:
-        "The date and time you're confirming, in your own words — e.g. 'Tuesday 3 March, 2pm'. Included in the confirmation email.",
+        "The date and time you're confirming, in your own words — e.g. 'Tuesday 3 March, 2pm'. Included in the confirmation email, which also tells them you'll send the address and how to find the door — so send it once you've confirmed.",
     }),
     defineField({
       name: "replyNote",

@@ -80,3 +80,17 @@ test("a long line with a pound sign is folded between characters, never inside o
   }
   assert.match(ics.replace(/\r\n /g, ""), /around £85\\, and shorten/);
 });
+
+test("text a stranger typed cannot start a line of its own", () => {
+  const event = fittingEvent({
+    ...base,
+    slotStart: "2026-10-06T10:00",
+    service: "Hem\rATTENDEE:mailto:victim@example.com\nURL:https://evil.example",
+  });
+  const ics = icsInvite(event, new Date());
+  const withoutLineEnds = ics.replace(/\r\n/g, "");
+  assert.equal(withoutLineEnds.includes("\r"), false, "no bare carriage return");
+  assert.equal(withoutLineEnds.includes("\n"), false, "no bare line feed");
+  const unfolded = ics.replace(/\r\n /g, "");
+  assert.equal(/\r\nATTENDEE|\r\nURL/.test(unfolded), false);
+});

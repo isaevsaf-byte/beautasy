@@ -15,7 +15,13 @@ import { verdictMessage } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { getAvailableSlots } from "@/lib/schedule";
 import { slotIsOffered, slotLabel, slotDocumentId } from "@/lib/slots";
-import { bookingEmailHtml, bookingInvite, whatsappNumberOf, type NotifiableBooking } from "@/lib/bookingEmails";
+import {
+  bookingEmailHtml,
+  bookingInvite,
+  sendConfirmation,
+  whatsappNumberOf,
+  type NotifiableBooking,
+} from "@/lib/bookingEmails";
 import { sendEmail } from "@/lib/sendEmail";
 
 export const dynamic = "force-dynamic";
@@ -152,7 +158,7 @@ export function replyToCustomerHtml(input: {
     : "Reply to this email to reach them.";
   return input.slot
     ? `<p style="padding:12px 16px;background:#fff6e0;border-radius:10px;color:#5c4400;line-height:1.6;">📍 <strong>Send ${escapeHtml(first)} the address</strong> and how to find the door. Their confirmation says you will, before the visit.<br/>${whatsapp}</p>`
-    : `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}</p>`;
+    : `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}<br/>📍 When you confirm a time in the Studio, their email says you'll send the address before the visit.</p>`;
 }
 
 export async function POST(req: NextRequest) {
@@ -374,11 +380,10 @@ export async function POST(req: NextRequest) {
       const invite = confirmation ? bookingInvite(confirmation) : null;
 
       try {
-        await sendEmail({
+        await sendConfirmation({
       from: FROM_EMAIL,
       to: email,
       replyTo: KRISTINA_EMAIL,
-      ...(invite ? { attachments: [invite] } : {}),
       subject: slot
         ? "Your Beautasy atelier appointment is confirmed 💜"
         : "We've received your Beautasy atelier booking request 💜",
@@ -398,7 +403,7 @@ export async function POST(req: NextRequest) {
               : ""
           }
         </div>`,
-        });
+        }, invite);
         confirmed = true;
       } catch (err) {
         console.error("Failed to send booking acknowledgement:", err);

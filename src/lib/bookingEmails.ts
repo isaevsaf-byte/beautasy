@@ -9,9 +9,11 @@ import type { ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { googleReviewUrl } from "@/lib/siteSettings";
 import { BUSINESS, whatsappLink } from "@/lib/business";
-import { DEFAULT_SCHEDULE } from "@/lib/slots";
+import { DEFAULT_SCHEDULE, slotLabel } from "@/lib/slots";
 import { fittingEvent, googleCalendarLink, icsInvite, type CalendarEvent } from "@/lib/bookingCalendar";
 import type { EmailMessage } from "@/lib/sendEmail";
+
+type EmailAttachment = NonNullable<EmailMessage["attachments"]>[number];
 
 /**
  * Confirming atelier bookings.
@@ -67,6 +69,11 @@ const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
  */
 export function fittingOf(booking: NotifiableBooking): CalendarEvent | null {
   if (!booking.slotStart || !SLOT_SHAPE.test(booking.slotStart)) return null;
+  // A booked slot Kristina has since moved by hand — declined with another
+  // time offered, then confirmed for it — keeps its old slotStart, which the
+  // Studio will not let her edit. The email prints her words; an invite for
+  // the old slot would put the customer in the wrong place in their calendar.
+  if (booking.confirmedFor && booking.confirmedFor !== slotLabel(booking.slotStart)) return null;
   const service = booking.service ?? "Fitting";
   return fittingEvent({
     slotStart: booking.slotStart,
@@ -82,17 +89,40 @@ export function fittingOf(booking: NotifiableBooking): CalendarEvent | null {
 }
 
 /** The same event as an .ics file on the confirmation, for Apple Calendar and Outlook. */
-export function bookingInvite(
-  booking: NotifiableBooking,
-  now: Date = new Date()
-): NonNullable<EmailMessage["attachments"]>[number] | null {
+export function bookingInvite(booking: NotifiableBooking, now: Date = new Date()): EmailAttachment | null {
   const fitting = fittingOf(booking);
   if (!fitting) return null;
   return {
     filename: "beautasy-fitting.ics",
     content: Buffer.from(icsInvite(fitting, now), "utf8").toString("base64"),
-    contentType: "text/calendar; charset=utf-8; method=PUBLISH",
+    // Plain: METHOD:PUBLISH is inside the file, where calendars read it
+    contentType: "text/calendar",
   };
+}
+
+/**
+ * Sends a confirmation with its calendar invite — and again without it, if
+ * the mail service will not take the email with the file attached.
+ *
+ * The invite is the first file this shop has ever attached to an email, and
+ * a refusal of the attachment must not become a refusal of the confirmation:
+ * that would fail every customer who booked a time, and the nightly retry
+ * would send the same refused message again every night. The price is a
+ * second copy when the first went through and only its answer was lost,
+ * which is the trade made everywhere else here (see @/lib/sendEmail).
+ */
+export async function sendConfirmation(
+  message: EmailMessage,
+  invite: EmailAttachment | null,
+  send: (message: EmailMessage) => Promise<void> = (m) => sendEmail(m)
+): Promise<void> {
+  if (!invite) return send(message);
+  try {
+    await send({ ...message, attachments: [invite] });
+  } catch (err) {
+    console.error("A confirmation was refused with its calendar invite; sending it without:", err);
+    await send(message);
+  }
 }
 
 /**
@@ -103,7 +133,8 @@ export function bookingInvite(
  */
 export function whatsappNumberOf(phone: string | undefined): string | null {
   if (!phone) return null;
-  const typed = phone.trim();
+  // "(0)" is the national zero written after a country code: +44 (0)7700…
+  const typed = phone.trim().replace(/\(0\)/g, "");
   let digits = typed.replace(/\D/g, "");
   if (typed.startsWith("+") || digits.startsWith("44")) {
     if (digits.startsWith("00")) digits = digits.slice(2);
@@ -114,8 +145,12 @@ export function whatsappNumberOf(phone: string | undefined): string | null {
   } else {
     return null;
   }
-  // "+44 (0)7700…" keeps the national zero after the country code
+  // "+44 07700…" keeps the national zero after the country code
   if (digits.startsWith("440")) digits = `44${digits.slice(3)}`;
+  // A UK mobile is 44 and ten digits. Any other length is a number typed
+  // wrongly — an Irish 087…, a trailing extension — and a link that opens a
+  // chat with a stranger is worse than no link.
+  if (digits.startsWith("44")) return digits.length === 12 ? digits : null;
   return digits.length >= 10 && digits.length <= 15 ? digits : null;
 }
 
@@ -339,7 +374,7 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
     const invite = status === "confirmed" ? bookingInvite(booking) : null;
 
     const outcome = await claimBookingEmail(sanityWriteClient, booking, status, () =>
-        sendEmail({
+        sendConfirmation({
           from: FROM_EMAIL,
           to: email,
           replyTo: KRISTINA_EMAIL,
@@ -350,8 +385,7 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
               ? "Thank you from the Beautasy atelier 💜"
               : "About your Beautasy atelier booking",
           html: bookingEmailHtml(booking, status, friends, reviewLink),
-          ...(invite ? { attachments: [invite] } : {}),
-        })
+        }, invite)
     );
     if (outcome === "sent") sent++;
 

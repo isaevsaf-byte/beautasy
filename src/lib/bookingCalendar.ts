@@ -63,7 +63,9 @@ export function googleCalendarLink(event: CalendarEvent): string {
 function icsText(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
-    .replace(/\r?\n/g, "\\n")
+    // A lone \r too: some readers end a line on it, and the service name is
+    // text a stranger typed, so it must not be able to start a line of its own
+    .replace(/\r\n|\r|\n/g, "\\n")
     .replace(/,/g, "\\,")
     .replace(/;/g, "\\;");
 }
