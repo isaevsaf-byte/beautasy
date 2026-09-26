@@ -1,5 +1,6 @@
 import type { StructureResolver } from "sanity/structure";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
+import { ManualBookingPane } from "./ManualBookingPane";
 
 /**
  * The Studio sidebar.
@@ -65,6 +66,12 @@ export const structure: StructureResolver = (S) =>
       S.divider(),
 
       S.documentTypeListItem("atelierBooking").title("Atelier Bookings"),
+      // For someone who got in touch on WhatsApp, by phone or on Nextdoor: the
+      // time goes into the same diary the site books from, so it closes online
+      S.listItem()
+        .id("book-by-hand")
+        .title("Book by hand")
+        .child(S.component(ManualBookingPane).id("book-by-hand-pane").title("Book a time by hand")),
       S.listItem()
         .title("Fitting Times")
         .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),

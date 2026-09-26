@@ -7,6 +7,7 @@ import { schemaTypes } from "./src/sanity/schemaTypes";
 import { notifyCustomerAction } from "./src/sanity/notifyAction";
 import { approvePostAction, publishNowAction } from "./src/sanity/socialActions";
 import { revealContactAction } from "./src/sanity/revealAction";
+import { moveBookingAction } from "./src/sanity/moveBookingAction";
 import { structure } from "./src/sanity/structure";
 import { dashboardTool } from "./src/sanity/dashboardTool";
 
@@ -46,7 +47,12 @@ export default defineConfig({
         "abandonedCart",
         "referrer",
       ];
-      if (context.schemaType === "order" || context.schemaType === "atelierBooking") {
+      // A booking is given a time, or moved, through the diary — never by
+      // typing into "Confirmed For", which held nothing. See moveBookingAction.
+      if (context.schemaType === "atelierBooking") {
+        return [...prev, moveBookingAction, notifyCustomerAction, revealContactAction];
+      }
+      if (context.schemaType === "order") {
         return [...prev, notifyCustomerAction, revealContactAction];
       }
       if (sealed.includes(context.schemaType)) {

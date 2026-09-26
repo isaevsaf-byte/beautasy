@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, CheckCircle2, CalendarClock, Sparkles } from "lucide-react";
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
+import { ATELIER_SERVICES } from "@/lib/atelierServices";
 
 /**
  * Google Ads conversion for a fitting request. Create a "Lead" conversion in
@@ -13,13 +14,7 @@ import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLi
  */
 const ADS_LEAD_CONVERSION: string | undefined = undefined;
 
-const SERVICES = [
-  "Alterations",
-  "Repairs",
-  "Custom Sewing",
-  "Home Textiles",
-  "Other / Not Sure",
-];
+const SERVICES = ATELIER_SERVICES;
 
 const FIELD_CLASS =
   "w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20";
