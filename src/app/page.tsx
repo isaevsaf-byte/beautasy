@@ -69,12 +69,14 @@ function Hero() {
   return (
     <section className="relative min-h-[100dvh] flex items-center pt-20">
       <div className="max-w-6xl mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-        {/* Text */}
+        {/* Text — first on a phone, and painted as it is rather than faded
+            in: at opacity 0 the heading and both buttons waited for every
+            script to load, and a phone showed only the logo until then. */}
         <motion.div
           variants={stagger}
-          initial="hidden"
+          initial={false}
           animate="visible"
-          className="order-2 lg:order-1 text-center lg:text-left"
+          className="order-1 text-center lg:text-left"
         >
           <motion.p
             variants={fadeUp}
@@ -99,7 +101,7 @@ function Hero() {
             custom={2}
             className="text-lg text-charcoal-light max-w-md mx-auto lg:mx-0 mb-10 leading-relaxed"
           >
-            Handmade lingerie &amp; accessories tailored in Southampton. Every piece tells a story of craft, comfort, and care.
+            Handmade lingerie &amp; accessories, and alterations for the clothes you already love, from our atelier in Southampton.
           </motion.p>
 
           <motion.div
@@ -118,7 +120,7 @@ function Hero() {
               />
             </Link>
             <Link
-              href="/atelier"
+              href="/atelier#book"
               className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
             >
               Book Alterations
@@ -134,9 +136,9 @@ function Hero() {
           initial={{ opacity: 1, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, delay: 0.1, ease: "easeOut" }}
-          className="order-1 lg:order-2 relative"
+          className="order-2 relative"
         >
-          <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF] flex items-center justify-center">
+          <div className="relative aspect-[5/4] sm:aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF] flex items-center justify-center">
             <Image
               src="/beautasy-logo-gold.png"
               alt="Beautasy - Handmade Lingerie & Alterations Logo"
