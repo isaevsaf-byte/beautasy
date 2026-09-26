@@ -152,3 +152,16 @@ test("both ways a confirmation leaves carry the calendar invite", async () => {
   assert.match(nightly, /\.\.\.\(invite \? \{ attachments: \[invite\] \} : \{\}\)/);
   assert.match(nightly, /confirmedFor, slotStart, replyNote/);
 });
+
+test("the first line reads as a sentence", () => {
+  assert.match(
+    bookingEmailHtml(booked, "confirmed"),
+    /Anna, your appointment for alterations is confirmed for <strong>Tuesday 6 October at 10:00am<\/strong>\./
+  );
+  assert.match(bookingEmailHtml({ ...booked, status: "declined" }, "declined"), /Anna, we're so sorry — we can't take your alterations on Tuesday/);
+  assert.match(bookingEmailHtml({ ...booked, status: "completed" }, "completed"), /Anna, thank you for trusting us with your alterations\./);
+  assert.match(
+    bookingEmailHtml({ ...booked, service: undefined }, "confirmed"),
+    /your appointment for fitting is confirmed/
+  );
+});

@@ -158,13 +158,16 @@ export function bookingEmailHtml(
   reviewLink: string | null = process.env.GOOGLE_REVIEW_URL ?? null
 ): string {
   const firstName = escapeHtml(booking.displayName ?? "there");
-  const service = escapeHtml(booking.service ?? "your appointment");
+  // Read mid-sentence ("your appointment for alterations"), so lower case: it
+  // is a label from the form, and "Anna, Your Alterations is confirmed" was
+  // what the first line of every confirmation said
+  const service = escapeHtml((booking.service ?? "fitting").toLowerCase());
   const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
 
   const reviewUrl = reviewLink || undefined;
   const fitting = status === "confirmed" ? fittingOf(booking) : null;
   const whatsappKristina = whatsappLink(
-    `Hi Kristina, it's ${booking.displayName ?? ""} about my ${booking.service ?? "appointment"}${
+    `Hi Kristina, it's ${booking.displayName ?? ""}, about my appointment${
       booking.confirmedFor ? ` on ${booking.confirmedFor}` : ""
     }: `
   );
@@ -177,10 +180,10 @@ export function bookingEmailHtml(
       : "About your booking";
   const body =
     status === "confirmed"
-      ? `Your ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}.`
+      ? `your appointment for ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}.`
       : status === "completed"
-      ? `Thank you for trusting us with your ${service}. If it fits the way you hoped, a sentence about it${reviewUrl ? " on Google" : ""} helps the next person in Southampton find a small atelier — and means a great deal to the one pair of hands that did the work.`
-      : `We're so sorry — we can't take your ${service}${when ? ` on ${when}` : ""} after all.`;
+      ? `thank you for trusting us with your ${service}. If it fits the way you hoped, a sentence about it${reviewUrl ? " on Google" : ""} helps the next person in Southampton find a small atelier — and means a great deal to the one pair of hands that did the work.`
+      : `we're so sorry — we can't take your ${service}${when ? ` on ${when}` : ""} after all.`;
   const button =
     status === "completed"
       ? reviewUrl
