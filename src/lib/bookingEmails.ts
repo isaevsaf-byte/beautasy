@@ -8,6 +8,10 @@ import { friendsBlockHtml, ownLinkFor, referralSettings, rewardReferral } from "
 import type { ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { googleReviewUrl } from "@/lib/siteSettings";
+import { BUSINESS, whatsappLink } from "@/lib/business";
+import { DEFAULT_SCHEDULE } from "@/lib/slots";
+import { fittingEvent, googleCalendarLink, icsInvite, type CalendarEvent } from "@/lib/bookingCalendar";
+import type { EmailMessage } from "@/lib/sendEmail";
 
 /**
  * Confirming atelier bookings.
@@ -40,12 +44,105 @@ export interface NotifiableBooking {
   service?: string;
   preferredDate?: string;
   confirmedFor?: string;
+  /** "2026-10-06T10:00" — there when the customer picked the time themselves */
+  slotStart?: string;
+  /** The diary's slot length, when the sender knows it. Not stored on the booking. */
+  slotMinutes?: number;
   replyNote?: string;
   createdAt?: string;
   /** A friend sent them: who, and what to take off when they pay */
   referrer?: { _ref: string };
   referredBy?: string;
   referralDiscount?: number;
+}
+
+const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+/**
+ * The fitting as a calendar event, when there is an exact time to put in one.
+ *
+ * Only a time the customer picked from the diary has one. A request Kristina
+ * confirms by hand carries whatever she typed in "Confirmed For", which is for
+ * reading, not for a calendar.
+ */
+export function fittingOf(booking: NotifiableBooking): CalendarEvent | null {
+  if (!booking.slotStart || !SLOT_SHAPE.test(booking.slotStart)) return null;
+  const service = booking.service ?? "Fitting";
+  return fittingEvent({
+    slotStart: booking.slotStart,
+    minutes: booking.slotMinutes ?? DEFAULT_SCHEDULE.slotMinutes,
+    service,
+    location: `${BUSINESS.atelierName}, ${BUSINESS.address.locality}`,
+    description:
+      `Your ${service.toLowerCase()} with Kristina at ${BUSINESS.atelierName}. ` +
+      `She will send you the exact address before your visit. ` +
+      `Bring the piece, and the shoes you will wear with it if the length is changing. ` +
+      `To move it, reply to the confirmation email or WhatsApp ${BUSINESS.telephone}.`,
+  });
+}
+
+/** The same event as an .ics file on the confirmation, for Apple Calendar and Outlook. */
+export function bookingInvite(
+  booking: NotifiableBooking,
+  now: Date = new Date()
+): NonNullable<EmailMessage["attachments"]>[number] | null {
+  const fitting = fittingOf(booking);
+  if (!fitting) return null;
+  return {
+    filename: "beautasy-fitting.ics",
+    content: Buffer.from(icsInvite(fitting, now), "utf8").toString("base64"),
+    contentType: "text/calendar; charset=utf-8; method=PUBLISH",
+  };
+}
+
+/**
+ * The international number wa.me wants, from a phone number as a customer
+ * typed it: "07700 900123", "+44 (0)7700 900123" and "0044 7700 900123" are all
+ * 447700900123. A number with no country and no leading zero could be from
+ * anywhere, so it gets no link rather than a wrong one.
+ */
+export function whatsappNumberOf(phone: string | undefined): string | null {
+  if (!phone) return null;
+  const typed = phone.trim();
+  let digits = typed.replace(/\D/g, "");
+  if (typed.startsWith("+") || digits.startsWith("44")) {
+    if (digits.startsWith("00")) digits = digits.slice(2);
+  } else if (digits.startsWith("00")) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith("0")) {
+    digits = `44${digits.slice(1)}`;
+  } else {
+    return null;
+  }
+  // "+44 (0)7700…" keeps the national zero after the country code
+  if (digits.startsWith("440")) digits = `44${digits.slice(3)}`;
+  return digits.length >= 10 && digits.length <= 15 ? digits : null;
+}
+
+const LABEL_STYLE =
+  "margin:0 0 4px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#7a6d9a;";
+const LINE_STYLE = "margin:0;color:#3d3d3d;line-height:1.6;";
+
+/**
+ * What a confirmed customer needs to actually arrive: where, what to bring,
+ * and how to move it. The confirmation used to say the time and "we're at the
+ * atelier in Southampton", and the atelier's address is not published — so a
+ * customer who booked themselves online had a time and no idea where to go.
+ *
+ * The street address is deliberately not in here either. It is a home
+ * atelier, and anything this email says goes to whoever fills in the form, so
+ * Kristina sends it herself; her own email about the booking reminds her to.
+ */
+function arrivalHtml(): string {
+  return `
+      <div style="background:#f7f3ff;border-radius:12px;padding:20px 24px;margin:22px 0 0;">
+        <p style="${LABEL_STYLE}">Where</p>
+        <p style="${LINE_STYLE}margin-bottom:16px;">${BUSINESS.atelierName}, ${BUSINESS.address.locality}. Kristina will send you the exact address and how to find the door before your visit.</p>
+        <p style="${LABEL_STYLE}">Bring</p>
+        <p style="${LINE_STYLE}margin-bottom:16px;">The piece you'd like altered, and if we're changing the length, the shoes you'll wear with it.</p>
+        <p style="${LABEL_STYLE}">Need to move it?</p>
+        <p style="${LINE_STYLE}">Reply to this email, or WhatsApp Kristina on ${BUSINESS.telephone}.</p>
+      </div>`;
 }
 
 export function bookingEmailHtml(
@@ -65,6 +162,12 @@ export function bookingEmailHtml(
   const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
 
   const reviewUrl = reviewLink || undefined;
+  const fitting = status === "confirmed" ? fittingOf(booking) : null;
+  const whatsappKristina = whatsappLink(
+    `Hi Kristina, it's ${booking.displayName ?? ""} about my ${booking.service ?? "appointment"}${
+      booking.confirmedFor ? ` on ${booking.confirmedFor}` : ""
+    }: `
+  );
 
   const heading =
     status === "confirmed"
@@ -74,7 +177,7 @@ export function bookingEmailHtml(
       : "About your booking";
   const body =
     status === "confirmed"
-      ? `Your ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}. We're at the atelier in Southampton — reply to this email if you need to move it.`
+      ? `Your ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}.`
       : status === "completed"
       ? `Thank you for trusting us with your ${service}. If it fits the way you hoped, a sentence about it${reviewUrl ? " on Google" : ""} helps the next person in Southampton find a small atelier — and means a great deal to the one pair of hands that did the work.`
       : `We're so sorry — we can't take your ${service}${when ? ` on ${when}` : ""} after all.`;
@@ -84,8 +187,29 @@ export function bookingEmailHtml(
         ? { href: reviewUrl, label: "Leave a Google review" }
         : { href: `${SITE_URL}/alterations`, label: "Bring the next thing" }
       : status === "confirmed"
-      ? { href: `${SITE_URL}/atelier`, label: "About the atelier" }
-      : { href: `${SITE_URL}/atelier`, label: "Ask for another time" };
+      ? fitting
+        ? { href: googleCalendarLink(fitting), label: "Add to Google Calendar" }
+        : { href: whatsappKristina, label: "WhatsApp Kristina" }
+      : { href: `${SITE_URL}/atelier#book`, label: "Ask for another time" };
+
+  // Under the button on a confirmation: the invite for everyone not on Google,
+  // and the two ways to reach Kristina without hunting for them
+  const afterButton =
+    status === "confirmed"
+      ? `
+      ${
+        fitting
+          ? `<p style="text-align:center;margin:10px 0 0;font-size:12px;color:#8a8494;">On an iPhone or using Outlook? Open the invite attached to this email.</p>`
+          : ""
+      }
+      <p style="text-align:center;margin:18px 0 0;font-size:13px;">
+        ${
+          fitting
+            ? `<a href="${escapeHtml(whatsappKristina)}" style="color:#6c5a96;">WhatsApp Kristina</a>&nbsp;&nbsp;·&nbsp;&nbsp;`
+            : ""
+        }<a href="${BUSINESS.telephoneHref}" style="color:#6c5a96;">Call ${BUSINESS.telephone}</a>
+      </p>`
+      : "";
 
   return `
 <!DOCTYPE html>
@@ -111,9 +235,11 @@ export function bookingEmailHtml(
           ? `<p style="color:#3d3d3d;line-height:1.7;margin:0;">Your <strong>${pounds(booking.referralDiscount)} off</strong>${booking.referredBy ? ` from ${escapeHtml(booking.referredBy)}` : ""} is noted — it comes off when you pay at the atelier.</p>`
           : ""
       }
+      ${status === "confirmed" ? arrivalHtml() : ""}
       <p style="text-align:center;margin:26px 0 0;">
         <a href="${escapeHtml(button.href)}" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">${button.label}</a>
       </p>
+      ${afterButton}
       ${status === "completed" && friends ? friendsBlockHtml(friends.code, friends.settings) : ""}
     </div>
     <div style="padding:20px 40px;border-top:1px solid #f0eaf8;text-align:center;">
@@ -135,7 +261,7 @@ export const PENDING_QUERY = `*[
   && (!defined(notifiedStatus) || notifiedStatus != status)
 ] | order(createdAt desc) [0...$limit] {
   _id, _rev, status, notifiedStatus, displayName, nameSealed, emailSealed,
-  service, preferredDate, confirmedFor, replyNote, createdAt,
+  service, preferredDate, confirmedFor, slotStart, replyNote, createdAt,
   referrer, referredBy, referralDiscount
 }`;
 
@@ -206,6 +332,9 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
       if (code) friends = { code, settings: await referralSettings() };
     }
 
+    // A booked time goes out with its calendar invite, as it did the first time
+    const invite = status === "confirmed" ? bookingInvite(booking) : null;
+
     const outcome = await claimBookingEmail(sanityWriteClient, booking, status, () =>
         sendEmail({
           from: FROM_EMAIL,
@@ -218,6 +347,7 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
               ? "Thank you from the Beautasy atelier 💜"
               : "About your Beautasy atelier booking",
           html: bookingEmailHtml(booking, status, friends, reviewLink),
+          ...(invite ? { attachments: [invite] } : {}),
         })
     );
     if (outcome === "sent") sent++;

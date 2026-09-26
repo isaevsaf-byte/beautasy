@@ -15,7 +15,7 @@ import { verdictMessage } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { getAvailableSlots } from "@/lib/schedule";
 import { slotIsOffered, slotLabel, slotDocumentId } from "@/lib/slots";
-import { bookingEmailHtml } from "@/lib/bookingEmails";
+import { bookingEmailHtml, bookingInvite, whatsappNumberOf, type NotifiableBooking } from "@/lib/bookingEmails";
 import { sendEmail } from "@/lib/sendEmail";
 
 export const dynamic = "force-dynamic";
@@ -127,6 +127,34 @@ export function writeBackAfterEmails(input: {
   return { set, unset };
 }
 
+/**
+ * The line at the foot of Kristina's email that gets the customer an answer.
+ *
+ * A booked time is confirmed to the customer at once, and their confirmation
+ * says Kristina will send the address, because the atelier's address is not
+ * published. So her email says so too, with the customer's WhatsApp one tap
+ * away and the first line already written. Without a number she can read,
+ * replying to the email reaches them as well.
+ */
+export function replyToCustomerHtml(input: {
+  name: string;
+  phone?: string;
+  slot?: string;
+  service: string;
+}): string {
+  const first = firstNameOf(input.name) ?? "there";
+  const number = whatsappNumberOf(input.phone);
+  const opening = input.slot
+    ? `Hi ${first}, it's Kristina from Beautasy. Looking forward to seeing you on ${slotLabel(input.slot)}. Here's how to find me: `
+    : `Hi ${first}, it's Kristina from Beautasy, about your ${input.service.toLowerCase()} request: `;
+  const whatsapp = number
+    ? `<a href="${escapeHtml(`https://wa.me/${number}?text=${encodeURIComponent(opening)}`)}" style="color:#5e4b9a;font-weight:bold;">WhatsApp ${escapeHtml(first)}</a> or reply to this email.`
+    : "Reply to this email to reach them.";
+  return input.slot
+    ? `<p style="padding:12px 16px;background:#fff6e0;border-radius:10px;color:#5c4400;line-height:1.6;">📍 <strong>Send ${escapeHtml(first)} the address</strong> and how to find the door. Their confirmation says you will, before the visit.<br/>${whatsapp}</p>`
+    : `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}</p>`;
+}
+
 export async function POST(req: NextRequest) {
   // Two emails go out per booking, one of them to an address the caller types in
   const limited = rateLimit(`atelier:${clientIp(req)}`, 5, 60 * 60 * 1000);
@@ -194,8 +222,11 @@ export async function POST(req: NextRequest) {
     // A slot has to be one the diary is actually offering right now. Read past
     // the CDN: a cached diary still showing a slot somebody took a minute ago
     // is exactly how two people end up at the door at the same time.
+    /** The diary's slot length, so the calendar invite is as long as the fitting */
+    let slotMinutes: number | undefined;
     if (slot) {
-      const { days } = await getAvailableSlots({ fresh: true });
+      const { days, schedule } = await getAvailableSlots({ fresh: true });
+      slotMinutes = schedule.slotMinutes;
       if (!slotIsOffered(days, slot)) {
         return NextResponse.json(
           {
@@ -315,6 +346,7 @@ export async function POST(req: NextRequest) {
               : ""
           }
           ${notes ? `<p style="color:#3d3d3d;line-height:1.7;"><strong>Notes:</strong><br/>${escapeHtml(notes)}</p>` : ""}
+          ${replyToCustomerHtml({ name, phone, slot, service })}
         </div>`,
         });
         emailed = true;
@@ -322,30 +354,36 @@ export async function POST(req: NextRequest) {
         console.error("Failed to email Kristina about a booking:", err);
       }
 
+      // A picked time is already an appointment, so it gets the confirmation
+      // itself — with where to go and a calendar invite — rather than a
+      // promise that one is coming
+      const confirmation: NotifiableBooking | null = slot
+        ? {
+            _id: "pending",
+            _rev: "pending",
+            status: "confirmed",
+            displayName: firstNameOf(name),
+            service,
+            confirmedFor: slotLabel(slot),
+            slotStart: slot,
+            slotMinutes,
+            referredBy,
+            referralDiscount: friend?.discount,
+          }
+        : null;
+      const invite = confirmation ? bookingInvite(confirmation) : null;
+
       try {
         await sendEmail({
       from: FROM_EMAIL,
       to: email,
       replyTo: KRISTINA_EMAIL,
+      ...(invite ? { attachments: [invite] } : {}),
       subject: slot
         ? "Your Beautasy atelier appointment is confirmed 💜"
         : "We've received your Beautasy atelier booking request 💜",
-      // A picked time is already an appointment, so it gets the confirmation
-      // email itself rather than a promise that one is coming.
-      html: slot
-        ? bookingEmailHtml(
-            {
-              _id: "pending",
-              _rev: "pending",
-              status: "confirmed",
-              displayName: firstNameOf(name),
-              service,
-              confirmedFor: slotLabel(slot),
-              referredBy,
-              referralDiscount: friend?.discount,
-            },
-            "confirmed"
-          )
+      html: confirmation
+        ? bookingEmailHtml(confirmation, "confirmed")
         : `
         <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;">
           <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#9b7fd4;">Beautasy Atelier</p>

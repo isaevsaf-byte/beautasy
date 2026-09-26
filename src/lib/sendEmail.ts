@@ -45,6 +45,12 @@ export interface EmailMessage {
   replyTo?: string;
   subject: string;
   html: string;
+  /**
+   * Files sent with the email — today only the calendar invite on a booking
+   * confirmation. Plain data, so it cannot throw either. `content` is base64:
+   * the SDK puts it into the request body as it is, and the API reads base64.
+   */
+  attachments?: { filename: string; content: string; contentType?: string }[];
 }
 
 /** The single call to Resend — a seam, so a test can answer in either real shape. */
