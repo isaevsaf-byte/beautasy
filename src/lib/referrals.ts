@@ -184,12 +184,19 @@ async function orderHistoryExists(fp: string, excludeId = "", before = ALWAYS): 
   return count > 0;
 }
 
+/**
+ * Has this person been to the atelier before? A declined request never became
+ * a visit, and neither did a cancelled one — so neither makes anyone a regular,
+ * nor costs them a friend's discount.
+ */
+export const BOOKING_HISTORY_QUERY = `count(*[_type == "atelierBooking" && emailFingerprint == $fp && !(status in ["declined", "cancelled"]) && _id != $exclude && createdAt < $before && !(_id in path("drafts.**"))])`;
+
 async function bookingHistoryExists(fp: string, excludeId = "", before = ALWAYS): Promise<boolean> {
-  // A declined request never became a visit, so it does not make anyone a regular
-  const count = await sanityWriteClient.fetch<number>(
-    `count(*[_type == "atelierBooking" && emailFingerprint == $fp && status != "declined" && _id != $exclude && createdAt < $before && !(_id in path("drafts.**"))])`,
-    { fp, exclude: excludeId, before }
-  );
+  const count = await sanityWriteClient.fetch<number>(BOOKING_HISTORY_QUERY, {
+    fp,
+    exclude: excludeId,
+    before,
+  });
   return count > 0;
 }
 

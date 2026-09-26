@@ -29,7 +29,9 @@ const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 
 // "completed" is the thank-you after collection — and the one moment a
 // customer is glad enough to say so in public, if they are asked.
-const NOTIFIABLE = ["confirmed", "declined", "completed"] as const;
+// "cancelled" is the customer's own cancellation: it frees the time and says
+// so kindly, where "declined" says Kristina cannot take it.
+const NOTIFIABLE = ["confirmed", "declined", "cancelled", "completed"] as const;
 export type NotifiableStatus = (typeof NOTIFIABLE)[number];
 
 export interface NotifiableBooking {
@@ -50,6 +52,8 @@ export interface NotifiableBooking {
   slotStart?: string;
   /** The diary's slot length, when the sender knows it. Not stored on the booking. */
   slotMinutes?: number;
+  /** The time it was moved from, when Kristina moved it — see moveBooking in @/lib/diary */
+  movedFrom?: string;
   replyNote?: string;
   createdAt?: string;
   /** A friend sent them: who, and what to take off when they pay */
@@ -207,17 +211,27 @@ export function bookingEmailHtml(
     }: `
   );
 
+  const moved = status === "confirmed" && booking.movedFrom ? escapeHtml(booking.movedFrom) : null;
+
   const heading =
     status === "confirmed"
-      ? "You're booked in"
+      ? moved
+        ? "Your fitting has moved"
+        : "You're booked in"
       : status === "completed"
       ? "Thank you"
+      : status === "cancelled"
+      ? "Your appointment is cancelled"
       : "About your booking";
   const body =
     status === "confirmed"
-      ? `your appointment for ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}.`
+      ? moved
+        ? `your appointment for ${service} has moved to <strong>${when}</strong> (it was ${moved}). If the old time is in your calendar, you can delete it.`
+        : `your appointment for ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}.`
       : status === "completed"
       ? `thank you for trusting us with your ${service}. If it fits the way you hoped, a sentence about it${reviewUrl ? " on Google" : ""} helps the next person in Southampton find a small atelier — and means a great deal to the one pair of hands that did the work.`
+      : status === "cancelled"
+      ? `your appointment${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked. Whenever you're ready, choosing a new time takes a minute.`
       : `we're so sorry — we can't take your ${service}${when ? ` on ${when}` : ""} after all.`;
   const button =
     status === "completed"
@@ -228,6 +242,8 @@ export function bookingEmailHtml(
       ? fitting
         ? { href: googleCalendarLink(fitting), label: "Add to Google Calendar" }
         : { href: whatsappKristina, label: "WhatsApp Kristina" }
+      : status === "cancelled"
+      ? { href: `${SITE_URL}/atelier#book`, label: "Book another time" }
       : { href: `${SITE_URL}/atelier#book`, label: "Ask for another time" };
 
   // Under the button on a confirmation: the invite for everyone not on Google,
@@ -288,6 +304,18 @@ export function bookingEmailHtml(
 </html>`;
 }
 
+/** The subject line, from the same facts as the email itself. */
+export function bookingEmailSubject(booking: Pick<NotifiableBooking, "movedFrom">, status: NotifiableStatus): string {
+  if (status === "confirmed") {
+    return booking.movedFrom
+      ? "Your Beautasy atelier appointment has moved 💜"
+      : "Your Beautasy atelier appointment is confirmed 💜";
+  }
+  if (status === "completed") return "Thank you from the Beautasy atelier 💜";
+  if (status === "cancelled") return "Your Beautasy atelier appointment is cancelled";
+  return "About your Beautasy atelier booking";
+}
+
 /**
  * Exported so a test can run it rather than read it: it is the only thing that
  * says whether a customer the mail service refused is ever looked at again.
@@ -295,11 +323,11 @@ export function bookingEmailHtml(
 export const PENDING_QUERY = `*[
   _type == "atelierBooking"
   && defined(emailSealed)
-  && status in ["confirmed", "declined", "completed"]
+  && status in ["confirmed", "declined", "cancelled", "completed"]
   && (!defined(notifiedStatus) || notifiedStatus != status)
 ] | order(createdAt desc) [0...$limit] {
   _id, _rev, status, notifiedStatus, displayName, nameSealed, emailSealed,
-  service, preferredDate, confirmedFor, slotStart, replyNote, createdAt,
+  service, preferredDate, confirmedFor, slotStart, movedFrom, replyNote, createdAt,
   referrer, referredBy, referralDiscount
 }`;
 
@@ -378,12 +406,7 @@ export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: n
           from: FROM_EMAIL,
           to: email,
           replyTo: KRISTINA_EMAIL,
-          subject:
-            status === "confirmed"
-              ? "Your Beautasy atelier appointment is confirmed 💜"
-              : status === "completed"
-              ? "Thank you from the Beautasy atelier 💜"
-              : "About your Beautasy atelier booking",
+          subject: bookingEmailSubject(booking, status),
           html: bookingEmailHtml(booking, status, friends, reviewLink),
         }, invite)
     );

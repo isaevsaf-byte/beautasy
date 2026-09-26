@@ -5,7 +5,7 @@ export const atelierBooking = defineType({
   title: "Atelier Booking",
   type: "document",
   description:
-    "A request for an alteration or fitting. Change the status to confirm or decline it — the customer is emailed automatically. Contact details are stored sealed; use \u201cShow contact details\u201d to read them.",
+    "A request for an alteration or fitting. Change the status to confirm or decline it — the customer is emailed automatically. To give it a time or move it, use \u201cChoose a time\u201d / \u201cMove to another time\u201d in the menu at the bottom. Contact details are stored sealed; use \u201cShow contact details\u201d to read them.",
   fields: [
     defineField({
       name: "displayName",
@@ -56,7 +56,23 @@ export const atelierBooking = defineType({
       type: "string",
       readOnly: true,
       description:
-        "Set when the customer picked a time themselves — that time is then held for them and offered to nobody else.",
+        "The time held in the diary for this booking — offered to nobody else online. To change it, use \u201cMove to another time\u201d in the menu at the bottom.",
+    }),
+    defineField({
+      name: "movedFrom",
+      title: "Moved From",
+      type: "string",
+      readOnly: true,
+      hidden: ({ document }) => !document?.movedFrom,
+      description: "The time this booking had before it was moved. The customer was emailed the new one.",
+    }),
+    defineField({
+      name: "bookedBy",
+      title: "Booked By",
+      type: "string",
+      readOnly: true,
+      hidden: ({ document }) => !document?.bookedBy,
+      description: "\u201cstudio\u201d when you booked it by hand, for someone who got in touch another way.",
     }),
     defineField({
       name: "preferredDate",
@@ -73,7 +89,8 @@ export const atelierBooking = defineType({
         list: [
           { title: "New — needs a reply", value: "new" },
           { title: "Confirmed", value: "confirmed" },
-          { title: "Can't make it", value: "declined" },
+          { title: "Can't make it — frees the time", value: "declined" },
+          { title: "Client cancelled — frees the time", value: "cancelled" },
           { title: "Done — thanks them and asks for a review", value: "completed" },
         ],
         layout: "radio",
@@ -84,8 +101,12 @@ export const atelierBooking = defineType({
       name: "confirmedFor",
       title: "Confirmed For",
       type: "string",
+      // Typing a new time here held nothing: the site kept offering it, and a
+      // second customer could book it. A booking with a time in the diary is
+      // moved with the action, which holds the new time first.
+      readOnly: ({ document }) => Boolean(document?.slotStart),
       description:
-        "The date and time you're confirming, in your own words — e.g. 'Tuesday 3 March, 2pm'. Included in the confirmation email, which also tells them you'll send the address and how to find the door — so send it once you've confirmed.",
+        "For a request only, in your own words — e.g. 'Tuesday 3 March, 2pm'. Better: \u201cChoose a time\u201d in the menu at the bottom, which holds the time in the diary and sends the confirmation with a calendar invite. The confirmation also tells them you'll send the address and how to find the door — so send it once you've confirmed.",
     }),
     defineField({
       name: "replyNote",
@@ -125,6 +146,9 @@ export const atelierBooking = defineType({
       hidden: true,
     }),
     defineField({ name: "createdAt", title: "Requested At", type: "datetime", readOnly: true }),
+    // The diary's own bookkeeping — see @/lib/diary
+    defineField({ name: "releasedAt", title: "Time Given Back At", type: "datetime", readOnly: true, hidden: true }),
+    defineField({ name: "movedAt", title: "Moved At", type: "datetime", readOnly: true, hidden: true }),
   ],
   preview: {
     select: {

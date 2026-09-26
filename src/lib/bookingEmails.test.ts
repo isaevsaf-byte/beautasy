@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   bookingEmailHtml,
+  bookingEmailSubject,
   bookingInvite,
   fittingOf,
   sendConfirmation,
@@ -152,7 +153,7 @@ test("both ways a confirmation leaves carry the calendar invite, and survive its
   // …and from the nightly job, when the first attempt was refused
   assert.match(nightly, /const invite = status === "confirmed" \? bookingInvite\(booking\) : null;/);
   assert.match(nightly, /sendConfirmation\(\{[\s\S]*?\}, invite\)/);
-  assert.match(nightly, /confirmedFor, slotStart, replyNote/);
+  assert.match(nightly, /confirmedFor, slotStart, movedFrom, replyNote/);
   // Nothing sends an attachment except through the fallback
   assert.doesNotMatch(route + nightly, /attachments: \[invite\] \} : \{\}/);
 });
@@ -229,4 +230,51 @@ test("a wrongly typed number gets no link rather than a stranger's", () => {
 test("Kristina is reminded about the address for a request too", () => {
   const html = replyToCustomerHtml({ name: "Anna", phone: "07700900123", service: "Repairs" });
   assert.match(html, /When you confirm a time in the Studio, their email says you'll send the address/);
+});
+
+test("a customer who cancelled is told kindly, and invited back", () => {
+  const cancelled = { ...booked, status: "cancelled" };
+  const html = bookingEmailHtml(cancelled, "cancelled");
+  assert.match(html, /Your appointment is cancelled/);
+  assert.match(html, /Anna, your appointment on <strong>Tuesday 6 October at 10:00am<\/strong> is cancelled, as you asked\./);
+  assert.match(html, /href="https:\/\/www\.beautasy\.co\.uk\/atelier#book"[^>]*>Book another time</);
+  assert.doesNotMatch(html, /we can't take/, "cancelling is theirs, not a refusal from Kristina");
+  assert.equal(bookingEmailSubject(cancelled, "cancelled"), "Your Beautasy atelier appointment is cancelled");
+});
+
+test("a moved fitting says so, with the new time in the calendar and the old one named", () => {
+  const moved: NotifiableBooking = {
+    ...booked,
+    slotStart: "2026-10-08T11:30",
+    confirmedFor: "Thursday 8 October at 11:30am",
+    movedFrom: "Tuesday 6 October at 10:00am",
+  };
+  const html = bookingEmailHtml(moved, "confirmed");
+  assert.match(html, /Your fitting has moved/);
+  assert.match(html, /has moved to <strong>Thursday 8 October at 11:30am<\/strong> \(it was Tuesday 6 October at 10:00am\)/);
+  assert.match(html, /dates=20261008T103000Z%2F20261008T110000Z/, "the calendar is for the new time");
+  assert.match(html, /exact address/);
+  assert.equal(bookingEmailSubject(moved, "confirmed"), "Your Beautasy atelier appointment has moved 💜");
+  assert.equal(bookingEmailSubject(booked, "confirmed"), "Your Beautasy atelier appointment is confirmed 💜");
+});
+
+test("a cancelled or declined booking is not a previous visit, so a friend's discount still applies", async () => {
+  const { evaluate, parse } = await import("groq-js");
+  const { BOOKING_HISTORY_QUERY } = await import("./referrals");
+  const visit = (status: string) => ({
+    _id: `b-${status}`,
+    _type: "atelierBooking",
+    emailFingerprint: "fp1",
+    status,
+    createdAt: "2026-09-01T09:00:00Z",
+  });
+  const count = async (docs: object[]) =>
+    (await evaluate(parse(BOOKING_HISTORY_QUERY), {
+      dataset: docs,
+      params: { fp: "fp1", exclude: "", before: "2026-12-31T00:00:00Z" },
+    })).get();
+
+  assert.equal(await count([visit("declined"), visit("cancelled")]), 0);
+  assert.equal(await count([visit("confirmed")]), 1);
+  assert.equal(await count([visit("completed")]), 1);
 });
