@@ -140,3 +140,25 @@ test("the hours are written in one place", () => {
 
   assert.deepEqual(elsewhere, []);
 });
+
+/**
+ * Every map link on the site opens the Beautasy Atelier listing, where the
+ * reviews and hours are. The contact page's "Visit Us" used to open a map of
+ * the whole of Southampton, which sent nobody to the listing at all.
+ */
+test("a map link is the listing, never a map of the city", () => {
+  const files = (dir: string): string[] =>
+    readdirSync(dir).flatMap((entry) => {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) return files(path);
+      return /\.tsx?$/.test(entry) && !entry.includes(".test.") ? [path] : [];
+    });
+  const generic = files(join(process.cwd(), "src")).flatMap((path) =>
+    readFileSync(path, "utf8")
+      .split("\n")
+      .map((line, i) => `${path.replace(process.cwd(), "")}:${i + 1} ${line.trim()}`)
+      .filter((line) => /maps\.google\.[a-z.]+\/\?q=|google\.[a-z.]+\/maps\/(search|place)\//.test(line))
+  );
+  assert.deepEqual(generic, []);
+  assert.match(BUSINESS.googleMapsUrl, /^https:\/\/maps\.google\.com\/\?cid=5155324499486741351$/);
+});

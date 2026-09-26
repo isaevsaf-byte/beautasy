@@ -6,6 +6,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { fadeUp, stagger } from "@/components/animations";
+import { BUSINESS } from "@/lib/business";
 
 export default function ContactPage() {
   return (
@@ -137,11 +138,12 @@ export default function ContactPage() {
                 </div>
               </motion.div>
 
-              {/* Location */}
+              {/* The Google listing, where the reviews and the hours are —
+                  it used to open a map of the whole of Southampton */}
               <motion.a
                 variants={fadeUp}
                 custom={2}
-                href="https://maps.google.com/?q=Southampton,UK"
+                href={BUSINESS.googleMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-5 bg-white/70 backdrop-blur-sm border border-lavender-soft/30 rounded-2xl px-7 py-6 hover:shadow-xl hover:shadow-lavender/10 transition-all duration-500 group"
@@ -150,9 +152,9 @@ export default function ContactPage() {
                   <MapPin size={22} className="text-charcoal" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-serif text-lg mb-0.5">Visit Us</p>
+                  <p className="font-serif text-lg mb-0.5">Find us on Google</p>
                   <p className="text-sm text-charcoal-light">
-                    Southampton, UK
+                    {BUSINESS.atelierName}, Southampton — reviews and opening hours
                   </p>
                 </div>
                 <ArrowRight
