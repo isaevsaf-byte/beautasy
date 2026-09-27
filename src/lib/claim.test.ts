@@ -194,3 +194,35 @@ test("a claim overtaken by a later one is left to it", async () => {
   assert.deepEqual(log, ['claim order-1 {"notifiedStatus":"shipped"}'], "handing back would wipe the later claim");
   assert.equal(docs.get("order-1")?.notifiedStatus, "delivered");
 });
+
+/**
+ * Two bookings can carry the same mark. Anna's confirmation is on its way; in
+ * that second she cancels, Olga takes the freed time, and the mail service
+ * refuses Anna's email. Olga's booking says "confirmed" too — but it is not
+ * the record that was claimed, and handing the claim back to it would send
+ * Olga a second confirmation.
+ */
+test("a claim is not handed back to another record that came to carry the same mark", async () => {
+  const id = "slot-2026-10-06-1400";
+  const { client, log, docs } = fakeClient({ rev: "r1", id });
+  Object.assign(docs.get(id)!, { status: "confirmed", createdAt: "2026-09-20T09:00:00.000Z", displayName: "Anna" });
+
+  const outcome = await claimThenSend(client, { _id: id, _rev: "r1" }, { notifiedStatus: "confirmed" }, ["notifiedStatus"], async () => {
+    // Anna cancels (a new revision), then Olga takes the time: Anna's record is named after that revision
+    const anna = { ...docs.get(id)!, status: "cancelled", _rev: "anna-cancelled" };
+    docs.set(`${id}-released-anna-cancelled`, { ...anna, _id: `${id}-released-anna-cancelled` });
+    docs.set(id, {
+      _id: id,
+      _rev: "o1",
+      status: "confirmed",
+      notifiedStatus: "confirmed",
+      createdAt: "2026-09-27T10:00:00.000Z",
+      displayName: "Olga",
+    });
+    throw new Error("resend down");
+  });
+
+  assert.equal(outcome, "failed");
+  assert.deepEqual(log, [`claim ${id} {"notifiedStatus":"confirmed"}`], "nothing is handed back to Olga");
+  assert.equal(docs.get(id)?.notifiedStatus, "confirmed");
+});

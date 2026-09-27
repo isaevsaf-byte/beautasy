@@ -38,9 +38,20 @@ export interface ClaimClient {
 
 export type ClaimOutcome = "sent" | "lost" | "failed";
 
+type Doc = Record<string, unknown>;
+
 /** Whether the document still has every field of the claim, as claimed. */
-function carries(doc: Record<string, unknown> | null | undefined, claim: Record<string, unknown>): boolean {
+function carries(doc: Doc | null | undefined, claim: Doc): boolean {
   return Boolean(doc) && Object.entries(claim).every(([field, value]) => JSON.stringify(doc![field]) === JSON.stringify(value));
+}
+
+/**
+ * Whether it is still the record that was claimed, and not another one that
+ * came to carry the same mark — two bookings can both say "confirmed". Told
+ * apart by when they were made, where the record says so.
+ */
+function sameRecord(claimed: Doc | undefined, doc: Doc | null | undefined): boolean {
+  return claimed?.createdAt === undefined || doc?.createdAt === claimed.createdAt;
 }
 
 /**
@@ -54,15 +65,12 @@ function carries(doc: Record<string, unknown> | null | undefined, claim: Record<
  * named after the revision it took over, which is the one this claim left.
  * A document that carries a later claim instead is somebody else's business.
  */
-async function holderOfClaim(
-  client: ClaimClient,
-  id: string,
-  claim: Record<string, unknown>,
-  claimedRev: string | undefined
-): Promise<string | null> {
-  if (carries(await client.getDocument(id), claim)) return id;
-  if (!claimedRev) return null;
-  const kept = `${id}-released-${claimedRev}`;
+async function holderOfClaim(client: ClaimClient, id: string, claim: Doc, claimed: Doc | undefined): Promise<string | null> {
+  const current = await client.getDocument(id);
+  if (carries(current, claim) && sameRecord(claimed, current)) return id;
+  if (typeof claimed?._rev !== "string") return null;
+  // Named after the claimed revision, so it can only be a copy of that record
+  const kept = `${id}-released-${claimed._rev}`;
   return carries(await client.getDocument(kept), claim) ? kept : null;
 }
 
@@ -74,11 +82,11 @@ export async function claimThenSend(
   release: Record<string, unknown> | string[],
   send: () => Promise<unknown>
 ): Promise<ClaimOutcome> {
-  let claimedRev: string | undefined;
+  /** The document as the claim left it — Sanity answers a patch with it */
+  let claimed: Doc | undefined;
   try {
-    const claimed = await client.patch(doc._id).ifRevisionId(doc._rev).set(claim).commit();
-    const rev = (claimed as { _rev?: unknown } | null | undefined)?._rev;
-    claimedRev = typeof rev === "string" ? rev : undefined;
+    const answer = await client.patch(doc._id).ifRevisionId(doc._rev).set(claim).commit();
+    claimed = answer && typeof answer === "object" ? (answer as Doc) : undefined;
   } catch {
     // Somebody else claimed it in the meantime — their send, not ours
     return "lost";
@@ -91,7 +99,7 @@ export async function claimThenSend(
   } catch (err) {
     console.error(`Send failed for ${doc._id}, releasing the claim:`, err);
     try {
-      const holder = await holderOfClaim(client, doc._id, claim, claimedRev);
+      const holder = await holderOfClaim(client, doc._id, claim, claimed);
       if (!holder) console.error(`Nothing carries the claim on ${doc._id} any more — nothing to hand back`);
       else if (Array.isArray(release)) await client.patch(holder).unset(release).commit();
       else await client.patch(holder).set(release).commit();

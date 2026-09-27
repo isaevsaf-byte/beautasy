@@ -193,7 +193,10 @@ export async function POST(req: NextRequest) {
     }
     if (claim === "failed") return answer(500, "Could not save it, so nothing was booked. Try again in a minute.");
     if (claim === "unsure") {
-      return answer(500, "The diary stopped answering while saving. Look in Atelier Bookings before trying again — it may be there.");
+      return answer(
+        500,
+        "The diary stopped answering while saving. Look in Atelier Bookings before trying again: if the booking is there, it saved — tell them the time yourself."
+      );
     }
 
     const emailed = email ? await tellCustomer(doc, schedule.slotMinutes) : false;
@@ -234,7 +237,10 @@ export async function POST(req: NextRequest) {
     }
     if (moved === "failed") return answer(500, "Could not move it, so nothing changed. Try again in a minute.");
     if (moved === "unsure") {
-      return answer(500, "The diary stopped answering halfway. Look in Atelier Bookings — the booking may be at either time — before trying again.");
+      return answer(
+        500,
+        "The diary stopped answering halfway. Look in Atelier Bookings: the booking may be at the old time, the new one, or both. Keep the one you want, delete any other, and tell them the time yourself."
+      );
     }
 
     const emailed = await tellCustomer(to, schedule.slotMinutes);

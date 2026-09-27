@@ -106,8 +106,12 @@ test("the booking that holds a time is not moved onto it, whatever its status", 
 });
 
 test("an answer lost halfway is reported as such, not as nothing done", () => {
-  assert.match(ROUTE, /if \(claim === "unsure"\)/);
-  assert.match(ROUTE, /if \(moved === "unsure"\)/);
+  // Either way the booking was written already marked as told, so no email
+  // will follow on its own: she is asked to tell them herself
+  const book = ROUTE.slice(ROUTE.indexOf('if (claim === "unsure")'));
+  assert.match(book.slice(0, 400), /tell them the time yourself/);
+  const move = ROUTE.slice(ROUTE.indexOf('if (moved === "unsure")'));
+  assert.match(move.slice(0, 400), /or both\. Keep the one you want, delete any other, and tell them the time yourself/);
 });
 
 test("a finished move opens the new booking and says how it went, even with the old one gone", () => {

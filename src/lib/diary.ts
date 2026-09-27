@@ -246,6 +246,8 @@ function sameWords(a: string, b: string): boolean {
  * "you're booked in" and turns up for both.
  */
 function toldTimeOf(from: DiaryDoc): string | undefined {
+  // Told it is off — cancelled, or declined — they hold no time to move from
+  if (releasesItsTime(from.status) && from.notifiedStatus === from.status) return undefined;
   if (from.slotStart) return slotLabel(from.slotStart);
   const typed = typeof from.confirmedFor === "string" ? from.confirmedFor.trim() : "";
   return typed && from.status === "confirmed" && from.notifiedStatus === "confirmed" ? typed : undefined;
@@ -291,6 +293,17 @@ export function movedCopy(from: DiaryDoc, toSlot: string, now: string): DiaryDoc
 export type Move = "moved" | "taken" | "changed" | "failed" | "unsure";
 
 /**
+ * Whether a booking read back under an id is this booking, rather than a new
+ * one somebody made there since — a freed time is on offer the moment it is
+ * let go. Undefined when the booking carries nothing to tell it by.
+ */
+function isSameBooking(mine: DiaryDoc, found: DiaryDoc): boolean | undefined {
+  const marks = ["createdAt", "nameSealed"].filter((field) => typeof mine[field] === "string");
+  if (marks.length === 0) return undefined;
+  return mine._type === found._type && marks.every((field) => mine[field] === found[field]);
+}
+
+/**
  * Move a booking to the time in `to` (built by `movedCopy`).
  *
  * The new time is taken first and the old booking let go only after that, so
@@ -330,6 +343,13 @@ export async function moveBooking(
         return "unsure";
       }
       if (!old) return "moved";
+      const same = isSameBooking(from, old);
+      // Let go, and its time already booked by somebody else: the move happened
+      if (same === false) return "moved";
+      if (same === undefined) {
+        console.error(`Lost the answer letting go of ${from._id}, and cannot tell what is there now:`, error);
+        return "unsure";
+      }
     }
 
     // The old booking is still there, so the new time goes back

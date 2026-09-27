@@ -380,7 +380,7 @@ test("a move whose letting-go landed but lost its answer keeps the new booking",
 
 test("a move whose letting-go never landed hands the new time back", async () => {
   const store = new MemoryStore();
-  store.seed(booking("2026-10-06T14:00"));
+  store.seed(booking("2026-10-06T14:00", { ...SEALED, createdAt: "2026-09-20T09:00:00.000Z" }));
   const from = (await store.read("slot-2026-10-06-1400"))!;
   store.beforeWrite = (n) => {
     if (n === 2) throw lostAnswer();
@@ -391,9 +391,39 @@ test("a move whose letting-go never landed hands the new time back", async () =>
   assert.equal(store.docs.has("slot-2026-10-08-1130"), false);
 });
 
-test("a move that loses its answer and then cannot look undoes nothing", async () => {
+test("a move that landed, lost its answer, and whose freed time was booked at once keeps the new booking", async () => {
+  const store = new MemoryStore();
+  store.seed(booking("2026-10-06T14:00", { ...SEALED, createdAt: "2026-09-20T09:00:00.000Z" }));
+  const from = (await store.read("slot-2026-10-06-1400"))!;
+  store.afterWrite = (n) => {
+    if (n === 2) {
+      // 2pm is free the moment Anna lets go of it, and Olga books it before the look
+      store.seed(booking("2026-10-06T14:00", { displayName: "Olga", nameSealed: "v1.olga", createdAt: NOW }));
+      throw lostAnswer();
+    }
+  };
+
+  assert.equal(await moveBooking(store, { from, to: movedCopy(from, "2026-10-08T11:30", NOW), now: NOW }), "moved");
+  assert.equal(store.docs.get("slot-2026-10-08-1130")?.displayName, "Anna", "Anna keeps her new time");
+  assert.equal(store.docs.get("slot-2026-10-06-1400")?.displayName, "Olga");
+});
+
+test("a lost answer on a booking with nothing to tell it by undoes nothing", async () => {
   const store = new MemoryStore();
   store.seed(booking("2026-10-06T14:00"));
+  const from = (await store.read("slot-2026-10-06-1400"))!;
+  store.beforeWrite = (n) => {
+    if (n === 2) throw lostAnswer();
+  };
+
+  assert.equal(await moveBooking(store, { from, to: movedCopy(from, "2026-10-08T11:30", NOW), now: NOW }), "unsure");
+  assert.equal(store.docs.has("slot-2026-10-06-1400"), true);
+  assert.equal(store.docs.has("slot-2026-10-08-1130"), true);
+});
+
+test("a move that loses its answer and then cannot look undoes nothing", async () => {
+  const store = new MemoryStore();
+  store.seed(booking("2026-10-06T14:00", { ...SEALED, createdAt: "2026-09-20T09:00:00.000Z" }));
   const from = (await store.read("slot-2026-10-06-1400"))!;
   // Only the look fails: handing the new time back would still go through
   let looksFail = false;
@@ -471,7 +501,9 @@ test("a booking whose time went to someone else is booked again at a free one", 
 
   const to = movedCopy(from, "2026-10-09T15:00", NOW);
   assert.equal(to.releasedAt, undefined, "the new booking is not a record");
-  assert.equal(to.movedFrom, "Tuesday 6 October at 2:00pm");
+  assert.equal(to.movedFrom, undefined, "she was told it was cancelled: nothing moved, she is booked");
+  // Not yet told it was off, she still thinks she has 2pm: that is a move
+  assert.equal(movedCopy({ ...from, notifiedStatus: "confirmed" }, "2026-10-09T15:00", NOW).movedFrom, "Tuesday 6 October at 2:00pm");
   assert.equal(await moveBooking(store, { from, to, now: NOW }), "moved");
 
   assert.equal(store.docs.has("slot-2026-10-06-1400-released-rev1"), false);
