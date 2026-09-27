@@ -46,10 +46,10 @@ function directoryTags(bytes: Uint8Array, tiff: number, offset: number, little: 
 /** A TIFF block at `tiff` (as EXIF is stored) with a GPS directory holding a latitude and longitude */
 function tiffHasLocation(bytes: Uint8Array, tiff: number): boolean {
   if (tiff + 8 > bytes.length) return false;
+  // Only called where a TIFF signature (byte order + 42) was found
   const little = bytes[tiff] === 0x49 && bytes[tiff + 1] === 0x49;
   const big = bytes[tiff] === 0x4d && bytes[tiff + 1] === 0x4d;
   if (!little && !big) return false;
-  if (readUint16(bytes, tiff + 2, little) !== 42) return false;
   const first = directoryTags(bytes, tiff, readUint32(bytes, tiff + 4, little), little);
   const gpsOffset = first?.get(GPS_IFD);
   if (gpsOffset === undefined) return false;

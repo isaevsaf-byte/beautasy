@@ -175,6 +175,13 @@ test("half-filled pieces from the Studio are left out rather than drawn as empty
         ],
       },
       { id: "b", title: "  ", category: "home", media: [{ kind: "photo", key: "p", image: { asset: { _ref: "x" } }, width: 1, height: 1 }] },
+      // Sizes without a picture — a malformed answer, not something the query makes
+      {
+        id: "d",
+        title: "No picture",
+        category: "home",
+        media: [{ kind: "photo", key: "p", image: { asset: null }, width: 10, height: 20 }],
+      },
       {
         id: "c",
         title: "Fine",
@@ -307,6 +314,22 @@ test("every shop link a piece can have is a real shelf, with words for its butto
   }
   assert.equal(placeLink("/shop/accessories?category=pouches", { stocked: ["Kids"], giftBoxes: false }), null);
   assert.equal(shelfCta("/somewhere-else"), null);
+});
+
+test("the shop shelves a piece can point to are the ones the shop has", () => {
+  assert.deepEqual(
+    WORK_SHELVES.map((s) => s.value),
+    [
+      "/shop/accessories?category=hair-accessories",
+      "/shop/accessories?category=pouches",
+      "/shop/accessories?category=sleeping-masks",
+      "/shop/kids?category=underwear",
+      "/shop/kids",
+      "/shop/lingerie",
+      "/shop/home",
+      "/gift-cards",
+    ]
+  );
 });
 
 test("the categories are the ones the Studio offers", () => {

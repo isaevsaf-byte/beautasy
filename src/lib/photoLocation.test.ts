@@ -61,3 +61,21 @@ test("only the start of a file, or no picture at all, is read without breaking",
   const noise = new Uint8Array(4096).map((_, i) => (i * 7919) % 256);
   assert.equal(carriesLocation(noise), false);
 });
+
+/** An EXIF block the way an iPhone writes it: Motorola ("MM", big-endian) byte order */
+function bigEndianJpeg(gpsTags: number[]): Uint8Array {
+  const tiff: number[] = [0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08];
+  // IFD0: one entry, GPSInfo (0x8825) pointing at the GPS directory at offset 26
+  tiff.push(0x00, 0x01, 0x88, 0x25, 0x00, 0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x1a, 0x00, 0x00, 0x00, 0x00);
+  tiff.push(0x00, gpsTags.length);
+  for (const tag of gpsTags) tiff.push(0x00, tag, 0x00, 0x05, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00);
+  tiff.push(0x00, 0x00, 0x00, 0x00);
+  const exif = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00, ...tiff];
+  const length = exif.length + 2;
+  return new Uint8Array([0xff, 0xd8, 0xff, 0xe1, length >> 8, length & 0xff, ...exif, 0xff, 0xd9]);
+}
+
+test("an iPhone's own byte order is read too", () => {
+  assert.equal(carriesLocation(bigEndianJpeg([0x02, 0x04])), true, "latitude and longitude");
+  assert.equal(carriesLocation(bigEndianJpeg([0x00])), false, "a GPS block with only its version is no location");
+});

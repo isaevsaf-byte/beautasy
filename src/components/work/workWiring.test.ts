@@ -45,7 +45,8 @@ test("Google hears of /work once there is something on it, and not before", () =
   assert.match(read("src/app/sitemap.ts"), /const workRoutes: MetadataRoute\.Sitemap = pieces\.length \|\| !known/);
   const page = read("src/app/work/page.tsx");
   // A Sanity failure must not rebuild the page as an empty, noindexed one
-  assert.doesNotMatch(page, /getWork\(/);
+  assert.match(page, /^import \{ readWork \} from "@\/lib\/getWork";$/m);
+  assert.doesNotMatch(page.replace('"@/lib/getWork"', ""), /getWork/, "not the reader that shrugs off a failure");
   assert.equal(page.match(/await readWork\(\)/g)?.length, 2);
   assert.match(page, /\.\.\.\(pieces\.length === 0 \? \{ robots: \{ index: false, follow: true \} \} : \{\}\)/);
   assert.match(page, /alternates: \{ canonical: PAGE_URL \}/);
@@ -96,4 +97,15 @@ test("the Studio never publishes where a photo was taken, and takes videos only 
   assert.match(schema, /name: "poster",\s+title: "Cover picture",\s+type: "image",\s+options: \{ hotspot: true \},\s+readOnly: true,/);
   const settings = read("src/sanity/schemaTypes/siteSettings.ts");
   assert.equal(settings.match(/readOnly: true,/g)?.length, 2, "the showreel and its cover");
+});
+
+test("the showreel comes back when its tab does, and the tiles keep their sharpness and the keyboard's place", () => {
+  const reel = read("src/components/work/Showreel.tsx");
+  assert.match(reel, /document\.addEventListener\("visibilitychange", update\);/);
+  assert.match(reel, /if \(inView && document\.visibilityState === "visible"\) video\.play\(\)/);
+  // Each half of a before-and-after crops a photo drawn at the tile's full width
+  assert.match(read("src/components/work/TileFace.tsx"), /<Photo photo=\{photo\} sizes=\{sizes\} eager=\{eager\} className=\{PICTURE\} \/>/);
+  const gallery = read("src/components/work/WorkGallery.tsx");
+  assert.match(gallery, /element\.dataset\.workTile === anchor && element\.offsetParent !== null/);
+  assert.match(gallery, /data-work-tile=\{piece\.anchor\}/);
 });
