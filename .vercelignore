@@ -3,5 +3,8 @@
 video
 dist
 merchant-center
-scripts
+# Laptop scripts stay behind — all but the outside watch, whose test is part
+# of the type check \`next build\` runs; without the file that check fails
+scripts/*
+!scripts/outside-watch.mjs
 workers
