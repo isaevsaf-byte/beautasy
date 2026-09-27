@@ -5,6 +5,9 @@ const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   title: "Beautasy Atelier | Clothing Alterations & Tailoring in Southampton",
+  // One address for the page however it was reached — ?utm_source=google,
+  // #book — so Google does not count the links as separate pages
+  alternates: { canonical: `${siteUrl}/atelier` },
   description:
     "Expert clothing alterations, custom sewing, and repairs at our Southampton atelier. Dresses, trousers, coats & home textiles — book a fitting today.",
   openGraph: {

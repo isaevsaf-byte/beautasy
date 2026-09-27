@@ -2,6 +2,8 @@ import { MetadataRoute } from "next";
 import { sanityClient } from "@/lib/sanity";
 import { SITE_URL } from "@/lib/site";
 import { LOCAL_SERVICES } from "@/lib/localServices";
+import { getShelves } from "@/lib/getShelves";
+import { placeLink } from "@/lib/shelves";
 
 const base = SITE_URL;
 
@@ -113,5 +115,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // silently skip
   }
 
-  return [...staticRoutes, ...productRoutes, ...giftBoxRoutes, ...legalRoutes, ...collectionRoutes];
+  // A section with nothing in it is a "soft 404" to Google: listed again the
+  // moment something is published for it — see @/lib/shelves
+  const shelves = await getShelves();
+  const stockedRoutes = staticRoutes.filter((route) => placeLink(route.url, shelves) !== null);
+
+  return [...stockedRoutes, ...productRoutes, ...giftBoxRoutes, ...legalRoutes, ...collectionRoutes];
 }

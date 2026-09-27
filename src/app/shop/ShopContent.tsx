@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Search } from "lucide-react";
 import Link from "next/link";
+import { placeLink, shelvesFrom, stockedLinks } from "@/lib/shelves";
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 import AddToCartButton from "@/components/AddToCartButton";
@@ -240,7 +241,22 @@ export default function ShopContent({
     });
 
   // Tags to show for the active category page
-  const tags = activeCategory ? (categoryTags[activeCategory] ?? []) : [];
+  // What the products on this page fill: a section or a chip with nothing
+  // behind it is left out (see @/lib/shelves). A chip someone arrived on stays,
+  // so the page still says what it is showing.
+  const shelves = shelvesFrom({ products });
+  const tags = (activeCategory ? (categoryTags[activeCategory] ?? []) : []).filter(
+    (tag) => tag.slug === activeSubcategory || products.some((p) => p.subcategory === tag.slug)
+  );
+  const stockedCategories = categories
+    .filter((cat) => placeLink(cat.href, shelves) !== null)
+    .map((cat) => ({
+      ...cat,
+      items: stockedLinks(
+        cat.items.map((item) => ({ ...item, href: `/shop/${cat.slug}?category=${item.slug}` })),
+        shelves
+      ),
+    }));
 
   const isCollection = !!activeCollection;
 
@@ -341,7 +357,7 @@ export default function ShopContent({
                 variants={stagger}
                 className="space-y-20"
               >
-                {categories.map((cat, i) => (
+                {stockedCategories.map((cat, i) => (
                   <motion.div
                     key={cat.title}
                     variants={fadeUp}
@@ -388,7 +404,7 @@ export default function ShopContent({
                         {cat.items.map((item) => (
                           <Link
                             key={item.slug}
-                            href={`/shop/${cat.slug}?category=${item.slug}`}
+                            href={item.href}
                             className="px-4 py-2 bg-lavender-bg rounded-full text-sm text-charcoal-light hover:bg-lavender hover:text-charcoal transition-colors"
                           >
                             {item.label}

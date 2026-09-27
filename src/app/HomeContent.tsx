@@ -7,6 +7,8 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
+import { placeLink } from "@/lib/shelves";
+import { useShelves } from "@/lib/useShelves";
 import { Scissors, Heart, Sparkles, MapPin } from "lucide-react";
 
 /* ─────────────── Data ─────────────── */
@@ -42,6 +44,14 @@ const categories = [
     href: "/shop/home",
   },
 ];
+
+/** A row as wide as the categories it holds, so a missing one leaves no hole */
+const WIDE_COLUMNS: Record<number, string> = {
+  1: "lg:grid-cols-1",
+  2: "lg:grid-cols-2",
+  3: "lg:grid-cols-3",
+  4: "lg:grid-cols-4",
+};
 
 const services = [
   {
@@ -171,6 +181,10 @@ function Hero() {
    ═════════════════════════════════════════════════════ */
 
 function CategoryGrid() {
+  // Only the sections with something in them — see @/lib/shelves. Until the
+  // shelves are read, all four show, as they always did.
+  const shelves = useShelves();
+  const shownCategories = categories.filter((cat) => placeLink(cat.href, shelves) !== null);
   return (
     <section className="py-24 md:py-32">
       <div className="max-w-6xl mx-auto px-6">
@@ -204,9 +218,9 @@ function CategoryGrid() {
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
           variants={stagger}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          className={`grid grid-cols-1 sm:grid-cols-2 ${WIDE_COLUMNS[shownCategories.length] ?? "lg:grid-cols-4"} gap-6`}
         >
-          {categories.map((cat, i) => (
+          {shownCategories.map((cat, i) => (
             <motion.div
               key={cat.title}
               variants={fadeUp}

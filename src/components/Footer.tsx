@@ -4,6 +4,7 @@ import { Globe, MapPin, Package, Heart } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import { stockedLinks, type Shelves } from "@/lib/shelves";
 
 /* ── Types ── */
 export interface FooterSettings {
@@ -25,6 +26,8 @@ export interface FooterSettings {
     internationalRate?: number;
     freeShippingThreshold?: number;
   };
+  /** Which sections of the shop have anything in them — see @/lib/shelves */
+  shelves?: Shelves | null;
 }
 
 const navLinks = [
@@ -221,7 +224,7 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
               Quick Links
             </h5>
             <ul className="space-y-3">
-              {navLinks.map((link) => (
+              {stockedLinks(navLinks, settings?.shelves).map((link) => (
                 <li key={link.label}>
                   <Link
                     href={link.href}

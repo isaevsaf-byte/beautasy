@@ -10,6 +10,9 @@ import { jsonLdScript } from "@/lib/jsonLd";
 import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 import { getSiteSettings, DEFAULT_UK_RATE } from "@/lib/siteSettings";
 import { SITE_SETTINGS } from "@/lib/siteSettingsDocument";
+import { getShelves } from "@/lib/getShelves";
+import { placeLink } from "@/lib/shelves";
+import { productDescription } from "@/lib/productMeta";
 
 /* ─── Safe image URL builder (won't crash on incomplete data) ─── */
 function safeImageUrl(image: unknown): string | null {
@@ -139,9 +142,16 @@ export async function generateMetadata({
       title: "Shop | Beautasy",
       description: "Handmade lingerie, accessories, and more from Beautasy.",
     };
+    // A section with nothing in it is a "soft 404" to Google, and counts
+    // against the site. It stays out of the index until something is published
+    // for it, and comes back by itself — see @/lib/shelves.
+    const empty = placeLink(`/shop/${key}`, await getShelves()) === null;
     return {
       title: meta.title,
       description: meta.description,
+      // /shop/mini is the kids' section under another name
+      alternates: { canonical: `${siteUrl}/shop/${key === "mini" ? "kids" : key}` },
+      ...(empty ? { robots: { index: false, follow: true } } : {}),
       openGraph: {
         title: meta.title,
         description: meta.description,
@@ -169,13 +179,14 @@ export async function generateMetadata({
   // stand-in.
   const productPhoto = product.images?.[0] ? safeImageUrl(product.images[0]) : null;
 
+  const description = productDescription(product);
   return {
     title: `${product.name} | Beautasy`,
-    description: `${product.name} — Handmade ${product.category?.toLowerCase() || "product"} from Beautasy. £${(product.price / 100).toFixed(2)}`,
+    description,
     alternates: { canonical: `${siteUrl}/shop/${param}` },
     openGraph: {
       title: `${product.name} | Beautasy`,
-      description: `Handmade ${product.category?.toLowerCase() || "product"} from Beautasy.`,
+      description,
       images: productPhoto
         ? [{ url: productPhoto, width: 800, height: 1000, alt: product.name }]
         : SOCIAL_CARD_IMAGES,

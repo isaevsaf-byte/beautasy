@@ -1,4 +1,5 @@
 import { getSiteSettings } from "@/lib/siteSettings";
+import { getShelves } from "@/lib/getShelves";
 import Footer from "@/components/Footer";
 
 /**
@@ -9,6 +10,6 @@ import Footer from "@/components/Footer";
  * and render <Footer /> without props, which uses built-in defaults.
  */
 export default async function FooterWrapper() {
-  const settings = await getSiteSettings();
-  return <Footer settings={settings} />;
+  const [settings, shelves] = await Promise.all([getSiteSettings(), getShelves()]);
+  return <Footer settings={{ ...settings, shelves }} />;
 }

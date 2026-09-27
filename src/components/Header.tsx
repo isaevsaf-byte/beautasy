@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Gift, Crown, ChevronRight, Heart, Package } from "lucide-react";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Cart, { CartDrawer } from "@/components/Cart";
 import SearchOverlay from "@/components/SearchOverlay";
@@ -10,6 +10,7 @@ import { useIsClient } from "@/lib/useIsClient";
 import { useWishlist } from "@/store/useWishlist";
 import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { clerkEnabled } from "@/lib/clerk";
+import { giftsHref, stockedLinks, type Shelves } from "@/lib/shelves";
 
 
 /* ------------------------------------------------------------------ */
@@ -88,16 +89,44 @@ const megaMenus: Record<string, MegaMenuData> = {
   Mini: miniMenu,
 };
 
-const navLinks: { label: string; href: string; wideOnly?: boolean }[] = [
-  { label: "Shop", href: "/shop" },
-  { label: "Mini", href: "/shop/kids" },
-  { label: "Gifts", href: "/gift-boxes" },
-  { label: "Atelier", href: "/atelier" },
+type NavLink = { label: string; href: string; side: "left" | "right"; wideOnly?: boolean };
+
+const navLinks: NavLink[] = [
+  { label: "Shop", href: "/shop", side: "left" },
+  { label: "Mini", href: "/shop/kids", side: "left" },
+  // Where it goes is decided by what there is — see giftsHref
+  { label: "Gifts", href: "/gift-cards", side: "left" },
+  { label: "Atelier", href: "/atelier", side: "left" },
   // Six links plus the centred wordmark collide on a tablet-width header, so
   // this one waits for a wide screen; the mobile menu always lists it.
-  { label: "Alterations", href: "/alterations", wideOnly: true },
-  { label: "Contact", href: "/contact" },
+  { label: "Alterations", href: "/alterations", side: "right", wideOnly: true },
+  { label: "Contact", href: "/contact", side: "right" },
 ];
+
+/**
+ * On a phone the atelier comes first: it is what brings people in and pays,
+ * and a list that opens on four shop sections buries it.
+ */
+const MOBILE_ORDER = ["Atelier", "Alterations", "Shop", "Mini", "Gifts", "Contact"];
+
+/** The mega menus as far as the shop can fill them: empty sections left out, empty columns too. */
+function stockedMenus(shelves: Shelves | null): Record<string, MegaMenuData> {
+  const menus: Record<string, MegaMenuData> = {};
+  for (const [label, menu] of Object.entries(megaMenus)) {
+    const columns = menu.columns
+      .map((column) => ({ ...column, links: stockedLinks(column.links, shelves) }))
+      .filter((column) => column.links.length > 0);
+    if (columns.length > 0) menus[label] = { ...menu, columns };
+  }
+  return menus;
+}
+
+/** The top links as far as the shop can fill them. "Gifts" always leads somewhere. */
+function stockedNav(shelves: Shelves | null): NavLink[] {
+  return navLinks.flatMap((link) =>
+    link.label === "Gifts" ? [{ ...link, href: giftsHref(shelves) }] : stockedLinks([link], shelves)
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Mega Menu component                                                */
@@ -216,9 +245,12 @@ interface AnnouncementBarData {
 export default function Header({
   freeShippingThreshold: propThreshold,
   announcementBar: propBar,
+  shelves: propShelves,
 }: {
   freeShippingThreshold?: number;
   announcementBar?: AnnouncementBarData | null;
+  /** Which sections of the shop have anything in them — see @/lib/shelves */
+  shelves?: Shelves | null;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeMega, setActiveMega] = useState<string | null>(null);
@@ -227,6 +259,14 @@ export default function Header({
   const wishlistCount = useWishlist((s) => s.items.length);
   // Announcement bar — fetched client-side when not passed from server
   const [bar, setBar] = useState<AnnouncementBarData | null>(propBar ?? null);
+  // Unknown until read: the menu shows every link meanwhile, as it always did
+  const [shelves, setShelves] = useState<Shelves | null>(propShelves ?? null);
+  const menus = useMemo(() => stockedMenus(shelves), [shelves]);
+  const nav = useMemo(() => stockedNav(shelves), [shelves]);
+  const mobileNav = useMemo(
+    () => [...nav].sort((a, b) => MOBILE_ORDER.indexOf(a.label) - MOBILE_ORDER.indexOf(b.label)),
+    [nav]
+  );
 
 
   // Fetch announcement bar from /api/site-settings when not provided as prop.
@@ -243,7 +283,12 @@ export default function Header({
         const cached = sessionStorage.getItem("beautasy-site-settings");
         if (cached) {
           const s = JSON.parse(cached);
-          if (s?.announcementBar !== undefined) { setBar(s.announcementBar); return; }
+          // A visit that started before shelves were served has none cached: read again
+          if (s?.announcementBar !== undefined && s?.shelves !== undefined) {
+            setBar(s.announcementBar);
+            setShelves(s.shelves);
+            return;
+          }
         }
       } catch { /* ok */ }
       loadBar();
@@ -254,6 +299,7 @@ export default function Header({
       .then((r) => r.json())
       .then((data) => {
         if (data?.announcementBar !== undefined) setBar(data.announcementBar);
+        if (data?.shelves !== undefined) setShelves(data.shelves);
         // The Footer also caches the full settings object — reuse it
         try { sessionStorage.setItem("beautasy-site-settings", JSON.stringify(data ?? {})); } catch { /* ok */ }
       })
@@ -317,8 +363,8 @@ export default function Header({
 
         {/* Nav left (desktop) */}
         <nav className="hidden md:flex justify-self-start items-center gap-6">
-          {navLinks.slice(0, 4).map((link) => {
-            const hasMega = link.label in megaMenus;
+          {nav.filter((link) => link.side === "left").map((link) => {
+            const hasMega = link.label in menus;
             return (
               <div
                 key={link.label}
@@ -358,7 +404,7 @@ export default function Header({
 
         {/* Nav right (desktop) */}
         <nav className="hidden md:flex justify-self-end items-center gap-6">
-          {navLinks.slice(4).map((link) => (
+          {nav.filter((link) => link.side === "right").map((link) => (
             <Link
               key={link.label}
               href={link.href}
@@ -440,9 +486,9 @@ export default function Header({
 
       {/* Desktop Mega Menu */}
       <AnimatePresence>
-        {activeMega && megaMenus[activeMega] && (
+        {activeMega && menus[activeMega] && (
           <div onMouseEnter={cancelMegaClose} onMouseLeave={scheduleMegaClose}>
-            <MegaMenu data={megaMenus[activeMega]} />
+            <MegaMenu data={menus[activeMega]} />
           </div>
         )}
       </AnimatePresence>
@@ -456,8 +502,8 @@ export default function Header({
             exit={{ opacity: 0, height: 0 }}
             className="md:hidden bg-cream border-t border-lavender-soft/40 px-6 pb-6 overflow-hidden"
           >
-            {navLinks.map((link) => {
-              const mega = megaMenus[link.label];
+            {mobileNav.map((link) => {
+              const mega = menus[link.label];
               return (
                 <div key={link.label}>
                   <Link

@@ -53,6 +53,21 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // beautasy.vercel.app is Vercel's own address for the same site, and search
+  // engines found a whole second copy of it there. Its pages now send people
+  // to the real address for good (308). /api is left alone: a webhook still
+  // pointed at the old address keeps arriving, where a redirected POST would
+  // be a failed delivery.
+  async redirects() {
+    return [
+      {
+        source: "/:path((?!api/).*)",
+        has: [{ type: "host", value: "beautasy.vercel.app" }],
+        destination: "https://www.beautasy.co.uk/:path",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

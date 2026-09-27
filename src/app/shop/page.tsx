@@ -10,6 +10,8 @@ const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   title: "Beautasy Shop — Handmade Lingerie & Accessories",
+  // ?sort= and ?size= show the same shop in another order: one address for all
+  alternates: { canonical: `${siteUrl}/shop` },
   description:
     "Handmade silk lingerie, accessories, kids' clothing, and home decor. Every piece crafted with love in Southampton.",
   openGraph: {

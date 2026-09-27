@@ -7,6 +7,8 @@ import FooterWrapper from "@/components/FooterWrapper";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK, getLocalService, seasonalNote } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
+import { getShelves } from "@/lib/getShelves";
+import { stockedLinks } from "@/lib/shelves";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { BUSINESS, openingHoursSpecification, postalAddress, whatsappLink } from "@/lib/business";
 
@@ -58,6 +60,9 @@ export default async function LocalServicePage({
   const { slug } = await params;
   const service = getLocalService(slug);
   if (!service) notFound();
+  // Only the shelves with something on them: a bride sent here for garters
+  // used to find "Coming Soon" — see @/lib/shelves
+  const fromTheShop = stockedLinks(service.shop, await getShelves());
 
   const url = `${SITE_URL}/alterations/${service.slug}`;
 
@@ -333,11 +338,12 @@ export default async function LocalServicePage({
         {/* The atelier brings people in; the handmade pieces are what they
             should leave knowing about. Nothing here is a sale pitch — each link
             says why the piece belongs next to this job. */}
+        {fromTheShop.length > 0 && (
         <section className="max-w-4xl mx-auto px-6 mt-20">
           <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-2">Made in the same room</p>
           <h2 className="font-serif text-2xl mb-6">While you&apos;re here</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {service.shop.map((item) => (
+            {fromTheShop.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -351,6 +357,7 @@ export default async function LocalServicePage({
             ))}
           </div>
         </section>
+        )}
 
         {/* ──── Related ──── */}
         <section className="max-w-4xl mx-auto px-6 mt-20">
