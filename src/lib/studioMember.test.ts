@@ -54,8 +54,18 @@ test("a question Sanity never answers turns the caller away rather than hanging"
       init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
     })) as unknown as typeof fetch;
 
+  // A real socket keeps the process alive while it waits; this fake holds
+  // nothing, and the deadline's own timer does not count (AbortSignal.timeout
+  // is unref'd). On Node 22 — what CI runs — the test runner then found an
+  // empty event loop, cancelled this test and the four after it, and CI had
+  // been red since 19 September with every test passing locally on Node 24.
+  const keepAlive = setInterval(() => {}, 1_000);
   const started = Date.now();
-  assert.equal(await isProjectMember(PLAUSIBLE, ask), false);
+  try {
+    assert.equal(await isProjectMember(PLAUSIBLE, ask), false);
+  } finally {
+    clearInterval(keepAlive);
+  }
   assert.ok(
     Date.now() - started < MEMBERSHIP_TIMEOUT_MS + 2_000,
     "The check waited past its own deadline."
