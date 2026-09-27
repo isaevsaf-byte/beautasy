@@ -15,6 +15,11 @@ const eslintConfig = defineConfig([
     // Its own project, its own tooling — see the note in tsconfig.json
     "video/**",
     "workers/**",
+    // Built bundles, not source: a Studio build from March kept in dist/, and
+    // other sessions' checkouts with their own builds. Linting those ran
+    // `npm run lint` out of memory.
+    "dist/**",
+    ".claude/**",
   ]),
 ]);
 
