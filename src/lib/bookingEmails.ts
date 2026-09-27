@@ -319,12 +319,17 @@ export function bookingEmailSubject(booking: Pick<NotifiableBooking, "movedFrom"
 /**
  * Exported so a test can run it rather than read it: it is the only thing that
  * says whether a customer the mail service refused is ever looked at again.
+ *
+ * `releasedAt` marks the record the diary kept when a booking's time went to
+ * someone else (see @/lib/diary). It is owed at most the "sorry" it was
+ * already due — never a "you're booked in" for a time another customer holds.
  */
 export const PENDING_QUERY = `*[
   _type == "atelierBooking"
   && defined(emailSealed)
   && status in ["confirmed", "declined", "cancelled", "completed"]
   && (!defined(notifiedStatus) || notifiedStatus != status)
+  && (!defined(releasedAt) || status in ["declined", "cancelled"])
 ] | order(createdAt desc) [0...$limit] {
   _id, _rev, status, notifiedStatus, displayName, nameSealed, emailSealed,
   service, preferredDate, confirmedFor, slotStart, movedFrom, replyNote, createdAt,

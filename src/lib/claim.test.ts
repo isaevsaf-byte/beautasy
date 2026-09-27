@@ -2,9 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { claimThenSend, type ClaimClient } from "./claim";
 
-/** A fake write client that records patches and can refuse a stale revision. */
-function fakeClient(opts: { rev: string }) {
+/**
+ * A fake write client that records patches, keeps what they wrote so it can
+ * be read back, and can refuse a stale revision. `docs` holds any other
+ * documents a test puts next to the one claimed.
+ */
+function fakeClient(opts: { rev: string; id?: string }) {
   const log: string[] = [];
+  const id0 = opts.id ?? "order-1";
+  const docs = new Map<string, Record<string, unknown>>([[id0, { _id: id0 }]]);
   const client: ClaimClient = {
     patch(id) {
       return {
@@ -16,6 +22,8 @@ function fakeClient(opts: { rev: string }) {
                   if (rev !== opts.rev) throw new Error("revision mismatch");
                   log.push(`claim ${id} ${JSON.stringify(fields)}`);
                   opts.rev = `${opts.rev}+1`;
+                  Object.assign(docs.get(id)!, fields, { _rev: opts.rev });
+                  return { ...docs.get(id) };
                 },
               };
             },
@@ -25,6 +33,7 @@ function fakeClient(opts: { rev: string }) {
           return {
             async commit() {
               log.push(`set ${id} ${JSON.stringify(fields)}`);
+              Object.assign(docs.get(id) ?? {}, fields);
             },
           };
         },
@@ -32,13 +41,18 @@ function fakeClient(opts: { rev: string }) {
           return {
             async commit() {
               log.push(`unset ${id} ${JSON.stringify(fields)}`);
+              for (const field of fields) delete docs.get(id)?.[field];
             },
           };
         },
       };
     },
+    async getDocument(id) {
+      const doc = docs.get(id);
+      return doc ? { ...doc } : undefined;
+    },
   };
-  return { client, log };
+  return { client, log, docs };
 }
 
 test("the document is claimed before the email is sent", async () => {
@@ -125,4 +139,58 @@ test("a refusal the mail service resolves hands the claim back as well", async (
     'claim order-1 {"notifiedStatus":"shipped"}',
     'set order-1 {"notifiedStatus":"in-production"}',
   ]);
+});
+
+/**
+ * A booking's id can pass to someone else while its email is out: Kristina
+ * declines Anna, the "sorry" is claimed and on its way, and in that second Bea
+ * books the freed time online. The diary keeps Anna's booking as a record
+ * named after the revision it took over, and gives the id to Bea. A blind
+ * hand-back would then land on Bea — her confirmation sent twice — while
+ * Anna's "sorry" was never tried again, and Anna came to a time that is Bea's.
+ */
+test("a claim whose time went to someone else is handed back to the record the diary kept", async () => {
+  const id = "slot-2026-10-06-1400";
+  const { client, log, docs } = fakeClient({ rev: "r1", id });
+  Object.assign(docs.get(id)!, { status: "declined", notifiedStatus: "confirmed", displayName: "Anna" });
+
+  const outcome = await claimThenSend(
+    client,
+    { _id: id, _rev: "r1" },
+    { notifiedStatus: "declined" },
+    { notifiedStatus: "confirmed" },
+    async () => {
+      // Bea takes the freed time while Anna's email is on its way
+      const anna = docs.get(id)!;
+      docs.set(`${id}-released-${anna._rev}`, { ...anna, _id: `${id}-released-${anna._rev}` });
+      docs.set(id, { _id: id, _rev: "b1", status: "confirmed", notifiedStatus: "confirmed", displayName: "Bea" });
+      throw new Error("resend down");
+    }
+  );
+
+  assert.equal(outcome, "failed");
+  assert.deepEqual(log, [
+    `claim ${id} {"notifiedStatus":"declined"}`,
+    `set ${id}-released-r1+1 {"notifiedStatus":"confirmed"}`,
+  ]);
+  assert.equal(docs.get(id)?.notifiedStatus, "confirmed", "Bea's booking is left alone");
+  assert.equal(docs.get(`${id}-released-r1+1`)?.notifiedStatus, "confirmed", "Anna's is owed its email again");
+});
+
+test("a claim overtaken by a later one is left to it", async () => {
+  const { client, log, docs } = fakeClient({ rev: "r1" });
+  const outcome = await claimThenSend(
+    client,
+    { _id: "order-1", _rev: "r1" },
+    { notifiedStatus: "shipped" },
+    { notifiedStatus: "in-production" },
+    async () => {
+      // The order moved on and its own email was claimed meanwhile
+      docs.get("order-1")!.notifiedStatus = "delivered";
+      throw new Error("resend down");
+    }
+  );
+  assert.equal(outcome, "failed");
+  assert.deepEqual(log, ['claim order-1 {"notifiedStatus":"shipped"}'], "handing back would wipe the later claim");
+  assert.equal(docs.get("order-1")?.notifiedStatus, "delivered");
 });

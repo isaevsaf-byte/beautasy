@@ -12,6 +12,7 @@ import {
   claimSlot,
   moveBooking,
   movedCopy,
+  releasesItsTime,
   sanityDiaryStore,
   type DiaryDoc,
 } from "@/lib/diary";
@@ -191,6 +192,9 @@ export async function POST(req: NextRequest) {
       return answer(409, "Somebody has just booked that time — choose another.", { slotTaken: true });
     }
     if (claim === "failed") return answer(500, "Could not save it, so nothing was booked. Try again in a minute.");
+    if (claim === "unsure") {
+      return answer(500, "The diary stopped answering while saving. Look in Atelier Bookings before trying again — it may be there.");
+    }
 
     const emailed = email ? await tellCustomer(doc, schedule.slotMinutes) : false;
     return NextResponse.json({ ok: true, id: doc._id, label: slotLabel(slot), emailed });
@@ -208,8 +212,17 @@ export async function POST(req: NextRequest) {
       return answer(503, "Could not read the booking. Try again in a minute.");
     }
     if (!from || from._type !== "atelierBooking") return answer(404, "That booking is not there any more.");
-    if (!canMove(from.status)) return answer(400, "Only a new or confirmed booking can be given a time.");
-    if (from.slotStart === slot) return answer(400, "It is already at that time.");
+    if (!canMove(from.status)) return answer(400, "A booking marked Done keeps its time.");
+    // The booking that holds this very time: moving it onto itself would hand
+    // its own time back. One that gave it back only needs its status again.
+    if (from._id === slotDocumentId(slot)) {
+      return answer(
+        400,
+        releasesItsTime(from.status)
+          ? "They can have this time back as it is: set the status to Confirmed instead."
+          : "It is already at that time."
+      );
+    }
 
     const to = movedCopy(from, slot, now);
     const moved = await moveBooking(store, { from, to, now });
@@ -220,6 +233,9 @@ export async function POST(req: NextRequest) {
       return answer(409, "The booking was changed while you were moving it. Open it again and try once more.");
     }
     if (moved === "failed") return answer(500, "Could not move it, so nothing changed. Try again in a minute.");
+    if (moved === "unsure") {
+      return answer(500, "The diary stopped answering halfway. Look in Atelier Bookings — the booking may be at either time — before trying again.");
+    }
 
     const emailed = await tellCustomer(to, schedule.slotMinutes);
     return NextResponse.json({

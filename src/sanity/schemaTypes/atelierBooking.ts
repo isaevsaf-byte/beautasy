@@ -5,7 +5,7 @@ export const atelierBooking = defineType({
   title: "Atelier Booking",
   type: "document",
   description:
-    "A request for an alteration or fitting. Change the status to confirm or decline it — the customer is emailed automatically. To give it a time or move it, use \u201cChoose a time\u201d / \u201cMove to another time\u201d in the menu at the bottom. Contact details are stored sealed; use \u201cShow contact details\u201d to read them.",
+    "A request for an alteration or fitting. Change the status to confirm or decline it — the customer is emailed automatically. To give it a time, move it or book it again, use \u201cChoose a time\u201d / \u201cMove to another time\u201d / \u201cBook again\u201d in the menu at the bottom. Contact details are stored sealed; use \u201cShow contact details\u201d to read them.",
   fields: [
     defineField({
       name: "displayName",
@@ -82,9 +82,21 @@ export const atelierBooking = defineType({
       description: "What the customer asked for, when they could not pick a time.",
     }),
     defineField({
+      name: "releasedAt",
+      title: "Its Time Went To Someone Else",
+      type: "datetime",
+      readOnly: true,
+      hidden: ({ document }) => !document?.releasedAt,
+      description:
+        "After this booking gave its time back, another customer booked that time — this is the record of it. To book them in again, use \u201cBook again\u201d in the menu at the bottom: it holds a free time and emails them.",
+    }),
+    defineField({
       name: "status",
       title: "Status",
       type: "string",
+      // Confirming it again would put two people on one time, and email this
+      // one a time somebody else now holds. "Book again" takes a free one.
+      readOnly: ({ document }) => Boolean(document?.releasedAt),
       options: {
         list: [
           { title: "New — needs a reply", value: "new" },
@@ -147,7 +159,6 @@ export const atelierBooking = defineType({
     }),
     defineField({ name: "createdAt", title: "Requested At", type: "datetime", readOnly: true }),
     // The diary's own bookkeeping — see @/lib/diary
-    defineField({ name: "releasedAt", title: "Time Given Back At", type: "datetime", readOnly: true, hidden: true }),
     defineField({ name: "movedAt", title: "Moved At", type: "datetime", readOnly: true, hidden: true }),
   ],
   preview: {

@@ -331,10 +331,11 @@ export async function POST(req: NextRequest) {
           held = true;
           bookingId = slotDocumentId(slot);
         }
-        // "failed" is the database not answering. That is not the customer's
-        // problem and it is not a taken time, so it is not answered as one:
-        // the booking is kept below as a request for that time, Kristina is
-        // told it is not held, and the customer hears that she will confirm.
+        // "failed" or "unsure" is the database not answering. That is not the
+        // customer's problem and it is not a taken time, so it is not answered
+        // as one: the booking is kept below as a request for that time,
+        // Kristina is told it is not held, and the customer hears that she
+        // will confirm.
       }
 
       if (!held) {
@@ -403,7 +404,7 @@ export async function POST(req: NextRequest) {
           ${notes ? `<p style="color:#3d3d3d;line-height:1.7;"><strong>Notes:</strong><br/>${escapeHtml(notes)}</p>` : ""}
           ${
             slot && !held
-              ? `<p style="padding:12px 16px;background:#fde8e4;border-radius:10px;color:#7a2a1a;line-height:1.6;">⚠️ <strong>This time is not held.</strong> The site could not write it into the diary, so somebody else could still book ${escapeHtml(slotLabel(slot))}. ${saved ? "It is in the Studio as a request." : "It is not in the Studio either."} Confirm with them, then use <strong>Book by hand</strong> in the Studio to hold the time.</p>`
+              ? `<p style="padding:12px 16px;background:#fde8e4;border-radius:10px;color:#7a2a1a;line-height:1.6;">⚠️ <strong>This time is not held.</strong> The site could not write it into the diary, so somebody else could still book ${escapeHtml(slotLabel(slot))}. ${saved ? "It is in the Studio as a request: open it and use <strong>Choose a time</strong> to hold the time — they get the confirmation, and everything on the request goes with it." : "It is not in the Studio either: confirm with them, then use <strong>Book by hand</strong> in the Studio to hold the time."}</p>`
               : ""
           }
           ${replyToCustomerHtml({ name, phone, slot: held ? slot : undefined, service })}

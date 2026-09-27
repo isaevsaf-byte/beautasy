@@ -309,6 +309,9 @@ function holding(doc: Record<string, unknown>) {
         unset,
       };
     },
+    async getDocument(id: string) {
+      return id === held._id ? { ...held } : undefined;
+    },
   };
   return { held, client };
 }

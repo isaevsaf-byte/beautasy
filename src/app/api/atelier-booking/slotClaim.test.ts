@@ -238,3 +238,12 @@ test("Kristina is only marked as told when her own email was really taken", () =
     "Nothing happened worth a round trip."
   );
 });
+
+test("a request kept in place of a time is given its time from itself, so nothing on it is lost", () => {
+  const warning = ROUTE.slice(ROUTE.indexOf("This time is not held."), ROUTE.indexOf("replyToCustomerHtml({ name, phone"));
+  // A booking made by hand beside the request would lose the friend who sent
+  // them, and leave the request itself asking for an answer every morning
+  const whenSaved = warning.slice(warning.indexOf('saved ? "'), warning.indexOf('" : "'));
+  assert.match(whenSaved, /open it and use <strong>Choose a time<\/strong>/);
+  assert.doesNotMatch(whenSaved, /Book by hand/);
+});

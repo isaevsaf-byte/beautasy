@@ -33,9 +33,38 @@ export interface ClaimClient {
     set(fields: Record<string, unknown>): { commit(): Promise<unknown> };
     unset(fields: string[]): { commit(): Promise<unknown> };
   };
+  getDocument(id: string): Promise<Record<string, unknown> | null | undefined>;
 }
 
 export type ClaimOutcome = "sent" | "lost" | "failed";
+
+/** Whether the document still has every field of the claim, as claimed. */
+function carries(doc: Record<string, unknown> | null | undefined, claim: Record<string, unknown>): boolean {
+  return Boolean(doc) && Object.entries(claim).every(([field, value]) => JSON.stringify(doc![field]) === JSON.stringify(value));
+}
+
+/**
+ * Which document to hand a claim back to: the one that still carries it.
+ *
+ * Usually that is the document claimed. But a booking's id can pass to
+ * another customer while its email is out — a freed time booked again, see
+ * @/lib/diary — and a blind write-back would then land on the new customer's
+ * booking: their confirmation sent twice, and the first customer's email never
+ * tried again. The diary keeps the old booking as `<id>-released-<revision>`,
+ * named after the revision it took over, which is the one this claim left.
+ * A document that carries a later claim instead is somebody else's business.
+ */
+async function holderOfClaim(
+  client: ClaimClient,
+  id: string,
+  claim: Record<string, unknown>,
+  claimedRev: string | undefined
+): Promise<string | null> {
+  if (carries(await client.getDocument(id), claim)) return id;
+  if (!claimedRev) return null;
+  const kept = `${id}-released-${claimedRev}`;
+  return carries(await client.getDocument(kept), claim) ? kept : null;
+}
 
 export async function claimThenSend(
   client: ClaimClient,
@@ -45,8 +74,11 @@ export async function claimThenSend(
   release: Record<string, unknown> | string[],
   send: () => Promise<unknown>
 ): Promise<ClaimOutcome> {
+  let claimedRev: string | undefined;
   try {
-    await client.patch(doc._id).ifRevisionId(doc._rev).set(claim).commit();
+    const claimed = await client.patch(doc._id).ifRevisionId(doc._rev).set(claim).commit();
+    const rev = (claimed as { _rev?: unknown } | null | undefined)?._rev;
+    claimedRev = typeof rev === "string" ? rev : undefined;
   } catch {
     // Somebody else claimed it in the meantime — their send, not ours
     return "lost";
@@ -59,8 +91,10 @@ export async function claimThenSend(
   } catch (err) {
     console.error(`Send failed for ${doc._id}, releasing the claim:`, err);
     try {
-      if (Array.isArray(release)) await client.patch(doc._id).unset(release).commit();
-      else await client.patch(doc._id).set(release).commit();
+      const holder = await holderOfClaim(client, doc._id, claim, claimedRev);
+      if (!holder) console.error(`Nothing carries the claim on ${doc._id} any more — nothing to hand back`);
+      else if (Array.isArray(release)) await client.patch(holder).unset(release).commit();
+      else await client.patch(holder).set(release).commit();
     } catch (releaseErr) {
       console.error(`Could not release the claim on ${doc._id}:`, releaseErr);
     }

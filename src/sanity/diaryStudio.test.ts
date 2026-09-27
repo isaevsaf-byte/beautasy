@@ -93,3 +93,27 @@ test("a booked time cannot be changed by typing — Confirmed For is read-only o
   assert.match(SCHEMA, /name: "confirmedFor",[\s\S]*?readOnly: \(\{ document \}\) => Boolean\(document\?\.slotStart\)/);
   assert.match(SCHEMA, /\{ title: "Client cancelled — frees the time", value: "cancelled" \}/);
 });
+
+test("a booking whose time went to someone else cannot be confirmed again by its status — only booked again", () => {
+  assert.match(SCHEMA, /name: "status",[\s\S]*?readOnly: \(\{ document \}\) => Boolean\(document\?\.releasedAt\)/);
+  assert.match(SCHEMA, /name: "releasedAt",[\s\S]*?hidden: \(\{ document \}\) => !document\?\.releasedAt/);
+  assert.match(ACTION, /const label = again \? "Book again"/);
+});
+
+test("the booking that holds a time is not moved onto it, whatever its status", () => {
+  assert.match(ROUTE, /if \(from\._id === slotDocumentId\(slot\)\)/);
+  assert.doesNotMatch(ROUTE, /from\.slotStart === slot/, "a record the diary kept has the time but not the id");
+});
+
+test("an answer lost halfway is reported as such, not as nothing done", () => {
+  assert.match(ROUTE, /if \(claim === "unsure"\)/);
+  assert.match(ROUTE, /if \(moved === "unsure"\)/);
+});
+
+test("a finished move opens the new booking and says how it went, even with the old one gone", () => {
+  const success = ACTION.slice(ACTION.indexOf("if (reply.ok) {"), ACTION.indexOf("const message ="));
+  assert.match(success, /onClose\(\);/);
+  assert.match(success, /router\.navigateIntent\("edit", \{ id: String\(reply\.data\.id\), type: "atelierBooking" \}\)/);
+  assert.match(success, /window\.alert\(doneMessage\(reply\.data\)\)/);
+  assert.match(ACTION, /if \(!shown\.current\) \{\s*window\.alert\(message\);/);
+});
