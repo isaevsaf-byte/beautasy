@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CHECKS, MARK, decide as decideActions, lookAtEverything, rehearsalFor } from "../../scripts/outside-watch.mjs";
+import { CHECKS, MARK, decide as decideActions, failsTheRun, lookAtEverything, rehearsalFor } from "../../scripts/outside-watch.mjs";
 
 /**
  * The outside watch (scripts/outside-watch.mjs) is the one thing that notices
@@ -11,7 +11,8 @@ import { CHECKS, MARK, decide as decideActions, lookAtEverything, rehearsalFor }
  * one, and that it sends one alert per outage rather than one per run.
  */
 
-type Check = { name: string; url: string; judge: (reply: { status: number; body: string }, now: Date) => string | null };
+type Reply = { status: number; body: string };
+type Check = { name: string; url: string; also?: string; judge: (reply: Reply, now: Date, also?: Reply | null) => string | null };
 type Action = {
   create?: { title: string; body: string };
   comment?: number;
@@ -43,11 +44,16 @@ test("a page is well when it answers 200 with itself on it", () => {
   assert.equal(home.judge({ status: 200, body: "Vercel error page" }, NOW), "answered, but not with the page");
 });
 
-test("booking switched off is Kristina's choice; on with no times is a fault", () => {
+test("booking switched off is Kristina's choice; switched on with nothing offered is a fault", () => {
   const booking = byName("Online booking");
-  assert.equal(booking.judge({ status: 200, body: JSON.stringify({ bookable: true, days: [{ date: "2026-09-28" }] }) }, NOW), null);
-  assert.equal(booking.judge({ status: 200, body: JSON.stringify({ bookable: false }) }, NOW), null);
-  assert.match(booking.judge({ status: 200, body: JSON.stringify({ bookable: true, days: [] }) }, NOW)!, /offers no times/);
+  const site = (bookable: boolean) => ({ status: 200, body: JSON.stringify({ bookable, days: bookable ? [{ date: "2026-09-28" }] : [] }) });
+  const studio = (enabled: boolean) => ({ status: 200, body: JSON.stringify({ result: { enabled } }) });
+  assert.ok(booking.also?.includes(encodeURIComponent('_id == "atelierSchedule"')), "the Studio's own switch is read");
+  assert.equal(booking.judge(site(true), NOW, studio(true)), null);
+  assert.equal(booking.judge(site(false), NOW, studio(false)), null, "switched off by Kristina");
+  // On in the Studio, nothing on the site: the diary cannot be read, or every day is closed
+  assert.match(booking.judge(site(false), NOW, studio(true))!, /switched on in the Studio, but the site offers no times/);
+  assert.equal(booking.judge(site(false), NOW, null), null, "without the switch, no guess");
   assert.match(booking.judge({ status: 200, body: "<html>" }, NOW)!, /not with the diary/);
   assert.equal(booking.judge({ status: 503, body: "" }, NOW), "answered 503");
 });
@@ -61,7 +67,7 @@ test("the watchmen's own marks must be fresh", () => {
 
   const morning = byName("Morning check");
   assert.equal(morning.judge(reply({ _createdAt: hoursAgo(23) }), NOW), null, "yesterday's 09:00 run, seen before today's");
-  assert.match(morning.judge(reply({ _createdAt: hoursAgo(30) }), NOW)!, /last ran 30 hours ago/);
+  assert.match(morning.judge(reply({ _createdAt: hoursAgo(30) }), NOW)!, /no record for 30 hours .* did not run, or ran and could not send/);
   assert.match(morning.judge({ status: 500, body: "" }, NOW)!, /dataset answered 500/);
 });
 
@@ -105,6 +111,13 @@ test("an outage opens one issue, mentioning the owner, and closes it when it is 
     { close: 7 },
   ]);
   assert.deepEqual(decide({ problems: [], open: null, rehearsal: false, at, notify: "owner" }), []);
+});
+
+test("a run fails once, when an outage is found — not every quarter-hour until it ends", () => {
+  const problems = [{ name: "Shop", problem: "answered 500" }];
+  assert.equal(failsTheRun({ problems, open: null }), true);
+  assert.equal(failsTheRun({ problems, open: { number: 7, title: "x" } }), false);
+  assert.equal(failsTheRun({ problems: [], open: null }), false);
 });
 
 test("a rehearsal is sent on its own and can never be mistaken for an outage", () => {

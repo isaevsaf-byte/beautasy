@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
+import { getShelves } from "@/lib/getShelves";
 import GiftBoxesContent from "./GiftBoxesContent";
 
 /* ─── Safe image URL builder ─── */
@@ -14,7 +15,7 @@ function safeImageUrl(image: unknown): string | null {
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
+const metadataBase: Metadata = {
   title: "Gift Boxes | Beautasy",
   description:
     "Curated handmade gift box sets from Beautasy. Beautifully packaged bundles of our finest silk and handcrafted products.",
@@ -28,6 +29,17 @@ export const metadata: Metadata = {
     images: SOCIAL_CARD_IMAGES,
   },
 };
+
+/**
+ * With no gift boxes this page is "Coming Soon" — a soft 404 to Google. It
+ * stays out of the index until there is one, as an empty shop section does
+ * (see @/lib/shelves); the menus and the sitemap already leave it out.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const shelves = await getShelves();
+  const empty = shelves !== null && !shelves.giftBoxes;
+  return empty ? { ...metadataBase, robots: { index: false, follow: true } } : metadataBase;
+}
 
 const GIFT_BOXES_QUERY = `*[_type == "giftBox"] | order(_createdAt desc) {
   _id,

@@ -58,6 +58,13 @@ test("Google is told about stocked sections only", () => {
   assert.match(section, /description: productDescription\(product\)|const description = productDescription\(product\);/);
 });
 
+test("the gift boxes page stays out of search while there are none, and a blank answer hides nothing", () => {
+  const giftBoxes = read("src/app/gift-boxes/page.tsx");
+  assert.match(giftBoxes, /const empty = shelves !== null && !shelves\.giftBoxes;/);
+  assert.match(giftBoxes, /robots: \{ index: false, follow: true \}/);
+  assert.match(read("src/lib/getShelves.ts"), /return shelvesOrUnknown\(await sanityClient\.fetch\(SHELVES_QUERY/);
+});
+
 test("each page has one address for Google, and private pages none", () => {
   assert.match(read("src/app/page.tsx"), /alternates: \{ canonical: "\/" \}/);
   assert.doesNotMatch(read("src/app/layout.tsx"), /canonical/, "in the root layout every page would inherit the home page's address");

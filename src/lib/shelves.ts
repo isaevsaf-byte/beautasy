@@ -66,6 +66,17 @@ export function shelvesFrom(raw: RawShelves | null | undefined): Shelves {
   };
 }
 
+/**
+ * The shelves from a dataset answer — or unknown, if it lists no products at
+ * all. The shop is never empty on purpose, and taking a blank answer at its
+ * word would hide every section, and tell Google to drop every one, for as
+ * long as the answer stood. The shop page itself reads an empty answer the
+ * same way.
+ */
+export function shelvesOrUnknown(raw: RawShelves | null | undefined): Shelves | null {
+  return raw?.products?.length ? shelvesFrom(raw) : null;
+}
+
 type Need = { category: string; subcategory?: string } | "giftBoxes";
 
 /** What a link needs on the shelves to lead anywhere; null for a link that is not to a shop section. */

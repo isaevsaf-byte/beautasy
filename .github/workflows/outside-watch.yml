@@ -7,6 +7,10 @@ name: Outside watch
 # GitHub's schedule is not a clock — runs can come late or be skipped on a
 # busy day (see 📌 Уроки, №13) — so this is a net for outages that last,
 # not a stopwatch.
+#
+# GitHub also switches a schedule off in a public repository after 60 days
+# without a commit, and emails the owner a warning first. Any commit, or
+# "Enable workflow" on the Actions tab, turns it back on.
 
 on:
   schedule:

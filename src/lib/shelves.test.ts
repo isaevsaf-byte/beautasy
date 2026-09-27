@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { evaluate, parse } from "groq-js";
-import { SHELVES_QUERY, giftsHref, placeLink, shelvesFrom, stockedLinks, type Shelves } from "./shelves";
+import { SHELVES_QUERY, giftsHref, placeLink, shelvesFrom, shelvesOrUnknown, stockedLinks, type Shelves } from "./shelves";
 
 /**
  * The shelves as they stood on 27 September 2026: sixteen products in six
@@ -124,4 +124,15 @@ test("every shop-section link on the site is one the shelves can check", () => {
   assert.ok(sections.length >= 30, `expected the menu, footer and service links, found ${sections.length}`);
   const unchecked = sections.filter((href) => placeLink(href, EMPTY) !== null);
   assert.deepEqual(unchecked, [], "these would lead to an empty shelf without anyone noticing");
+});
+
+test("an answer with no products at all is unknown, not an empty shop", () => {
+  assert.equal(shelvesOrUnknown({ products: [], giftBoxes: 0 }), null);
+  assert.equal(shelvesOrUnknown(null), null);
+  assert.deepEqual(shelvesOrUnknown({ products: [{ category: "Kids", subcategory: "underwear" }], giftBoxes: 0 }), {
+    stocked: ["Kids", "Kids/underwear"],
+    giftBoxes: false,
+  });
+  // And unknown means every link stays, as before
+  assert.equal(placeLink("/shop/lingerie", shelvesOrUnknown({ products: [] })), "/shop/lingerie");
 });

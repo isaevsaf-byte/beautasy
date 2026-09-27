@@ -62,7 +62,11 @@ export const CHECKS = [
   {
     name: "Online booking",
     url: `${SITE}/api/atelier/slots`,
-    judge: ({ status, body }) => {
+    // What the Studio says. The site answers "not bookable" both when Kristina
+    // switched booking off and when it cannot read the diary at all; only the
+    // switch itself tells the two apart.
+    also: `${SANITY_QUERY}?query=${encodeURIComponent('*[_id == "atelierSchedule"][0]{enabled}')}`,
+    judge: ({ status, body }, now, studio) => {
       if (status !== 200) return `answered ${status}`;
       let diary;
       try {
@@ -71,9 +75,15 @@ export const CHECKS = [
         return "answered, but not with the diary";
       }
       if (typeof diary.bookable !== "boolean") return "answered, but not with the diary";
+      if (diary.bookable) return null;
+      let switchedOn;
+      try {
+        switchedOn = JSON.parse(studio?.body ?? "null")?.result?.enabled === true;
+      } catch {
+        switchedOn = false;
+      }
       // Switched off in Fitting Times is Kristina's choice, not a fault
-      if (diary.bookable && !(Array.isArray(diary.days) && diary.days.length > 0)) return "is on, but offers no times at all";
-      return null;
+      return switchedOn ? "is switched on in the Studio, but the site offers no times to book" : null;
     },
   },
   sanity("Instagram publisher", '*[_id == "publisherHeartbeat"][0]{at}', (pulse, now) => {
@@ -84,18 +94,29 @@ export const CHECKS = [
   sanity("Morning check", '*[_type == "siteHealthAlert"] | order(_createdAt desc)[0]{_createdAt}', (last, now) => {
     if (!last?._createdAt) return "has never run";
     const hours = ageHours(last._createdAt, now);
-    return hours > MORNING_STALE_HOURS ? `last ran ${Math.round(hours)} hours ago — the daily job on Vercel has stopped` : null;
+    // The record is taken back when the morning email is refused, so a gap
+    // means the job did not run — or ran and could not send
+    return hours > MORNING_STALE_HOURS
+      ? `has no record for ${Math.round(hours)} hours — the daily job on Vercel did not run, or ran and could not send its email`
+      : null;
   }),
 ];
 
+async function fetchReply(url, fetchImpl) {
+  const response = await fetchImpl(url, {
+    redirect: "follow",
+    headers: { "user-agent": "beautasy-outside-watch" },
+    signal: AbortSignal.timeout(20_000),
+  });
+  return { status: response.status, body: await response.text() };
+}
+
 async function look(check, fetchImpl, now) {
   try {
-    const response = await fetchImpl(check.url, {
-      redirect: "follow",
-      headers: { "user-agent": "beautasy-outside-watch" },
-      signal: AbortSignal.timeout(20_000),
-    });
-    return check.judge({ status: response.status, body: await response.text() }, now);
+    const reply = await fetchReply(check.url, fetchImpl);
+    // A second address only informs the verdict; if it cannot be read, the check judges without it
+    const also = check.also ? await fetchReply(check.also, fetchImpl).catch(() => null) : undefined;
+    return check.judge(reply, now, also);
   } catch (error) {
     return `did not answer (${error?.name === "TimeoutError" ? "no reply in 20 seconds" : error?.message ?? "no connection"})`;
   }
@@ -164,6 +185,15 @@ export function decide({ problems, open, rehearsal, at, notify }) {
   return actions;
 }
 
+/**
+ * A failed run is a second way GitHub tells the owner — once, when an outage
+ * is found. Failing every run until it ends would email every quarter-hour,
+ * and an alarm that cries wolf is an alarm nobody reads.
+ */
+export function failsTheRun({ problems, open }) {
+  return problems.length > 0 && !open;
+}
+
 async function github(path, { method = "GET", body } = {}) {
   const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}${path}`, {
     method,
@@ -202,8 +232,7 @@ async function main() {
 
   for (const p of problems) console.log(`✗ ${p.name}: ${p.problem}`);
   if (problems.length === 0) console.log(`✓ All ${CHECKS.length} checks pass${rehearsal ? " (rehearsal alert sent)" : ""}`);
-  // A failed run is a second way GitHub tells the owner
-  if (problems.length > 0) process.exitCode = 1;
+  if (failsTheRun({ problems, open })) process.exitCode = 1;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
