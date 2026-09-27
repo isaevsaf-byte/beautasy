@@ -15,6 +15,7 @@ import { atelierSchedule } from "./atelierSchedule";
 import { socialPost } from "./socialPost";
 import { referrer } from "./referrer";
 import { referral } from "./referral";
+import { workPiece } from "./workPiece";
 
 export const schemaTypes = [
   product,
@@ -34,4 +35,5 @@ export const schemaTypes = [
   socialPost,
   referrer,
   referral,
+  workPiece,
 ];

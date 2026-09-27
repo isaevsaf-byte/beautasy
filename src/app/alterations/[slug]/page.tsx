@@ -11,6 +11,10 @@ import { getShelves } from "@/lib/getShelves";
 import { stockedLinks } from "@/lib/shelves";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { BUSINESS, openingHoursSpecification, postalAddress, whatsappLink } from "@/lib/business";
+import WorkStrip from "@/components/work/WorkStrip";
+import { getWork } from "@/lib/getWork";
+import { piecesForService } from "@/lib/work";
+import { showPiece } from "@/lib/workMedia";
 
 export const revalidate = 86400;
 
@@ -60,9 +64,12 @@ export default async function LocalServicePage({
   const { slug } = await params;
   const service = getLocalService(slug);
   if (!service) notFound();
+  const [shelves, work] = await Promise.all([getShelves(), getWork()]);
   // Only the shelves with something on them: a bride sent here for garters
   // used to find "Coming Soon" — see @/lib/shelves
-  const fromTheShop = stockedLinks(service.shop, await getShelves());
+  const fromTheShop = stockedLinks(service.shop, shelves);
+  // The jobs Kristina filed under this service in Our Work: the proof beside the price
+  const doneHere = piecesForService(work.pieces, service.slug).slice(0, 4).map(showPiece);
 
   const url = `${SITE_URL}/alterations/${service.slug}`;
 
@@ -266,6 +273,14 @@ export default async function LocalServicePage({
             </p>
           )}
         </section>
+
+        {/* ──── Done here ──── */}
+        <WorkStrip
+          pieces={doneHere}
+          eyebrow="From our workroom"
+          heading="Recent jobs like this"
+          className="max-w-4xl mx-auto px-6 mt-20"
+        />
 
         {/* ──── How it works ──── */}
         <section className="max-w-4xl mx-auto px-6 mt-20">

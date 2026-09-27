@@ -28,7 +28,8 @@ test("the header's menus and links are the stocked ones, on every page", () => {
 
 test("on a phone the atelier is at the top of the menu", () => {
   const header = read("src/components/Header.tsx");
-  assert.match(header, /const MOBILE_ORDER = \["Atelier", "Alterations", "Shop"/);
+  // Our Work sells the atelier too, so it sits with it
+  assert.match(header, /const MOBILE_ORDER = \["Atelier", "Alterations", "Our Work", "Shop"/);
   assert.match(header, /\{mobileNav\.map\(\(link\) => \{/);
 });
 
@@ -45,7 +46,8 @@ test("the footer, the shop, the home page and the service pages leave empty shel
   assert.match(home, /\{shownCategories\.map\(\(cat, i\) =>/);
 
   const service = read("src/app/alterations/[slug]/page.tsx");
-  assert.match(service, /const fromTheShop = stockedLinks\(service\.shop, await getShelves\(\)\);/);
+  assert.match(service, /const \[shelves, work\] = await Promise\.all\(\[getShelves\(\), getWork\(\)\]\);/);
+  assert.match(service, /const fromTheShop = stockedLinks\(service\.shop, shelves\);/);
   assert.match(service, /\{fromTheShop\.length > 0 && \(/);
   assert.doesNotMatch(service, /service\.shop\.map/);
 });

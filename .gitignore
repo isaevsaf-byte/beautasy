@@ -58,3 +58,8 @@ __pycache__/
 # remotion video project (its own install and renders)
 /video/node_modules
 /video/out
+
+# Raw photos and videos for the gallery. The repository is public: only the
+# processed, metadata-free copies ever leave this Mac (see scripts/gallery-import.mjs)
+/Gallery/
+/gallery/

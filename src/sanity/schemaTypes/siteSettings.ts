@@ -268,6 +268,30 @@ export const siteSettings = defineType({
         defineField({ name: "showAmex", title: "Amex", type: "boolean", initialValue: false }),
       ],
     }),
+
+    /* ── Our Work page ── */
+    defineField({
+      name: "workPage",
+      title: "Our Work Page",
+      type: "object",
+      description:
+        "The short film that plays at the top of /work. scripts/gallery-import.mjs cuts it from the videos in Our Work; empty shows photos instead.",
+      fields: [
+        defineField({
+          name: "showreel",
+          title: "Showreel",
+          type: "file",
+          options: { accept: "video/mp4" },
+          description: "Upright MP4 of about ten seconds, no sound — it plays on its own, on a loop.",
+        }),
+        defineField({
+          name: "showreelPoster",
+          title: "Showreel cover",
+          type: "image",
+          description: "Shown until the film starts, and instead of it for anyone who asked their phone for less motion.",
+        }),
+      ],
+    }),
   ],
   preview: {
     prepare() {

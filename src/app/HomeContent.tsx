@@ -388,7 +388,11 @@ function AtelierSection() {
    MAIN PAGE
    ═════════════════════════════════════════════════════ */
 
-export default function Home() {
+/**
+ * `recentWork` is the row of the newest pieces from Our Work, read on the
+ * server by ./page.tsx and passed in whole.
+ */
+export default function Home({ recentWork }: { recentWork?: React.ReactNode }) {
   return (
     <>
       <Header />
@@ -396,6 +400,11 @@ export default function Home() {
         <Hero />
         <CategoryGrid />
         <AtelierSection />
+        {recentWork && (
+          <section className="py-24 md:py-28">
+            <div className="max-w-6xl mx-auto px-6">{recentWork}</div>
+          </section>
+        )}
       </main>
       <Footer />
     </>

@@ -1,0 +1,34 @@
+{
+  "pieces": [
+    {
+      "id": "doorway-curtains",
+      "title": "A doorway curtain, taken up to skim the floor",
+      "caption": "Before, it pooled on the step. After: taken up to hang straight and clear the floor.",
+      "category": "home",
+      "service": "curtains-and-home-southampton",
+      "before": { "file": "IMG_0001.jpeg", "alt": "Cream curtain in a doorway, too long and pooling on the floor" },
+      "media": [
+        { "file": "IMG_0002.jpeg", "alt": "The same curtain after, hanging straight" },
+        { "file": "IMG_0003.jpeg", "alt": "Close-up of the new hem", "crop": { "left": 0, "top": 120, "width": 960, "height": 1100 } }
+      ]
+    },
+    {
+      "id": "hemming-jeans",
+      "title": "Jeans shortened, original hem kept",
+      "caption": "The worn hem put back on, so nobody can tell they were ever longer.",
+      "category": "alterations",
+      "service": "jeans-and-trousers-southampton",
+      "media": [{ "file": "IMG_0004.MOV", "alt": "Sewing the original hem back onto shortened jeans", "poster": 2.5 }]
+    },
+    {
+      "id": "scrunchies",
+      "title": "Scrunchies by the pile",
+      "category": "accessories",
+      "shelf": "/shop/accessories?category=hair-accessories",
+      "media": [{ "file": "IMG_0005.jpeg", "alt": "Scrunchies laid out together" }]
+    }
+  ],
+  "showreel": {
+    "clips": [{ "file": "IMG_0004.MOV", "from": 1.0, "length": 3.0 }]
+  }
+}

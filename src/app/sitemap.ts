@@ -4,6 +4,7 @@ import { SITE_URL } from "@/lib/site";
 import { LOCAL_SERVICES } from "@/lib/localServices";
 import { getShelves } from "@/lib/getShelves";
 import { placeLink } from "@/lib/shelves";
+import { getWork } from "@/lib/getWork";
 
 const base = SITE_URL;
 
@@ -120,5 +121,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const shelves = await getShelves();
   const stockedRoutes = staticRoutes.filter((route) => placeLink(route.url, shelves) !== null);
 
-  return [...stockedRoutes, ...productRoutes, ...giftBoxRoutes, ...legalRoutes, ...collectionRoutes];
+  // Our Work, by the same rule: listed once there is a piece in it, and as
+  // changed when the newest piece was
+  const { pieces } = await getWork();
+  const newest = new Date(pieces[0]?.date ?? "");
+  const workRoutes: MetadataRoute.Sitemap = pieces.length
+    ? [
+        {
+          url: `${base}/work`,
+          lastModified: Number.isNaN(newest.getTime()) ? STATIC_PAGES_CHANGED : newest,
+          changeFrequency: "weekly",
+          priority: 0.8,
+        },
+      ]
+    : [];
+
+  return [...stockedRoutes, ...workRoutes, ...productRoutes, ...giftBoxRoutes, ...legalRoutes, ...collectionRoutes];
 }

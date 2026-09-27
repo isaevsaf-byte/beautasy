@@ -77,6 +77,8 @@ export const structure: StructureResolver = (S) =>
         .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
       S.documentTypeListItem("order").title("Orders"),
       S.documentTypeListItem("review").title("Reviews"),
+      // The pictures of finished jobs on /work: the atelier's shop window
+      S.documentTypeListItem("workPiece").title("Our Work"),
 
       S.divider(),
 

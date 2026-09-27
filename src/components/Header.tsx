@@ -89,7 +89,8 @@ const megaMenus: Record<string, MegaMenuData> = {
   Mini: miniMenu,
 };
 
-type NavLink = { label: string; href: string; side: "left" | "right"; wideOnly?: boolean };
+/** `from`: the width a link waits for in the desktop bar; the mobile menu lists every link */
+type NavLink = { label: string; href: string; side: "left" | "right"; from?: "lg" | "xl" };
 
 const navLinks: NavLink[] = [
   { label: "Shop", href: "/shop", side: "left" },
@@ -98,8 +99,9 @@ const navLinks: NavLink[] = [
   { label: "Gifts", href: "/gift-cards", side: "left" },
   { label: "Atelier", href: "/atelier", side: "left" },
   // Six links plus the centred wordmark collide on a tablet-width header, so
-  // this one waits for a wide screen; the mobile menu always lists it.
-  { label: "Alterations", href: "/alterations", side: "right", wideOnly: true },
+  // these wait for a wide screen; the mobile menu always lists them.
+  { label: "Alterations", href: "/alterations", side: "right", from: "lg" },
+  { label: "Our Work", href: "/work", side: "right", from: "xl" },
   { label: "Contact", href: "/contact", side: "right" },
 ];
 
@@ -107,7 +109,7 @@ const navLinks: NavLink[] = [
  * On a phone the atelier comes first: it is what brings people in and pays,
  * and a list that opens on four shop sections buries it.
  */
-const MOBILE_ORDER = ["Atelier", "Alterations", "Shop", "Mini", "Gifts", "Contact"];
+const MOBILE_ORDER = ["Atelier", "Alterations", "Our Work", "Shop", "Mini", "Gifts", "Contact"];
 
 /** The mega menus as far as the shop can fill them: empty sections left out, empty columns too. */
 function stockedMenus(shelves: Shelves | null): Record<string, MegaMenuData> {
@@ -410,7 +412,7 @@ export default function Header({
               href={link.href}
               onMouseEnter={() => setActiveMega(null)}
               className={`text-sm tracking-widest uppercase whitespace-nowrap text-charcoal/70 hover:text-charcoal transition-colors duration-300 ${
-                link.wideOnly ? "hidden lg:inline" : ""
+                link.from === "lg" ? "hidden lg:inline" : link.from === "xl" ? "hidden xl:inline" : ""
               }`}
             >
               {link.label}

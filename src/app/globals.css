@@ -29,3 +29,9 @@ body {
   background-color: var(--color-lavender);
   color: var(--color-charcoal);
 }
+
+/* The gallery viewer's pictures settle in rather than snap (see components/work) */
+@keyframes workFade {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
