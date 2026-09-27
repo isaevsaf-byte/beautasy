@@ -1,14 +1,46 @@
-import { defineArrayMember, defineField, defineType } from "sanity";
+import { defineArrayMember, defineField, defineType, type ValidationContext } from "sanity";
 import { WORK_CATEGORIES, WORK_SHELVES, categoryLabel, type WorkCategory } from "@/lib/work";
 import { LOCAL_SERVICES } from "@/lib/localServices";
+import { carriesLocation } from "@/lib/photoLocation";
 
 /**
  * Above this a video stalls on a phone. Straight from an iPhone a minute is
  * several hundred megabytes, in a format half the browsers can't play, and it
  * carries the spot where it was filmed — for a workroom at home, the address.
- * scripts/gallery-import.mjs fixes all three; this keeps the others out.
+ * scripts/gallery-import.mjs fixes all three. Videos therefore arrive only
+ * through it: an upload in the Studio would be public the moment it landed,
+ * before any check could turn it back.
  */
 const MAX_VIDEO_MB = 40;
+
+export const PHOTO_LOCATION_PROBLEM =
+  "This photo still carries the place it was taken — for a photo taken at home, that is the address, and the original file is public. Remove it here and put the photo in the Gallery folder for Safar instead: the import takes the location out. (Tell Safar, so he can delete this upload.)";
+
+/** Answers per uploaded file: a file never changes, so neither does its answer */
+const checked = new Map<string, Promise<boolean>>();
+
+/**
+ * Turns back a gallery photo whose file says where it was taken — see
+ * @/lib/photoLocation. Reads the first 256 KB of the original, where the
+ * metadata sits. If the file can't be read the photo is let through: a check
+ * that fails closed would stop Kristina publishing at all on a bad connection.
+ */
+async function photoLocationRule(value: unknown, context: ValidationContext): Promise<string | true> {
+  const ref = (value as { asset?: { _ref?: string } } | undefined)?.asset?._ref;
+  if (!ref) return true;
+  let answer = checked.get(ref);
+  if (!answer) {
+    answer = (async () => {
+      const url = await context.getClient({ apiVersion: "2026-02-13" }).fetch<string | null>(`*[_id == $ref][0].url`, { ref });
+      if (!url) return false;
+      const response = await fetch(url, { headers: { Range: "bytes=0-262143" } });
+      if (!response.ok) return false;
+      return carriesLocation(new Uint8Array(await response.arrayBuffer()));
+    })().catch(() => false);
+    checked.set(ref, answer);
+  }
+  return (await answer) ? PHOTO_LOCATION_PROBLEM : true;
+}
 
 /**
  * What is wrong with an uploaded video, in words for Kristina — or null. Only
@@ -72,6 +104,7 @@ export const workPiece = defineType({
       options: { hotspot: true },
       description: "Optional. With a before, the first photo below is shown next to it as the after.",
       fields: [altField("What's in the picture")],
+      validation: (Rule) => Rule.custom(photoLocationRule),
     }),
     defineField({
       name: "media",
@@ -85,6 +118,7 @@ export const workPiece = defineType({
           type: "image",
           options: { hotspot: true },
           fields: [altField("What's in the picture")],
+          validation: (Rule) => Rule.custom(photoLocationRule),
         }),
         defineArrayMember({
           name: "workVideo",
@@ -96,9 +130,12 @@ export const workPiece = defineType({
               title: "Video",
               type: "file",
               options: { accept: "video/mp4" },
-              description: `MP4, under ${MAX_VIDEO_MB} MB. A video straight from the phone goes in the Gallery folder for Safar first: the import shrinks it and takes out where it was filmed.`,
-              validation: (Rule) =>
-                Rule.required().custom(async (value, context) => {
+              readOnly: true,
+              description:
+                "Videos come in through the Gallery folder: put the file there and tell Safar. The import shrinks it to play on any phone and takes out where it was filmed. You can reorder videos here, change their words, or remove them.",
+              validation: (Rule) => [
+                Rule.required().error("Videos come in through the Gallery folder — remove this empty one."),
+                Rule.custom(async (value, context) => {
                   const ref = (value as { asset?: { _ref?: string } } | undefined)?.asset?._ref;
                   if (!ref) return true;
                   const asset = await context
@@ -106,13 +143,15 @@ export const workPiece = defineType({
                     .fetch<{ size?: number; mimeType?: string } | null>(`*[_id == $ref][0]{ size, mimeType }`, { ref });
                   return videoFileProblem(asset) ?? true;
                 }),
+              ],
             }),
             defineField({
               name: "poster",
               title: "Cover picture",
               type: "image",
               options: { hotspot: true },
-              description: "Shown before it plays. Leave empty to show the first moment of the video.",
+              readOnly: true,
+              description: "Cut from the video by the import. Move its focus point with the crop tool if the cover crops badly.",
             }),
             altField("What happens in it"),
             // Written by the import, so the page can lay the video out before it loads

@@ -6,6 +6,7 @@
  *   node --env-file=.env.local scripts/gallery-import.mjs --dry-run   process only, upload nothing
  *   node --env-file=.env.local scripts/gallery-import.mjs --only doorway-curtains
  *   node --env-file=.env.local scripts/gallery-import.mjs --replace   overwrite pieces already there
+ *   node --env-file=.env.local scripts/gallery-import.mjs --replace-reel   cut the showreel again
  *
  * The Gallery folder never enters git (the repository is public) and holds a
  * pieces.json that says which files make which piece, with the words for each
@@ -24,7 +25,9 @@
  *    ten-second showreel for the top of the page.
  *
  * A piece already on the site is left as it is, because Kristina may have
- * edited it in the Studio since: --replace is the only way to overwrite one.
+ * edited it in the Studio since: --replace is the only way to overwrite one,
+ * and even then it keeps her date (her order) and stops at a piece she has
+ * unpublished changes to. The showreel is only cut again with --replace-reel.
  * Processed files are kept in Gallery/.processed, so a second run is quick.
  */
 
@@ -49,6 +52,7 @@ const sourceDir = path.dirname(manifestPath);
 const cacheDir = path.join(sourceDir, ".processed");
 const dryRun = flag("dry-run");
 const replace = flag("replace");
+const replaceReel = flag("replace-reel");
 const only = option("only", null);
 
 /** The width the site serves an upright video at: a phone at 2x needs no more */
@@ -80,11 +84,17 @@ function probe(file) {
   const info = JSON.parse(run("ffprobe", ["-v", "error", "-print_format", "json", "-show_streams", "-show_format", file]));
   const video = info.streams.find((s) => s.codec_type === "video");
   if (!video) throw new Error(`${file} has no picture in it`);
+  // A phone stores an upright video as a sideways picture plus "turn it 90°":
+  // the size that matters is the one it is shown at
+  const rotation = Number(video.side_data_list?.find((d) => d.rotation !== undefined)?.rotation ?? video.tags?.rotate ?? 0);
+  const sideways = Math.abs(rotation) % 180 === 90;
   return {
-    width: video.width,
-    height: video.height,
+    width: sideways ? video.height : video.width,
+    height: sideways ? video.width : video.height,
     duration: Number(info.format.duration),
     hasAudio: info.streams.some((s) => s.codec_type === "audio"),
+    // HLG, which recent iPhones film in by default, or PQ
+    hdr: ["arib-std-b67", "smpte2084"].includes(video.color_transfer),
     tags: { ...(info.format.tags ?? {}), ...(video.tags ?? {}) },
   };
 }
@@ -153,26 +163,42 @@ async function processVideo(item) {
   const info = probe(source);
   const hash = fileHash(source);
 
+  // HDR through an ordinary encode comes out grey and flat. macOS converts it
+  // properly — with the same tone mapping Photos uses — and drops the
+  // location while it is at it; the result stands in for the original.
+  let filmed = source;
+  if (info.hdr) {
+    if (process.platform === "darwin") {
+      filmed = await produce(path.join(cacheDir, `${hashOf("sdr-v1", hash)}.mov`), (part) => {
+        console.log(`    bringing ${item.file} from HDR to ordinary colour…`);
+        run("avconvert", ["--preset", "Preset1920x1080", "--source", source, "--output", part, "--replace"]);
+      });
+    } else {
+      console.warn(`    ${item.file} is HDR: without a Mac to convert it, its colours will look flat`);
+    }
+  }
+
   // The sharpened copy, when the source is small enough to need one
-  let picture = source;
+  let picture = filmed;
   if (Math.min(info.width, info.height) < SHARPEN_BELOW && sharpener()) {
     picture = await produce(path.join(cacheDir, `${hashOf("superres-v1", hash)}.mov`), (part) => {
       console.log(`    sharpening ${item.file} (a few minutes)…`);
-      run(sharpener(), [source, part, "2"]);
+      run(sharpener(), [filmed, part, "2"]);
     });
   }
 
-  const out = path.join(cacheDir, `${hashOf("mp4-v1", hash, picture === source ? "as-filmed" : "sharpened")}.mp4`);
+  const out = path.join(cacheDir, `${hashOf("mp4-v2", hash, picture === filmed ? "as-filmed" : "sharpened")}.mp4`);
   await produce(out, (part) => {
-    const upright = info.height >= info.width;
     const argv = ["-y", "-v", "error", "-i", picture];
-    if (picture !== source && info.hasAudio) argv.push("-i", source);
+    if (picture !== filmed && info.hasAudio) argv.push("-i", filmed);
     argv.push("-map", "0:v:0");
     // The sound is the room's — shears, a zip — and comes from the original
-    if (info.hasAudio) argv.push("-map", picture !== source ? "1:a:0" : "0:a:0");
+    if (info.hasAudio) argv.push("-map", picture !== filmed ? "1:a:0" : "0:a:0");
     argv.push(
       "-vf",
-      `${upright ? `scale=${VIDEO_WIDTH}:-2` : `scale=-2:${VIDEO_WIDTH}`}:flags=lanczos,format=yuv420p`,
+      // Measured after ffmpeg has turned the picture upright, so a phone's
+      // sideways-stored video comes out 720 wide too
+      `scale='if(gt(ih,iw),${VIDEO_WIDTH},-2)':'if(gt(ih,iw),-2,${VIDEO_WIDTH})':flags=lanczos,format=yuv420p`,
       "-c:v", "libx264", "-preset", "slow", "-crf", "22", "-profile:v", "high",
       "-maxrate", "3M", "-bufsize", "6M", "-r", "30"
     );
@@ -328,6 +354,12 @@ async function main() {
       console.log(`  kept    ${piece.id} (already on the site — --replace overwrites it)`);
       continue;
     }
+    // Her unpublished edit would bring the old piece back the moment she
+    // pressed Publish — so it waits for her
+    if (draft) {
+      console.log(`  skipped ${piece.id}: Kristina has unpublished changes to it — publish or discard them in the Studio first`);
+      continue;
+    }
 
     const { before, media } = processed.get(piece.id);
     const image = async (file, name) => ({ _type: "image", asset: await upload(client, "image", file, name) });
@@ -340,7 +372,8 @@ async function main() {
       category: piece.category,
       service: piece.service,
       shelf: piece.shelf,
-      date: piece.date ?? today,
+      // Replacing keeps the date she may have changed to reorder the gallery
+      date: published?.date ?? piece.date ?? today,
       before: before ? { ...(await image(before.file, `${piece.id}-before.jpg`)), alt: piece.before.alt } : undefined,
       media: [],
     };
@@ -376,8 +409,8 @@ async function main() {
       client.getDocument(SETTINGS_ID),
       client.getDocument(`drafts.${SETTINGS_ID}`),
     ]);
-    if (settings?.workPage?.showreel && !replace) {
-      console.log("  kept    showreel (already set — --replace overwrites it)");
+    if (settings?.workPage?.showreel && !replaceReel) {
+      console.log("  kept    showreel (already set — --replace-reel cuts it again)");
     } else {
       const workPage = {
         showreel: { _type: "file", asset: await upload(client, "file", reel.file, "our-work-showreel.mp4") },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ShownPiece } from "@/lib/workMedia";
 import { categoriesIn, type WorkCategory } from "@/lib/work";
 import TileFace from "./TileFace";
@@ -54,6 +54,8 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
   const [filter, setFilter] = useState<WorkCategory | "all">("all");
   const [fromEnd, setFromEnd] = useState(false);
   const pushed = useRef(false);
+  // The piece whose tile gets the keyboard back when the viewer closes
+  const returnTo = useRef<string | null>(null);
   const hash = useSyncExternalStore(subscribe, readHash, () => "");
 
   const categories = useMemo(() => categoriesIn(pieces), [pieces]);
@@ -78,6 +80,24 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
     writeHash(anchor, true);
   };
 
+  // Focus goes back where the reader was — the tile of the piece they last
+  // looked at, in whichever of the two layouts is on screen — however the
+  // viewer closed: the button, Escape or the phone's back gesture
+  const openAnchor = openIndex >= 0 ? browsing[openIndex].anchor : null;
+  useEffect(() => {
+    if (openAnchor) {
+      returnTo.current = openAnchor;
+      return;
+    }
+    if (!returnTo.current) return;
+    const anchor = returnTo.current;
+    returnTo.current = null;
+    const tile = Array.from(document.querySelectorAll<HTMLElement>("[data-work-tile]")).find(
+      (element) => element.dataset.workTile === anchor && element.offsetParent !== null
+    );
+    tile?.focus();
+  }, [openAnchor]);
+
   const close = () => {
     // Opened from here: step back, so the back gesture and the close button
     // leave the same history. Opened from a shared link: just clear it.
@@ -100,6 +120,7 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
       key={piece.id}
       type="button"
       onClick={() => open(piece.anchor)}
+      data-work-tile={piece.anchor}
       aria-label={`Open “${piece.title}”`}
       className="group block w-full rounded-2xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-lavender focus-visible:ring-offset-4 focus-visible:ring-offset-cream"
     >

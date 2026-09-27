@@ -6,9 +6,11 @@
  * "expert alterations" and showed a logo. Each piece here is one job told in
  * pictures: a before and an after, a few photos of the making, a video.
  *
- * Kristina adds pieces in the Studio under "Our Work". Photos go straight in;
- * a video from a phone goes through scripts/gallery-import.mjs first, which
- * makes it small enough to play on a phone and strips where it was filmed.
+ * Kristina adds pieces in the Studio under "Our Work". Photos go straight in —
+ * the Studio turns back one whose file still says where it was taken (see
+ * @/lib/photoLocation). Videos come only through scripts/gallery-import.mjs,
+ * which makes them small enough to play on a phone and strips where they were
+ * filmed.
  *
  * Pure: the page, the gallery in the browser, the Studio and the tests all
  * read it, so nothing here may pull in a Sanity client.

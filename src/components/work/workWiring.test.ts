@@ -42,8 +42,11 @@ test("the atelier page and each service page show their finished work", () => {
 });
 
 test("Google hears of /work once there is something on it, and not before", () => {
-  assert.match(read("src/app/sitemap.ts"), /const workRoutes: MetadataRoute\.Sitemap = pieces\.length/);
+  assert.match(read("src/app/sitemap.ts"), /const workRoutes: MetadataRoute\.Sitemap = pieces\.length \|\| !known/);
   const page = read("src/app/work/page.tsx");
+  // A Sanity failure must not rebuild the page as an empty, noindexed one
+  assert.doesNotMatch(page, /getWork\(/);
+  assert.equal(page.match(/await readWork\(\)/g)?.length, 2);
   assert.match(page, /\.\.\.\(pieces\.length === 0 \? \{ robots: \{ index: false, follow: true \} \} : \{\}\)/);
   assert.match(page, /alternates: \{ canonical: PAGE_URL \}/);
 });
@@ -68,4 +71,29 @@ test("a video that would stall a phone, or that half the browsers can't play, is
   assert.match(videoFileProblem({ size: 180 * 1024 * 1024, mimeType: "video/mp4" }) ?? "", /180 MB/);
   assert.match(videoFileProblem({ size: 1024, mimeType: "video/quicktime" }) ?? "", /Only MP4/);
   assert.equal(videoFileProblem({ size: 40 * 1024 * 1024, mimeType: "video/mp4" }), null, "the limit itself is allowed");
+});
+
+test("the viewer's links lead where they say, and a swipe is only a swipe", () => {
+  const viewer = read("src/components/work/WorkViewer.tsx");
+  // Closing steps history back, which cancels the page a link was opening
+  assert.equal(viewer.match(/onClick=\{onClose\}/g)?.length, 1, "only the close button closes");
+  assert.match(viewer, /e\.touches\.length === 1 && !zoomed && !onVideo/);
+  assert.match(viewer, /if \(e\.touches\.length > 1\) touch\.current = null;/);
+});
+
+test("the showreel waits to be allowed, and can always be stopped", () => {
+  const reel = read("src/components/work/Showreel.tsx");
+  assert.doesNotMatch(reel, /autoPlay/, "the server's page must not start a film");
+  assert.match(reel, /preload="none"/);
+  assert.match(reel, /useSyncExternalStore\(subscribe, stillOnly, \(\) => true\)/);
+  assert.match(reel, /aria-label=\{playing \? "Pause the film" : "Play the film"\}/);
+});
+
+test("the Studio never publishes where a photo was taken, and takes videos only from the import", () => {
+  const schema = read("src/sanity/schemaTypes/workPiece.ts");
+  assert.equal(schema.match(/validation: \(Rule\) => Rule\.custom\(photoLocationRule\)/g)?.length, 2, "before and every photo");
+  assert.match(schema, /name: "file",\s+title: "Video",\s+type: "file",\s+options: \{ accept: "video\/mp4" \},\s+readOnly: true,/);
+  assert.match(schema, /name: "poster",\s+title: "Cover picture",\s+type: "image",\s+options: \{ hotspot: true \},\s+readOnly: true,/);
+  const settings = read("src/sanity/schemaTypes/siteSettings.ts");
+  assert.equal(settings.match(/readOnly: true,/g)?.length, 2, "the showreel and its cover");
 });

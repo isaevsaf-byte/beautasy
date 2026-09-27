@@ -6,14 +6,15 @@ import FooterWrapper from "@/components/FooterWrapper";
 import WorkGallery from "@/components/work/WorkGallery";
 import Showreel from "@/components/work/Showreel";
 import { Cover } from "@/components/work/TileFace";
-import { getWork } from "@/lib/getWork";
+import { readWork } from "@/lib/getWork";
 import { showPiece, showShowreel, shareImageFor, workJsonLd, type ShownPiece } from "@/lib/workMedia";
 import { SITE_URL } from "@/lib/site";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { BUSINESS, whatsappLink } from "@/lib/business";
 import { CAMPAIGN_HOOK } from "@/lib/localServices";
 
-// A piece Kristina publishes shows within five minutes
+// A piece Kristina publishes shows within five minutes. If Sanity can't be
+// read, readWork throws and the last good page keeps being served.
 export const revalidate = 300;
 
 const TITLE = "Made & Mended — Our Work | Beautasy Atelier, Southampton";
@@ -22,7 +23,7 @@ const DESCRIPTION =
 const PAGE_URL = `${SITE_URL}/work`;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { pieces } = await getWork();
+  const { pieces } = await readWork();
   const share = shareImageFor(pieces[0]);
   const images = share
     ? [{ url: share, width: 1200, height: 630, alt: "Work from the Beautasy atelier in Southampton" }]
@@ -66,7 +67,7 @@ function CoverFan({ pieces }: { pieces: ShownPiece[] }) {
 }
 
 export default async function WorkPage() {
-  const { pieces, showreel } = await getWork();
+  const { pieces, showreel } = await readWork();
   const shown = pieces.map(showPiece);
   const reel = showShowreel(showreel);
   const films = shown.reduce((n, p) => n + p.media.filter((m) => m.kind === "video").length, 0);

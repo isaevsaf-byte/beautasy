@@ -110,12 +110,9 @@ export default function TileFace({
               ] as const
             ).map(([label, photo, tone]) => (
               <span key={label} className="relative overflow-hidden">
-                <Photo
-                  photo={photo}
-                  sizes={sizes.replace(/(\d+)vw/g, (_, n) => `${Math.ceil(Number(n) / 2)}vw`)}
-                  eager={eager}
-                  className={PICTURE}
-                />
+                {/* Each half crops a photo drawn at the tile's full width, so
+                    it wants the full tile's resolution, not half of it */}
+                <Photo photo={photo} sizes={sizes} eager={eager} className={PICTURE} />
                 {/* At the top: the difference is usually at the bottom — a hem, a floor */}
                 <span
                   className={`absolute top-2.5 left-2.5 rounded-full px-2.5 py-1 text-[10px] font-medium tracking-[0.18em] uppercase shadow-sm ${tone}`}

@@ -122,10 +122,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const stockedRoutes = staticRoutes.filter((route) => placeLink(route.url, shelves) !== null);
 
   // Our Work, by the same rule: listed once there is a piece in it, and as
-  // changed when the newest piece was
-  const { pieces } = await getWork();
+  // changed when the newest piece was. When Sanity can't be read it stays
+  // listed, as the shop's sections do: unknown is not empty.
+  const { pieces, known } = await getWork();
   const newest = new Date(pieces[0]?.date ?? "");
-  const workRoutes: MetadataRoute.Sitemap = pieces.length
+  const workRoutes: MetadataRoute.Sitemap = pieces.length || !known
     ? [
         {
           url: `${base}/work`,

@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ArrowRight, ChevronLeft, ChevronRight, MessageCircle, ShoppingBag, X } from "lucide-react";
@@ -57,12 +57,24 @@ function PhotoSlide({ photo }: { photo: ShownPhoto }) {
   );
 }
 
+const WIDE = "(min-width: 640px)";
+
+function subscribeToWidth(onChange: () => void) {
+  const query = window.matchMedia(WIDE);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
 function PairSlide({ before, after }: { before: ShownPhoto; after: ShownPhoto }) {
-  // On a phone the two side by side would each be a sliver; one at a time, a tap apart
+  // On a phone the two side by side would each be a sliver; one at a time, a
+  // tap apart. Only the layout on screen is drawn: a hidden one would still
+  // download its pictures.
+  const wide = useSyncExternalStore(subscribeToWidth, () => window.matchMedia(WIDE).matches, () => true);
   const [showing, setShowing] = useState<"before" | "after">("before");
-  return (
-    <>
-      <div className="hidden sm:grid grid-cols-2 gap-3 h-full w-full max-w-5xl">
+
+  if (wide) {
+    return (
+      <div className="grid grid-cols-2 gap-3 h-full w-full max-w-5xl">
         {(
           [
             ["Before", before, "bg-white/90 text-charcoal"],
@@ -85,30 +97,33 @@ function PairSlide({ before, after }: { before: ShownPhoto; after: ShownPhoto })
           </div>
         ))}
       </div>
-      <div className="sm:hidden flex h-full w-full flex-col items-center gap-3">
-        <div className="inline-flex rounded-full bg-white/10 p-1" role="group" aria-label="Before or after">
-          {(["before", "after"] as const).map((side) => (
-            <button
-              key={side}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowing(side);
-              }}
-              aria-pressed={showing === side}
-              className={`rounded-full px-4 py-1.5 text-xs tracking-[0.16em] uppercase transition-colors ${
-                showing === side ? "bg-lavender text-charcoal" : "text-white/75"
-              }`}
-            >
-              {side}
-            </button>
-          ))}
-        </div>
-        <div className="relative flex min-h-0 flex-1 items-center justify-center">
-          <PhotoSlide photo={showing === "before" ? before : after} />
-        </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full w-full flex-col items-center gap-3">
+      <div className="inline-flex rounded-full bg-white/10 p-1" role="group" aria-label="Before or after">
+        {(["before", "after"] as const).map((side) => (
+          <button
+            key={side}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowing(side);
+            }}
+            aria-pressed={showing === side}
+            className={`rounded-full px-4 py-1.5 text-xs tracking-[0.16em] uppercase transition-colors ${
+              showing === side ? "bg-lavender text-charcoal" : "text-white/75"
+            }`}
+          >
+            {side}
+          </button>
+        ))}
       </div>
-    </>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center">
+        <PhotoSlide photo={showing === "before" ? before : after} />
+      </div>
+    </div>
   );
 }
 
@@ -141,10 +156,11 @@ function VideoSlide({ video }: { video: ShownVideo }) {
   );
 }
 
-function thumbOf(slide: Slide): string | null {
-  if (slide.kind === "pair") return slide.after.src;
-  if (slide.kind === "photo") return slide.src;
-  return slide.poster;
+/** A thumbnail's picture: the smallest the browser can use for a 56px square */
+function thumbOf(slide: Slide): { src: string; srcSet: string | undefined } | null {
+  if (slide.kind === "pair") return { src: slide.after.src, srcSet: slide.after.srcSet };
+  if (slide.kind === "photo") return { src: slide.src, srcSet: slide.srcSet };
+  return slide.poster ? { src: slide.poster, srcSet: slide.posterSrcSet ?? undefined } : null;
 }
 
 export default function WorkViewer({
@@ -245,7 +261,17 @@ export default function WorkViewer({
       <div
         className="relative flex h-[62vh] shrink-0 items-center justify-center px-4 pt-16 pb-4 sm:px-16 lg:h-full lg:flex-1 lg:py-10"
         onTouchStart={(e) => {
-          touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          // Not a swipe: two fingers (a pinch), a zoomed-in page, or a drag
+          // along the video's own controls
+          const zoomed = (window.visualViewport?.scale ?? 1) > 1.01;
+          const onVideo = (e.target as HTMLElement).closest("video") !== null;
+          touch.current =
+            e.touches.length === 1 && !zoomed && !onVideo
+              ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+              : null;
+        }}
+        onTouchMove={(e) => {
+          if (e.touches.length > 1) touch.current = null;
         }}
         onTouchEnd={(e) => {
           const start = touch.current;
@@ -312,7 +338,14 @@ export default function WorkViewer({
                   }`}
                 >
                   {thumb ? (
-                    <img src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    <img
+                      src={thumb.src}
+                      srcSet={thumb.srcSet}
+                      sizes="56px"
+                      alt=""
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
                   ) : (
                     <span className="absolute inset-0 bg-white/10" />
                   )}
@@ -330,9 +363,11 @@ export default function WorkViewer({
         <div className="flex flex-col gap-3">
           {atelier && (
             <>
+              {/* No onClose on these links: closing steps history back, and that
+                  cancels the page they were opening. Leaving /work closes the
+                  viewer anyway, and Back from there reopens the piece. */}
               <Link
                 href="/atelier#book"
-                onClick={onClose}
                 className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-6 py-3 text-sm font-medium tracking-wider text-charcoal uppercase transition-colors hover:bg-[#CFC0F0]"
               >
                 Book a fitting
@@ -352,7 +387,6 @@ export default function WorkViewer({
           {shop && shopCta && (
             <Link
               href={shop}
-              onClick={onClose}
               className={`inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium tracking-wider uppercase transition-colors ${
                 atelier
                   ? "border border-white/25 hover:border-lavender hover:bg-white/5"
@@ -366,7 +400,6 @@ export default function WorkViewer({
           {piece.service && (
             <Link
               href={`/alterations/${piece.service.slug}`}
-              onClick={onClose}
               className="mt-1 inline-flex items-center gap-1.5 text-sm text-white/70 underline-offset-4 transition-colors hover:text-white hover:underline"
             >
               {piece.service.title}: prices and how it works
