@@ -20,6 +20,16 @@ export default defineConfig({
 
   basePath: "/studio",
 
+  // The session token lives in this browser's storage, where the Studio's own
+  // tools can hand it to the site: "Book by hand", "Move to another time",
+  // "Show contact details" and the dashboard all ask the server to act for a
+  // signed-in member, and prove who is asking with that token. Sanity's
+  // default ("dual") keeps the session in a cookie on its own domain wherever
+  // the browser allows — Chrome does, Safari doesn't — and a cookie there is
+  // out of the page's reach. So those tools worked in Safari and told a Chrome
+  // user "Could not find your Studio session". Found on 27 September 2026.
+  auth: { loginMethod: "token" },
+
   plugins: [structureTool({ structure }), visionTool()],
 
   // "Dashboard" goes in front of Structure so that opening the Studio answers
