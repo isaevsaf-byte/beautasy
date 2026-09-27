@@ -1,0 +1,55 @@
+name: Outside watch
+
+# Looks at beautasy.co.uk from outside every quarter of an hour, and opens an
+# issue mentioning the owner (GitHub emails it) when the site stops answering
+# or one of its own watchmen stops running. See scripts/outside-watch.mjs.
+#
+# GitHub's schedule is not a clock — runs can come late or be skipped on a
+# busy day (see 📌 Уроки, №13) — so this is a net for outages that last,
+# not a stopwatch.
+
+on:
+  schedule:
+    # Off the top of the hour, when GitHub's queue is longest
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      rehearse:
+        description: "Also send a rehearsal alert, to see how one arrives"
+        type: boolean
+        default: false
+  # When the watch itself changes, it proves it can still reach the owner
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/outside-watch.yml
+      - scripts/outside-watch.mjs
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: outside-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Look at the site
+        run: node scripts/outside-watch.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          REHEARSE: ${{ github.event_name == 'push' || inputs.rehearse == true }}
+          NOTIFY: isaevsaf-byte
