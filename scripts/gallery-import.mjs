@@ -7,6 +7,9 @@
  *   node --env-file=.env.local scripts/gallery-import.mjs --only doorway-curtains
  *   node --env-file=.env.local scripts/gallery-import.mjs --replace   overwrite pieces already there
  *   node --env-file=.env.local scripts/gallery-import.mjs --replace-reel   cut the showreel again
+ *   node --env-file=.env.local scripts/gallery-import.mjs --refresh-videos
+ *       swap in freshly processed video files for pieces already on the site,
+ *       leaving everything else in them — words, covers, order — as it is
  *
  * The Gallery folder never enters git (the repository is public) and holds a
  * pieces.json that says which files make which piece, with the words for each
@@ -21,6 +24,10 @@
  *    phone streams at once, with the same metadata gone. A small video — the
  *    first ones came through Telegram at 464x848 — is sharpened first with the
  *    scaler built into macOS 26 (scripts/gallery/superres.swift).
+ *  - Videos go up silent. The sound of a home workroom is a television, a
+ *    conversation, the kettle — one of the first clips carried a TV talking
+ *    loudly. A video whose sound belongs on the site says "sound": true in
+ *    pieces.json.
  *  - Each video gets a cover picture, and the pieces' videos are cut into a
  *    ten-second showreel for the top of the page.
  *
@@ -53,6 +60,7 @@ const cacheDir = path.join(sourceDir, ".processed");
 const dryRun = flag("dry-run");
 const replace = flag("replace");
 const replaceReel = flag("replace-reel");
+const refreshVideos = flag("refresh-videos");
 const only = option("only", null);
 
 /** The width the site serves an upright video at: a phone at 2x needs no more */
@@ -187,13 +195,18 @@ async function processVideo(item) {
     });
   }
 
-  const out = path.join(cacheDir, `${hashOf("mp4-v2", hash, picture === filmed ? "as-filmed" : "sharpened")}.mp4`);
+  // Silent unless this video asks for its sound — see the note at the top
+  const sound = item.sound === true && info.hasAudio;
+  const out = path.join(
+    cacheDir,
+    `${hashOf("mp4-v3", hash, picture === filmed ? "as-filmed" : "sharpened", sound ? "with-sound" : "silent")}.mp4`
+  );
   await produce(out, (part) => {
     const argv = ["-y", "-v", "error", "-i", picture];
-    if (picture !== filmed && info.hasAudio) argv.push("-i", filmed);
+    if (picture !== filmed && sound) argv.push("-i", filmed);
     argv.push("-map", "0:v:0");
-    // The sound is the room's — shears, a zip — and comes from the original
-    if (info.hasAudio) argv.push("-map", picture !== filmed ? "1:a:0" : "0:a:0");
+    // Sound, when kept, comes from the original: the sharpened copy has none
+    if (sound) argv.push("-map", picture !== filmed ? "1:a:0" : "0:a:0");
     argv.push(
       "-vf",
       // Measured after ffmpeg has turned the picture upright, so a phone's
@@ -202,7 +215,7 @@ async function processVideo(item) {
       "-c:v", "libx264", "-preset", "slow", "-crf", "22", "-profile:v", "high",
       "-maxrate", "3M", "-bufsize", "6M", "-r", "30"
     );
-    if (info.hasAudio) argv.push("-c:a", "aac", "-b:a", "96k", "-ac", "2");
+    argv.push(...(sound ? ["-c:a", "aac", "-b:a", "96k", "-ac", "2"] : ["-an"]));
     argv.push("-map_metadata", "-1", "-map_chapters", "-1", "-movflags", "+faststart", "-shortest", part);
     run("ffmpeg", argv);
   });
@@ -301,6 +314,54 @@ async function upload(client, kind, file, filename) {
 
 const today = new Date().toISOString().slice(0, 10);
 
+/**
+ * Puts freshly processed video files into pieces already on the site. Only the
+ * file and the size recorded with it change: whatever Kristina wrote, chose as
+ * a cover or reordered stays hers. Each video is found by the key the import
+ * gave it (m0, m1…), which reordering in the Studio doesn't change; a video she
+ * removed is not put back. Her unpublished edit gets the same file, or
+ * publishing it would bring the old one back.
+ */
+async function swapVideos(client, pieces, processed) {
+  for (const piece of pieces) {
+    const videos = processed.get(piece.id).media.flatMap((m, i) => (m.kind === "video" ? [{ ...m, key: `m${i}` }] : []));
+    if (videos.length === 0) continue;
+    const id = `workPiece-${piece.id}`;
+    const [published, draft] = await Promise.all([client.getDocument(id), client.getDocument(`drafts.${id}`)]);
+    if (!published && !draft) {
+      console.log(`  missing ${piece.id}: not on the site yet — run without --refresh-videos to add it`);
+      continue;
+    }
+    const transaction = client.transaction();
+    let swapped = 0;
+    for (const video of videos) {
+      const holders = [published, draft].filter((doc) =>
+        doc?.media?.some((m) => m._key === video.key && m._type === "workVideo")
+      );
+      if (holders.length === 0) {
+        console.log(`  kept    ${piece.id}/${video.key}: removed in the Studio, not put back`);
+        continue;
+      }
+      const asset = await upload(client, "file", video.file, `${piece.id}-${Number(video.key.slice(1)) + 1}.mp4`);
+      const at = `media[_key=="${video.key}"]`;
+      for (const doc of holders) {
+        transaction.patch(doc._id, (p) =>
+          p.set({
+            [`${at}.file`]: { _type: "file", asset },
+            [`${at}.width`]: video.width,
+            [`${at}.height`]: video.height,
+            [`${at}.duration`]: video.duration,
+          })
+        );
+      }
+      swapped++;
+    }
+    if (swapped === 0) continue;
+    await transaction.commit();
+    console.log(`  swapped ${piece.id} (${swapped} video${swapped === 1 ? "" : "s"}${draft ? ", draft too" : ""})`);
+  }
+}
+
 async function main() {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   fs.mkdirSync(cacheDir, { recursive: true });
@@ -344,6 +405,12 @@ async function main() {
   }
 
   const client = sanity();
+
+  if (refreshVideos) {
+    await swapVideos(client, pieces, processed);
+    console.log("\nDone. The site shows the new files within five minutes: /work");
+    return;
+  }
 
   // Created last-first, a second apart: pieces sharing a date are shown by
   // when they were created, newest first, and Sanity counts that in seconds
