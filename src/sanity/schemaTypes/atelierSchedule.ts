@@ -1,16 +1,23 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
 
 const DAYS = [
-  { title: "Monday", value: "mon" },
-  { title: "Tuesday", value: "tue" },
-  { title: "Wednesday", value: "wed" },
-  { title: "Thursday", value: "thu" },
-  { title: "Friday", value: "fri" },
-  { title: "Saturday", value: "sat" },
-  { title: "Sunday", value: "sun" },
+  { title: "Понедельник", value: "mon" },
+  { title: "Вторник", value: "tue" },
+  { title: "Среда", value: "wed" },
+  { title: "Четверг", value: "thu" },
+  { title: "Пятница", value: "fri" },
+  { title: "Суббота", value: "sat" },
+  { title: "Воскресенье", value: "sun" },
 ];
 
 const TIME_RULE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** "1 период", "3 периода", "5 периодов": a Russian count needs three forms, not two. */
+function openingPeriods(count: number): string {
+  const form = new Intl.PluralRules("ru-RU").select(count);
+  const word = form === "one" ? "период" : form === "few" ? "периода" : "периодов";
+  return `${count} ${word} приёма`;
+}
 
 /**
  * When people can book a fitting.
@@ -22,52 +29,52 @@ const TIME_RULE = /^([01]\d|2[0-3]):[0-5]\d$/;
  */
 export const atelierSchedule = defineType({
   name: "atelierSchedule",
-  title: "Fitting Times",
+  title: "Часы для примерок",
   type: "document",
   description:
-    "The times customers can book a fitting for themselves. Leave it switched off and they'll go on asking for a time by hand.",
+    "Время, на которое клиенты могут сами записаться на примерку. Пока это выключено, они, как и раньше, просят время в заявке.",
   fields: [
     defineField({
       name: "enabled",
-      title: "Let customers book a time themselves",
+      title: "Разрешить клиентам самим выбирать время",
       type: "boolean",
       initialValue: false,
       description:
-        "While this is off, the form still works — it just asks for a preferred date instead of offering times.",
+        "Пока это выключено, форма всё равно работает — просто вместо свободного времени она спрашивает желаемую дату.",
     }),
     defineField({
       name: "weekly",
-      title: "Opening hours",
+      title: "Часы приёма",
       type: "array",
       description:
-        "One row per stretch of the week you take fittings. Two rows on the same day give you a morning and an afternoon with a gap in between.",
+        "Одна строка — один отрезок недели, когда вы принимаете на примерку. Две строки на один день — это утро и вторая половина дня с перерывом между ними.",
       of: [
         defineArrayMember({
           type: "object",
           fields: [
             defineField({
               name: "day",
-              title: "Day",
+              title: "День",
               type: "string",
               options: { list: DAYS },
               validation: (Rule) => Rule.required(),
             }),
             defineField({
               name: "from",
-              title: "From",
+              title: "Начало",
               type: "string",
               placeholder: "09:00",
               validation: (Rule) =>
-                Rule.required().regex(TIME_RULE, { name: "time" }).error("Use 24-hour time, like 09:00"),
+                Rule.required().regex(TIME_RULE, { name: "time" }).error("Пишите время в 24-часовом формате, например 09:00"),
             }),
             defineField({
               name: "to",
-              title: "To",
+              title: "Конец",
               type: "string",
               placeholder: "18:00",
-              description: "The last fitting finishes by this time — it never starts on it.",
+              description: "К этому времени последняя примерка уже заканчивается — в это время ни одна не начинается.",
               validation: (Rule) =>
-                Rule.required().regex(TIME_RULE, { name: "time" }).error("Use 24-hour time, like 18:00"),
+                Rule.required().regex(TIME_RULE, { name: "time" }).error("Пишите время в 24-часовом формате, например 18:00"),
             }),
           ],
           preview: {
@@ -82,65 +89,65 @@ export const atelierSchedule = defineType({
     }),
     defineField({
       name: "slotMinutes",
-      title: "How long is one fitting",
+      title: "Сколько длится одна примерка",
       type: "number",
       initialValue: 30,
-      description: "In minutes. Ten-minute looks and full bridal fittings both come out of this one length, so pick the length you want your day cut into.",
+      description: "В минутах. И десятиминутный осмотр вещи, и полная свадебная примерка складываются из этой одной длины — поэтому выберите шаг, на который удобно делить ваш день.",
       validation: (Rule) => Rule.required().min(5).max(240),
     }),
     defineField({
       name: "leadTimeHours",
-      title: "Notice you need",
+      title: "За сколько записываться заранее",
       type: "number",
       initialValue: 24,
-      description: "In hours. Nothing sooner than this is offered, so nobody books you for twenty minutes' time.",
+      description: "В часах. Время ближе этого срока не предлагается — чтобы никто не записался к вам за двадцать минут до примерки.",
       validation: (Rule) => Rule.required().min(0).max(24 * 14),
     }),
     defineField({
       name: "horizonDays",
-      title: "How far ahead people can book",
+      title: "На сколько вперёд можно записаться",
       type: "number",
       initialValue: 28,
-      description: "In days.",
+      description: "В днях.",
       validation: (Rule) => Rule.required().min(1).max(180),
     }),
     defineField({
       name: "closures",
-      title: "Days off and breaks",
+      title: "Выходные и перерывы",
       type: "array",
       description:
-        "Leave the times empty to close the whole day. Fill them in to block part of one — a school run, a delivery.",
+        "Оставьте время пустым, чтобы закрыть весь день. Заполните его, чтобы закрыть только часть дня — например, отвезти детей в школу или принять доставку.",
       of: [
         defineArrayMember({
           type: "object",
           fields: [
             defineField({
               name: "date",
-              title: "Date",
+              title: "Дата",
               type: "date",
               options: { dateFormat: "YYYY-MM-DD" },
               validation: (Rule) => Rule.required(),
             }),
             defineField({
               name: "from",
-              title: "From (optional)",
+              title: "Начало (по желанию)",
               type: "string",
               placeholder: "12:00",
-              validation: (Rule) => Rule.regex(TIME_RULE, { name: "time" }).warning("Use 24-hour time, like 12:00"),
+              validation: (Rule) => Rule.regex(TIME_RULE, { name: "time" }).warning("Пишите время в 24-часовом формате, например 12:00"),
             }),
             defineField({
               name: "to",
-              title: "To (optional)",
+              title: "Конец (по желанию)",
               type: "string",
               placeholder: "13:00",
-              validation: (Rule) => Rule.regex(TIME_RULE, { name: "time" }).warning("Use 24-hour time, like 13:00"),
+              validation: (Rule) => Rule.regex(TIME_RULE, { name: "time" }).warning("Пишите время в 24-часовом формате, например 13:00"),
             }),
-            defineField({ name: "note", title: "Why", type: "string", placeholder: "Away" }),
+            defineField({ name: "note", title: "Причина", type: "string", placeholder: "В отъезде" }),
           ],
           preview: {
             select: { date: "date", from: "from", to: "to", note: "note" },
             prepare({ date, from, to, note }) {
-              const when = from && to ? `${from}–${to}` : "all day";
+              const when = from && to ? `${from}–${to}` : "весь день";
               return { title: `${date ?? "?"} · ${when}`, subtitle: note };
             },
           },
@@ -153,10 +160,10 @@ export const atelierSchedule = defineType({
     prepare({ enabled, weekly }) {
       const rows = Array.isArray(weekly) ? weekly.length : 0;
       return {
-        title: "Fitting Times",
+        title: "Часы для примерок",
         subtitle: enabled
-          ? `On · ${rows} opening ${rows === 1 ? "period" : "periods"}`
-          : "Off — customers ask for a time by hand",
+          ? `Включено · ${openingPeriods(rows)} в неделю`
+          : "Выключено — клиенты оставляют заявку и ждут ответа",
       };
     },
   },

@@ -2,54 +2,54 @@ import { defineField, defineType } from "sanity";
 
 export const legalPage = defineType({
   name: "legalPage",
-  title: "Legal / Info Page",
+  title: "Инфо-страница",
   type: "document",
   fields: [
     defineField({
       name: "title",
-      title: "Page Title",
+      title: "Заголовок страницы",
       type: "string",
-      description: "e.g. Returns & Exchanges, Privacy Policy, About the Atelier",
+      description: "По-английски, например «Returns & Exchanges», «Privacy Policy», «About the Atelier». Текст страницы — тоже.",
       validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: "slug",
-      title: "Slug",
+      title: "Адрес страницы (slug)",
       type: "slug",
       options: {
         source: "title",
         maxLength: 96,
       },
-      description: "URL path — e.g. 'returns', 'privacy', 'about'",
+      description: "Путь в адресе страницы — например, «returns», «privacy», «about»",
       validation: (Rule) => Rule.required(),
     }),
     /* ── Hero / Main Image ── */
     defineField({
       name: "mainImage",
-      title: "Main Image (optional)",
+      title: "Главное фото (по желанию)",
       type: "image",
       options: { hotspot: true },
       description:
-        "A full-width hero photo shown just below the page title. Leave empty to skip.",
+        "Фото на всю ширину сразу под заголовком страницы. Оставьте пустым, если не нужно.",
       fields: [
         defineField({
           name: "alt",
-          title: "Alt text",
+          title: "Описание фото",
           type: "string",
-          description: "Describe the image for accessibility",
+          description: "Что на фото — для незрячих посетителей",
         }),
         defineField({
           name: "caption",
-          title: "Caption (optional)",
+          title: "Подпись (по желанию)",
           type: "string",
-          description: "Short caption shown below the image",
+          description: "Короткая подпись под фото",
         }),
       ],
     }),
     /* ── Body / Content ── */
     defineField({
       name: "body",
-      title: "Content",
+      title: "Текст страницы",
       type: "array",
       of: [
         // Rich text blocks
@@ -57,17 +57,18 @@ export const legalPage = defineType({
         // Inline image — can be dropped anywhere between paragraphs
         {
           type: "image",
+          title: "Фото",
           options: { hotspot: true },
           fields: [
             defineField({
               name: "alt",
-              title: "Alt text",
+              title: "Описание фото",
               type: "string",
-              description: "Describe the image for screen readers",
+              description: "Что на фото — этот текст зачитывают вслух программы для незрячих",
             }),
             defineField({
               name: "caption",
-              title: "Caption (optional)",
+              title: "Подпись (по желанию)",
               type: "string",
             }),
           ],
@@ -76,17 +77,17 @@ export const legalPage = defineType({
         {
           type: "object",
           name: "infoBox",
-          title: "Info Box",
+          title: "Инфоблок",
           fields: [
-            defineField({ name: "text", title: "Text", type: "text", rows: 3 }),
+            defineField({ name: "text", title: "Текст", type: "text", rows: 3 }),
             defineField({
               name: "style",
-              title: "Style",
+              title: "Вид",
               type: "string",
               options: {
                 list: [
-                  { title: "Note (lavender)", value: "note" },
-                  { title: "Warning (amber)", value: "warning" },
+                  { title: "Заметка (лавандовый фон)", value: "note" },
+                  { title: "Предупреждение (янтарный фон)", value: "warning" },
                 ],
                 layout: "radio",
               },
@@ -99,9 +100,9 @@ export const legalPage = defineType({
     }),
     defineField({
       name: "lastUpdated",
-      title: "Last Updated",
+      title: "Дата обновления",
       type: "date",
-      description: "Shown at the top of the page",
+      description: "Показывается вверху страницы",
     }),
   ],
   preview: {

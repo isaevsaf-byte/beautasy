@@ -100,9 +100,11 @@ async function trafficBlock(now: Date): Promise<Traffic> {
     // Google being unreachable, or a key that was revoked, must not take the
     // shop's own numbers down with it — that half of the page is the half
     // that matters.
+    // Google's own words when there are some: this line is for Safar, and the
+    // Dashboard tells Kristina to show it to him.
     return {
       state: "error",
-      detail: error instanceof Error ? error.message : "Google did not answer.",
+      detail: error instanceof Error ? error.message : "Google не ответил.",
     };
   }
 }
@@ -112,14 +114,16 @@ export async function POST(req: NextRequest) {
     !!process.env.CRON_SECRET &&
     req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
 
+  // Every `error` below is shown to Kristina word for word on the Dashboard,
+  // so it is written in Russian, as the rest of the Studio is.
   if (!byMachine && !fromThisSite(req)) {
-    return NextResponse.json({ error: "Only the Studio can ask for this." }, { status: 403 });
+    return NextResponse.json({ error: "Эти цифры может запросить только Studio." }, { status: 403 });
   }
 
   const limited = rateLimit(`studio-stats:${clientIp(req)}`, 120, 60 * 60 * 1000);
   if (!limited.ok) {
     return NextResponse.json(
-      { error: "Too many requests — wait a moment and reload." },
+      { error: "Слишком много запросов — подождите немного и обновите страницу." },
       { status: 429, headers: { "Retry-After": String(limited.retryAfter) } }
     );
   }
@@ -137,13 +141,13 @@ export async function POST(req: NextRequest) {
     // her what to do about it, rather than "not a member of this project".
     if (!token || !looksLikeAToken(token)) {
       return NextResponse.json(
-        { error: "Sign out of the Studio and back in, then try again." },
+        { error: "Выйдите из Studio, войдите снова и попробуйте ещё раз." },
         { status: 400 }
       );
     }
     if (!(await isProjectMember(token))) {
       return NextResponse.json(
-        { error: "That Studio session is not a member of this project." },
+        { error: "Этот вход в Studio не относится к участникам проекта." },
         { status: 403 }
       );
     }
@@ -171,7 +175,7 @@ export async function POST(req: NextRequest) {
     // Deliberately not echoing the database's own words: they name fields and
     // help nobody who is not Safar.
     return NextResponse.json(
-      { error: "Could not read the shop's numbers just now. Try again in a minute." },
+      { error: "Сейчас не получилось прочитать цифры магазина. Попробуйте через минуту." },
       { status: 503 }
     );
   }

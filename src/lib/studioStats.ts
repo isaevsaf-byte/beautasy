@@ -257,13 +257,15 @@ export function statsParams(now: Date): Record<string, string> {
   };
 }
 
-/* ─── Saying it in English ─── */
+/* ─── Saying it in Russian ─── */
 
 /**
  * Pence as Kristina writes prices.
  *
  * Whole pounds lose the pence, which reads as a rounding error on a £24.50
- * order and as a wrong total when three of them are added up.
+ * order and as a wrong total when three of them are added up. The page is in
+ * Russian and the prices stay written the British way, £1,234.50: they are the
+ * shop's prices, spelled as the site and every receipt spell them.
  */
 export function money(pence: number | null | undefined): string {
   const n = typeof pence === "number" && Number.isFinite(pence) ? pence : 0;
@@ -278,21 +280,48 @@ export function money(pence: number | null | undefined): string {
   return negative ? `−${body}` : body;
 }
 
-/** "3 orders", "1 order" — the plural without a library. */
-export function count(n: number, one: string, many?: string): string {
-  return `${n} ${n === 1 ? one : many ?? `${one}s`}`;
+const RUSSIAN_PLURAL = new Intl.PluralRules("ru-RU");
+
+/**
+ * The one of Russian's three noun forms that follows this number:
+ * plural(1, "заказ", "заказа", "заказов") → "заказ"; 3 → "заказа"; 5 → "заказов".
+ *
+ * English gets by with one rule — add an s — and the first version of this
+ * page was written that way. Russian needs three, and they do not follow the
+ * size of the number: 21 takes the form 1 takes, and 12 the form 5 takes. Intl
+ * knows the rule, so it is asked rather than worked out again here.
+ */
+export function plural(n: number, one: string, few: string, many: string): string {
+  const form = RUSSIAN_PLURAL.select(n);
+  return form === "one" ? one : form === "few" ? few : many;
+}
+
+/** "1 заказ", "3 заказа", "5 заказов", "21 заказ" — the number and its word. */
+export function count(n: number, one: string, few: string, many: string): string {
+  return `${n} ${plural(n, one, few, many)}`;
 }
 
 /**
- * The verb that agrees with a count: agrees(2, "has", "have") → "have".
+ * The verb that agrees with a count: agrees(2, "ждёт", "ждут") → "ждут".
  *
  * Needed because every line on this page is a number followed by a phrase, and
- * building that phrase from a fixed string gives "2 products has no
- * photograph". Kristina's English is her first language, and a page that
- * cannot conjugate reads as a page nobody checked.
+ * building that phrase from a fixed string gives "2 товара распродан". A
+ * Russian verb agrees with the form of the numeral, not with how many things
+ * there are — 21 человек ждёт, like 1; 11 человек ждут, like 5 — so this asks
+ * the plural rule rather than n === 1. A page that cannot conjugate reads as a
+ * page nobody checked, and then its numbers are not believed either.
  */
-export function agrees(n: number, singular: string, plural: string): string {
-  return n === 1 ? singular : plural;
+export function agrees(n: number, singular: string, pluralForm: string): string {
+  return RUSSIAN_PLURAL.select(n) === "one" ? singular : pluralForm;
+}
+
+/**
+ * "It" or "them", "this one" or "these", chosen by how many things there
+ * really are — a different question from agreement above. Twenty-one posts
+ * take a singular verb in Russian and are still "их", never "его".
+ */
+export function oneOrMany(n: number, one: string, several: string): string {
+  return n === 1 ? one : several;
 }
 
 /**
@@ -308,20 +337,22 @@ export function howLongAgo(iso: string | null | undefined, now: Date): string | 
   if (!Number.isFinite(then)) return null;
 
   const ms = now.getTime() - then;
-  if (ms < 0) return "just now";
+  if (ms < 0) return "только что";
 
   const minutes = Math.floor(ms / 60000);
-  if (minutes < 60) return minutes <= 1 ? "just now" : `${minutes} minutes ago`;
+  if (minutes < 60) {
+    return minutes <= 1 ? "только что" : `${count(minutes, "минуту", "минуты", "минут")} назад`;
+  }
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return hours === 1 ? "an hour ago" : `${hours} hours ago`;
+  if (hours < 24) return hours === 1 ? "час назад" : `${count(hours, "час", "часа", "часов")} назад`;
 
   const days = Math.floor(hours / 24);
-  if (days === 1) return "yesterday";
-  if (days < 31) return `${days} days ago`;
+  if (days === 1) return "вчера";
+  if (days < 31) return `${count(days, "день", "дня", "дней")} назад`;
 
   const months = Math.round(days / 30);
-  return months === 1 ? "a month ago" : `${months} months ago`;
+  return months === 1 ? "месяц назад" : `${count(months, "месяц", "месяца", "месяцев")} назад`;
 }
 
 /**
@@ -350,22 +381,28 @@ export function daysSince(iso: string | null | undefined, now: Date): number | n
  *
  * The rule the whole file keeps, so that the test can check it: a "straight
  * double-quoted" phrase in anything Kristina reads is the name of a list in the
- * sidebar and nothing else. A field or a button inside a document is quoted
- * with “curly quotes” — “Primary Colour”, “What Went Wrong”, “Post to Instagram now”.
- * The test "every list the page names is a list the Studio really has" pulls
- * the straight-quoted phrases out of every line and looks each one up in
- * structure.ts, so renaming a list in the sidebar breaks the build rather than
- * her afternoon.
+ * sidebar and nothing else. Anything inside a document — a field, a button, a
+ * status — is quoted with “curly quotes”: “Основной цвет”, “Что пошло не так”,
+ * “Выложить в Instagram”, “Оплачен”. The page uses no «ёлочки» at all, so that
+ * the two kinds of quote stay the only two. The test "every list the page names
+ * is a list the Studio really has" pulls the straight-quoted phrases out of
+ * every line and looks each one up in structure.ts, so renaming a list in the
+ * sidebar breaks the build rather than her afternoon.
+ *
+ * The names are Russian, and Russian changes the end of a name after most
+ * prepositions — "в Настройках сайта" is no longer the sidebar's "Настройки
+ * сайта", and the test would rightly reject it. So every sentence here puts a
+ * list name where it keeps its own form: straight after "Откройте".
  */
 export const STUDIO_LISTS = {
-  bookings: "Atelier Bookings",
-  postsToApprove: "Posts to approve",
-  postsGoingOut: "Posts going out",
-  products: "Products",
-  orders: "Orders",
-  reviews: "Reviews",
-  giftCards: "Gift Cards",
-  siteSettings: "Site Settings",
+  bookings: "Записи в ателье",
+  postsToApprove: "Посты на одобрение",
+  postsGoingOut: "Посты в очереди",
+  products: "Товары",
+  orders: "Заказы",
+  reviews: "Отзывы",
+  giftCards: "Подарочные карты",
+  siteSettings: "Настройки сайта",
 } as const;
 
 /**
@@ -380,7 +417,7 @@ export type Tone = "needs-you" | "good" | "plain";
 export interface StatLine {
   /** Stable across renders and across empty states, so React can key on it. */
   key: string;
-  /** The number itself, already written out — "3 people", "£142.50". */
+  /** The number itself, already written out — "3 человека", "£142.50". */
   value: string;
   /** What that number is, in one short phrase. */
   label: string;
@@ -452,32 +489,33 @@ export function isDashboard(body: unknown): body is Dashboard {
  * All nineteen of GA4's default channel groups are here, not the nine that
  * were obvious: the shop runs a Meta feed and Google Ads, and in a browser the
  * missing ones put "Cross-network" and "Paid Other" on the page directly under
- * "Found us on Google". Anything Google invents after this is still passed
- * through, because a made-up name is worse than a slightly technical true one.
+ * the plain-words version of "Organic Search". Anything Google invents after
+ * this is still passed through, in Google's English, because a made-up name is
+ * worse than a slightly technical true one.
  */
 const CHANNEL_NAMES: Record<string, string> = {
-  "Organic Search": "Found us on Google",
-  "Paid Search": "Clicked a Google ad",
-  "Organic Social": "Came from Instagram or Facebook",
-  "Paid Social": "Clicked a social ad",
-  Direct: "Typed the address in",
-  Referral: "Followed a link from another site",
-  Email: "Came from one of your emails",
-  "Organic Shopping": "Found us in Google Shopping",
-  "Paid Shopping": "Clicked a shopping ad",
-  "Cross-network": "Came from one of your ads",
-  "Paid Other": "Came from an ad",
-  "Paid Video": "Came from a video ad",
-  "Organic Video": "Came from a video",
-  Display: "Saw a banner ad",
-  Affiliates: "Came from a partner site",
-  Audio: "Came from an audio ad",
-  SMS: "Came from a text message",
-  "Mobile Push Notifications": "Came from a phone notification",
-  Unassigned: "Google could not tell",
+  "Organic Search": "Нашли вас в Google",
+  "Paid Search": "Нажали на рекламу в Google",
+  "Organic Social": "Пришли из Instagram или Facebook",
+  "Paid Social": "Нажали на рекламу в соцсетях",
+  Direct: "Набрали адрес сами",
+  Referral: "Перешли по ссылке с другого сайта",
+  Email: "Пришли из вашего письма",
+  "Organic Shopping": "Нашли вас в Google Shopping",
+  "Paid Shopping": "Нажали на рекламу товара",
+  "Cross-network": "Пришли по вашей рекламе",
+  "Paid Other": "Пришли по рекламе",
+  "Paid Video": "Пришли по видеорекламе",
+  "Organic Video": "Пришли из видео",
+  Display: "Увидели рекламный баннер",
+  Affiliates: "Пришли с сайта партнёра",
+  Audio: "Пришли по аудиорекламе",
+  SMS: "Пришли из SMS",
+  "Mobile Push Notifications": "Пришли из уведомления на телефоне",
+  Unassigned: "Google не смог определить",
 };
 
-export function channelInEnglish(name: string): string {
+export function channelInRussian(name: string): string {
   return CHANNEL_NAMES[name] ?? name;
 }
 
@@ -496,42 +534,48 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
   const oldestDays = daysSince(raw.oldestBookingAt, now);
 
   if (raw.bookingsWaiting > 0) {
+    const n = raw.bookingsWaiting;
     const since = howLongAgo(raw.oldestBookingAt, now);
     waiting.push({
       key: "bookings-waiting",
-      value: count(raw.bookingsWaiting, "person", "people"),
-      label: `asked for a fitting and ${agrees(raw.bookingsWaiting, "has", "have")} not heard back`,
+      value: count(n, "человек", "человека", "человек"),
+      label: agrees(
+        n,
+        "оставил заявку на примерку и ещё не получил ответа",
+        "оставили заявки на примерку и ещё не получили ответа"
+      ),
       meaning:
         since === null
-          ? "They wrote to you and are waiting for a reply."
-          : `The one who has waited longest wrote ${since}.`,
-      action: `Open "${STUDIO_LISTS.bookings}" and reply. This is the only place on this page where money is walking away right now.`,
+          ? "Вам написали и ждут ответа."
+          : oneOrMany(n, `Заявку прислали ${since}.`, `Самую давнюю заявку прислали ${since}.`),
+      action: `Откройте "${STUDIO_LISTS.bookings}" и ответьте. Это единственное место на странице, где деньги уходят прямо сейчас.`,
       tone: "needs-you",
     });
   } else {
     waiting.push({
       key: "bookings-waiting",
-      value: "Nobody",
-      label: "is waiting for a reply about a fitting",
-      meaning: "Every fitting request has been answered.",
+      value: "Никто",
+      label: "не ждёт ответа о примерке",
+      meaning: "Вы ответили на все заявки на примерку.",
       tone: "good",
     });
   }
 
   if (raw.postsWaitingApproval > 0) {
+    const n = raw.postsWaitingApproval;
     waiting.push({
       key: "posts-waiting",
-      value: count(raw.postsWaitingApproval, "post"),
-      label: `${agrees(raw.postsWaitingApproval, "is", "are")} written and waiting for your yes`,
-      meaning: `Nothing goes to Instagram until you approve it, so ${agrees(
-        raw.postsWaitingApproval,
-        "this one is",
-        "these are"
-      )} sitting still.`,
-      action: `Open "${STUDIO_LISTS.postsToApprove}", ${agrees(
-        raw.postsWaitingApproval,
-        "read it and press Approve. Ten seconds.",
-        "read them, press Approve. Ten seconds each."
+      value: count(n, "пост", "поста", "постов"),
+      label: agrees(n, "написан и ждёт вашего одобрения", "написаны и ждут вашего одобрения"),
+      meaning: `Без вашего одобрения в Instagram ничего не уходит, поэтому ${oneOrMany(
+        n,
+        "этот пост стоит",
+        "эти посты стоят"
+      )} на месте.`,
+      action: `Откройте "${STUDIO_LISTS.postsToApprove}", ${oneOrMany(
+        n,
+        "прочитайте пост и нажмите “Одобрить”. Десять секунд.",
+        "прочитайте посты и нажмите “Одобрить” на каждом. По десять секунд на пост."
       )}`,
       tone: "needs-you",
     });
@@ -543,12 +587,13 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
   // will happen to it until somebody reads that reason — the publisher only
   // ever picks up posts marked Approved (see socialQueue).
   if (raw.postsFailed > 0) {
+    const n = raw.postsFailed;
     waiting.push({
       key: "posts-failed",
-      value: count(raw.postsFailed, "post"),
-      label: "tried to go out and came back with an error",
-      meaning: `Instagram would not take ${agrees(raw.postsFailed, "it", "them")}, and the post says why. Nothing more will be tried until you look.`,
-      action: `Open "${STUDIO_LISTS.postsToApprove}" and read “What Went Wrong” on the ones marked Failed. Fix what it names, then set the post back to Approved.`,
+      value: count(n, "пост", "поста", "постов"),
+      label: agrees(n, "вернулся из Instagram с ошибкой", "вернулись из Instagram с ошибкой"),
+      meaning: `Instagram не принял ${oneOrMany(n, "его", "их")}, а причина записана в самом посте. Пока вы не посмотрите, новых попыток не будет.`,
+      action: `Откройте "${STUDIO_LISTS.postsToApprove}" и прочитайте “Что пошло не так” у постов со статусом “Не удалось”. Исправьте то, что там названо, и снова поставьте статус “Одобрен”.`,
       tone: "needs-you",
     });
   }
@@ -557,128 +602,147 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
   // post whose run died halfway was on the one page she is told to trust and
   // on no list it mentioned.
   if (raw.postsStuck > 0) {
+    const n = raw.postsStuck;
     waiting.push({
       key: "posts-stuck",
-      value: count(raw.postsStuck, "post"),
-      label: "got stuck halfway to Instagram",
-      meaning: `The shop started sending ${agrees(raw.postsStuck, "it", "them")} and never finished, so ${agrees(raw.postsStuck, "it is", "they are")} neither out nor waiting for you.`,
-      action: `Open "${STUDIO_LISTS.postsGoingOut}" and look at Instagram: if the picture arrived, set the post to Published; if it did not, set it back to Approved and it will go out with the next batch.`,
+      value: count(n, "пост", "поста", "постов"),
+      label: agrees(n, "застрял на полпути в Instagram", "застряли на полпути в Instagram"),
+      meaning: `Сайт начал ${oneOrMany(n, "его", "их")} отправлять и не закончил, так что ${oneOrMany(
+        n,
+        "пост не вышел, но и вашего решения не ждёт",
+        "посты не вышли, но и вашего решения не ждут"
+      )}.`,
+      action: `Откройте "${STUDIO_LISTS.postsGoingOut}" и загляните в Instagram: если картинка там появилась, поставьте посту статус “Опубликован”; если нет — снова “Одобрен”, и он уйдёт со следующей отправкой.`,
       tone: "needs-you",
     });
   }
 
   if (raw.postsOverdue > 0) {
+    const n = raw.postsOverdue;
     waiting.push({
       key: "posts-overdue",
-      value: count(raw.postsOverdue, "approved post"),
-      label: "should have gone out already",
-      meaning: agrees(
-        raw.postsOverdue,
-        "You said yes to this one and its date has passed, but Instagram has not received it.",
-        "You said yes to these and their date has passed, but Instagram has not received them."
+      value: count(n, "одобренный пост", "одобренных поста", "одобренных постов"),
+      label: agrees(n, "уже должен был выйти", "уже должны были выйти"),
+      meaning: oneOrMany(
+        n,
+        "Вы одобрили этот пост, и его дата уже прошла, но в Instagram он так и не попал.",
+        "Вы одобрили эти посты, и их дата уже прошла, но в Instagram они так и не попали."
       ),
-      action: `Check "${STUDIO_LISTS.siteSettings}" for quiet hours and the daily limit — or press “Post to Instagram now” ${agrees(
-        raw.postsOverdue,
-        "on it",
-        "on one"
-      )} to see the reason.`,
+      action: `Откройте "${STUDIO_LISTS.siteSettings}" и проверьте “Тихие часы” и “Постов в день” — или нажмите “Выложить в Instagram” ${oneOrMany(
+        n,
+        "в самом посте",
+        "в одном из них"
+      )}, чтобы увидеть причину.`,
       tone: "needs-you",
     });
   }
 
   if (raw.reviewsWaiting > 0) {
+    const n = raw.reviewsWaiting;
     waiting.push({
       key: "reviews-waiting",
-      value: count(raw.reviewsWaiting, "review"),
-      label: `${agrees(raw.reviewsWaiting, "is", "are")} written but not shown in the shop`,
+      value: count(n, "отзыв", "отзыва", "отзывов"),
+      label: agrees(n, "написан, но не показан в магазине", "написаны, но не показаны в магазине"),
       meaning:
-        "A review nobody approved is invisible to shoppers. It is praise you already have and are not using.",
-      action: `Open "${STUDIO_LISTS.reviews}" and tick Approved on the ones you are happy with.`,
+        "Неодобренный отзыв покупатели не видят. Это похвала, которая у вас уже есть, но пока не работает.",
+      action: `Откройте "${STUDIO_LISTS.reviews}" и отметьте “Одобрен” у тех, которыми вы довольны.`,
       tone: "needs-you",
     });
   }
 
   if (raw.giftCardsLate > 0) {
+    const n = raw.giftCardsLate;
     waiting.push({
       key: "gift-cards-late",
-      value: count(raw.giftCardsLate, "gift card"),
-      label: `${agrees(raw.giftCardsLate, "was", "were")} due to be delivered and ${agrees(raw.giftCardsLate, "has", "have")} not been sent`,
+      value: count(n, "подарочная карта", "подарочные карты", "подарочных карт"),
+      label: agrees(
+        n,
+        "уже должна была прийти, но не отправлена",
+        "уже должны были прийти, но не отправлены"
+      ),
       meaning:
-        "Somebody paid for a present that was supposed to arrive by now. This one makes people angry.",
-      action: `Open "${STUDIO_LISTS.giftCards}", find the ones with a past delivery date and no sent date.`,
+        "Кто-то оплатил подарок, который уже должен был прийти. Такое людей по-настоящему злит.",
+      action: `Откройте "${STUDIO_LISTS.giftCards}" и найдите карты, у которых “Дата отправки” уже прошла, а “Когда отправлена” пусто.`,
       tone: "needs-you",
     });
   }
 
-  sections.push({ key: "waiting", title: "Waiting on you", lines: waiting });
+  sections.push({ key: "waiting", title: "Ждут вас", lines: waiting });
 
   /* Money */
   const moneyLines: StatLine[] = [];
 
   moneyLines.push({
     key: "orders-7",
-    value: count(raw.orders7, "order"),
-    label: "in the last 7 days",
+    value: count(raw.orders7, "заказ", "заказа", "заказов"),
+    label: "за последние 7 дней",
     meaning:
       raw.orders7 === 0
-        ? "Nobody has bought anything this week. The rest of this page is about why."
-        : `${money(raw.revenue7)} taken. That is money in, before what the fabric and the postage cost you.`,
+        ? "На этой неделе никто ничего не купил. Всё остальное на этой странице — о том, почему."
+        : `Выручка — ${money(raw.revenue7)}. Это всё, что пришло, до вычета того, во что обошлись ткань и доставка.`,
     tone: raw.orders7 === 0 ? "plain" : "good",
   });
 
   moneyLines.push({
     key: "orders-30",
-    value: count(raw.orders30, "order"),
-    label: "in the last 30 days",
+    value: count(raw.orders30, "заказ", "заказа", "заказов"),
+    label: "за последние 30 дней",
     meaning:
       raw.orders30 === 0
-        ? `${money(0)} this month. All time the shop has taken ${count(raw.ordersAllTime, "order")}.`
-        : `${money(raw.revenue30)} this month, ${count(raw.ordersAllTime, "order")} since the shop opened.`,
+        ? `${money(0)} за месяц. За всё время у магазина ${count(raw.ordersAllTime, "заказ", "заказа", "заказов")}.`
+        : `${money(raw.revenue30)} за месяц, ${count(raw.ordersAllTime, "заказ", "заказа", "заказов")} с открытия магазина.`,
     tone: "plain",
   });
 
   const lastOrder = howLongAgo(raw.lastOrderAt, now);
   moneyLines.push({
     key: "last-order",
-    value: lastOrder ? lastOrder[0].toUpperCase() + lastOrder.slice(1) : "Nobody",
-    label: lastOrder ? "was the last order" : "has bought anything yet",
+    value: lastOrder ? lastOrder[0].toUpperCase() + lastOrder.slice(1) : "Никто",
+    label: lastOrder ? "был последний заказ" : "пока ничего не купил",
     meaning: lastOrder
-      ? "When somebody last paid."
-      : "That is normal for a shop this new — it is not a fault, and it is not a broken checkout until the basket line below says so.",
+      ? "Когда кто-то в последний раз оплатил покупку."
+      : "Для такого нового магазина это нормально — это не поломка, и оплата не сломана, пока об этом не скажет строка о корзинах ниже.",
     tone: "plain",
   });
 
   if (raw.ordersToMake > 0) {
+    const n = raw.ordersToMake;
     moneyLines.push({
       key: "orders-to-make",
-      value: count(raw.ordersToMake, "order"),
-      label: `${agrees(raw.ordersToMake, "is", "are")} paid for and not yet being made`,
-      meaning: `${agrees(raw.ordersToMake, "This one is", "These are")} still marked Paid rather than In Production.`,
-      action: `Open "${STUDIO_LISTS.orders}" and move them on when you start sewing, so the customer gets the email.`,
+      value: count(n, "заказ", "заказа", "заказов"),
+      label: agrees(n, "оплачен, но ещё не в работе", "оплачены, но ещё не в работе"),
+      meaning: `${oneOrMany(n, "У этого заказа", "У этих заказов")} всё ещё статус “Оплачен”, а не “В работе”.`,
+      action: `Откройте "${STUDIO_LISTS.orders}" и, когда начнёте шить, поставьте ${oneOrMany(
+        n,
+        "заказу",
+        "заказам"
+      )} статус “В работе” — клиент получит письмо.`,
       tone: "plain",
     });
   }
 
   if (raw.cartsLeft7 > 0) {
+    const n = raw.cartsLeft7;
+    const back = raw.cartsRecovered7;
     moneyLines.push({
       key: "carts-left",
-      value: count(raw.cartsLeft7, "shopper"),
-      label: "got to the card form and did not pay",
-      meaning: `${money(raw.cartsLeftValue7)} worth, in the last 7 days. ${
-        raw.cartsRecovered7 > 0
-          ? `${raw.cartsRecovered7} of them came back and paid after the reminder.`
-          : agrees(raw.cartsLeft7, "That one has not come back.", "None of them came back yet.")
+      value: count(n, "покупатель", "покупателя", "покупателей"),
+      label: agrees(n, "дошёл до оплаты картой и не заплатил", "дошли до оплаты картой и не заплатили"),
+      meaning: `Это покупки на ${money(raw.cartsLeftValue7)} за последние 7 дней. ${
+        back > 0
+          ? `${back} из них ${agrees(back, "вернулся и заплатил", "вернулись и заплатили")} после напоминания.`
+          : oneOrMany(n, "Этот покупатель пока не вернулся.", "Пока никто из них не вернулся.")
       }`,
-      action: "They were seconds from buying. If this number is high and orders are low, the problem is the checkout itself — tell Safar.",
+      action: "До покупки оставались секунды. Если это число большое, а заказов мало, дело в самой оплате — скажите Сафару.",
       tone: "plain",
     });
   } else if (raw.orders7 === 0) {
     moneyLines.push({
       key: "carts-left",
-      value: "Nobody",
-      label: "even reached the card form this week",
+      value: "Никто",
+      label: "на этой неделе даже не дошёл до оплаты картой",
       meaning:
-        "So the checkout is not what is stopping people. They are leaving earlier than that — on the product pages, or before.",
+        "Значит, людей останавливает не оплата. Они уходят раньше — на страницах товаров или ещё до них.",
       tone: "plain",
     });
   }
@@ -687,36 +751,41 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
     moneyLines.push({
       key: "gift-balance",
       value: money(raw.giftCardBalance),
-      label: "is sitting on unspent gift cards",
+      label: "лежит на неизрасходованных подарочных картах",
       meaning:
-        "Money you have already been paid for things you have not made yet. Keep it in mind before you count a good month.",
+        "Это деньги, которые вам уже заплатили за то, что вы ещё не сделали. Помните о них, прежде чем радоваться удачному месяцу.",
       tone: "plain",
     });
   }
 
-  sections.push({ key: "money", title: "Money", lines: moneyLines });
+  sections.push({ key: "money", title: "Деньги", lines: moneyLines });
 
   /* The shop */
   const shop: StatLine[] = [];
 
   shop.push({
     key: "products",
-    value: count(raw.products, "product"),
-    label: "in the shop",
+    value: count(raw.products, "товар", "товара", "товаров"),
+    label: "в магазине",
     meaning:
       raw.products < 10
-        ? "A small shop gives people less reason to look around. More things to buy is the single most direct way to sell more."
-        : "Everything published in the catalogue.",
+        ? "В маленьком магазине людям меньше причин задержаться. Больше товаров — самый прямой способ продавать больше."
+        : "Всё, что опубликовано в каталоге.",
     tone: "plain",
   });
 
   if (raw.productsNoPhoto > 0) {
+    const n = raw.productsNoPhoto;
     shop.push({
       key: "no-photo",
-      value: count(raw.productsNoPhoto, "product"),
-      label: `${agrees(raw.productsNoPhoto, "has", "have")} no photograph`,
-      meaning: `Nobody buys underwear they cannot see. ${agrees(raw.productsNoPhoto, "It will", "They will")} not sell at all.`,
-      action: `Open "${STUDIO_LISTS.products}", find the ones with an empty “Product Images” field, add a picture.`,
+      value: count(n, "товар", "товара", "товаров"),
+      label: oneOrMany(n, "без фотографии", "без фотографий"),
+      meaning: `Никто не купит бельё, которого не видно. ${oneOrMany(
+        n,
+        "Этот товар не продастся",
+        "Эти товары не продадутся"
+      )} вовсе.`,
+      action: `Откройте "${STUDIO_LISTS.products}", найдите те, где поле “Фотографии товара” пустое, и добавьте снимок.`,
       tone: "needs-you",
     });
   }
@@ -724,32 +793,41 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
   if (raw.productsNoDescription > 0) {
     shop.push({
       key: "no-description",
-      value: count(raw.productsNoDescription, "product"),
-      label: `${agrees(raw.productsNoDescription, "has", "have")} no description`,
+      value: count(raw.productsNoDescription, "товар", "товара", "товаров"),
+      label: "без описания",
       meaning:
-        "Google has nothing to read on those pages, so they do not come up in a search, and shoppers have nothing to reassure them.",
-      action: "Two or three sentences each: the fabric, the fit, who it suits.",
+        "Google нечего прочитать на таких страницах, поэтому они не попадают в поиск, а покупателю не на что опереться.",
+      action: "Два-три предложения на каждый: ткань, посадка, кому подойдёт.",
       tone: "plain",
     });
   }
 
   if (raw.productsNotInAds > 0) {
+    const n = raw.productsNotInAds;
     shop.push({
       key: "not-in-ads",
-      value: count(raw.productsNotInAds, "product"),
-      label: `${agrees(raw.productsNotInAds, "has", "have")} no colour on ${agrees(raw.productsNotInAds, "it", "them")}`,
-      meaning: `Google Shopping will not list a clothing item with no colour on it, and Instagram shows it less often. Everything else about ${agrees(raw.productsNotInAds, "it", "them")} is fine.`,
-      action: `Open "${STUDIO_LISTS.products}" and fill in “Primary Colour” on each one. It is one word.`,
+      value: count(n, "товар", "товара", "товаров"),
+      label: "без указанного цвета",
+      meaning: `Google Shopping не показывает одежду без цвета, а Instagram показывает её реже. Всё остальное в ${oneOrMany(
+        n,
+        "этом товаре",
+        "этих товарах"
+      )} в порядке.`,
+      // In English, and the page says so: the colour goes into the Google
+      // Shopping feed for British shoppers as it is typed, and the field's own
+      // description in the product asks for English too.
+      action: `Откройте "${STUDIO_LISTS.products}" и заполните “Основной цвет” у каждого. Это одно слово по-английски, например Black или Cream.`,
       tone: "needs-you",
     });
   }
 
   if (raw.productsSoldOut > 0) {
+    const n = raw.productsSoldOut;
     shop.push({
       key: "sold-out",
-      value: count(raw.productsSoldOut, "product"),
-      label: `${agrees(raw.productsSoldOut, "is", "are")} sold out`,
-      meaning: "Still on the site, with nothing to send.",
+      value: count(n, "товар", "товара", "товаров"),
+      label: agrees(n, "распродан", "распроданы"),
+      meaning: `${oneOrMany(n, "Он всё ещё", "Они всё ещё")} на сайте, а отправлять нечего.`,
       tone: "plain",
     });
   }
@@ -761,90 +839,99 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
   const wanted = tally.slice(0, 3);
   const alsoWanted = tally.length - wanted.length;
   if (wanted.length > 0) {
+    const people = raw.stockWantedTotal;
     shop.push({
       key: "stock-wanted",
-      value: count(raw.stockWantedTotal, "person", "people"),
-      label: "asked to be told when something comes back",
-      meaning: `Most wanted: ${wanted
-        .map((w) => `${w.name} (${w.people})`)
-        .join(", ")}${
-        alsoWanted > 0 ? `, and ${count(alsoWanted, "other thing")}` : ""
-      }. ${agrees(raw.stockWantedTotal, "This person has", "These people have")} already decided to buy.`,
-      action: "This is the answer to “what do I make next”. Make the top one; the shop emails them by itself the moment stock goes above zero.",
+      value: count(people, "человек", "человека", "человек"),
+      label: agrees(
+        people,
+        "попросил сообщить, когда товар снова появится",
+        "попросили сообщить, когда товар снова появится"
+      ),
+      meaning: `Чаще всего ждут: ${wanted.map((w) => `${w.name} (${w.people})`).join(", ")}${
+        alsoWanted > 0 ? ` и ещё ${count(alsoWanted, "товар", "товара", "товаров")}` : ""
+      }. ${oneOrMany(people, "Этот человек уже решил купить.", "Эти люди уже решили купить.")}`,
+      action: "Это ответ на вопрос “что шить дальше”. Сшейте то, что в списке первым, — сайт сам напишет каждому, как только остаток станет больше нуля.",
       tone: "needs-you",
     });
   }
 
-  sections.push({ key: "shop", title: "The shop", lines: shop });
+  sections.push({ key: "shop", title: "Магазин", lines: shop });
 
   /* Reach */
   const reach: StatLine[] = [];
 
+  const published = raw.postsPublished30;
   reach.push({
     key: "posts-published",
-    value: count(raw.postsPublished30, "post"),
-    label: "went to Instagram in the last 30 days",
+    value: count(published, "пост", "поста", "постов"),
+    label: `${agrees(published, "вышел", "вышли")} в Instagram за последние 30 дней`,
     meaning:
-      raw.postsPublished30 === 0
-        ? "Nothing has gone out this month, so nobody new is being reminded the shop exists."
-        : agrees(
-            raw.postsPublished30,
-            "The shop posted it by itself once you had approved it.",
-            "The shop posts these by itself once you have approved them."
+      published === 0
+        ? "В этом месяце ничего не вышло, поэтому новым людям никто не напоминает, что магазин существует."
+        : oneOrMany(
+            published,
+            "Сайт опубликовал его сам, как только вы его одобрили.",
+            "Сайт публикует их сам, как только вы их одобрите."
           ),
-    tone: raw.postsPublished30 === 0 ? "needs-you" : "good",
+    tone: published === 0 ? "needs-you" : "good",
   });
 
   reach.push({
     key: "subscribers",
-    value: count(raw.subscribers, "person", "people"),
-    label: `${agrees(raw.subscribers, "is", "are")} on your mailing list`,
+    value: count(raw.subscribers, "человек", "человека", "человек"),
+    label: `${agrees(raw.subscribers, "подписан", "подписаны")} на вашу рассылку`,
     // It used to say "people you can write to directly, for free", which is a
     // promise the shop cannot keep: nothing here sends to this list, and every
-    // address is sealed, readable one document at a time through “Show contact
-    // details”. A number she can do nothing with is worse than no number.
+    // address is sealed, readable one document at a time through “Показать
+    // контакты”. A number she can do nothing with is worse than no number.
     meaning:
       raw.subscribers7 > 0
-        ? `${count(raw.subscribers7, "new one")} this week. Writing to all of them at once is not built yet — ask Safar when you have something to say.`
-        : "Nobody new joined this week. Writing to all of them at once is not built yet — ask Safar when you have something to say.",
+        ? `${count(raw.subscribers7, "новый", "новых", "новых")} за эту неделю. Написать всем сразу пока нельзя — это ещё не сделано. Когда будет что сказать, попросите Сафара.`
+        : "За эту неделю новых подписчиков нет. Написать всем сразу пока нельзя — это ещё не сделано. Когда будет что сказать, попросите Сафара.",
     tone: "plain",
   });
 
   reach.push({
     key: "reviews-live",
-    value: count(raw.reviewsLive, "review"),
-    label: `${agrees(raw.reviewsLive, "is", "are")} showing in the shop`,
+    value: count(raw.reviewsLive, "отзыв", "отзыва", "отзывов"),
+    label: `${agrees(raw.reviewsLive, "виден", "видны")} в магазине`,
     meaning:
       raw.reviewsLive === 0
-        ? "A shop with no reviews asks a stranger to go first. The site asks every fitting customer for one automatically."
-        : "Shoppers who have never heard of you read these before they buy.",
+        ? "Магазин без отзывов просит незнакомца рискнуть первым. Сайт сам просит отзыв у каждого клиента после примерки."
+        : `Покупатели, которые никогда о вас не слышали, читают ${oneOrMany(
+            raw.reviewsLive,
+            "его",
+            "их"
+          )} перед покупкой.`,
     tone: raw.reviewsLive === 0 ? "plain" : "good",
   });
 
   if (raw.fittingsThisWeek > 0) {
     reach.push({
       key: "fittings-week",
-      value: count(raw.fittingsThisWeek, "fitting"),
-      label: `${agrees(raw.fittingsThisWeek, "is", "are")} booked in the next 7 days`,
-      meaning: "Check this before you promise anybody else a time.",
+      value: count(raw.fittingsThisWeek, "примерка", "примерки", "примерок"),
+      label: `${agrees(raw.fittingsThisWeek, "назначена", "назначены")} на ближайшие 7 дней`,
+      meaning: "Загляните сюда, прежде чем обещать кому-то ещё время.",
       tone: "plain",
     });
   }
 
   if (raw.friendLinks > 0) {
+    const bought = raw.friendsRewarded30;
     reach.push({
       key: "friends",
-      value: count(raw.friendLinks, "customer"),
-      label: `${agrees(raw.friendLinks, "has", "have")} a Friends link to share`,
+      value: count(raw.friendLinks, "клиент", "клиента", "клиентов"),
+      label: `${agrees(raw.friendLinks, "получил", "получили")} ссылку для друзей`,
       meaning:
-        raw.friendsRewarded30 > 0
-          ? `${count(raw.friendsRewarded30, "friend")} bought through one in the last 30 days.`
-          : "Nobody has bought through one in the last 30 days, so the programme is not moving yet.",
+        bought > 0
+          ? `${count(bought, "друг", "друга", "друзей")} ${agrees(bought, "купил", "купили")} по такой ссылке за последние 30 дней.`
+          : "За последние 30 дней по этим ссылкам никто не купил, так что программа пока не набрала ход.",
       tone: "plain",
     });
   }
 
-  sections.push({ key: "reach", title: "Getting noticed", lines: reach });
+  sections.push({ key: "reach", title: "Как о вас узнают", lines: reach });
 
   return {
     measuredAt: now.toISOString(),
@@ -890,23 +977,35 @@ export function mostWanted(
  */
 function headlineFor(raw: StatsRaw, traffic: Traffic, oldestDays: number | null): string {
   if (raw.bookingsWaiting > 0) {
+    const n = raw.bookingsWaiting;
     const waited =
       oldestDays !== null && oldestDays >= 1
-        ? ` ${agrees(raw.bookingsWaiting, "They have waited", "The oldest has waited")} ${count(oldestDays, "day")}.`
+        ? ` ${oneOrMany(n, "Заявке", "Самой давней заявке")} уже ${count(oldestDays, "день", "дня", "дней")}.`
         : "";
-    return `${count(raw.bookingsWaiting, "person", "people")} asked for a fitting and ${agrees(raw.bookingsWaiting, "is", "are")} waiting to hear from you.${waited}`;
+    return `${count(n, "человек", "человека", "человек")} ${agrees(
+      n,
+      "оставил заявку на примерку и ждёт",
+      "оставили заявки на примерку и ждут"
+    )} вашего ответа.${waited}`;
   }
   if (raw.productsNoPhoto > 0) {
-    return `${count(raw.productsNoPhoto, "product")} ${agrees(raw.productsNoPhoto, "has", "have")} no photograph, so ${agrees(raw.productsNoPhoto, "it cannot", "they cannot")} sell.`;
+    const n = raw.productsNoPhoto;
+    return `${count(n, "товар", "товара", "товаров")} без ${oneOrMany(n, "фотографии", "фотографий")} — ${oneOrMany(
+      n,
+      "его",
+      "их"
+    )} никто не купит.`;
   }
   if (raw.orders7 > 0) {
-    return `${count(raw.orders7, "order")} this week, ${money(raw.revenue7)} taken.`;
+    return `На этой неделе ${count(raw.orders7, "заказ", "заказа", "заказов")} на ${money(raw.revenue7)}.`;
   }
   if (traffic.state === "connected" && traffic.visitors > 0) {
-    return `${count(traffic.visitors, "person", "people")} visited this week and nobody has bought yet.`;
+    const v = traffic.visitors;
+    return `На этой неделе на сайт ${agrees(v, "зашёл", "зашли")} ${count(v, "человек", "человека", "человек")}, но пока никто ничего не купил.`;
   }
   if (raw.postsWaitingApproval > 0) {
-    return `Quiet week. ${count(raw.postsWaitingApproval, "post")} ${agrees(raw.postsWaitingApproval, "is", "are")} waiting for your yes.`;
+    const n = raw.postsWaitingApproval;
+    return `Тихая неделя. ${count(n, "пост", "поста", "постов")} ${agrees(n, "ждёт", "ждут")} вашего одобрения.`;
   }
-  return "Quiet week — no orders and nobody waiting on you.";
+  return "Тихая неделя: заказов нет, и никто вас не ждёт.";
 }

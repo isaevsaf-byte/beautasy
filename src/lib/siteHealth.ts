@@ -1731,7 +1731,7 @@ export function evaluateHealth(facts: HealthFacts): HealthCheck[] {
       detail:
         unanswered.chasing === 0
           ? `${unanswered.stale === 0 ? "Every fitting request has been answered." : "Nobody is waiting for an answer."}${olderOnes}`
-          : `${unanswered.chasing === 1 ? "One fitting request has" : `${unanswered.chasing} fitting requests have`} had no answer, and the oldest has been waiting ${waitedDays === 1 ? "one day" : `${waitedDays} days`}. Open the Studio, go to "Atelier Bookings", and set each one to Confirmed or Can't make it — the customer is emailed either way the moment you do. Who they are is in the Studio; this email never carries a customer's details.${olderOnes}`,
+          : `${unanswered.chasing === 1 ? "One fitting request has" : `${unanswered.chasing} fitting requests have`} had no answer, and the oldest has been waiting ${waitedDays === 1 ? "one day" : `${waitedDays} days`}. Open the Studio, go to "Записи в ателье", and set each one to «Подтверждена» or «Отказано» — the customer is emailed either way the moment you do. Who they are is in the Studio; this email never carries a customer's details.${olderOnes}`,
     });
 
     const quiet = queue.lastPublishedAt ? wholeDaysBetween(queue.lastPublishedAt, now) : null;
@@ -1744,7 +1744,7 @@ export function evaluateHealth(facts: HealthFacts): HealthCheck[] {
       tally: queue.failedRecently,
       detail:
         queue.failedRecently > 0
-          ? `${queue.failedRecently === 1 ? "One post" : `${queue.failedRecently} posts`} could not go out in the last ${FAILURES_WITHIN_DAYS} days. Instagram said: ${queue.lastFailureError ?? "nothing we could read"}. ${queue.failedRecently === 1 ? "It is" : "They are"} in the Studio under "Posts going out" with the reason on the post — fix the caption or the picture and set the status back to Approved.`
+          ? `${queue.failedRecently === 1 ? "One post" : `${queue.failedRecently} posts`} could not go out in the last ${FAILURES_WITHIN_DAYS} days. Instagram said: ${queue.lastFailureError ?? "nothing we could read"}. ${queue.failedRecently === 1 ? "It is" : "They are"} in the Studio under "Посты в очереди" with the reason on the post — fix the caption or the picture and set the status back to «Одобрен».`
           : "No post has failed to go out.",
     });
 
@@ -1841,7 +1841,7 @@ export function evaluateHealth(facts: HealthFacts): HealthCheck[] {
       // look at Instagram before touching the status.
       detail:
         queue.stuckPublishing > 0
-          ? `${queue.stuckPublishing === 1 ? "One post has" : `${queue.stuckPublishing} posts have`} been stuck halfway out for more than ${STUCK_AFTER_HOURS} hours, and nothing will move ${queue.stuckPublishing === 1 ? "it" : "them"} automatically. Open the Studio, go to "Posts going out", and check Instagram first: if the post is already there set it to Published, and only if it is not, set it back to Approved to try again.`
+          ? `${queue.stuckPublishing === 1 ? "One post has" : `${queue.stuckPublishing} posts have`} been stuck halfway out for more than ${STUCK_AFTER_HOURS} hours, and nothing will move ${queue.stuckPublishing === 1 ? "it" : "them"} automatically. Open the Studio, go to "Посты в очереди", and check Instagram first: if the post is already there set it to «Опубликован», and only if it is not, set it back to «Одобрен» to try again.`
           : "No post is stuck on its way out.",
     });
 
@@ -1866,7 +1866,7 @@ export function evaluateHealth(facts: HealthFacts): HealthCheck[] {
         tally: abandoned > 0 ? abandoned : queue.waitingOnInstagram,
         detail:
           abandoned > 0
-            ? `${abandoned === 1 ? "One video has" : `${abandoned} videos have`} been with Instagram for more than ${REEL_ABANDONED_AFTER_DAYS} days. Instagram only holds a video it has been given for about a day, so ${abandoned === 1 ? "it is" : "they are"} not still being prepared — ${abandoned === 1 ? "it" : "they"} will never arrive on ${abandoned === 1 ? "its" : "their"} own. Open the Studio, go to "Posts going out", and check Instagram first: if the video is already there set the post to Published, and only if it is not, put a different video on the post and set it back to Approved.`
+            ? `${abandoned === 1 ? "One video has" : `${abandoned} videos have`} been with Instagram for more than ${REEL_ABANDONED_AFTER_DAYS} days. Instagram only holds a video it has been given for about a day, so ${abandoned === 1 ? "it is" : "they are"} not still being prepared — ${abandoned === 1 ? "it" : "they"} will never arrive on ${abandoned === 1 ? "its" : "their"} own. Open the Studio, go to "Посты в очереди", and check Instagram first: if the video is already there set the post to «Опубликован», and only if it is not, put a different video on the post and set it back to «Одобрен».`
             : `${queue.waitingOnInstagram === 1 ? "One video has" : `${queue.waitingOnInstagram} videos have`} been with Instagram for more than a day, still being prepared. The site asks again every fifteen minutes, so there is nothing to do yet — a day is far longer than it should take, and after ${REEL_ABANDONED_AFTER_DAYS} days this will say so and ask you to replace it.`,
       });
     }
@@ -1875,8 +1875,8 @@ export function evaluateHealth(facts: HealthFacts): HealthCheck[] {
       name: "Studio settings",
       status: queue.settingsDocumentExists ? "ok" : "fail",
       detail: queue.settingsDocumentExists
-        ? "The site is reading the Site Settings you edit in the Studio."
-        : "The Site Settings document the Studio edits is missing, so the site has fallen back to an older copy and anything saved there may reach nobody.",
+        ? `The site is reading "Настройки сайта", the settings you edit in the Studio.`
+        : `The settings document the Studio opens as "Настройки сайта" is missing, so the site has fallen back to an older copy and anything saved there may reach nobody.`,
     });
   }
 

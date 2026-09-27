@@ -8,8 +8,9 @@ import { dirname, join, relative, resolve } from "node:path";
 import { evaluate, parse } from "groq-js";
 import { looksLikeAToken } from "./studioMember";
 import {
+  agrees,
   buildDashboard,
-  channelInEnglish,
+  channelInRussian,
   count,
   daysSince,
   howLongAgo,
@@ -347,7 +348,7 @@ test("an empty shop answers with zeroes rather than nulls the page cannot print"
   assert.equal(money(answer.revenue7), "£0");
 });
 
-/* ─── Saying it in English ─── */
+/* ─── Saying it in Russian ─── */
 
 test("money keeps the pence", () => {
   assert.equal(money(0), "£0");
@@ -360,22 +361,40 @@ test("money keeps the pence", () => {
 });
 
 test("counting says one thing or several things", () => {
-  assert.equal(count(1, "order"), "1 order");
-  assert.equal(count(3, "order"), "3 orders");
-  assert.equal(count(0, "order"), "0 orders");
-  assert.equal(count(1, "person", "people"), "1 person");
-  assert.equal(count(4, "person", "people"), "4 people");
+  const orders = (n: number) => count(n, "заказ", "заказа", "заказов");
+  assert.equal(orders(1), "1 заказ");
+  assert.equal(orders(3), "3 заказа");
+  assert.equal(orders(0), "0 заказов");
+  assert.equal(orders(5), "5 заказов");
+  // The two a rule of thumb gets wrong: 11 to 14 end in 1 to 4 and still take
+  // the "many" form, and 21 is plainly several and still takes the "one" form.
+  assert.equal(orders(11), "11 заказов");
+  assert.equal(orders(12), "12 заказов");
+  assert.equal(orders(21), "21 заказ");
+  assert.equal(orders(22), "22 заказа");
+  assert.equal(count(1, "человек", "человека", "человек"), "1 человек");
+  assert.equal(count(4, "человек", "человека", "человек"), "4 человека");
+  assert.equal(count(512, "человек", "человека", "человек"), "512 человек");
+
+  // The verb follows the numeral's form, not the size of the crowd.
+  assert.equal(agrees(1, "ждёт", "ждут"), "ждёт");
+  assert.equal(agrees(21, "ждёт", "ждут"), "ждёт");
+  assert.equal(agrees(11, "ждёт", "ждут"), "ждут");
+  assert.equal(agrees(3, "ждёт", "ждут"), "ждут");
 });
 
 test("how long ago is written the way somebody would say it", () => {
   const ago = (ms: number) => howLongAgo(new Date(NOW.getTime() - ms).toISOString(), NOW);
-  assert.equal(ago(30_000), "just now");
-  assert.equal(ago(20 * 60_000), "20 minutes ago");
-  assert.equal(ago(60 * 60_000), "an hour ago");
-  assert.equal(ago(5 * 60 * 60_000), "5 hours ago");
-  assert.equal(ago(DAY_MS), "yesterday", "“1 days ago” is how a page looks unfinished.");
-  assert.equal(ago(4 * DAY_MS), "4 days ago");
-  assert.equal(ago(60 * DAY_MS), "2 months ago");
+  assert.equal(ago(30_000), "только что");
+  assert.equal(ago(20 * 60_000), "20 минут назад");
+  assert.equal(ago(21 * 60_000), "21 минуту назад");
+  assert.equal(ago(60 * 60_000), "час назад");
+  assert.equal(ago(2 * 60 * 60_000), "2 часа назад");
+  assert.equal(ago(5 * 60 * 60_000), "5 часов назад");
+  assert.equal(ago(DAY_MS), "вчера", "“1 дней назад” is how a page looks unfinished.");
+  assert.equal(ago(4 * DAY_MS), "4 дня назад");
+  assert.equal(ago(5 * DAY_MS), "5 дней назад");
+  assert.equal(ago(60 * DAY_MS), "2 месяца назад");
   assert.equal(howLongAgo(null, NOW), null);
   assert.equal(howLongAgo("not a date", NOW), null, "A broken date must not print as NaN days ago.");
 });
@@ -387,21 +406,21 @@ test("days since counts whole days, so this morning is not yet late", () => {
 });
 
 test("Google's channel names are turned into something Kristina would say", () => {
-  assert.equal(channelInEnglish("Organic Search"), "Found us on Google");
-  assert.equal(channelInEnglish("Organic Social"), "Came from Instagram or Facebook");
-  assert.equal(channelInEnglish("Direct"), "Typed the address in");
-  // Rendered in a browser, "Cross-network" sat directly under "Found us on
-  // Google" — Google's own word for traffic from a campaign that ran in
-  // several places, on a page whose whole promise is that it contains no
-  // analytics language. The shop runs Google Ads and a Meta feed, so it is a
-  // row she will see.
-  assert.equal(channelInEnglish("Cross-network"), "Came from one of your ads");
-  assert.equal(channelInEnglish("Paid Other"), "Came from an ad");
-  assert.equal(channelInEnglish("Display"), "Saw a banner ad");
+  assert.equal(channelInRussian("Organic Search"), "Нашли вас в Google");
+  assert.equal(channelInRussian("Organic Social"), "Пришли из Instagram или Facebook");
+  assert.equal(channelInRussian("Direct"), "Набрали адрес сами");
+  // Rendered in a browser, "Cross-network" sat directly under the plain
+  // version of "Organic Search" — Google's own word for traffic from a
+  // campaign that ran in several places, on a page whose whole promise is that
+  // it contains no analytics language. The shop runs Google Ads and a Meta
+  // feed, so it is a row she will see.
+  assert.equal(channelInRussian("Cross-network"), "Пришли по вашей рекламе");
+  assert.equal(channelInRussian("Paid Other"), "Пришли по рекламе");
+  assert.equal(channelInRussian("Display"), "Увидели рекламный баннер");
   assert.equal(
-    channelInEnglish("Some Group Google Adds In 2027"),
+    channelInRussian("Some Group Google Adds In 2027"),
     "Some Group Google Adds In 2027",
-    "A name we have no plain-English version of is still passed through — inventing one risks saying something untrue."
+    "A name we have no plain version of is still passed through — inventing one risks saying something untrue."
   );
 });
 
@@ -471,8 +490,8 @@ function allLines(over: Partial<StatsRaw> = {}, traffic: Traffic = NO_GA) {
 test("a person waiting is the loudest thing on the page", () => {
   const page = buildDashboard(raw({ bookingsWaiting: 2, oldestBookingAt: daysFromNow(-3) }), NO_GA, NOW);
 
-  assert.match(page.headline, /2 people/);
-  assert.match(page.headline, /3 days/);
+  assert.match(page.headline, /2 человека/);
+  assert.match(page.headline, /3 дня/);
 
   const line = page.sections[0].lines.find((l) => l.key === "bookings-waiting");
   assert.ok(line);
@@ -485,16 +504,22 @@ test("nobody waiting is said out loud rather than left blank", () => {
   assert.ok(line);
   assert.equal(line.tone, "good");
   assert.equal(line.action, undefined, "There is nothing to do, so there is no instruction.");
-  assert.match(line.value, /Nobody/);
+  assert.match(line.value, /Никто/);
 });
 
 test("a quiet week is explained without the word conversion", () => {
   const page = buildDashboard(raw(), { state: "connected", visitors: 131, views: 402, sources: [] }, NOW);
 
-  assert.match(page.headline, /131 people visited this week and nobody has bought yet/);
+  // 131 takes the singular in Russian — "зашёл 131 человек" — which is the
+  // agreement a page built on "n === 1" gets wrong.
+  assert.match(page.headline, /На этой неделе на сайт зашёл 131 человек, но пока никто ничего не купил/);
 
   const everything = JSON.stringify(page).toLowerCase();
-  for (const jargon of ["conversion", "bounce", "ctr", "funnel", "engagement rate", "sessions", "roas", "aov"]) {
+  for (const jargon of [
+    "conversion", "bounce", "ctr", "funnel", "engagement rate", "sessions", "roas", "aov",
+    // The same analytics language as it is said in Russian.
+    "конверси", "показатель отказов", "воронк", "вовлечённост", "сеанс", "сесси", "трафик",
+  ]) {
     assert.equal(everything.includes(jargon), false, `"${jargon}" is analytics language. Kristina does not read analytics.`);
   }
 });
@@ -502,7 +527,7 @@ test("a quiet week is explained without the word conversion", () => {
 test("no carts at all is turned into the diagnosis it actually is", () => {
   const line = allLines({ orders7: 0, cartsLeft7: 0 }).find((l) => l.key === "carts-left");
   assert.ok(line, "At a shop with no orders, an empty basket list is the most useful fact on the page.");
-  assert.match(line.meaning, /leaving earlier/);
+  assert.match(line.meaning, /уходят раньше/);
 
   const busy = allLines({ orders7: 3, revenue7: 20000, cartsLeft7: 0 }).find((l) => l.key === "carts-left");
   assert.equal(busy, undefined, "At a shop that is selling, the line has nothing to say and does not appear.");
@@ -515,22 +540,22 @@ test("the two lines that change what they say without changing their number", ()
   // on the page.
   const small = allLines({ products: 4 }).find((l) => l.key === "products");
   const grown = allLines({ products: 16 }).find((l) => l.key === "products");
-  assert.match(small?.meaning ?? "", /more things to buy/i);
+  assert.match(small?.meaning ?? "", /больше товаров/i);
   assert.equal(
-    /more things to buy/i.test(grown?.meaning ?? ""),
+    /больше товаров/i.test(grown?.meaning ?? ""),
     false,
     "Sixteen products is not a small shop, and a page that keeps saying so is a page she stops reading."
   );
 
   const joined = allLines({ subscribers: 40, subscribers7: 3 }).find((l) => l.key === "subscribers");
   const quiet = allLines({ subscribers: 40, subscribers7: 0 }).find((l) => l.key === "subscribers");
-  assert.match(joined?.meaning ?? "", /3 new ones this week/, "Growth this week is the reason to look at this line at all.");
-  assert.match(quiet?.meaning ?? "", /Nobody new joined this week/);
+  assert.match(joined?.meaning ?? "", /3 новых за эту неделю/, "Growth this week is the reason to look at this line at all.");
+  assert.match(quiet?.meaning ?? "", /За эту неделю новых подписчиков нет/);
   // It used to promise "people you can write to directly, for free". Nothing
   // in this project can write to them, and every address is sealed.
   for (const line of [joined, quiet]) {
     assert.equal(
-      /write to (them |)directly/.test(line?.meaning ?? ""),
+      /write to (them |)directly|напрямую|бесплатно/.test(line?.meaning ?? ""),
       false,
       "The page is promising a mailing tool the shop does not have."
     );
@@ -557,9 +582,9 @@ test("the waiting list becomes an answer to what to make next", () => {
   }).find((l) => l.key === "stock-wanted");
 
   assert.ok(line);
-  assert.equal(line.value, "3 people");
+  assert.equal(line.value, "3 человека");
   assert.match(line.meaning, /Silk Slip \(2\)/);
-  assert.match(line.action ?? "", /make next/i);
+  assert.match(line.action ?? "", /что шить дальше/i);
 
   // Three, not one: the second and third are what she makes after the first,
   // and a line that names only the winner is a line she has to ask twice.
@@ -575,7 +600,7 @@ test("the waiting list becomes an answer to what to make next", () => {
 
   assert.match(
     three?.meaning ?? "",
-    /Most wanted: Silk Slip \(2\), Kimono \(1\), Lace Bralette \(1\)\./,
+    /Чаще всего ждут: Silk Slip \(2\), Kimono \(1\), Lace Bralette \(1\)\./,
     "The top three, biggest first and then alphabetical, with nothing left over to mention."
   );
 });
@@ -594,11 +619,11 @@ test("the waiting list says how many people asked, not how many rows came back",
   );
 
   assert.ok(line);
-  assert.equal(line.value, "512 people", "The count comes from the database, not from the list.");
+  assert.equal(line.value, "512 человек", "The count comes from the database, not from the list.");
   assert.match(line.meaning, /Silk Slip \(2\)/);
   assert.match(
     line.meaning,
-    /and \d+ other things/,
+    /и ещё 298 товаров\./,
     "Everything past the top three is counted out loud rather than quietly dropped."
   );
 });
@@ -760,22 +785,48 @@ test("every line on the page says what its number means", () => {
 
 /**
  * Every line is a number followed by a phrase, which is exactly how a page
- * ends up saying "2 products has no photograph". Kristina's first language is
- * English and she is the only person who reads this; a page that cannot
- * conjugate reads as a page nobody checked, and she stops trusting the
- * numbers on it too.
+ * ends up saying "2 товара распродан". Russian makes it a harder job than
+ * English did: three forms of the noun, and a verb that agrees with the form
+ * of the numeral rather than with how many things there are — 21 takes the
+ * singular, 11 the plural. A page that cannot conjugate reads as a page nobody
+ * checked, and she stops trusting the numbers on it too.
  */
+
+/** The verbs and short participles this page puts after a count, one and several. */
+const SINGULAR_WORDS = [
+  "ждёт", "написан", "показан", "оставил", "получил", "должен", "должна", "отправлена", "оплачен",
+  "дошёл", "заплатил", "распродан", "вышел", "подписан", "виден", "назначена", "вернулся", "застрял",
+  "попросил",
+];
+const PLURAL_WORDS = [
+  "ждут", "написаны", "показаны", "оставили", "получили", "должны", "отправлены", "оплачены",
+  "дошли", "заплатили", "распроданы", "вышли", "подписаны", "видны", "назначены", "вернулись",
+  "застряли", "попросили",
+];
+
+/** `word` standing on its own — "распродан" is not found inside "распроданы". */
+function hasWord(text: string, word: string): boolean {
+  return new RegExp(`(?<![а-яё])${word}(?![а-яё])`, "iu").test(text);
+}
+
 test("the wording agrees with the number in front of it", () => {
+  // Every line that puts a verb after its number, so that every one of them is
+  // checked both ways below.
   const busy: Partial<StatsRaw> = {
     bookingsWaiting: 3,
     oldestBookingAt: daysFromNow(-2),
     postsWaitingApproval: 2,
+    postsFailed: 2,
+    postsStuck: 3,
+    postsOverdue: 2,
+    postsPublished30: 3,
     reviewsWaiting: 2,
     reviewsLive: 4,
     giftCardsLate: 2,
     ordersToMake: 3,
     productsNoPhoto: 2,
     productsNoDescription: 4,
+    productsNotInAds: 2,
     productsSoldOut: 3,
     subscribers: 9,
     fittingsThisWeek: 2,
@@ -784,27 +835,24 @@ test("the wording agrees with the number in front of it", () => {
     cartsLeftValue7: 9000,
     cartsRecovered7: 2,
     stockWanted: [{ product: "Silk Slip" }, { product: "Silk Slip" }],
+    stockWantedTotal: 2,
   };
 
   // Only the value-and-label pairs, which are the "<number> <phrase>" shape
-  // this test is about. The headline is prose and is checked on its own below,
-  // where "the oldest has waited two days" is correct and a blunt search for
-  // " has " is not.
-  const plural = buildDashboard(raw(busy), NO_GA, NOW);
-  const pluralText = plural.sections
-    .flatMap((s) => s.lines)
-    .filter((l) => /^\d+\s/.test(l.value))
-    .map((l) => `${l.value} ${l.label}`)
-    .join(" | ");
+  // this test is about. The headline is prose and is checked on its own below.
+  const numbered = (page: ReturnType<typeof buildDashboard>) =>
+    page.sections
+      .flatMap((s) => s.lines)
+      .filter((l) => /^\d+\s/.test(l.value))
+      .map((l) => `${l.value} ${l.label}`);
 
-  for (const wrong of [" has ", " is ", " was ", "of thems"]) {
-    assert.equal(
-      pluralText.includes(wrong),
-      false,
-      `A plural count is followed by a singular verb. The line reads: ${pluralText
-        .split(" | ")
-        .find((line) => line.includes(wrong))}`
-    );
+  const plural = buildDashboard(raw(busy), NO_GA, NOW);
+  const pluralLines = numbered(plural);
+  assert.ok(pluralLines.length >= 15, `Only ${pluralLines.length} counted lines — the busy page is not busy.`);
+  for (const line of pluralLines) {
+    for (const word of SINGULAR_WORDS) {
+      assert.equal(hasWord(line, word), false, `A plural count is followed by a singular verb: ${line}`);
+    }
   }
 
   // And the singular still reads as a singular, so the fix is agreement
@@ -820,16 +868,39 @@ test("the wording agrees with the number in front of it", () => {
   one.cartsLeftValue7 = 9000;
 
   const singular = buildDashboard(raw(one), NO_GA, NOW);
-  const singularText = singular.sections
-    .flatMap((s) => s.lines)
-    .filter((l) => /^\d+\s/.test(l.value))
-    .map((l) => `${l.value} ${l.label}`)
-    .join(" | ");
+  const singularLines = numbered(singular);
+  for (const line of singularLines) {
+    for (const word of PLURAL_WORDS) {
+      assert.equal(hasWord(line, word), false, `A single thing is described in the plural: ${line}`);
+    }
+  }
+  assert.match(singularLines.join(" | "), /1 человек оставил заявку на примерку и ещё не получил ответа/);
+  assert.match(plural.headline, /3 человека оставили заявки на примерку и ждут вашего ответа/);
 
-  assert.equal(singularText.includes(" are "), false, `A single thing is described in the plural: ${singularText}`);
-  assert.equal(singularText.includes(" have "), false, `A single thing is described in the plural: ${singularText}`);
-  assert.match(singularText, /1 person asked for a fitting and has not heard back/);
-  assert.match(plural.headline, /3 people asked for a fitting and are waiting/);
+  // The trap English never had: 21 is plainly several and still takes the
+  // singular, while 11 and 12 take the plural. A page built on n === 1 gets
+  // both wrong.
+  const lineFor = (over: Partial<StatsRaw>, key: string) => {
+    const line = allLines(over).find((l) => l.key === key);
+    return line ? `${line.value} ${line.label}` : "";
+  };
+  assert.equal(
+    lineFor({ bookingsWaiting: 21, oldestBookingAt: daysFromNow(-2) }, "bookings-waiting"),
+    "21 человек оставил заявку на примерку и ещё не получил ответа"
+  );
+  assert.equal(
+    lineFor({ bookingsWaiting: 11, oldestBookingAt: daysFromNow(-2) }, "bookings-waiting"),
+    "11 человек оставили заявки на примерку и ещё не получили ответа"
+  );
+  assert.equal(lineFor({ productsSoldOut: 21 }, "sold-out"), "21 товар распродан");
+  assert.equal(lineFor({ productsSoldOut: 12 }, "sold-out"), "12 товаров распроданы");
+  assert.equal(lineFor({ postsWaitingApproval: 22 }, "posts-waiting"), "22 поста написаны и ждут вашего одобрения");
+  // …while "it" or "them" still counts the posts rather than the numeral.
+  assert.match(
+    allLines({ postsFailed: 21 }).find((l) => l.key === "posts-failed")?.meaning ?? "",
+    /Instagram не принял их,/,
+    "Twenty-one refused posts are «их», whatever the verb in front of them does."
+  );
 });
 
 /**
@@ -846,22 +917,22 @@ test("the sentence under the number agrees with it as well", () => {
     allLines(over).find((line) => line.key === key)?.meaning ?? "";
 
   const alone = { ordersToMake: 1, productsNoPhoto: 1, postsFailed: 1, postsStuck: 1, productsNotInAds: 1, stockWanted: [{ product: "Silk Slip" }], stockWantedTotal: 1 };
-  assert.match(meaningOf(alone, "orders-to-make"), /^This one is still marked Paid/);
-  assert.match(meaningOf(alone, "no-photo"), /It will not sell at all\./);
-  assert.match(meaningOf(alone, "posts-failed"), /Instagram would not take it,/);
-  assert.match(meaningOf(alone, "posts-stuck"), /sending it and never finished, so it is neither/);
-  assert.match(meaningOf(alone, "not-in-ads"), /Everything else about it is fine\./);
-  assert.match(meaningOf(alone, "stock-wanted"), /This person has already decided to buy\./);
-  assert.match(meaningOf({ cartsLeft7: 1, cartsLeftValue7: 9000 }, "carts-left"), /That one has not come back\./);
+  assert.match(meaningOf(alone, "orders-to-make"), /^У этого заказа всё ещё статус “Оплачен”/);
+  assert.match(meaningOf(alone, "no-photo"), /Этот товар не продастся вовсе\./);
+  assert.match(meaningOf(alone, "posts-failed"), /Instagram не принял его,/);
+  assert.match(meaningOf(alone, "posts-stuck"), /начал его отправлять и не закончил, так что пост не вышел/);
+  assert.match(meaningOf(alone, "not-in-ads"), /Всё остальное в этом товаре в порядке\./);
+  assert.match(meaningOf(alone, "stock-wanted"), /Этот человек уже решил купить\./);
+  assert.match(meaningOf({ cartsLeft7: 1, cartsLeftValue7: 9000 }, "carts-left"), /Этот покупатель пока не вернулся\./);
 
   const several = { ordersToMake: 3, productsNoPhoto: 2, postsFailed: 2, postsStuck: 2, productsNotInAds: 4, stockWanted: [{ product: "Silk Slip" }, { product: "Silk Slip" }], stockWantedTotal: 2 };
-  assert.match(meaningOf(several, "orders-to-make"), /^These are still marked Paid/);
-  assert.match(meaningOf(several, "no-photo"), /They will not sell at all\./);
-  assert.match(meaningOf(several, "posts-failed"), /Instagram would not take them,/);
-  assert.match(meaningOf(several, "posts-stuck"), /sending them and never finished, so they are neither/);
-  assert.match(meaningOf(several, "not-in-ads"), /Everything else about them is fine\./);
-  assert.match(meaningOf(several, "stock-wanted"), /These people have already decided to buy\./);
-  assert.match(meaningOf({ cartsLeft7: 4, cartsLeftValue7: 9000 }, "carts-left"), /None of them came back yet\./);
+  assert.match(meaningOf(several, "orders-to-make"), /^У этих заказов всё ещё статус “Оплачен”/);
+  assert.match(meaningOf(several, "no-photo"), /Эти товары не продадутся вовсе\./);
+  assert.match(meaningOf(several, "posts-failed"), /Instagram не принял их,/);
+  assert.match(meaningOf(several, "posts-stuck"), /начал их отправлять и не закончил, так что посты не вышли/);
+  assert.match(meaningOf(several, "not-in-ads"), /Всё остальное в этих товарах в порядке\./);
+  assert.match(meaningOf(several, "stock-wanted"), /Эти люди уже решили купить\./);
+  assert.match(meaningOf({ cartsLeft7: 4, cartsLeftValue7: 9000 }, "carts-left"), /Пока никто из них не вернулся\./);
 });
 
 /**
@@ -879,14 +950,14 @@ test("a refused post is not confused with one waiting for her yes", () => {
   const stuck = lines.find((l) => l.key === "posts-stuck");
 
   assert.ok(waiting && failed && stuck, "All three situations have a line of their own.");
-  assert.match(waiting.action ?? "", /press Approve/);
+  assert.match(waiting.action ?? "", /нажмите “Одобрить”/);
   assert.equal(
-    /press Approve/.test(failed.action ?? ""),
+    /“Одобрить”/.test(failed.action ?? ""),
     false,
     "Approving a post Instagram has already refused does nothing at all."
   );
-  assert.match(failed.action ?? "", /What Went Wrong/, "It is the field on the document that says why.");
-  assert.match(stuck.meaning, /never finished/);
+  assert.match(failed.action ?? "", /“Что пошло не так”/, "It is the field on the document that says why.");
+  assert.match(stuck.meaning, /не закончил/);
   assert.equal(failed.tone, "needs-you");
   assert.equal(stuck.tone, "needs-you");
 });
@@ -1246,7 +1317,7 @@ test("a reply that is not a dashboard is spotted before it is rendered", () => {
   );
   assert.match(
     panel,
-    /shape this page did not understand/,
+    /в виде, который эта страница не поняла\. Попробуйте через минуту/,
     "The unexpected-shape failure has lost the sentence that says what to do about it."
   );
 });

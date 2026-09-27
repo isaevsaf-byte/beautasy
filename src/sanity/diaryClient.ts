@@ -30,7 +30,7 @@ export async function askDiary(token: string | null, body: Record<string, unknow
     return {
       ok: false,
       status: 401,
-      data: { error: "Could not find your Studio session. Sign out and back in to the Studio, then try again." },
+      data: { error: "Не удалось найти вашу сессию Studio. Выйдите из Studio, войдите снова и попробуйте ещё раз." },
     };
   }
   try {
@@ -42,7 +42,7 @@ export async function askDiary(token: string | null, body: Record<string, unknow
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     return { ok: res.ok, status: res.status, data };
   } catch {
-    return { ok: false, status: 0, data: { error: "Could not reach the site. Check you are online, then try again." } };
+    return { ok: false, status: 0, data: { error: "Не удалось связаться с сайтом. Проверьте интернет и попробуйте ещё раз." } };
   }
 }
 
@@ -61,7 +61,7 @@ export function useFreeTimes(token: string | null, attempt: number): FreeTimes {
       setTimes(
         reply.ok
           ? { state: "ready", enabled: Boolean(reply.data.enabled), days: (reply.data.days as SlotDay[]) ?? [] }
-          : { state: "failed", message: String(reply.data.error ?? "Could not read the diary.") }
+          : { state: "failed", message: String(reply.data.error ?? "Не удалось прочитать дневник записей.") }
       );
     });
     return () => {

@@ -3,6 +3,7 @@
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
 import { visionTool } from "@sanity/vision";
+import { ruKZLocale } from "@sanity/locale-ru-kz";
 import { schemaTypes } from "./src/sanity/schemaTypes";
 import { notifyCustomerAction } from "./src/sanity/notifyAction";
 import { approvePostAction, publishNowAction } from "./src/sanity/socialActions";
@@ -30,7 +31,13 @@ export default defineConfig({
   // user "Could not find your Studio session". Found on 27 September 2026.
   auth: { loginMethod: "token" },
 
-  plugins: [structureTool({ structure }), visionTool()],
+  // Kristina and Safar read Russian, so the Studio speaks it: Sanity's own
+  // buttons and menus come from the locale plugin, and everything this project
+  // wrote — lists, fields, the Dashboard — is written in Russian in the first
+  // place. What reaches customers (the site, emails, Instagram) stays English.
+  // The plugin's locale is listed last, and the Studio opens in the last
+  // locale unless someone has picked another from the menu under their avatar.
+  plugins: [structureTool({ structure }), visionTool(), ruKZLocale()],
 
   // "Dashboard" goes in front of Structure so that opening the Studio answers
   // "how is the shop doing" before it asks "which document did you want". The

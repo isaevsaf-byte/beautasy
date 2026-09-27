@@ -1,49 +1,68 @@
 import { defineField, defineType } from "sanity";
 
+// The Studio's words for each status. The values are what is stored, and what
+// the site and the emails read, so only the titles are ever translated. The
+// part before " — " is also the short word the list preview shows.
+const STATUS_OPTIONS = [
+  { title: "Новая — нужен ответ", value: "new" },
+  { title: "Подтверждена", value: "confirmed" },
+  { title: "Отказано — время освободится", value: "declined" },
+  { title: "Клиент отменил — время освободится", value: "cancelled" },
+  { title: "Выполнена — клиент получит благодарность и просьбу об отзыве", value: "completed" },
+];
+
+/** A status as the list preview names it. A value with no title shows as itself, never blank. */
+function statusWord(value: string): string {
+  const title = STATUS_OPTIONS.find((option) => option.value === value)?.title;
+  return title ? title.split(" — ")[0] : value;
+}
+
 export const atelierBooking = defineType({
   name: "atelierBooking",
-  title: "Atelier Booking",
+  title: "Запись в ателье",
   type: "document",
   description:
-    "A request for an alteration or fitting. Change the status to confirm or decline it — the customer is emailed automatically. To give it a time, move it or book it again, use \u201cChoose a time\u201d / \u201cMove to another time\u201d / \u201cBook again\u201d in the menu at the bottom. Contact details are stored sealed; use \u201cShow contact details\u201d to read them.",
+    "Заявка на подгонку, ремонт или примерку. Смените статус, чтобы подтвердить её или отказать, — клиенту автоматически придёт письмо. Чтобы назначить время, перенести запись или записать клиента снова, нажмите «Назначить время», «Перенести на другое время» или «Записать снова» в меню внизу. Контакты хранятся в зашифрованном виде — чтобы их прочитать, нажмите «Показать контакты».",
   fields: [
     defineField({
       name: "displayName",
-      title: "First Name",
+      title: "Имя",
       type: "string",
       readOnly: true,
-      description: "The rest of the contact details are sealed — this dataset is readable by anyone.",
+      description: "Остальные контакты зашифрованы — эту базу может прочитать кто угодно.",
     }),
     defineField({
       name: "emailHint",
-      title: "Email",
+      title: "Эл. почта",
       type: "string",
       readOnly: true,
-      description: "Masked. Use \u201cShow contact details\u201d for the address itself.",
+      description: "Адрес показан не полностью. Целиком — по кнопке «Показать контакты».",
     }),
-    defineField({ name: "nameSealed", title: "Name (sealed)", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "emailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "phoneSealed", title: "Phone (sealed)", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "notesSealed", title: "Notes (sealed)", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "emailFingerprint", title: "Email Fingerprint", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "service", title: "Service", type: "string", readOnly: true }),
+    defineField({ name: "nameSealed", title: "Имя (зашифровано)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailSealed", title: "Эл. почта (зашифрована)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "phoneSealed", title: "Телефон (зашифрован)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "notesSealed", title: "Заметки (зашифрованы)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailFingerprint", title: "Отпечаток эл. почты", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "service", title: "Услуга", type: "string", readOnly: true }),
     defineField({
       name: "referredBy",
-      title: "Referred By",
+      title: "Кто порекомендовал",
       type: "string",
       readOnly: true,
-      description: "A friend sent them. Take the friend discount below off when they pay — it is not taken online.",
+      description:
+        "Клиента прислал друг. Когда клиент будет платить, вычтите скидку за друга (поле ниже) — онлайн она не списывается.",
     }),
     defineField({
       name: "referralDiscount",
-      title: "Friend Discount To Take Off (pence)",
+      title: "Вычесть скидку за друга (в пенсах)",
       type: "number",
       readOnly: true,
-      description: "e.g. 500 = £5 off this first visit. Marking the booking Done credits the friend who sent them.",
+      description:
+        "Например, 500 = скидка £5 на этот первый визит. Когда вы поставите записи статус «Выполнена», другу, который прислал клиента, начислится бонус.",
     }),
     defineField({
       name: "referrer",
-      title: "Came Through (Friend Link)",
+      title: "Пришли по ссылке друга",
       type: "reference",
       to: [{ type: "referrer" }],
       weak: true,
@@ -52,87 +71,82 @@ export const atelierBooking = defineType({
     }),
     defineField({
       name: "slotStart",
-      title: "Booked Slot",
+      title: "Забронированное время",
       type: "string",
       readOnly: true,
       description:
-        "The time held in the diary for this booking — offered to nobody else online. To change it, use \u201cMove to another time\u201d in the menu at the bottom.",
+        "Время, закреплённое за этой записью в дневнике записей, — онлайн его больше никому не предложат. Чтобы его изменить, нажмите «Перенести на другое время» в меню внизу.",
     }),
     defineField({
       name: "movedFrom",
-      title: "Moved From",
+      title: "Перенесено с",
       type: "string",
       readOnly: true,
       hidden: ({ document }) => !document?.movedFrom,
-      description: "The time this booking had before it was moved. The customer was emailed the new one.",
+      description: "Время, которое было у записи до переноса. Клиенту ушло письмо с новым временем.",
     }),
     defineField({
       name: "bookedBy",
-      title: "Booked By",
+      title: "Кто записал",
       type: "string",
       readOnly: true,
       hidden: ({ document }) => !document?.bookedBy,
-      description: "\u201cstudio\u201d when you booked it by hand, for someone who got in touch another way.",
+      description: "Здесь стоит «studio», если вы записали клиента вручную — когда он связался с вами другим способом.",
     }),
     defineField({
       name: "preferredDate",
-      title: "Preferred Date",
+      title: "Желаемая дата",
       type: "string",
       readOnly: true,
-      description: "What the customer asked for, when they could not pick a time.",
+      description: "Что попросил клиент, когда не смог выбрать время сам.",
     }),
     defineField({
       name: "releasedAt",
-      title: "Its Time Went To Someone Else",
+      title: "Её время занял другой клиент",
       type: "datetime",
       readOnly: true,
       hidden: ({ document }) => !document?.releasedAt,
       description:
-        "After this booking gave its time back, another customer booked that time — this is the record of it. To book them in again, use \u201cBook again\u201d in the menu at the bottom: it holds a free time and emails them.",
+        "После того как эта запись освободила своё время, его занял другой клиент — здесь отмечено, когда это случилось. Чтобы записать этого клиента снова, нажмите «Записать снова» в меню внизу: кнопка займёт свободное время и отправит клиенту письмо.",
     }),
     defineField({
       name: "status",
-      title: "Status",
+      title: "Статус",
       type: "string",
       // Confirming it again would put two people on one time, and email this
       // one a time somebody else now holds. "Book again" takes a free one.
       readOnly: ({ document }) => Boolean(document?.releasedAt),
       options: {
-        list: [
-          { title: "New — needs a reply", value: "new" },
-          { title: "Confirmed", value: "confirmed" },
-          { title: "Can't make it — frees the time", value: "declined" },
-          { title: "Client cancelled — frees the time", value: "cancelled" },
-          { title: "Done — thanks them and asks for a review", value: "completed" },
-        ],
+        list: STATUS_OPTIONS,
         layout: "radio",
       },
       initialValue: "new",
     }),
     defineField({
       name: "confirmedFor",
-      title: "Confirmed For",
+      title: "Подтверждено на",
       type: "string",
       // Typing a new time here held nothing: the site kept offering it, and a
       // second customer could book it. A booking with a time in the diary is
       // moved with the action, which holds the new time first.
       readOnly: ({ document }) => Boolean(document?.slotStart),
       description:
-        "For a request only, in your own words — e.g. 'Tuesday 3 March, 2pm'. Better: \u201cChoose a time\u201d in the menu at the bottom, which holds the time in the diary and sends the confirmation with a calendar invite. The confirmation also tells them you'll send the address and how to find the door — so send it once you've confirmed.",
+        "Только для заявки, своими словами — например, «Tuesday 3 March, 2pm». Это попадёт в письмо клиенту, поэтому пишите по-английски. Лучше нажмите «Назначить время» в меню внизу: кнопка закрепит время в дневнике записей и отправит подтверждение с приглашением в календарь. В подтверждении также сказано, что вы пришлёте адрес и объясните, как найти дверь, — так что после подтверждения пришлите их.",
     }),
     defineField({
       name: "replyNote",
-      title: "Note To Customer",
+      title: "Сообщение клиенту",
       type: "text",
       rows: 2,
-      description: "Optional line added to the email — e.g. an alternative time you can offer.",
+      description:
+        "По желанию: строка, которая добавится в письмо, — например, другое время, которое вы можете предложить. Клиент прочитает её в письме, поэтому пишите по-английски.",
     }),
     defineField({
       name: "notifiedStatus",
-      title: "Customer Notified Of",
+      title: "О каком статусе клиенту сообщили",
       type: "string",
       readOnly: true,
-      description: "The last status the customer was emailed about. Set automatically.",
+      description: "Последний статус, о котором клиенту ушло письмо. Заполняется автоматически.",
     }),
     /**
      * When Kristina herself was told this booking exists.
@@ -152,14 +166,14 @@ export const atelierBooking = defineType({
      */
     defineField({
       name: "kristinaNotifiedAt",
-      title: "Kristina Told At",
+      title: "Когда сообщили Кристине",
       type: "datetime",
       readOnly: true,
       hidden: true,
     }),
-    defineField({ name: "createdAt", title: "Requested At", type: "datetime", readOnly: true }),
+    defineField({ name: "createdAt", title: "Дата заявки", type: "datetime", readOnly: true }),
     // The diary's own bookkeeping — see @/lib/diary
-    defineField({ name: "movedAt", title: "Moved At", type: "datetime", readOnly: true, hidden: true }),
+    defineField({ name: "movedAt", title: "Когда перенесли", type: "datetime", readOnly: true, hidden: true }),
   ],
   preview: {
     select: {
@@ -172,20 +186,20 @@ export const atelierBooking = defineType({
       referredBy: "referredBy",
     },
     prepare({ title, service, status, date, confirmedFor, referralDiscount, referredBy }) {
-      const when = confirmedFor ? ` · ${confirmedFor}` : date ? ` · asked for ${date}` : "";
+      const when = confirmedFor ? ` · ${confirmedFor}` : date ? ` · желаемая дата: ${date}` : "";
       const friend =
         typeof referralDiscount === "number" && referralDiscount > 0
-          ? ` · £${(referralDiscount / 100).toFixed(0)} off, sent by ${referredBy ?? "a friend"}`
+          ? ` · скидка £${(referralDiscount / 100).toFixed(0)}, рекомендация от ${referredBy ?? "друга"}`
           : "";
       return {
-        title: `${title ?? "Someone"} — ${service ?? "booking"}`,
-        subtitle: `${status ?? "new"}${when}${friend}`,
+        title: `${title ?? "Без имени"} — ${service ?? "запись"}`,
+        subtitle: `${statusWord(status ?? "new")}${when}${friend}`,
       };
     },
   },
   orderings: [
     {
-      title: "Newest first",
+      title: "Сначала новые",
       name: "createdAtDesc",
       by: [{ field: "createdAt", direction: "desc" }],
     },

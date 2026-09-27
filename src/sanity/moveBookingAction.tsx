@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import type { DocumentActionComponent, DocumentActionProps } from "sanity";
 import { useRouter } from "sanity/router";
 import { canMove, releasesItsTime } from "@/lib/diary";
-import { slotLabel } from "@/lib/slots";
 import { askDiary, useDiaryToken, useFreeTimes } from "./diaryClient";
-import { SlotPicker, primaryButton, secondaryButton } from "./SlotPicker";
+import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./SlotPicker";
 
 /**
- * "Choose a time" on a request, "Move to another time" on a booked one, and
- * "Book again" on one that gave its time back.
+ * "Назначить время" (Choose a time) on a request, "Перенести на другое время"
+ * (Move to another time) on a booked one, and "Записать снова" (Book again) on
+ * one that gave its time back.
  *
  * All three used to be done by typing into "Confirmed For", or by flipping a
  * cancelled booking back to Confirmed, and neither held anything: the site
@@ -31,25 +31,28 @@ interface BookingDoc {
 /** What the dialog says about where the booking stands now. */
 function standing(doc: BookingDoc): string | null {
   if (doc.slotStart && releasesItsTime(doc.status)) {
-    return `It had ${slotLabel(doc.slotStart)}, and gave it back. Choose a time to book them in again.`;
+    return `Эта запись была на ${slotInRussian(doc.slotStart)}, но время освободилось. Выберите время, чтобы записать клиента снова.`;
   }
   if (doc.slotStart) {
-    return `Now: ${slotLabel(doc.slotStart)}. Choose the new time — the old one is freed once the new one is held.`;
+    return `Сейчас: ${slotInRussian(doc.slotStart)}. Выберите новое время — старое освободится, как только новое будет закреплено.`;
   }
   if (doc.status === "confirmed" && doc.confirmedFor) {
-    return `Agreed so far as “${doc.confirmedFor}”, which the diary does not hold. Choose it here to hold it.`;
+    // confirmedFor is what was typed or stored, often the site's English
+    // label, and it is quoted exactly as it stands.
+    return `Пока договорились так: «${doc.confirmedFor}», но в дневнике это время не закреплено. Выберите его здесь, чтобы закрепить.`;
   }
   return null;
 }
 
 /** What Kristina is told once it is done — the old booking is gone by then, and its dialog with it. */
 function doneMessage(data: Record<string, unknown>): string {
+  const when = typeof data.slot === "string" ? slotInRussian(data.slot) : String(data.label);
   const told = data.emailed
-    ? "They have been emailed the time, with a calendar invite."
+    ? "Клиенту ушло письмо с новым временем и приглашением в календарь."
     : data.hadEmail
-    ? "The email could not go right now — the site will send it in the morning."
-    : "There is no email on this booking, so let them know yourself.";
-  return `✓ Booked for ${String(data.label)}. The time is held on the site.\n\n${told}`;
+    ? "Письмо сейчас не отправилось — сайт отправит его утром."
+    : "В этой записи нет эл. почты, поэтому сообщите клиенту время сами.";
+  return `✓ Записано на ${when}. Время на сайте закреплено.\n\n${told}`;
 }
 
 function MoveDialog({ id, note, onClose }: { id: string; note: string | null; onClose: () => void }) {
@@ -84,7 +87,7 @@ function MoveDialog({ id, note, onClose }: { id: string; note: string | null; on
       return;
     }
 
-    const message = String(reply.data.error ?? "Could not change the time.");
+    const message = String(reply.data.error ?? "Не удалось изменить время.");
     if (!shown.current) {
       window.alert(message);
       return;
@@ -100,18 +103,18 @@ function MoveDialog({ id, note, onClose }: { id: string; note: string | null; on
   return (
     <div style={{ display: "grid", gap: 14, padding: 4 }}>
       {note && <p style={{ fontSize: 14, margin: 0, opacity: 0.8 }}>{note}</p>}
-      {times.state === "loading" && <p style={{ fontSize: 14, margin: 0 }}>Reading the diary…</p>}
+      {times.state === "loading" && <p style={{ fontSize: 14, margin: 0 }}>Загружаем дневник записей…</p>}
       {times.state === "failed" && (
         <p style={{ fontSize: 14, margin: 0 }}>
           {times.message}{" "}
           <button type="button" style={secondaryButton} onClick={() => setAttempt((n) => n + 1)}>
-            Try again
+            Попробовать снова
           </button>
         </p>
       )}
       {times.state === "ready" && !times.enabled && (
         <p style={{ fontSize: 14, margin: 0 }}>
-          Online booking is switched off in Fitting Times, so the diary has no times to hold.
+          Онлайн-запись выключена в разделе «Часы для примерок», поэтому в дневнике нечего закреплять.
         </p>
       )}
       {times.state === "ready" && times.enabled && (
@@ -124,7 +127,7 @@ function MoveDialog({ id, note, onClose }: { id: string; note: string | null; on
       )}
       <div>
         <button type="button" style={primaryButton(Boolean(slot) && !busy)} disabled={!slot || busy} onClick={move}>
-          {busy ? "Holding the time…" : slot ? `Book for ${slotLabel(slot)}` : "Choose a time above"}
+          {busy ? "Закрепляем время…" : slot ? `Записать на ${slotInRussian(slot)}` : "Выберите время выше"}
         </button>
       </div>
     </div>
@@ -141,7 +144,7 @@ export const moveBookingAction: DocumentActionComponent = (props: DocumentAction
   if (!doc || !canMove(doc.status)) return null;
 
   const again = releasesItsTime(doc.status);
-  const label = again ? "Book again" : doc.slotStart ? "Move to another time" : "Choose a time";
+  const label = again ? "Записать снова" : doc.slotStart ? "Перенести на другое время" : "Назначить время";
   const close = () => {
     setOpen(false);
     props.onComplete();
@@ -151,12 +154,12 @@ export const moveBookingAction: DocumentActionComponent = (props: DocumentAction
     label,
     disabled: Boolean(props.draft),
     title: props.draft
-      ? "Publish your changes first, then give it a time."
+      ? "Сначала опубликуйте изменения, потом назначьте время."
       : again
-      ? "Holds a free time in the diary for them and emails them the new time with a calendar invite."
+      ? "Закрепляет за клиентом свободное время в дневнике и отправляет ему письмо с новым временем и приглашением в календарь."
       : doc.slotStart
-      ? "Holds the new time in the diary, frees the old one and emails the customer the new time."
-      : "Holds a time in the diary for this request and emails the customer a confirmation with a calendar invite.",
+      ? "Закрепляет новое время в дневнике, освобождает старое и отправляет клиенту письмо с новым временем."
+      : "Закрепляет время в дневнике под эту заявку и отправляет клиенту подтверждение с приглашением в календарь.",
     onHandle: () => setOpen(true),
     dialog: open
       ? {

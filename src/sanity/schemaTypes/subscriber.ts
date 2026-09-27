@@ -1,61 +1,73 @@
 import { defineField, defineType } from "sanity";
 
+// The Studio's words for where someone signed up. The values are what is
+// stored, so only the titles are ever translated.
+const SOURCE_OPTIONS = [
+  { title: "Низ страницы", value: "footer" },
+  { title: "Оформление заказа", value: "checkout" },
+  { title: "Другое", value: "other" },
+];
+
 export const subscriber = defineType({
   name: "subscriber",
-  title: "Newsletter Subscriber",
+  title: "Подписчик рассылки",
   type: "document",
   fields: [
     defineField({
       name: "emailHint",
-      title: "Email",
+      title: "Эл. почта",
       type: "string",
       readOnly: true,
-      description: "Masked. This dataset is readable by anyone, so the address itself is sealed.",
+      description: "Адрес показан не полностью: эту базу может прочитать кто угодно, поэтому сам адрес зашифрован.",
     }),
-    defineField({ name: "emailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "emailFingerprint", title: "Email Fingerprint", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailSealed", title: "Эл. почта (зашифрована)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailFingerprint", title: "Отпечаток эл. почты", type: "string", readOnly: true, hidden: true }),
     defineField({
       name: "source",
-      title: "Signed Up From",
+      title: "Где подписались",
       type: "string",
-      description: "Where on the site they subscribed.",
+      description: "В каком месте сайта человек подписался.",
       options: {
-        list: [
-          { title: "Footer", value: "footer" },
-          { title: "Checkout", value: "checkout" },
-          { title: "Other", value: "other" },
-        ],
+        list: SOURCE_OPTIONS,
       },
       initialValue: "footer",
     }),
     defineField({
       name: "welcomeCodeSealed",
-      title: "Welcome Code (sealed)",
+      title: "Приветственный код (зашифрован)",
       type: "string",
-      description: "The single-use code emailed to them. Sealed: a readable one-off discount is a readable discount.",
+      description:
+        "Одноразовый код, который пришёл подписчику в письме. Зашифрован: одноразовая скидка, которую можно прочитать, достанется любому, кто её прочитал.",
       readOnly: true,
       hidden: true,
     }),
     defineField({
       name: "unsubscribed",
-      title: "Unsubscribed",
+      title: "Отписался",
       type: "boolean",
       initialValue: false,
-      description: "Set when someone asks to be removed — never email these.",
+      description: "Ставится, когда человек просит исключить его из рассылки, — таким никогда не пишите.",
     }),
     defineField({
       name: "createdAt",
-      title: "Subscribed At",
+      title: "Дата подписки",
       type: "datetime",
       readOnly: true,
     }),
   ],
   preview: {
-    select: { title: "emailHint", subtitle: "source" },
+    select: { title: "emailHint", source: "source" },
+    prepare({ title, source }) {
+      return {
+        title,
+        // A source with no title shows as itself, never blank
+        subtitle: SOURCE_OPTIONS.find((option) => option.value === source)?.title ?? source,
+      };
+    },
   },
   orderings: [
     {
-      title: "Newest first",
+      title: "Сначала новые",
       name: "createdAtDesc",
       by: [{ field: "createdAt", direction: "desc" }],
     },

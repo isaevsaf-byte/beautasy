@@ -2,43 +2,43 @@ import { defineField, defineType } from "sanity";
 
 export const abandonedCart = defineType({
   name: "abandonedCart",
-  title: "Abandoned Cart",
+  title: "Брошенная корзина",
   type: "document",
   description:
-    "A checkout that was started but never paid. One document per Stripe session, so the reminder is only ever sent once.",
+    "Оформление заказа, которое начали, но не оплатили. Один документ на одну сессию Stripe — поэтому напоминание отправляется только один раз.",
   fields: [
     defineField({
       name: "stripeSessionId",
-      title: "Stripe Session ID",
+      title: "ID сессии Stripe",
       type: "string",
       readOnly: true,
       validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: "emailHint",
-      title: "Email",
+      title: "Эл. почта",
       type: "string",
       readOnly: true,
-      description: "Masked. This dataset is readable by anyone, so the address itself is sealed.",
+      description: "Адрес показан не полностью: эту базу может прочитать кто угодно, поэтому сам адрес зашифрован.",
     }),
-    defineField({ name: "emailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailSealed", title: "Эл. почта (зашифрована)", type: "string", readOnly: true, hidden: true }),
     defineField({
       name: "total",
-      title: "Cart Total (pence)",
+      title: "Сумма корзины (в пенсах)",
       type: "number",
       readOnly: true,
     }),
     defineField({
       name: "items",
-      title: "Items",
+      title: "Товары",
       type: "array",
       readOnly: true,
       of: [
         {
           type: "object",
           fields: [
-            defineField({ name: "name", title: "Name", type: "string" }),
-            defineField({ name: "quantity", title: "Quantity", type: "number" }),
+            defineField({ name: "name", title: "Название", type: "string" }),
+            defineField({ name: "quantity", title: "Количество", type: "number" }),
           ],
           preview: { select: { title: "name", subtitle: "quantity" } },
         },
@@ -46,21 +46,21 @@ export const abandonedCart = defineType({
     }),
     defineField({
       name: "reminderSent",
-      title: "Reminder Sent",
+      title: "Напоминание отправлено",
       type: "boolean",
       initialValue: false,
       readOnly: true,
     }),
     defineField({
       name: "recovered",
-      title: "Recovered",
+      title: "Покупатель вернулся",
       type: "boolean",
       initialValue: false,
-      description: "Tick if this customer came back and ordered.",
+      description: "Отметьте, если этот покупатель вернулся и сделал заказ.",
     }),
     defineField({
       name: "createdAt",
-      title: "Abandoned At",
+      title: "Когда брошена",
       type: "datetime",
       readOnly: true,
     }),
@@ -69,14 +69,14 @@ export const abandonedCart = defineType({
     select: { title: "emailHint", subtitle: "total" },
     prepare({ title, subtitle }) {
       return {
-        title: title || "Unknown shopper",
+        title: title || "Неизвестный покупатель",
         subtitle: typeof subtitle === "number" ? `£${(subtitle / 100).toFixed(2)}` : "",
       };
     },
   },
   orderings: [
     {
-      title: "Newest first",
+      title: "Сначала новые",
       name: "createdAtDesc",
       by: [{ field: "createdAt", direction: "desc" }],
     },

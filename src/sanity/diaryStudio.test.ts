@@ -4,7 +4,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { SlotPicker, shortDay } from "./SlotPicker";
+import { SlotPicker, shortDay, slotInRussian } from "./SlotPicker";
+import { SERVICE_TITLES } from "./ManualBookingPane";
+import { ATELIER_SERVICES } from "@/lib/atelierServices";
 import type { SlotDay } from "@/lib/slots";
 
 /**
@@ -37,22 +39,38 @@ test("the picker shows the days and the chosen day's times, with the choice mark
   const html = renderToStaticMarkup(
     createElement(SlotPicker, { days: DAYS, value: "2026-10-06T14:00", onChange: () => {} })
   );
-  assert.match(html, />Tue 6 Oct</);
-  assert.match(html, />Wed 7 Oct</);
-  assert.match(html, /aria-pressed="true"[^>]*>2:00pm</);
-  assert.match(html, /aria-pressed="false"[^>]*>9:00am</);
-  assert.doesNotMatch(html, />10:00am</, "only the chosen day's times");
+  assert.match(html, />вт, 6 окт\.</);
+  assert.match(html, />ср, 7 окт\.</);
+  assert.match(html, /aria-pressed="true"[^>]*>14:00</);
+  assert.match(html, /aria-pressed="false"[^>]*>9:00</);
+  assert.doesNotMatch(html, />10:00</, "only the chosen day's times");
 });
 
 test("with no free times the picker says where to look", () => {
   const html = renderToStaticMarkup(createElement(SlotPicker, { days: [], value: null, onChange: () => {} }));
-  assert.match(html, /No free times/);
-  assert.match(html, /Fitting Times/);
+  assert.match(html, /свободного времени нет/);
+  assert.match(html, /«Часы для примерок»/);
 });
 
 test("a short day label is the calendar day, whatever the viewer's time zone", () => {
-  assert.equal(shortDay("2026-10-25"), "Sun 25 Oct");
-  assert.equal(shortDay("2026-03-29"), "Sun 29 Mar");
+  assert.equal(shortDay("2026-10-25"), "вс, 25 окт.");
+  assert.equal(shortDay("2026-03-29"), "вс, 29 мар.");
+});
+
+test("a time reads as the atelier's clock says it, in summer and in winter", () => {
+  // A slot has no zone in it: its digits are already Southampton time. Worded
+  // through Europe/London they would move an hour every summer.
+  assert.equal(slotInRussian("2026-07-01T09:30"), "среда, 1 июля, в 9:30");
+  assert.equal(slotInRussian("2026-12-01T14:00"), "вторник, 1 декабря, в 14:00");
+});
+
+test("every service the site offers has a Russian name in Book by hand", () => {
+  for (const service of ATELIER_SERVICES) {
+    assert.ok(
+      SERVICE_TITLES[service],
+      `"${service}" has no Russian title in SERVICE_TITLES (ManualBookingPane.tsx), so Kristina would pick it in English.`
+    );
+  }
 });
 
 test("only a member of the project reaches the diary, before anything is read or written", () => {
@@ -86,18 +104,18 @@ test("the move is not offered over unpublished changes, and it asks the diary ro
   assert.match(ACTION, /disabled: Boolean\(props\.draft\)/);
   assert.match(ACTION, /askDiary\(token, \{ action: "move", id, slot \}\)/);
   assert.match(CONFIG, /return \[\.\.\.prev, moveBookingAction, notifyCustomerAction, revealContactAction\];/);
-  assert.match(STRUCTURE, /\.title\("Book by hand"\)/);
+  assert.match(STRUCTURE, /\.title\("Записать вручную"\)/);
 });
 
 test("a booked time cannot be changed by typing — Confirmed For is read-only once there is a slot", () => {
   assert.match(SCHEMA, /name: "confirmedFor",[\s\S]*?readOnly: \(\{ document \}\) => Boolean\(document\?\.slotStart\)/);
-  assert.match(SCHEMA, /\{ title: "Client cancelled — frees the time", value: "cancelled" \}/);
+  assert.match(SCHEMA, /\{ title: "Клиент отменил — время освободится", value: "cancelled" \}/);
 });
 
 test("a booking whose time went to someone else cannot be confirmed again by its status — only booked again", () => {
   assert.match(SCHEMA, /name: "status",[\s\S]*?readOnly: \(\{ document \}\) => Boolean\(document\?\.releasedAt\)/);
   assert.match(SCHEMA, /name: "releasedAt",[\s\S]*?hidden: \(\{ document \}\) => !document\?\.releasedAt/);
-  assert.match(ACTION, /const label = again \? "Book again"/);
+  assert.match(ACTION, /const label = again \? "Записать снова"/);
 });
 
 test("the booking that holds a time is not moved onto it, whatever its status", () => {
@@ -109,9 +127,9 @@ test("an answer lost halfway is reported as such, not as nothing done", () => {
   // Either way the booking was written already marked as told, so no email
   // will follow on its own: she is asked to tell them herself
   const book = ROUTE.slice(ROUTE.indexOf('if (claim === "unsure")'));
-  assert.match(book.slice(0, 400), /tell them the time yourself/);
+  assert.match(book.slice(0, 400), /сообщите клиенту время сами/);
   const move = ROUTE.slice(ROUTE.indexOf('if (moved === "unsure")'));
-  assert.match(move.slice(0, 400), /or both\. Keep the one you want, delete any other, and tell them the time yourself/);
+  assert.match(move.slice(0, 400), /или на обоих\. Оставьте нужную, остальные удалите и сообщите клиенту время сами/);
 });
 
 test("a finished move opens the new booking and says how it went, even with the old one gone", () => {

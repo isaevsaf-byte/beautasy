@@ -10,89 +10,93 @@ import { defineField, defineType } from "sanity";
  * of readable codes is a list of free £5 discounts and of rewards paid to
  * strangers. See src/lib/referrals.ts.
  */
+
+const SOURCES = [
+  { title: "После заказа", value: "order" },
+  { title: "После примерки", value: "booking" },
+  { title: "Страница /refer", value: "page" },
+];
+
 export const referrer = defineType({
   name: "referrer",
-  title: "Friend Link",
+  title: "Ссылка для друга",
   type: "document",
   description:
-    "Someone with a Beautasy Friends link (“Give £5, get £5”). Created automatically after an order, after a fitting, or from the /refer page. Untick Active and publish to stop a link earning rewards — for instance if its code has turned up on a voucher site.",
+    "Человек со ссылкой Beautasy Friends («Give £5, get £5»). Создаётся автоматически после заказа, после примерки или со страницы /refer. Чтобы ссылка перестала приносить бонусы — например, если её код всплыл на сайте с купонами, — снимите галочку «Активна» и опубликуйте.",
   fields: [
     defineField({
       name: "displayName",
-      title: "First Name",
+      title: "Имя",
       type: "string",
       readOnly: true,
-      description: "Shown to the friends they invite (“Anna sent you £5”). The rest is sealed.",
+      description: "Его видят друзья, которых приглашает этот человек («Anna sent you £5»). Всё остальное зашифровано.",
     }),
     defineField({
       name: "emailHint",
-      title: "Email",
+      title: "Эл. почта",
       type: "string",
       readOnly: true,
-      description: "Masked. Use “Show contact details” for the address itself.",
+      description: "Скрыта частично. Сам адрес — по кнопке «Показать контакты».",
     }),
-    defineField({ name: "emailFingerprint", title: "Email Fingerprint", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "emailSealed", title: "Email (sealed)", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailFingerprint", title: "Отпечаток эл. почты", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "emailSealed", title: "Эл. почта (зашифрована)", type: "string", readOnly: true, hidden: true }),
     defineField({
       name: "codeHint",
-      title: "Code Ends In",
+      title: "Код заканчивается на",
       type: "string",
       readOnly: true,
-      description: "The last four characters of their link code. The full code is only in their emails — and behind “Show contact details”.",
+      description: "Последние четыре символа кода ссылки. Полный код есть только в письмах этому человеку — и за кнопкой «Показать контакты».",
     }),
-    defineField({ name: "codeFingerprint", title: "Code Fingerprint", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "codeSealed", title: "Sealed Code", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "codeFingerprint", title: "Отпечаток кода", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "codeSealed", title: "Код (зашифрован)", type: "string", readOnly: true, hidden: true }),
     defineField({
       name: "source",
-      title: "Link Came From",
+      title: "Откуда ссылка",
       type: "string",
       readOnly: true,
       options: {
-        list: [
-          { title: "After an order", value: "order" },
-          { title: "After a fitting", value: "booking" },
-          { title: "The /refer page", value: "page" },
-        ],
+        list: SOURCES,
       },
     }),
     defineField({
       name: "active",
-      title: "Active",
+      title: "Активна",
       type: "boolean",
       initialValue: true,
-      description: "Untick to stop this link giving discounts or earning rewards. Publish to apply.",
+      description: "Снимите галочку, чтобы ссылка перестала давать скидки и приносить бонусы. Чтобы это сработало, опубликуйте.",
     }),
     defineField({
       name: "rewardsCount",
-      title: "Friends Rewarded",
+      title: "Друзей с бонусом",
       type: "number",
       readOnly: true,
       initialValue: 0,
     }),
     defineField({
       name: "creditCard",
-      title: "Credit Balance (gift card)",
+      title: "Бонусный баланс (подарочная карта)",
       type: "reference",
       to: [{ type: "giftCard" }],
       weak: true,
       readOnly: true,
-      description: "Where their £5s accumulate. Spent in the bag like any gift card, or at the atelier.",
+      description: "Сюда копятся бонусы по £5. Их тратят в корзине, как любую подарочную карту, или в ателье.",
     }),
-    defineField({ name: "createdAt", title: "Created At", type: "datetime", readOnly: true }),
-    defineField({ name: "lastRewardAt", title: "Last Reward", type: "datetime", readOnly: true }),
+    defineField({ name: "createdAt", title: "Создана", type: "datetime", readOnly: true }),
+    defineField({ name: "lastRewardAt", title: "Последний бонус", type: "datetime", readOnly: true }),
   ],
   preview: {
     select: { name: "displayName", hint: "codeHint", rewards: "rewardsCount", source: "source", active: "active" },
     prepare({ name, hint, rewards, source, active }) {
       const count = typeof rewards === "number" ? rewards : 0;
+      const from = SOURCES.find((s) => s.value === source)?.title.toLowerCase() ?? source ?? "ссылка";
       return {
-        title: `${name ?? "Someone"}${hint ? ` …${hint}` : ""}`,
-        subtitle: `${count} friend${count === 1 ? "" : "s"} rewarded · ${source ?? "link"}${active === false ? " · paused" : ""}`,
+        title: `${name ?? "Без имени"}${hint ? ` …${hint}` : ""}`,
+        subtitle: `Друзей с бонусом: ${count} · ${from}${active === false ? " · на паузе" : ""}`,
       };
     },
   },
   orderings: [
-    { title: "Most rewards", name: "rewardsDesc", by: [{ field: "rewardsCount", direction: "desc" }] },
-    { title: "Newest first", name: "createdAtDesc", by: [{ field: "createdAt", direction: "desc" }] },
+    { title: "Больше всего бонусов", name: "rewardsDesc", by: [{ field: "rewardsCount", direction: "desc" }] },
+    { title: "Сначала новые", name: "createdAtDesc", by: [{ field: "createdAt", direction: "desc" }] },
   ],
 });

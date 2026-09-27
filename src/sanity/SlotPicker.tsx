@@ -47,14 +47,50 @@ export const secondaryButton: CSSProperties = {
   cursor: "pointer",
 };
 
-/** "Tue 6 Oct" — a day chip has to be short to fit a row of them. */
+/*
+ * The Studio's words for a time, in Russian.
+ *
+ * A slot is a Southampton wall-clock minute with no zone in it,
+ * "2026-10-06T14:30". So it is read as though it were UTC and printed back in
+ * UTC, which hands the stored digits back unchanged. Printing it in
+ * Europe/London instead would move every summer appointment an hour — the
+ * zone is already in the digits. The labels the site and the emails use
+ * ("Tuesday 6 October at 2:30pm", from @/lib/slots) stay English; these are
+ * for Kristina.
+ */
+
+/** "вт, 6 окт." — a day chip has to be short to fit a row of them. */
 export function shortDay(date: string): string {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("ru-RU", {
     weekday: "short",
     day: "numeric",
     month: "short",
     timeZone: "UTC",
   });
+}
+
+/** "вторник, 6 октября" */
+export function dayInRussian(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  });
+}
+
+/** "14:30" — a Russian clock has no "pm". */
+export function timeInRussian(localMinute: string): string {
+  return new Date(`${localMinute}:00Z`).toLocaleTimeString("ru-RU", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
+}
+
+/** "вторник, 6 октября, в 14:30" — the whole appointment, for buttons and messages. */
+export function slotInRussian(localMinute: string): string {
+  return `${dayInRussian(localMinute.slice(0, 10))}, в ${timeInRussian(localMinute)}`;
 }
 
 export function SlotPicker({
@@ -73,7 +109,7 @@ export function SlotPicker({
   if (days.length === 0) {
     return (
       <p style={{ fontSize: 14, opacity: 0.75, margin: 0 }}>
-        No free times in the next few weeks. Check the hours in Fitting Times.
+        На ближайшие недели свободного времени нет. Проверьте часы в разделе «Часы для примерок».
       </p>
     );
   }
@@ -84,7 +120,7 @@ export function SlotPicker({
     <div style={{ display: "grid", gap: 12 }}>
       <div
         role="group"
-        aria-label="Day"
+        aria-label="День"
         style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}
       >
         {days.map((option, index) => (
@@ -99,7 +135,11 @@ export function SlotPicker({
           </button>
         ))}
       </div>
-      <div role="group" aria-label={`Times on ${day.label}`} style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <div
+        role="group"
+        aria-label={`Свободное время: ${dayInRussian(day.date)}`}
+        style={{ display: "flex", flexWrap: "wrap", gap: 6 }}
+      >
         {day.slots.map((slot) => (
           <button
             key={slot.start}
@@ -108,7 +148,7 @@ export function SlotPicker({
             onClick={() => onChange(slot.start)}
             style={chipStyle(slot.start === value)}
           >
-            {slot.label}
+            {timeInRussian(slot.start)}
           </button>
         ))}
       </div>

@@ -15,18 +15,18 @@ export const structure: StructureResolver = (S) =>
     .title("Beautasy")
     .items([
       S.listItem()
-        .title("Posts to approve")
+        .title("Посты на одобрение")
         .child(
           S.documentList()
-            .title("Waiting for you")
+            .title("Ждут вашего решения")
             .filter('_type == "socialPost" && status in ["draft", "failed"]')
             .defaultOrdering([{ field: "createdAt", direction: "desc" }])
         ),
       S.listItem()
-        .title("Posts going out")
+        .title("Посты в очереди")
         .child(
           S.documentList()
-            .title("Approved")
+            .title("Одобренные")
             // "publishing" belongs here too. The site sets it for the few
             // seconds a post is on its way to Instagram, so that two runs can
             // never send the same picture — but if something stops halfway the
@@ -39,7 +39,7 @@ export const structure: StructureResolver = (S) =>
         .title("Reels")
         .child(
           S.documentList()
-            .title("Video posts")
+            .title("Видеопосты")
             // Reels are their own job: a video has to be rendered and uploaded
             // before it can be approved, so they collect here rather than
             // sitting among photos that are ready to go in one click.
@@ -47,55 +47,55 @@ export const structure: StructureResolver = (S) =>
             .defaultOrdering([{ field: 'createdAt', direction: 'desc' }])
         ),
       S.listItem()
-        .title("Posted already")
+        .title("Уже опубликованы")
         .child(
           S.documentList()
-            .title("Published")
+            .title("Опубликованные")
             .filter('_type == "socialPost" && status == "published"')
             .defaultOrdering([{ field: "publishedAt", direction: "desc" }])
         ),
 
       S.divider(),
 
-      S.documentTypeListItem("product").title("Products"),
-      S.documentTypeListItem("collection").title("Collections"),
-      S.documentTypeListItem("giftBox").title("Gift Boxes"),
-      S.documentTypeListItem("giftCard").title("Gift Cards"),
-      S.documentTypeListItem("sizeGuide").title("Size Guides"),
+      S.documentTypeListItem("product").title("Товары"),
+      S.documentTypeListItem("collection").title("Коллекции"),
+      S.documentTypeListItem("giftBox").title("Подарочные боксы"),
+      S.documentTypeListItem("giftCard").title("Подарочные карты"),
+      S.documentTypeListItem("sizeGuide").title("Таблицы размеров"),
 
       S.divider(),
 
-      S.documentTypeListItem("atelierBooking").title("Atelier Bookings"),
+      S.documentTypeListItem("atelierBooking").title("Записи в ателье"),
       // For someone who got in touch on WhatsApp, by phone or on Nextdoor: the
       // time goes into the same diary the site books from, so it closes online
       S.listItem()
         .id("book-by-hand")
-        .title("Book by hand")
-        .child(S.component(ManualBookingPane).id("book-by-hand-pane").title("Book a time by hand")),
+        .title("Записать вручную")
+        .child(S.component(ManualBookingPane).id("book-by-hand-pane").title("Запись клиента вручную")),
       S.listItem()
-        .title("Fitting Times")
+        .title("Часы для примерок")
         .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
-      S.documentTypeListItem("order").title("Orders"),
-      S.documentTypeListItem("review").title("Reviews"),
+      S.documentTypeListItem("order").title("Заказы"),
+      S.documentTypeListItem("review").title("Отзывы"),
       // The pictures of finished jobs on /work: the atelier's shop window
-      S.documentTypeListItem("workPiece").title("Our Work"),
+      S.documentTypeListItem("workPiece").title("Наши работы"),
 
       S.divider(),
 
       // "Give £5, get £5": who has a link, and every friend who came through one
-      S.documentTypeListItem("referrer").title("Friend Links"),
-      S.documentTypeListItem("referral").title("Friend Rewards"),
+      S.documentTypeListItem("referrer").title("Ссылки для друзей"),
+      S.documentTypeListItem("referral").title("Бонусы за друзей"),
 
       S.divider(),
 
-      S.documentTypeListItem("subscriber").title("Subscribers"),
-      S.documentTypeListItem("stockAlert").title("Stock Alerts"),
-      S.documentTypeListItem("abandonedCart").title("Abandoned Carts"),
+      S.documentTypeListItem("subscriber").title("Подписчики"),
+      S.documentTypeListItem("stockAlert").title("Ждут поступления"),
+      S.documentTypeListItem("abandonedCart").title("Брошенные корзины"),
 
       S.divider(),
 
-      S.documentTypeListItem("legalPage").title("Info Pages"),
+      S.documentTypeListItem("legalPage").title("Инфо-страницы"),
       S.listItem()
-        .title("Site Settings")
+        .title("Настройки сайта")
         .child(S.document().schemaType("siteSettings").documentId(SITE_SETTINGS_ID)),
     ]);

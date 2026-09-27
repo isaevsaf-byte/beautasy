@@ -8,16 +8,28 @@ import { defineField, defineType } from "sanity";
  * or booking, so a retried webhook or a second run of the daily job cannot
  * reward the same friend twice.
  */
+
+const OUTCOMES = [
+  { title: "Бонус начислен", value: "rewarded" },
+  { title: "Бонус отозван — за заказ вернули деньги", value: "reversed" },
+  { title: "Ожидает — бонус начисляется", value: "pending" },
+  { title: "Без бонуса: почта владельца ссылки", value: "self" },
+  { title: "Без бонуса: не первый заказ или визит", value: "repeat" },
+  { title: "Без бонуса: достигнут лимит за год", value: "capped" },
+  { title: "Без бонуса: ссылка на паузе", value: "inactive" },
+  { title: "Без бонуса: программа выключена", value: "disabled" },
+];
+
 export const referral = defineType({
   name: "referral",
-  title: "Friend Reward",
+  title: "Бонус за друга",
   type: "document",
   description:
-    "A friend who bought or booked through someone's link, and whether that earned a reward. Created automatically — nothing here needs editing.",
+    "Друг, который купил или записался по чьей-то ссылке, и принесло ли это бонус. Создаётся автоматически — здесь ничего не нужно править.",
   fields: [
     defineField({
       name: "referrer",
-      title: "Through Whose Link",
+      title: "По чьей ссылке",
       type: "reference",
       to: [{ type: "referrer" }],
       weak: true,
@@ -25,65 +37,57 @@ export const referral = defineType({
     }),
     defineField({
       name: "kind",
-      title: "What They Did",
+      title: "Что сделал друг",
       type: "string",
       readOnly: true,
       options: {
         list: [
-          { title: "Ordered from the shop", value: "order" },
-          { title: "Came to the atelier", value: "booking" },
+          { title: "Заказ в магазине", value: "order" },
+          { title: "Визит в ателье", value: "booking" },
         ],
       },
     }),
-    defineField({ name: "orderId", title: "Order", type: "string", readOnly: true }),
-    defineField({ name: "bookingId", title: "Booking", type: "string", readOnly: true }),
-    defineField({ name: "friendName", title: "Friend", type: "string", readOnly: true }),
-    defineField({ name: "friendEmailHint", title: "Friend's Email", type: "string", readOnly: true, description: "Masked." }),
-    defineField({ name: "friendEmailFingerprint", title: "Friend Email Fingerprint", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "discount", title: "Friend's Discount (pence)", type: "number", readOnly: true }),
-    defineField({ name: "reward", title: "Reward Credited (pence)", type: "number", readOnly: true }),
+    defineField({ name: "orderId", title: "Заказ", type: "string", readOnly: true }),
+    defineField({ name: "bookingId", title: "Запись", type: "string", readOnly: true }),
+    defineField({ name: "friendName", title: "Друг", type: "string", readOnly: true }),
+    defineField({ name: "friendEmailHint", title: "Эл. почта друга", type: "string", readOnly: true, description: "Скрыта частично." }),
+    defineField({ name: "friendEmailFingerprint", title: "Отпечаток эл. почты друга", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "discount", title: "Скидка другу (в пенсах)", type: "number", readOnly: true }),
+    defineField({ name: "reward", title: "Начисленный бонус (в пенсах)", type: "number", readOnly: true }),
     defineField({
       name: "outcome",
-      title: "Outcome",
+      title: "Итог",
       type: "string",
       readOnly: true,
       options: {
-        list: [
-          { title: "Rewarded", value: "rewarded" },
-          { title: "Taken back — the order was refunded", value: "reversed" },
-          { title: "Pending — crediting", value: "pending" },
-          { title: "Not rewarded: own email", value: "self" },
-          { title: "Not rewarded: not their first time", value: "repeat" },
-          { title: "Not rewarded: yearly limit reached", value: "capped" },
-          { title: "Not rewarded: link paused", value: "inactive" },
-          { title: "Not rewarded: programme off", value: "disabled" },
-        ],
+        list: OUTCOMES,
       },
     }),
-    defineField({ name: "claim", title: "Claim", type: "string", readOnly: true, hidden: true }),
-    defineField({ name: "rewardEmailedAt", title: "Reward Email Sent", type: "datetime", readOnly: true }),
+    defineField({ name: "claim", title: "Метка обработки", type: "string", readOnly: true, hidden: true }),
+    defineField({ name: "rewardEmailedAt", title: "Письмо о бонусе отправлено", type: "datetime", readOnly: true }),
     defineField({
       name: "reversedAt",
-      title: "Reward Taken Back",
+      title: "Бонус отозван",
       type: "datetime",
       readOnly: true,
-      description: "Set when the friend's order was refunded and the credit was withdrawn.",
+      description: "Заполняется, когда за заказ друга вернули деньги и бонус списали обратно.",
     }),
-    defineField({ name: "createdAt", title: "Created At", type: "datetime", readOnly: true }),
+    defineField({ name: "createdAt", title: "Создан", type: "datetime", readOnly: true }),
   ],
   preview: {
     select: { friend: "friendName", via: "referrer.displayName", outcome: "outcome", kind: "kind", reward: "reward" },
     prepare({ friend, via, outcome, kind, reward }) {
-      const what = kind === "booking" ? "came to the atelier" : "ordered";
+      const what = kind === "booking" ? "визит в ателье" : "заказ";
       const credited =
         outcome !== "reversed" && typeof reward === "number" && reward > 0
-          ? ` · £${(reward / 100).toFixed(0)} to ${via ?? "the referrer"}`
+          ? ` · £${(reward / 100).toFixed(0)} для ${via ?? "пригласившего"}`
           : "";
+      const state = outcome ?? "pending";
       return {
-        title: `${friend ?? "A friend"} ${what} via ${via ?? "a link"}`,
-        subtitle: `${outcome ?? "pending"}${credited}`,
+        title: `${friend ?? "Друг"}: ${what} по ссылке${via ? ` от ${via}` : ""}`,
+        subtitle: `${OUTCOMES.find((o) => o.value === state)?.title ?? state}${credited}`,
       };
     },
   },
-  orderings: [{ title: "Newest first", name: "createdAtDesc", by: [{ field: "createdAt", direction: "desc" }] }],
+  orderings: [{ title: "Сначала новые", name: "createdAtDesc", by: [{ field: "createdAt", direction: "desc" }] }],
 });

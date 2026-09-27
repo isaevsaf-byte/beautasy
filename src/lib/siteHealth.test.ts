@@ -1056,7 +1056,7 @@ test("a post stuck halfway out is a failure, and the advice cannot post it twice
   assert.equal(result.status, "fail");
   assert.match(
     result.detail,
-    /Posts going out/,
+    /Посты в очереди/,
     "Name the list in the Studio where it is waiting."
   );
   assert.match(
@@ -1803,7 +1803,7 @@ test("a customer who has waited three days for an answer is worth an email", () 
   assert.equal(waiting.status, "warn");
   assert.match(waiting.detail, /One fitting request has had no answer/);
   assert.match(waiting.detail, /waiting 3 days/);
-  assert.match(waiting.detail, /Atelier Bookings/, "It has to say where to go and what to do there.");
+  assert.match(waiting.detail, /"Записи в ателье"/, "It has to say where to go and what to do there.");
 });
 
 test("a shop where the fitting requests get answered hears nothing about them", async () => {

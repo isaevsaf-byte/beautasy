@@ -1,7 +1,9 @@
 import type { DocumentActionComponent, DocumentActionProps } from "sanity";
+import { count } from "@/lib/studioStats";
 
 /**
- * "Email the customer now" — a button on orders and atelier bookings.
+ * "Написать клиенту сейчас" (Email the customer now) — a button on orders and
+ * atelier bookings.
  *
  * Publishing a change in the Studio doesn't reach the shop's server, so a
  * confirmed booking used to wait for the nightly job before the customer heard
@@ -35,16 +37,16 @@ export const notifyCustomerAction: DocumentActionComponent = (props: DocumentAct
   const due = pendingEmail(published);
 
   return {
-    label: hasUnpublishedChanges ? "Publish first, then email" : "Email the customer now",
+    label: hasUnpublishedChanges ? "Письмо — после публикации" : "Написать клиенту сейчас",
     tone: "primary",
     disabled: hasUnpublishedChanges || !due,
     title: hasUnpublishedChanges
-      ? "Publish your change first — the site reads the published version."
+      ? "Сначала опубликуйте изменения — сайт читает только опубликованную версию."
       : due
-      ? "Sends the confirmation or status email straight away."
+      ? "Сразу отправляет клиенту письмо с подтверждением или новым статусом."
       : doc?.status
-      ? "Nothing to send: the customer has already been emailed about this status."
-      : "Nothing to send yet.",
+      ? "Отправлять нечего: клиенту уже написали об этом статусе."
+      : "Пока отправлять нечего.",
     onHandle: async () => {
       try {
         const res = await fetch("/api/notify", { method: "POST" });
@@ -53,11 +55,11 @@ export const notifyCustomerAction: DocumentActionComponent = (props: DocumentAct
           (data?.bookings?.sent ?? 0) + (data?.orders?.sent ?? 0);
         window.alert(
           sent > 0
-            ? `Sent ${sent} email${sent === 1 ? "" : "s"}. The customer has been told.`
-            : "Nothing was due — the customer has already been emailed about this status."
+            ? `Отправлено ${count(sent, "письмо", "письма", "писем")}. Клиент в курсе.`
+            : "Отправлять было нечего — клиенту уже написали об этом статусе."
         );
       } catch {
-        window.alert("Could not reach the site. The nightly job will send it instead.");
+        window.alert("Не удалось связаться с сайтом. Письмо отправится само ночью.");
       }
       props.onComplete();
     },

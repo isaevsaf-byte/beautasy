@@ -5,7 +5,8 @@ import { sanityConfig } from "@/lib/sanity";
 import { studioToken } from "./studioToken";
 
 /**
- * "Show contact details" — reads back what is sealed on a document.
+ * "Показать контакты" (Show contact details) — reads back what is sealed on a
+ * document.
  *
  * Customer names, emails, phone numbers and addresses are sealed in Sanity
  * because the dataset is readable by anyone (see @/lib/pii). The Studio has no
@@ -33,16 +34,16 @@ export const revealContactAction: DocumentActionComponent = (props: DocumentActi
   const client = useClient({ apiVersion: sanityConfig.apiVersion });
 
   return {
-    label: busy ? "Reading…" : "Show contact details",
+    label: busy ? "Загрузка…" : "Показать контакты",
     disabled: busy,
-    title: "Decrypts this customer's details for you alone — nothing is written back.",
+    title: "Расшифровывает контакты клиента только для вас — в документ ничего не записывается.",
     onHandle: async () => {
       setBusy(true);
       try {
         const token = studioToken(client.config().token);
         if (!token) {
           window.alert(
-            "Could not find your Studio session. Sign out and back in to the Studio, then try again."
+            "Не удалось найти вашу сессию Studio. Выйдите из Studio, войдите снова и попробуйте ещё раз."
           );
           return;
         }
@@ -55,12 +56,12 @@ export const revealContactAction: DocumentActionComponent = (props: DocumentActi
         const data = await res.json();
 
         if (!res.ok) {
-          window.alert(data?.error ?? "Could not read the details.");
+          window.alert(data?.error ?? "Не удалось прочитать контакты.");
           return;
         }
         setFields(data.fields as Field[]);
       } catch {
-        window.alert("Could not reach the site. Try again in a moment.");
+        window.alert("Не удалось связаться с сайтом. Попробуйте ещё раз через минуту.");
       } finally {
         setBusy(false);
       }
@@ -93,7 +94,7 @@ export const revealContactAction: DocumentActionComponent = (props: DocumentActi
                 </div>
               ))}
               <div style={{ fontSize: 11, opacity: 0.55, marginTop: 4 }}>
-                Shown to you only. Nothing is written back into the document.
+                Видно только вам. В документ ничего не записывается.
               </div>
             </div>
           ),

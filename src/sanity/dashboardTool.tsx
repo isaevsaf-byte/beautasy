@@ -4,15 +4,19 @@ import type { Tool } from "sanity";
 import { sanityConfig } from "@/lib/sanity";
 import { studioToken } from "./studioToken";
 import {
-  channelInEnglish,
+  agrees,
+  channelInRussian,
   isDashboard,
+  plural,
   type Dashboard,
   type StatLine,
   type Traffic,
 } from "@/lib/studioStats";
 
 /**
- * "Dashboard" — the first thing Kristina sees when she opens the Studio.
+ * "Панель" (the Dashboard) — the first thing Kristina sees when she opens the
+ * Studio. Every word on it is Russian, as is the rest of the Studio; the words
+ * themselves are built in @/lib/studioStats, where they are tested.
  *
  * She runs the shop on her own. Before this, finding out how it was doing
  * meant three sites and two more passwords: Vercel for visitors, Google
@@ -84,7 +88,7 @@ function Line({ line }: { line: StatLine }) {
       <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6, lineHeight: 1.5 }}>{line.meaning}</div>
       {line.action && (
         <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5, opacity: 0.95 }}>
-          <strong style={{ fontWeight: 600 }}>What to do: </strong>
+          <strong style={{ fontWeight: 600 }}>Что сделать: </strong>
           {line.action}
         </div>
       )}
@@ -121,13 +125,13 @@ function Visitors({ traffic }: { traffic: Traffic }) {
   if (traffic.state === "not-connected") {
     return (
       <div style={{ ...CARD, borderStyle: "dashed" }}>
-        <div style={{ fontSize: 15, fontWeight: 600 }}>Visitor numbers are not switched on yet</div>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>Статистика посещений пока не подключена</div>
         <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6, lineHeight: 1.5 }}>
-          Once they are, this is where you will see how many people came to the shop this
-          week and where they came from — Google, Instagram, or a link somebody shared.
-          Everything else on this page works without it.
+          Когда её подключат, здесь будет видно, сколько людей зашло в магазин за неделю и
+          откуда — из Google, из Instagram или по чьей-то ссылке. Всё остальное на этой
+          странице работает и без неё.
         </div>
-        <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6 }}>Ask Safar to connect Google Analytics.</div>
+        <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6 }}>Попросите Сафара подключить Google Analytics.</div>
       </div>
     );
   }
@@ -135,10 +139,10 @@ function Visitors({ traffic }: { traffic: Traffic }) {
   if (traffic.state === "error") {
     return (
       <div style={{ ...CARD, borderStyle: "dashed" }}>
-        <div style={{ fontSize: 15, fontWeight: 600 }}>Google did not answer just now</div>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>Google сейчас не ответил</div>
         <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6, lineHeight: 1.5 }}>
-          The rest of this page is fine — only the visitor numbers are missing. If they are
-          still missing tomorrow, show Safar this line: {traffic.detail}
+          С остальной страницей всё в порядке — не хватает только статистики посещений. Если
+          завтра её всё ещё не будет, покажите Сафару эту строку: {traffic.detail}
         </div>
       </div>
     );
@@ -151,21 +155,24 @@ function Visitors({ traffic }: { traffic: Traffic }) {
       <div style={CARD}>
         <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
           <span style={{ fontSize: 22, fontWeight: 600 }}>
-            {traffic.visitors === 1 ? "1 person" : `${traffic.visitors.toLocaleString("en-GB")} people`}
+            {traffic.visitors.toLocaleString("ru-RU")}{" "}
+            {plural(traffic.visitors, "человек", "человека", "человек")}
           </span>
-          <span style={{ fontSize: 15, opacity: 0.85 }}>came to the shop in the last 7 days</span>
+          <span style={{ fontSize: 15, opacity: 0.85 }}>
+            {agrees(traffic.visitors, "зашёл", "зашли")} в магазин за последние 7 дней
+          </span>
         </div>
         <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6, lineHeight: 1.5 }}>
-          They looked at {traffic.views.toLocaleString("en-GB")} pages between them. This counts
-          only the people who accepted the cookie banner, so the true number is a little
-          higher — it will never match Vercel exactly, and that is normal.
+          Всего просмотров страниц: {traffic.views.toLocaleString("ru-RU")}. Здесь считаются
+          только те, кто принял баннер о cookie, поэтому на самом деле людей чуть больше — с
+          Vercel эти цифры никогда не совпадут точно, и это нормально.
         </div>
       </div>
 
       {traffic.sources.length > 0 && (
         <div style={CARD}>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
-            Where this week&rsquo;s visits came from
+            Откуда пришли на этой неделе
           </div>
           {traffic.sources.map((source) => {
             const share = total > 0 ? Math.round((source.visitors / total) * 100) : 0;
@@ -180,9 +187,9 @@ function Visitors({ traffic }: { traffic: Traffic }) {
                     gap: 12,
                   }}
                 >
-                  <span>{channelInEnglish(source.name)}</span>
+                  <span>{channelInRussian(source.name)}</span>
                   <span style={{ opacity: 0.7, whiteSpace: "nowrap" }}>
-                    {source.visitors.toLocaleString("en-GB")}
+                    {source.visitors.toLocaleString("ru-RU")}
                   </span>
                 </div>
                 <div style={{ height: 6, borderRadius: 3, background: "rgba(128,128,128,0.2)" }}>
@@ -205,10 +212,9 @@ function Visitors({ traffic }: { traffic: Traffic }) {
               each other — the page explains why Google disagrees with Vercel
               and used to leave this one for her to spot on her own. */}
           <div style={{ fontSize: 12, opacity: 0.6, marginTop: 10, lineHeight: 1.5 }}>
-            These will not add up to the number above: somebody who came twice, by two
-            different routes, is counted in both. The biggest bar is where your next customer
-            is most likely to come from; if one of these is nearly empty, that is the one worth
-            working on.
+            В сумме это не совпадёт с числом выше: кто заходил дважды разными путями, посчитан в
+            обоих. Самая длинная полоса — то, откуда скорее всего придёт ваш следующий клиент; а
+            если какая-то почти пустая, именно над ней и стоит поработать.
           </div>
         </div>
       )}
@@ -232,14 +238,15 @@ type Load =
  * cascading render, and the lint rule that says so is right.
  *
  * None of the three failures may reach Kristina as an English stack trace, so
- * each one is answered here in words that say whether the shop is broken.
+ * each one is answered here, in Russian, in words that say whether the shop is
+ * broken.
  */
 async function readDashboard(token: string | null, fresh: boolean): Promise<Load> {
   if (!token) {
     return {
       state: "failed",
       message:
-        "Could not find your Studio sign-in. Sign out of the Studio and back in, then open this page again.",
+        "Не удалось найти ваш вход в Studio. Выйдите из Studio, войдите снова и откройте эту страницу ещё раз.",
     };
   }
 
@@ -262,14 +269,14 @@ async function readDashboard(token: string | null, fresh: boolean): Promise<Load
         message:
           typeof said === "string" && said
             ? said
-            : "The shop's numbers could not be read just now. Try again in a minute.",
+            : "Сейчас не получилось загрузить цифры магазина. Попробуйте через минуту.",
       };
     }
     if (!isDashboard(body)) {
       return {
         state: "failed",
         message:
-          "The shop's numbers came back in a shape this page did not understand. Try again in a minute, and tell Safar if it keeps happening.",
+          "Цифры магазина пришли в виде, который эта страница не поняла. Попробуйте через минуту, а если это повторяется — скажите Сафару.",
       };
     }
     return { state: "ready", data: body };
@@ -278,7 +285,7 @@ async function readDashboard(token: string | null, fresh: boolean): Promise<Load
     // saves a worried message to Safar about the site being down.
     return {
       state: "failed",
-      message: "Could not reach the shop. Check you are online, then try again.",
+      message: "Не удалось связаться с магазином. Проверьте интернет и попробуйте ещё раз.",
     };
   }
 }
@@ -328,7 +335,7 @@ function DashboardPanel() {
     <div style={{ height: "100%", overflowY: "auto", padding: "28px 24px 64px" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>How the shop is doing</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Как дела у магазина</h1>
           <button
             type="button"
             onClick={readAgain}
@@ -345,22 +352,22 @@ function DashboardPanel() {
               opacity: load.state === "loading" ? 0.5 : 1,
             }}
           >
-            {load.state === "loading" ? "Reading…" : "Check again"}
+            {load.state === "loading" ? "Загрузка…" : "Обновить"}
           </button>
         </div>
 
         {load.state === "loading" && (
           <p style={{ fontSize: 15, opacity: 0.7, marginTop: 24 }}>
-            Reading the shop&rsquo;s numbers. This takes a few seconds.
+            Загружаем цифры магазина — это займёт несколько секунд.
           </p>
         )}
 
         {load.state === "failed" && (
           <div style={{ ...CARD, marginTop: 24, borderLeft: "3px solid #e0544e" }}>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>The numbers could not be read</div>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>Не удалось загрузить цифры</div>
             <div style={{ fontSize: 13, opacity: 0.75, marginTop: 6, lineHeight: 1.5 }}>{load.message}</div>
             <div style={{ fontSize: 13, opacity: 0.75, marginTop: 6 }}>
-              Nothing is broken in the shop itself — this page just could not fetch its numbers.
+              Сам магазин работает — просто эта страница не смогла получить свои цифры.
             </div>
           </div>
         )}
@@ -378,17 +385,19 @@ function DashboardPanel() {
               </section>
             ))}
 
-            <SectionTitle>Who is visiting</SectionTitle>
+            <SectionTitle>Кто заходит на сайт</SectionTitle>
             <Visitors traffic={load.data.traffic} />
 
             <p style={{ fontSize: 12, opacity: 0.5, marginTop: 24, lineHeight: 1.5 }}>
-              Read at{" "}
-              {new Date(load.data.measuredAt).toLocaleString("en-GB", {
-                dateStyle: "medium",
+              Обновлено{" "}
+              {new Date(load.data.measuredAt).toLocaleString("ru-RU", {
+                dateStyle: "long",
                 timeStyle: "short",
+                // The atelier's clock, wherever the laptop happens to be.
+                timeZone: "Europe/London",
               })}
-              . Numbers are counts and totals only — no customer&rsquo;s name, address or email
-              is ever shown on this page.
+              . Здесь только количества и суммы — имена, адреса и почта клиентов на этой странице
+              не показываются никогда.
             </p>
           </>
         )}
@@ -402,7 +411,7 @@ function DashboardPanel() {
  */
 export const dashboardTool: Tool = {
   name: "dashboard",
-  title: "Dashboard",
+  title: "Панель",
   icon: ChartIcon,
   component: DashboardPanel,
 };

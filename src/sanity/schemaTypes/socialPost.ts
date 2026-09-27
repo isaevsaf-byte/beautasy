@@ -8,19 +8,38 @@ import { defineField, defineType } from "sanity";
  * hand — and only a document she has moved to "Approved" is ever published.
  * Everything else in here exists to make approving take ten seconds.
  */
+
+const KINDS = [
+  { title: "Товар", value: "product" },
+  { title: "До / после", value: "before-after" },
+  { title: "Процесс — крупным планом", value: "process" },
+  { title: "Советы по посадке", value: "education" },
+  { title: "Клиент / отзыв", value: "testimonial" },
+  { title: "Сезонное", value: "seasonal" },
+];
+
+/** Each status as the line under a post in a list says it */
+const STATUS_WORDS: Record<string, string> = {
+  draft: "черновик",
+  approved: "одобрен",
+  publishing: "публикуется",
+  published: "опубликован",
+  failed: "не удалось",
+};
+
 export const socialPost = defineType({
   name: "socialPost",
-  title: "Social Post",
+  title: "Пост",
   type: "document",
   fields: [
     defineField({
       name: "format",
-      title: "Photo or Reel",
+      title: "Фото или Reels",
       type: "string",
       options: {
         list: [
-          { title: "Photo — goes in the feed", value: "photo" },
-          { title: "Reel — a video, shown to people who don't follow you", value: "reel" },
+          { title: "Фото — уходит в ленту", value: "photo" },
+          { title: "Reels — видео, его показывают и тем, кто на вас не подписан", value: "reel" },
         ],
         layout: "radio",
       },
@@ -29,166 +48,159 @@ export const socialPost = defineType({
     }),
     defineField({
       name: "image",
-      title: "Picture",
+      title: "Картинка",
       type: "image",
       description:
-        "What people will see. Instagram needs a JPEG or PNG — square or 4:5 works best. On a Reel this becomes the cover.",
+        "То, что увидят люди. Instagram принимает JPEG или PNG — лучше всего квадрат или 4:5. У Reels эта картинка станет обложкой.",
       options: { hotspot: true },
       validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: "video",
-      title: "Video",
+      title: "Видео",
       type: "file",
       options: { accept: "video/mp4" },
       description:
-        "MP4, upright (9:16), 3 seconds to 15 minutes, under 300MB. The film in the video/ folder renders exactly this.",
+        "MP4, вертикальное (9:16), от 3 секунд до 15 минут, меньше 300 МБ. Ролик из папки video/ собирается ровно таким.",
       hidden: ({ parent }) => parent?.format !== "reel",
       validation: (Rule) =>
         Rule.custom((value, context) => {
           const parent = context.parent as { format?: string } | undefined;
-          if (parent?.format === "reel" && !value) return "A Reel needs a video.";
+          if (parent?.format === "reel" && !value) return "Для Reels нужно видео.";
           return true;
         }),
     }),
     defineField({
       name: "caption",
-      title: "Caption",
+      title: "Подпись",
       type: "text",
       rows: 7,
       description:
-        "The words under the picture. Pick one of the suggestions below and edit it until it sounds like you.",
+        "Текст под картинкой, по-английски — его читают подписчики. Выберите один из вариантов ниже и правьте его, пока он не зазвучит как вы.",
       validation: (Rule) => Rule.required().max(2200),
     }),
     defineField({
       name: "captionOptions",
-      title: "Suggestions",
+      title: "Варианты",
       type: "array",
       of: [{ type: "text", rows: 4 }],
       description:
-        "Written for you automatically. Copy the one you like into Caption above — these are never posted.",
+        "Написаны для вас автоматически. Скопируйте понравившийся в «Подпись» выше — сами варианты никогда не публикуются.",
     }),
     defineField({
       name: "hashtags",
-      title: "Hashtags",
+      title: "Хештеги",
       type: "string",
-      description: "Added to the end of the caption when the post goes out.",
+      description: "Добавляются в конец подписи, когда пост уходит.",
     }),
     defineField({
       name: "kind",
-      title: "Type of post",
+      title: "Тип поста",
       type: "string",
       options: {
-        list: [
-          { title: "Product", value: "product" },
-          { title: "Before / after", value: "before-after" },
-          { title: "Process — close up", value: "process" },
-          { title: "Fit advice", value: "education" },
-          { title: "Customer / review", value: "testimonial" },
-          { title: "Seasonal", value: "seasonal" },
-        ],
+        list: KINDS,
       },
       initialValue: "product",
     }),
     defineField({
       name: "pinToPinterest",
-      title: "Also pin this to Pinterest",
+      title: "Сделать пин и в Pinterest",
       type: "boolean",
       initialValue: true,
       description:
-        "An Instagram post is gone in a day; a Pin is still being found next year, and it carries a link to the product. Turn this off for anything that isn't worth keeping.",
+        "Пост в Instagram живёт один день, а пин в Pinterest находят и через год — и в нём есть ссылка на товар. Выключите для всего, что не стоит хранить.",
     }),
     defineField({
       name: "pinUrl",
-      title: "The Pin",
+      title: "Ссылка на пин",
       type: "url",
       readOnly: true,
     }),
     defineField({
       name: "pinError",
-      title: "Pinterest Said",
+      title: "Ответ Pinterest",
       type: "string",
       readOnly: true,
       description:
-        "Filled in only when a Pin could not be made. The Instagram post still went out — the two are independent on purpose.",
+        "Заполняется, только если пин не получилось создать. Пост в Instagram при этом всё равно вышел — они нарочно не зависят друг от друга.",
     }),
     defineField({
       name: "product",
-      title: "About this product",
+      title: "О каком товаре",
       type: "reference",
       to: [{ type: "product" }],
-      description: "Optional. Links the post to a product so you can see what has been posted.",
+      description: "По желанию. Связывает пост с товаром, чтобы было видно, что уже публиковали.",
     }),
     defineField({
       name: "scheduledFor",
-      title: "Go out on",
+      title: "Когда опубликовать",
       type: "datetime",
       description:
-        "Leave empty to post as soon as it is approved. With a date, it goes out within about 15 minutes of that time — unless that falls in quiet hours or the day already has its posts (both set in Site Settings → Instagram Posting); then it waits for the next opening.",
+        "Оставьте пустым — пост выйдет сразу после одобрения. С датой он выходит примерно в течение 15 минут после этого времени. Но если это время попадает в тихие часы или лимит постов на этот день уже исчерпан (и то и другое задаётся в «Настройки сайта» → «Публикация в Instagram»), пост ждёт ближайшего свободного окна.",
     }),
     defineField({
       name: "status",
-      title: "Status",
+      title: "Статус",
       type: "string",
       options: {
         list: [
-          { title: "Draft — needs your eyes", value: "draft" },
-          { title: "Approved — will go out", value: "approved" },
-          { title: "Publishing — going out right now", value: "publishing" },
-          { title: "Published", value: "published" },
-          { title: "Failed — see the note", value: "failed" },
+          { title: "Черновик — посмотрите его", value: "draft" },
+          { title: "Одобрен — будет опубликован", value: "approved" },
+          { title: "Публикуется — уходит прямо сейчас", value: "publishing" },
+          { title: "Опубликован", value: "published" },
+          { title: "Не удалось — см. «Что пошло не так»", value: "failed" },
         ],
         layout: "radio",
       },
       description:
-        "Publishing is set by the site, not by you: it claims the post for a few seconds so two runs can never send the same picture twice. If one is still sitting on Publishing minutes later, something stopped halfway — check Instagram, then set it to Published if it arrived, or back to Approved to try again.",
+        "«Публикуется» ставит сайт, а не вы: он занимает пост на несколько секунд, чтобы два запуска никогда не отправили одну и ту же картинку дважды. Если пост и через несколько минут стоит на «Публикуется», что-то остановилось на полпути — проверьте Instagram и поставьте «Опубликован», если пост там появился, или верните «Одобрен», чтобы попробовать снова.",
       initialValue: "draft",
       validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: "publishedAt",
-      title: "Published At",
+      title: "Когда опубликован",
       type: "datetime",
       readOnly: true,
     }),
     defineField({
       name: "permalink",
-      title: "Link To The Post",
+      title: "Ссылка на пост",
       type: "url",
       readOnly: true,
     }),
     defineField({
       name: "igCreationId",
-      title: "Instagram Container",
+      title: "Контейнер Instagram",
       type: "string",
       readOnly: true,
       hidden: true,
       description:
-        "Instagram spends up to several minutes preparing a video, which is longer than one run of the publisher lasts. The half-finished upload is remembered here so the next run can finish it rather than start again.",
+        "Instagram готовит видео до нескольких минут — дольше, чем длится один запуск публикации. Здесь запоминается недоделанная загрузка, чтобы следующий запуск её закончил, а не начинал заново.",
     }),
     defineField({
       name: "lastError",
-      title: "What Went Wrong",
+      title: "Что пошло не так",
       type: "string",
       readOnly: true,
-      description: "Filled in only when a post could not be published.",
+      description: "Заполняется, только если пост не удалось опубликовать.",
     }),
     defineField({
       name: "source",
-      title: "Written By",
+      title: "Кто написал",
       type: "string",
       readOnly: true,
       options: {
         list: [
-          { title: "Suggested automatically", value: "auto" },
-          { title: "Written by hand", value: "manual" },
+          { title: "Предложен автоматически", value: "auto" },
+          { title: "Написан вручную", value: "manual" },
         ],
       },
       initialValue: "manual",
     }),
     defineField({
       name: "createdAt",
-      title: "Created",
+      title: "Создан",
       type: "datetime",
       readOnly: true,
       initialValue: () => new Date().toISOString(),
@@ -196,12 +208,12 @@ export const socialPost = defineType({
   ],
   orderings: [
     {
-      title: "Going out soonest",
+      title: "Ближайшие к публикации",
       name: "scheduledForAsc",
       by: [{ field: "scheduledFor", direction: "asc" }],
     },
     {
-      title: "Newest first",
+      title: "Сначала новые",
       name: "createdAtDesc",
       by: [{ field: "createdAt", direction: "desc" }],
     },
@@ -215,16 +227,19 @@ export const socialPost = defineType({
       kind: "kind",
     },
     prepare({ caption, status, scheduledFor, media, kind }) {
-      const first = (caption ?? "No caption yet").split("\n")[0];
+      const first = (caption ?? "Подписи пока нет").split("\n")[0];
       const when = scheduledFor
-        ? new Date(scheduledFor).toLocaleDateString("en-GB", {
+        ? new Date(scheduledFor).toLocaleDateString("ru-RU", {
             day: "numeric",
             month: "short",
+            timeZone: "Europe/London",
           })
-        : "no date";
+        : "без даты";
+      const state = status ?? "draft";
+      const type = kind ? (KINDS.find((k) => k.value === kind)?.title.toLowerCase() ?? kind) : null;
       return {
         title: first.length > 60 ? `${first.slice(0, 60)}…` : first,
-        subtitle: `${status ?? "draft"} · ${when}${kind ? ` · ${kind}` : ""}`,
+        subtitle: `${STATUS_WORDS[state] ?? state} · ${when}${type ? ` · ${type}` : ""}`,
         media,
       };
     },

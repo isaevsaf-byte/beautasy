@@ -53,6 +53,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 
+/**
+ * Every `error` goes straight into a Studio dialog, so it is written in
+ * Russian, as the rest of the Studio is, and names lists as the sidebar does.
+ * What reaches the customer — the email and its invite — stays English.
+ */
 function answer(status: number, error: string, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ error, ...extra }, { status });
 }
@@ -112,24 +117,24 @@ async function tellCustomer(doc: DiaryDoc, slotMinutes: number): Promise<boolean
 }
 
 export async function POST(req: NextRequest) {
-  if (!fromThisSite(req)) return answer(403, "Only the Studio can call this");
+  if (!fromThisSite(req)) return answer(403, "Это может делать только Studio.");
 
   const limited = rateLimit(`studio-diary:${clientIp(req)}`, 120, 60 * 60 * 1000);
-  if (!limited.ok) return answer(429, "Too many requests — try again in a few minutes.");
+  if (!limited.ok) return answer(429, "Слишком много запросов — попробуйте через несколько минут.");
 
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
-    return answer(400, "The request could not be read.");
+    return answer(400, "Не удалось прочитать запрос.");
   }
 
   const token = typeof body.token === "string" ? body.token : "";
   if (!(await isProjectMember(token))) {
-    return answer(401, "Your Studio session could not be checked. Sign out and back in to the Studio, then try again.");
+    return answer(401, "Не удалось проверить вашу сессию Studio. Выйдите из Studio, войдите снова и попробуйте ещё раз.");
   }
   if (!process.env.SANITY_API_WRITE_TOKEN || !secretsConfigured()) {
-    return answer(503, "The diary cannot be written to right now — the site is missing its keys.");
+    return answer(503, "Сейчас в дневник записей ничего нельзя записать — на сайте не хватает ключей.");
   }
 
   let days: Awaited<ReturnType<typeof getAvailableSlots>>["days"];
@@ -138,7 +143,7 @@ export async function POST(req: NextRequest) {
     ({ days, schedule } = await getAvailableSlots({ fresh: true, strict: true, leadTimeHours: 0 }));
   } catch (error) {
     console.error("The Studio could not read the diary:", error);
-    return answer(503, "Could not read the diary. Try again in a minute.");
+    return answer(503, "Не удалось прочитать дневник записей. Попробуйте через минуту.");
   }
 
   if (body.action === "slots") {
@@ -146,9 +151,9 @@ export async function POST(req: NextRequest) {
   }
 
   const slot = typeof body.slot === "string" && SLOT_SHAPE.test(body.slot) ? body.slot : null;
-  if (!slot) return answer(400, "Choose a time first.");
+  if (!slot) return answer(400, "Сначала выберите время.");
   if (!slotIsOffered(days, slot)) {
-    return answer(409, "That time is not free any more — choose another.", { slotTaken: true });
+    return answer(409, "Это время уже занято — выберите другое.", { slotTaken: true });
   }
 
   const now = new Date().toISOString();
@@ -156,10 +161,10 @@ export async function POST(req: NextRequest) {
 
   if (body.action === "book") {
     const name = text(body.name, 80);
-    if (!name || name.length < 2) return answer(400, "Add their name.");
+    if (!name || name.length < 2) return answer(400, "Добавьте имя клиента.");
     const email = text(body.email, 200);
     if (email && !EMAIL_RE.test(email)) {
-      return answer(400, "That email does not look right. Leave it empty if you do not have one.");
+      return answer(400, "Эл. почта выглядит неправильно. Если её нет, оставьте поле пустым.");
     }
     const phone = text(body.phone, 40);
     const notes = text(body.notes, 2000);
@@ -189,57 +194,59 @@ export async function POST(req: NextRequest) {
 
     const claim = await claimSlot(store, doc, now);
     if (claim === "taken") {
-      return answer(409, "Somebody has just booked that time — choose another.", { slotTaken: true });
+      return answer(409, "Это время только что заняли — выберите другое.", { slotTaken: true });
     }
-    if (claim === "failed") return answer(500, "Could not save it, so nothing was booked. Try again in a minute.");
+    if (claim === "failed") return answer(500, "Не удалось сохранить, поэтому запись не создана. Попробуйте через минуту.");
     if (claim === "unsure") {
       return answer(
         500,
-        "The diary stopped answering while saving. Look in Atelier Bookings before trying again: if the booking is there, it saved — tell them the time yourself."
+        "Дневник записей перестал отвечать во время сохранения. Прежде чем пробовать снова, загляните в «Записи в ателье»: если запись там есть, она сохранилась — сообщите клиенту время сами."
       );
     }
 
     const emailed = email ? await tellCustomer(doc, schedule.slotMinutes) : false;
-    return NextResponse.json({ ok: true, id: doc._id, label: slotLabel(slot), emailed });
+    // `slot` is what the Studio words the time from, in Russian; `label` is
+    // the site's English wording of the same time.
+    return NextResponse.json({ ok: true, id: doc._id, slot, label: slotLabel(slot), emailed });
   }
 
   if (body.action === "move") {
     const id = typeof body.id === "string" ? body.id.replace(/^drafts\./, "") : "";
-    if (!id) return answer(400, "Which booking?");
+    if (!id) return answer(400, "Какую запись перенести?");
 
     let from: DiaryDoc | null;
     try {
       from = await store.read(id);
     } catch (error) {
       console.error(`Could not read booking ${id} to move it:`, error);
-      return answer(503, "Could not read the booking. Try again in a minute.");
+      return answer(503, "Не удалось прочитать запись. Попробуйте через минуту.");
     }
-    if (!from || from._type !== "atelierBooking") return answer(404, "That booking is not there any more.");
-    if (!canMove(from.status)) return answer(400, "A booking marked Done keeps its time.");
+    if (!from || from._type !== "atelierBooking") return answer(404, "Этой записи больше нет.");
+    if (!canMove(from.status)) return answer(400, "У записи со статусом «Выполнена» время не меняется.");
     // The booking that holds this very time: moving it onto itself would hand
     // its own time back. One that gave it back only needs its status again.
     if (from._id === slotDocumentId(slot)) {
       return answer(
         400,
         releasesItsTime(from.status)
-          ? "They can have this time back as it is: set the status to Confirmed instead."
-          : "It is already at that time."
+          ? "Это время можно просто вернуть: вместо переноса поставьте статус «Подтверждена»."
+          : "Запись уже стоит на это время."
       );
     }
 
     const to = movedCopy(from, slot, now);
     const moved = await moveBooking(store, { from, to, now });
     if (moved === "taken") {
-      return answer(409, "Somebody has just booked that time — choose another.", { slotTaken: true });
+      return answer(409, "Это время только что заняли — выберите другое.", { slotTaken: true });
     }
     if (moved === "changed") {
-      return answer(409, "The booking was changed while you were moving it. Open it again and try once more.");
+      return answer(409, "Пока вы переносили запись, её изменили. Откройте её заново и попробуйте ещё раз.");
     }
-    if (moved === "failed") return answer(500, "Could not move it, so nothing changed. Try again in a minute.");
+    if (moved === "failed") return answer(500, "Не удалось перенести, поэтому ничего не изменилось. Попробуйте через минуту.");
     if (moved === "unsure") {
       return answer(
         500,
-        "The diary stopped answering halfway. Look in Atelier Bookings: the booking may be at the old time, the new one, or both. Keep the one you want, delete any other, and tell them the time yourself."
+        "Дневник записей перестал отвечать на полпути. Загляните в «Записи в ателье»: запись может стоять на старом времени, на новом или на обоих. Оставьте нужную, остальные удалите и сообщите клиенту время сами."
       );
     }
 
@@ -247,11 +254,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       id: to._id,
+      slot,
       label: slotLabel(slot),
       emailed,
       hadEmail: typeof from.emailSealed === "string",
     });
   }
 
-  return answer(400, "Unknown action.");
+  return answer(400, "Неизвестное действие.");
 }

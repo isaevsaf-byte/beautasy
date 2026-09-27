@@ -244,6 +244,6 @@ test("a request kept in place of a time is given its time from itself, so nothin
   // A booking made by hand beside the request would lose the friend who sent
   // them, and leave the request itself asking for an answer every morning
   const whenSaved = warning.slice(warning.indexOf('saved ? "'), warning.indexOf('" : "'));
-  assert.match(whenSaved, /open it and use <strong>Choose a time<\/strong>/);
-  assert.doesNotMatch(whenSaved, /Book by hand/);
+  assert.match(whenSaved, /open it and use <strong>Назначить время<\/strong>/);
+  assert.doesNotMatch(whenSaved, /Записать вручную/);
 });

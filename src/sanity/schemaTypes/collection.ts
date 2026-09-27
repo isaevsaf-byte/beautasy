@@ -2,42 +2,42 @@ import { defineField, defineType } from "sanity";
 
 export const collection = defineType({
   name: "collection",
-  title: "Collection",
+  title: "Коллекция",
   type: "document",
   fields: [
     defineField({
       name: "name",
-      title: "Collection Name",
+      title: "Название коллекции",
       type: "string",
-      description: "e.g. Aria, Heritage, Liberty London",
+      description: "Например, Aria, Heritage, Liberty London",
       validation: (Rule) => Rule.required().min(2).max(80),
     }),
     defineField({
       name: "slug",
-      title: "Slug",
+      title: "Адрес страницы (slug)",
       type: "slug",
       options: { source: "name", maxLength: 96 },
       validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: "coverImage",
-      title: "Cover Image",
+      title: "Обложка",
       type: "image",
       options: { hotspot: true },
     }),
     defineField({
       name: "description",
-      title: "Description",
+      title: "Описание",
       type: "array",
       of: [{ type: "block" }],
-      description: "Shown on the collection page",
+      description: "Показывается на странице коллекции — по-английски.",
     }),
     defineField({
       name: "season",
-      title: "Season / Year",
+      title: "Сезон / год",
       type: "string",
       placeholder: "Spring 2025",
-      description: "Optional label like 'Spring 2025' or 'AW24'",
+      description: "По желанию, например, «Spring 2025» или «AW24»",
     }),
   ],
   preview: {

@@ -1,19 +1,20 @@
 import { defineField, defineType } from "sanity";
+import { penceRules, priceLabel } from "./product";
 
 export const giftBox = defineType({
   name: "giftBox",
-  title: "Gift Box",
+  title: "Подарочный бокс",
   type: "document",
   fields: [
     defineField({
       name: "name",
-      title: "Gift Box Name",
+      title: "Название бокса",
       type: "string",
       validation: (Rule) => Rule.required().min(2).max(120),
     }),
     defineField({
       name: "slug",
-      title: "Slug",
+      title: "Адрес страницы (slug)",
       type: "slug",
       options: {
         source: "name",
@@ -23,11 +24,12 @@ export const giftBox = defineType({
     }),
     defineField({
       name: "images",
-      title: "Gift Box Images",
+      title: "Фотографии бокса",
       type: "array",
       of: [
         {
           type: "image",
+          title: "Фото",
           options: {
             hotspot: true,
           },
@@ -37,21 +39,21 @@ export const giftBox = defineType({
     }),
     defineField({
       name: "price",
-      title: "Price in GBP",
+      title: "Цена в пенсах",
       type: "number",
-      description: "Price in pence (e.g. 4999 = £49.99)",
-      validation: (Rule) => Rule.required().min(1),
+      description: "4999 = £49.99. Только целое число, без точки и знака £.",
+      validation: (Rule) => [Rule.required().min(1), ...penceRules(Rule)],
     }),
     defineField({
       name: "description",
-      title: "Description",
+      title: "Описание",
       type: "array",
       of: [{ type: "block" }],
-      description: "Rich text description of the gift box set",
+      description: "Описание подарочного набора, можно с форматированием",
     }),
     defineField({
       name: "contents",
-      title: "Products Included",
+      title: "Товары в боксе",
       type: "array",
       of: [
         {
@@ -59,19 +61,19 @@ export const giftBox = defineType({
           to: [{ type: "product" }],
         },
       ],
-      description: "Select the products included in this gift box",
+      description: "Выберите товары, которые входят в этот бокс",
     }),
     defineField({
       name: "contentsNote",
-      title: "Additional Contents Note",
+      title: "Что ещё в боксе",
       type: "text",
       rows: 3,
       description:
-        "Optional extra items not in the product catalogue (e.g. ribbon, tissue paper, greeting card)",
+        "По желанию: что ещё лежит в боксе, кроме товаров из каталога, например, «ribbon, tissue paper, greeting card»",
     }),
     defineField({
       name: "stock",
-      title: "Stock Quantity",
+      title: "Количество в наличии",
       type: "number",
       initialValue: 0,
       validation: (Rule) => Rule.required().min(0),
@@ -86,7 +88,7 @@ export const giftBox = defineType({
     prepare({ title, media, price }) {
       return {
         title,
-        subtitle: price ? `£${(price / 100).toFixed(2)}` : "No price set",
+        subtitle: priceLabel(price),
         media,
       };
     },

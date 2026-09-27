@@ -24,40 +24,46 @@ export const dynamic = "force-dynamic";
  * the same check Sanity itself makes when Kristina opens the Studio.
  */
 
-/** Which sealed fields each document type has, and what to call them. */
+/**
+ * Which sealed fields each document type has, and what to call them.
+ *
+ * The labels and every `error` below are read only by the Studio's "Показать
+ * контакты" button, which shows them to Kristina as they are — so they are
+ * Russian, and the labels are the fields' own titles in the schemas.
+ */
 const SEALED_FIELDS: Record<string, { field: string; label: string }[]> = {
   atelierBooking: [
-    { field: "nameSealed", label: "Name" },
-    { field: "emailSealed", label: "Email" },
-    { field: "phoneSealed", label: "Phone" },
-    { field: "notesSealed", label: "Notes" },
+    { field: "nameSealed", label: "Имя" },
+    { field: "emailSealed", label: "Эл. почта" },
+    { field: "phoneSealed", label: "Телефон" },
+    { field: "notesSealed", label: "Заметки" },
   ],
   order: [
-    { field: "customerNameSealed", label: "Name" },
-    { field: "customerEmailSealed", label: "Email" },
-    { field: "shippingAddressSealed", label: "Delivery address" },
+    { field: "customerNameSealed", label: "Имя" },
+    { field: "customerEmailSealed", label: "Эл. почта" },
+    { field: "shippingAddressSealed", label: "Адрес доставки" },
   ],
   giftCard: [
-    { field: "recipientNameSealed", label: "Recipient name" },
-    { field: "recipientEmailSealed", label: "Recipient email" },
-    { field: "messageSealed", label: "Gift message" },
-    { field: "purchaserEmailSealed", label: "Bought by" },
+    { field: "recipientNameSealed", label: "Имя получателя" },
+    { field: "recipientEmailSealed", label: "Эл. почта получателя" },
+    { field: "messageSealed", label: "Подарочное послание" },
+    { field: "purchaserEmailSealed", label: "Кто купил" },
   ],
-  subscriber: [{ field: "emailSealed", label: "Email" }],
-  stockAlert: [{ field: "emailSealed", label: "Email" }],
-  abandonedCart: [{ field: "emailSealed", label: "Email" }],
-  referrer: [{ field: "emailSealed", label: "Email" }],
+  subscriber: [{ field: "emailSealed", label: "Эл. почта" }],
+  stockAlert: [{ field: "emailSealed", label: "Эл. почта" }],
+  abandonedCart: [{ field: "emailSealed", label: "Эл. почта" }],
+  referrer: [{ field: "emailSealed", label: "Эл. почта" }],
 };
 
 export async function POST(req: NextRequest) {
   if (!fromThisSite(req)) {
-    return NextResponse.json({ error: "Only the Studio can call this" }, { status: 403 });
+    return NextResponse.json({ error: "Это может делать только Studio." }, { status: 403 });
   }
 
   const limited = rateLimit(`studio-reveal:${clientIp(req)}`, 120, 60 * 60 * 1000);
   if (!limited.ok) {
     return NextResponse.json(
-      { error: "Too many requests" },
+      { error: "Слишком много запросов — подождите немного и попробуйте снова." },
       { status: 429, headers: { "Retry-After": String(limited.retryAfter) } }
     );
   }
@@ -68,14 +74,14 @@ export async function POST(req: NextRequest) {
 
   if (!id || !token) {
     return NextResponse.json(
-      { error: "Sign in to the Studio and try again." },
+      { error: "Войдите в Studio и попробуйте ещё раз." },
       { status: 400 }
     );
   }
 
   if (!(await isProjectMember(token))) {
     return NextResponse.json(
-      { error: "That Studio session is not a member of this project." },
+      { error: "Этот вход в Studio не относится к участникам проекта." },
       { status: 403 }
     );
   }
@@ -87,12 +93,12 @@ export async function POST(req: NextRequest) {
   );
 
   if (!doc) {
-    return NextResponse.json({ error: "That document no longer exists." }, { status: 404 });
+    return NextResponse.json({ error: "Этого документа больше нет." }, { status: 404 });
   }
 
   const shape = SEALED_FIELDS[String(doc._type)];
   if (!shape) {
-    return NextResponse.json({ error: "Nothing is sealed on this document." }, { status: 400 });
+    return NextResponse.json({ error: "В этом документе нет зашифрованных данных." }, { status: 400 });
   }
 
   const fields = shape
@@ -103,19 +109,19 @@ export async function POST(req: NextRequest) {
   // can be read back — worth having when a recipient says it never arrived.
   if (doc._type === "giftCard") {
     const code = revealCode(doc as { codeSealed?: string });
-    if (code) fields.unshift({ label: "Code", value: code });
+    if (code) fields.unshift({ label: "Код", value: code });
   }
 
   // A Friends link code is sealed the same way — for when someone asks
   // Kristina "what was my link again?"
   if (doc._type === "referrer") {
     const code = revealReferralCode(doc as { codeSealed?: string });
-    if (code) fields.unshift({ label: "Link code", value: code });
+    if (code) fields.unshift({ label: "Код ссылки", value: code });
   }
 
   if (fields.length === 0) {
     return NextResponse.json(
-      { error: "Nothing readable here — this document predates sealing, or DATA_SECRET has changed." },
+      { error: "Здесь нечего прочитать: документ создан до шифрования или ключ DATA_SECRET поменялся." },
       { status: 404 }
     );
   }

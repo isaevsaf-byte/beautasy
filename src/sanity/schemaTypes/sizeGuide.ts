@@ -2,44 +2,47 @@ import { defineField, defineType } from "sanity";
 
 export const sizeGuide = defineType({
   name: "sizeGuide",
-  title: "Size Guide",
+  title: "Таблица размеров",
   type: "document",
   fields: [
     defineField({
       name: "name",
-      title: "Size Guide Name",
+      title: "Название таблицы",
       type: "string",
-      description: "Internal label, e.g. 'Women's Briefs Guide', 'Kids Knickers Guide'",
+      // Not internal: the product page shows it as the heading of the size guide
+      description:
+        "Заголовок таблицы на странице товара — покупатели его видят, так что по-английски. Например, «Women's Briefs Guide», «Kids Knickers Guide».",
       validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: "rows",
-      title: "Size Rows",
+      title: "Размеры",
       type: "array",
       of: [
         {
           type: "object",
+          title: "Размер",
           fields: [
-            defineField({ name: "size", title: "Size Label", type: "string", description: "e.g. XS, S, 4–5Y" }),
+            defineField({ name: "size", title: "Размер", type: "string", description: "Например, XS, S, 4–5Y" }),
             defineField({ name: "uk", title: "UK", type: "string" }),
             defineField({ name: "eu", title: "EU", type: "string" }),
-            defineField({ name: "bust", title: "Bust (cm)", type: "string" }),
-            defineField({ name: "waist", title: "Waist (cm)", type: "string" }),
-            defineField({ name: "hips", title: "Hips (cm)", type: "string" }),
+            defineField({ name: "bust", title: "Обхват груди (см)", type: "string" }),
+            defineField({ name: "waist", title: "Обхват талии (см)", type: "string" }),
+            defineField({ name: "hips", title: "Обхват бёдер (см)", type: "string" }),
           ],
           preview: {
             select: { title: "size", subtitle: "uk" },
           },
         },
       ],
-      description: "Add one row per size. Only fill in the columns relevant to this guide.",
+      description: "По строке на каждый размер. Заполняйте только те столбцы, что нужны этой таблице.",
     }),
     defineField({
       name: "notes",
-      title: "Fitting Notes",
+      title: "Подсказки по посадке",
       type: "text",
       rows: 3,
-      description: "Any extra guidance, e.g. 'If between sizes, size up for comfort.'",
+      description: "Любые дополнительные подсказки, например, «If between sizes, size up for comfort.»",
     }),
   ],
   preview: {

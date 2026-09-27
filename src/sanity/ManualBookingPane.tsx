@@ -1,13 +1,12 @@
 import { useState, type CSSProperties } from "react";
 import { useRouter } from "sanity/router";
 import { ATELIER_SERVICES } from "@/lib/atelierServices";
-import { slotLabel } from "@/lib/slots";
 import { askDiary, useDiaryToken, useFreeTimes } from "./diaryClient";
-import { SlotPicker, primaryButton, secondaryButton } from "./SlotPicker";
+import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./SlotPicker";
 
 /**
- * "Book by hand" — for someone who got in touch on WhatsApp, by phone or on
- * Nextdoor.
+ * "Записать вручную" (Book by hand) — for someone who got in touch on
+ * WhatsApp, by phone or on Nextdoor.
  *
  * Those bookings never reached the diary, so the site kept offering their
  * times, and a customer booking online could take the same one. This writes
@@ -15,6 +14,20 @@ import { SlotPicker, primaryButton, secondaryButton } from "./SlotPicker";
  * time is closed online the moment it is saved. The notice customers must
  * give does not apply: Kristina has just agreed the time with the person.
  */
+
+/**
+ * The services as the Studio names them. The values stay English — they are
+ * what the booking stores, and what the customer's email and the site show —
+ * so the Studio gets a Russian title per value, and diaryStudio.test.ts fails
+ * the day a service is added to ATELIER_SERVICES without one here.
+ */
+export const SERVICE_TITLES: Record<string, string> = {
+  Alterations: "Подгонка по фигуре",
+  Repairs: "Ремонт одежды",
+  "Custom Sewing": "Индивидуальный пошив",
+  "Home Textiles": "Шторы и домашний текстиль",
+  "Other / Not Sure": "Другое / пока не знаю",
+};
 
 const inputStyle: CSSProperties = {
   font: "inherit",
@@ -62,7 +75,7 @@ export function ManualBookingPane() {
     const reply = await askDiary(token, { action: "book", slot, name, phone, email, service, notes });
     setBusy(false);
     if (!reply.ok) {
-      setError(String(reply.data.error ?? "Could not book it."));
+      setError(String(reply.data.error ?? "Не удалось записать."));
       if (reply.data.slotTaken) {
         setSlot(null);
         setAttempt((n) => n + 1);
@@ -71,7 +84,9 @@ export function ManualBookingPane() {
     }
     setBooked({
       id: String(reply.data.id),
-      label: String(reply.data.label),
+      // The time the diary says it booked, in Kristina's words; the English
+      // label beside it is kept for anything older that only sends that.
+      label: typeof reply.data.slot === "string" ? slotInRussian(reply.data.slot) : String(reply.data.label),
       emailed: Boolean(reply.data.emailed),
       withEmail: email.trim().length > 0,
     });
@@ -92,25 +107,25 @@ export function ManualBookingPane() {
     <div style={{ height: "100%", overflowY: "auto", padding: "24px 24px 64px" }}>
       <div style={{ maxWidth: 560, margin: "0 auto", display: "grid", gap: 18 }}>
         <div style={{ display: "grid", gap: 6 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Book a time by hand</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Запись клиента вручную</h1>
           <p style={{ fontSize: 14, margin: 0, opacity: 0.75, lineHeight: 1.5 }}>
-            For someone who got in touch on WhatsApp, by phone or on Nextdoor. The time closes on the
-            site the moment you book it, so nobody else can take it.
+            Для тех, кто написал в WhatsApp, позвонил или связался через Nextdoor. Как только вы
+            запишете клиента, это время закроется на сайте — больше никто его не займёт.
           </p>
         </div>
 
         {booked ? (
           <div style={{ display: "grid", gap: 12 }}>
             <p style={{ fontSize: 15, margin: 0 }}>
-              ✓ <strong>{name.trim()}</strong> is booked for <strong>{booked.label}</strong>. The time is closed
-              on the site.
+              ✓ <strong>{name.trim()}</strong> — запись на <strong>{booked.label}</strong>. Это время на
+              сайте закрыто.
             </p>
             <p style={{ fontSize: 13, margin: 0, opacity: 0.75 }}>
               {booked.emailed
-                ? "They have been emailed the time, with a calendar invite."
+                ? "Клиенту ушло письмо со временем и приглашением в календарь."
                 : booked.withEmail
-                ? "The email could not go right now — the site will send it in the morning."
-                : "No email was given, so let them know yourself."}
+                ? "Письмо сейчас не отправилось — сайт отправит его утром."
+                : "Эл. почту не указали, поэтому сообщите клиенту время сами."}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
@@ -118,30 +133,30 @@ export function ManualBookingPane() {
                 style={primaryButton(true)}
                 onClick={() => router.navigateIntent("edit", { id: booked.id, type: "atelierBooking" })}
               >
-                Open the booking
+                Открыть запись
               </button>
               <button type="button" style={secondaryButton} onClick={startAgain}>
-                Book someone else
+                Записать ещё кого-то
               </button>
             </div>
           </div>
         ) : (
           <>
             <section style={{ display: "grid", gap: 10 }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>When</h2>
-              {times.state === "loading" && <p style={{ fontSize: 14, margin: 0 }}>Reading the diary…</p>}
+              <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>Когда</h2>
+              {times.state === "loading" && <p style={{ fontSize: 14, margin: 0 }}>Загружаем дневник записей…</p>}
               {times.state === "failed" && (
                 <p style={{ fontSize: 14, margin: 0 }}>
                   {times.message}{" "}
                   <button type="button" style={secondaryButton} onClick={() => setAttempt((n) => n + 1)}>
-                    Try again
+                    Попробовать снова
                   </button>
                 </p>
               )}
               {times.state === "ready" && !times.enabled && (
                 <p style={{ fontSize: 14, margin: 0 }}>
-                  Online booking is switched off in Fitting Times, so nobody can book online and there is
-                  nothing to protect. Turn it on to keep your bookings in the diary.
+                  Онлайн-запись выключена в разделе «Часы для примерок», поэтому на сайте никто записаться
+                  не может и защищать нечего. Включите её, чтобы записи попадали в дневник.
                 </p>
               )}
               {times.state === "ready" && times.enabled && (
@@ -150,17 +165,17 @@ export function ManualBookingPane() {
             </section>
 
             <section style={{ display: "grid", gap: 10 }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>Who</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>Кто</h2>
               <label style={labelStyle}>
-                Name
+                Имя
                 <input id="manual-name" style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
               </label>
               <label style={labelStyle}>
-                Phone (optional)
+                Телефон (по желанию)
                 <input id="manual-phone" style={inputStyle} value={phone} onChange={(e) => setPhone(e.target.value)} />
               </label>
               <label style={labelStyle}>
-                Email (optional — they get the confirmation and a calendar invite)
+                Эл. почта (по желанию — придёт подтверждение и приглашение в календарь)
                 <input
                   id="manual-email"
                   type="email"
@@ -170,17 +185,17 @@ export function ManualBookingPane() {
                 />
               </label>
               <label style={labelStyle}>
-                Service
+                Услуга
                 <select id="manual-service" style={inputStyle} value={service} onChange={(e) => setService(e.target.value)}>
                   {ATELIER_SERVICES.map((option) => (
                     <option key={option} value={option}>
-                      {option}
+                      {SERVICE_TITLES[option] ?? option}
                     </option>
                   ))}
                 </select>
               </label>
               <label style={labelStyle}>
-                Notes (optional, only you see them)
+                Заметки (по желанию, видите только вы)
                 <textarea
                   id="manual-notes"
                   rows={3}
@@ -199,7 +214,7 @@ export function ManualBookingPane() {
 
             <div>
               <button type="button" style={primaryButton(ready)} disabled={!ready} onClick={book}>
-                {busy ? "Booking…" : slot ? `Book ${slotLabel(slot)}` : "Choose a time above"}
+                {busy ? "Записываем…" : slot ? `Записать на ${slotInRussian(slot)}` : "Выберите время выше"}
               </button>
             </div>
           </>
