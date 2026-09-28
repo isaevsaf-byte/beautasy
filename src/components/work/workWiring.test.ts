@@ -26,7 +26,8 @@ test("the menu, the mobile menu and the footer lead to /work", () => {
 
 test("the home page shows the newest work, whichever side of the room it came from", () => {
   const home = read("src/app/page.tsx");
-  assert.match(home, /\(await getWork\(\)\)\.pieces\.slice\(0, 4\)\.map\(showPiece\)/);
+  assert.match(home, /const \[work, reviews, nextdoorUrl\] = await Promise\.all\(\[getWork\(\), getReviews\(\), nextdoorPageUrl\(\)\]\);/);
+  assert.match(home, /const recent = work\.pieces\.slice\(0, 4\)\.map\(showPiece\);/);
   assert.match(home, /<HomeContent\s+recentWork=/);
   assert.match(read("src/app/HomeContent.tsx"), /\{recentWork && \(/);
 });

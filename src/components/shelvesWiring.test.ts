@@ -46,7 +46,7 @@ test("the footer, the shop, the home page and the service pages leave empty shel
   assert.match(home, /\{shownCategories\.map\(\(cat, i\) =>/);
 
   const service = read("src/app/alterations/[slug]/page.tsx");
-  assert.match(service, /const \[shelves, work\] = await Promise\.all\(\[getShelves\(\), getWork\(\)\]\);/);
+  assert.match(service, /const \[shelves, work, reviews, nextdoorUrl\] = await Promise\.all\(\[\s*getShelves\(\),\s*getWork\(\),/);
   assert.match(service, /const fromTheShop = stockedLinks\(service\.shop, shelves\);/);
   assert.match(service, /\{fromTheShop\.length > 0 && \(/);
   assert.doesNotMatch(service, /service\.shop\.map/);

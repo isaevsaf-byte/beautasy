@@ -389,10 +389,17 @@ function AtelierSection() {
    ═════════════════════════════════════════════════════ */
 
 /**
- * `recentWork` is the row of the newest pieces from Our Work, read on the
- * server by ./page.tsx and passed in whole.
+ * `recentWork` is the row of the newest pieces from Our Work, and `reviews`
+ * the newest kind words from /reviews — both read on the server by ./page.tsx
+ * and passed in whole.
  */
-export default function Home({ recentWork }: { recentWork?: React.ReactNode }) {
+export default function Home({
+  recentWork,
+  reviews,
+}: {
+  recentWork?: React.ReactNode;
+  reviews?: React.ReactNode;
+}) {
   return (
     <>
       <Header />
@@ -403,6 +410,12 @@ export default function Home({ recentWork }: { recentWork?: React.ReactNode }) {
         {recentWork && (
           <section className="py-24 md:py-28">
             <div className="max-w-6xl mx-auto px-6">{recentWork}</div>
+          </section>
+        )}
+        {/* The work, then what people said about it — one block of proof */}
+        {reviews && (
+          <section className={recentWork ? "pb-24 md:pb-28" : "py-24 md:py-28"}>
+            <div className="max-w-6xl mx-auto px-6">{reviews}</div>
           </section>
         )}
       </main>

@@ -36,3 +36,17 @@ test("every local page leads somewhere in the shop — that is the campaign's wh
     }
   }
 });
+
+test("every service page knows which reviews are about its job", async () => {
+  const { REVIEW_TOPICS } = await import("./siteReviews");
+  const topics = new Set<string>(REVIEW_TOPICS.map((topic) => topic.value));
+  for (const service of LOCAL_SERVICES) {
+    assert.ok(service.reviewTopics.length > 0, `${service.slug} names no topic`);
+    for (const topic of service.reviewTopics) {
+      assert.ok(topics.has(topic), `${service.slug}: "${topic}" is not a topic the review form offers`);
+      assert.notEqual(topic, "shop", `${service.slug}: a review of a piece from the shop is not about a job`);
+    }
+  }
+  const curtains = LOCAL_SERVICES.find((service) => service.slug === "curtains-and-home-southampton");
+  assert.deepEqual(curtains?.reviewTopics, ["home"]);
+});

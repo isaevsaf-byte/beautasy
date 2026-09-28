@@ -139,7 +139,13 @@ function PriceLine({ item, index }: { item: PriceItem; index: number }) {
  * The atelier page as the browser runs it. `recentWork` is the row of finished
  * jobs from Our Work, read on the server by ./page.tsx and passed in whole.
  */
-export default function AtelierContent({ recentWork }: { recentWork?: React.ReactNode }) {
+export default function AtelierContent({
+  recentWork,
+  reviews,
+}: {
+  recentWork?: React.ReactNode;
+  reviews?: React.ReactNode;
+}) {
   const [activeTab, setActiveTab] = useState("denim");
   const whatsappLink = "https://wa.me/447729741116";
   const photoLink = whatsappWith("Hi Kristina, I'd like a quote. Here's a photo of the garment:");
@@ -390,6 +396,13 @@ export default function AtelierContent({ recentWork }: { recentWork?: React.Reac
         {recentWork && (
           <section className="pt-20 md:pt-24">
             <div className="max-w-6xl mx-auto px-6">{recentWork}</div>
+          </section>
+        )}
+
+        {/* ──── What clients said ──── */}
+        {reviews && (
+          <section className="pt-20 md:pt-24">
+            <div className="max-w-6xl mx-auto px-6">{reviews}</div>
           </section>
         )}
 

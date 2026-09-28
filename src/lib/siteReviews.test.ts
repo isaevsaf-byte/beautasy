@@ -7,8 +7,10 @@ import {
   PRODUCT_REVIEWS_QUERY,
   PUBLISHED_REVIEWS_QUERY,
   REVIEW_TOPICS,
+  atelierReviews,
   checkSiteReview,
   isNextdoorUrl,
+  reviewsForTopics,
   reviewSubject,
   reviewSummary,
   topicLabel,
@@ -222,6 +224,34 @@ test("only an https link to Nextdoor itself counts as Nextdoor", () => {
   ]) {
     assert.equal(isNextdoorUrl(bad), false, String(bad));
   }
+});
+
+/* ─── Which reviews a page shows ─── */
+
+const PIECE = { name: "Silk scrunchie", slug: "silk-scrunchie" };
+const newestFirst = [
+  { id: "shop", about: "shop", product: PIECE },
+  { id: "curtains", about: "home", product: null },
+  { id: "nextdoor", about: null, product: null },
+  { id: "hem", about: "alterations", product: null },
+  { id: "buyer", about: null, product: PIECE },
+  { id: "zip", about: "repairs", product: null },
+  // "A piece from the shop" chosen on the form itself, with no piece attached
+  { id: "shop-words", about: "shop", product: null },
+  { id: "blind", about: "home", product: null },
+];
+const ids = (reviews: { id: string }[]) => reviews.map((review) => review.id);
+
+test("the atelier shows reviews of its own work, never a piece from the shop", () => {
+  assert.deepEqual(ids(atelierReviews(newestFirst)), ["curtains", "nextdoor", "hem", "zip", "blind"]);
+});
+
+test("a service page shows reviews about its job first, then the atelier's others", () => {
+  assert.deepEqual(ids(reviewsForTopics(newestFirst, ["home"], 3)), ["curtains", "blind", "nextdoor"]);
+  assert.deepEqual(ids(reviewsForTopics(newestFirst, ["alterations", "repairs"], 3)), ["hem", "zip", "curtains"]);
+  assert.deepEqual(ids(reviewsForTopics(newestFirst, ["made"], 2)), ["curtains", "nextdoor"], "none on topic: the newest of the atelier's");
+  assert.deepEqual(ids(reviewsForTopics(newestFirst, ["home"], 10)).length, 5, "each review once, and no shop ones");
+  assert.deepEqual(reviewsForTopics([], ["home"], 3), []);
 });
 
 /* ─── Kristina's email ─── */

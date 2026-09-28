@@ -13,9 +13,12 @@ import { reviewSubject, type PublishedReview } from "@/lib/siteReviews";
 export default function ReviewCard({
   review,
   nextdoorUrl,
+  clamp = false,
 }: {
   review: PublishedReview;
   nextdoorUrl: string | null;
+  /** Beside other things on a page, a long review stops at six lines; /reviews has it whole */
+  clamp?: boolean;
 }) {
   const subject = reviewSubject(review);
   const fromNextdoor = review.source === "nextdoor";
@@ -46,7 +49,9 @@ export default function ReviewCard({
           })}
         </time>
       </div>
-      <p className="text-sm text-charcoal leading-relaxed whitespace-pre-line">{review.comment}</p>
+      <p className={`text-sm text-charcoal leading-relaxed whitespace-pre-line ${clamp ? "line-clamp-6" : ""}`}>
+        {review.comment}
+      </p>
       {subject && (
         <p className="text-xs text-charcoal-light mt-3">
           {review.product?.slug ? (

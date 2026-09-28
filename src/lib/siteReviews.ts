@@ -193,6 +193,35 @@ export function reviewSummary(reviews: Pick<PublishedReview, "rating" | "source"
   return { count, average, nextdoor };
 }
 
+/* ─── Which reviews a page shows ─── */
+
+type Placeable = Pick<PublishedReview, "about" | "product">;
+
+/**
+ * Reviews of the atelier's work: everything except a piece from the shop. A
+ * review of a bra says nothing to someone deciding who hems their curtains.
+ */
+export function atelierReviews<T extends Placeable>(reviews: readonly T[]): T[] {
+  return reviews.filter((review) => review.about !== "shop" && !review.product);
+}
+
+/**
+ * What a service page shows: the reviews about its kind of job first, then the
+ * atelier's others, newest first within each, up to `limit`. One curtains
+ * review on the curtains page still comes with two more kind words, rather
+ * than a page emptier than the atelier's own.
+ */
+export function reviewsForTopics<T extends Placeable>(
+  reviews: readonly T[],
+  topics: readonly ReviewTopic[],
+  limit: number
+): T[] {
+  const atelier = atelierReviews(reviews);
+  const onTopic = atelier.filter((review) => topics.some((topic) => topic === review.about));
+  const rest = atelier.filter((review) => !onTopic.includes(review));
+  return [...onTopic, ...rest].slice(0, limit);
+}
+
 /** What the review was about, in the words a visitor reads */
 export function reviewSubject(review: Pick<PublishedReview, "about" | "product">): string | null {
   return review.product?.name ?? topicLabel(review.about);

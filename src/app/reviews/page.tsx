@@ -3,14 +3,14 @@ import { Heart } from "lucide-react";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import StarRating from "@/components/StarRating";
-import { sanityClient } from "@/lib/sanity";
 import { googleReviewUrl, nextdoorPageUrl } from "@/lib/siteSettings";
 import { BUSINESS } from "@/lib/business";
 import { SITE_URL } from "@/lib/site";
 import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
-import { PUBLISHED_REVIEWS_QUERY, reviewSummary, type PublishedReview } from "@/lib/siteReviews";
+import { reviewSummary } from "@/lib/siteReviews";
+import { readReviews } from "@/lib/getReviews";
+import ReviewCard from "@/components/reviews/ReviewCard";
 import SiteReviewForm from "./SiteReviewForm";
-import ReviewCard from "./ReviewCard";
 
 /**
  * Reviews: what clients say, and the place to add your own.
@@ -32,15 +32,6 @@ import ReviewCard from "./ReviewCard";
 export const revalidate = 300;
 
 const PAGE_URL = `${SITE_URL}/reviews`;
-
-/**
- * Throws when Sanity can't be read, like /work: a page that fails to
- * regenerate keeps serving its last good version, where one built from an
- * empty answer would tell Google the reviews had gone.
- */
-function readReviews(): Promise<PublishedReview[]> {
-  return sanityClient.fetch<PublishedReview[]>(PUBLISHED_REVIEWS_QUERY, {}, { next: { revalidate: 300 } });
-}
 
 export async function generateMetadata(): Promise<Metadata> {
   const reviews = await readReviews();

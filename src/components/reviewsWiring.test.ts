@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import nextConfig from "../../next.config";
-import ReviewCard from "../app/reviews/ReviewCard";
+import ReviewCard from "./reviews/ReviewCard";
+import ReviewStrip from "./reviews/ReviewStrip";
 import type { PublishedReview } from "../lib/siteReviews";
 
 /**
@@ -137,4 +138,60 @@ test("the reviews page counts Nextdoor apart and offers it only once its page is
   assert.match(page, /<ReviewCard key=\{review\._id\} review=\{review\} nextdoorUrl=\{nextdoorUrl\} \/>/);
   // Only a Nextdoor address gets through, whatever was typed in the Studio
   assert.match(read("src/lib/siteSettings.ts"), /return isNextdoorUrl\(url\) \? url : null;/);
+});
+
+/* ─── Reviews beside other things: home, /atelier, the service pages ─── */
+
+const strip = (reviews: Partial<PublishedReview>[]) =>
+  renderToStaticMarkup(
+    createElement(ReviewStrip, {
+      reviews: reviews.map((review, i) => ({
+        _id: `r${i}`,
+        source: "site" as const,
+        userName: `Client ${i}`,
+        rating: 5,
+        comment: "Lovely work, thank you.",
+        createdAt: "2026-09-20T10:00:00Z",
+        ...review,
+      })),
+      nextdoorUrl: null,
+    })
+  );
+
+test("with no reviews there is no section at all, not a heading over nothing", () => {
+  assert.equal(strip([]), "");
+});
+
+test("a row of reviews leads to /reviews and keeps long ones to six lines", () => {
+  const html = strip([{}, { source: "nextdoor", rating: null }]);
+  assert.equal(html.match(/<li /g)?.length, 2);
+  assert.match(html, /href="\/reviews"/);
+  assert.match(html, /Read or write a review/);
+  assert.match(html, /line-clamp-6/);
+  assert.match(html, /md:grid-cols-2/, "two reviews, two columns");
+  assert.match(strip([{}]), /max-w-xl/, "one review doesn't sit beside two gaps");
+  assert.match(strip([{}, {}, {}]), /md:grid-cols-3/);
+});
+
+test("the home page, /atelier and every service page show reviews, and none of them marks them up", () => {
+  const home = read("src/app/page.tsx");
+  assert.match(home, /const kindWords = reviews\.slice\(0, 3\);/);
+  assert.match(home, /reviews=\{kindWords\.length > 0 \? <ReviewStrip reviews=\{kindWords\} nextdoorUrl=\{nextdoorUrl\} \/> : null\}/);
+  assert.match(read("src/app/HomeContent.tsx"), /\{reviews && \(/);
+
+  const atelier = read("src/app/atelier/page.tsx");
+  assert.match(atelier, /const kindWords = atelierReviews\(reviews\)\.slice\(0, 3\);/);
+  assert.match(read("src/app/atelier/AtelierContent.tsx"), /\{reviews && \(/);
+
+  const service = read("src/app/alterations/[slug]/page.tsx");
+  assert.match(service, /const kindWords = reviewsForTopics\(reviews, service\.reviewTopics, 3\);/);
+  assert.match(service, /<ReviewStrip reviews=\{kindWords\} nextdoorUrl=\{nextdoorUrl\}/);
+
+  for (const [name, source] of [["home", home], ["atelier", atelier], ["service", service]]) {
+    // A review of the business in its own markup is what Google penalises,
+    // and a Nextdoor recommendation is another site's review
+    assert.doesNotMatch(source, /aggregateRating|reviewBody|"@type": "Review"/i, name);
+  }
+  // A page that shows reviews beside something else never fails over them
+  assert.match(read("src/lib/getReviews.ts"), /catch \(error\) \{\s*console\.error\("Could not read the reviews:", error\);\s*return \[\];/);
 });

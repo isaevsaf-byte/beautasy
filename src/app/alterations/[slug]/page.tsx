@@ -12,7 +12,11 @@ import { stockedLinks } from "@/lib/shelves";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { BUSINESS, openingHoursSpecification, postalAddress, whatsappLink } from "@/lib/business";
 import WorkStrip from "@/components/work/WorkStrip";
+import ReviewStrip from "@/components/reviews/ReviewStrip";
 import { getWork } from "@/lib/getWork";
+import { getReviews } from "@/lib/getReviews";
+import { nextdoorPageUrl } from "@/lib/siteSettings";
+import { reviewsForTopics } from "@/lib/siteReviews";
 import { piecesForService } from "@/lib/work";
 import { showPiece } from "@/lib/workMedia";
 
@@ -64,12 +68,19 @@ export default async function LocalServicePage({
   const { slug } = await params;
   const service = getLocalService(slug);
   if (!service) notFound();
-  const [shelves, work] = await Promise.all([getShelves(), getWork()]);
+  const [shelves, work, reviews, nextdoorUrl] = await Promise.all([
+    getShelves(),
+    getWork(),
+    getReviews(),
+    nextdoorPageUrl(),
+  ]);
   // Only the shelves with something on them: a bride sent here for garters
   // used to find "Coming Soon" — see @/lib/shelves
   const fromTheShop = stockedLinks(service.shop, shelves);
   // The jobs Kristina filed under this service in Our Work: the proof beside the price
   const doneHere = piecesForService(work.pieces, service.slug).slice(0, 4).map(showPiece);
+  // And what clients said: about this kind of job first, then the atelier's others
+  const kindWords = reviewsForTopics(reviews, service.reviewTopics, 3);
 
   const url = `${SITE_URL}/alterations/${service.slug}`;
 
@@ -281,6 +292,11 @@ export default async function LocalServicePage({
           heading="Recent jobs like this"
           className="max-w-4xl mx-auto px-6 mt-20"
         />
+
+        {/* ──── What clients said ──── */}
+        {/* Shown, never marked up: the Service and LocalBusiness blocks above
+            carry no reviews — see ReviewStrip */}
+        <ReviewStrip reviews={kindWords} nextdoorUrl={nextdoorUrl} className="max-w-4xl mx-auto px-6 mt-20" />
 
         {/* ──── How it works ──── */}
         <section className="max-w-4xl mx-auto px-6 mt-20">

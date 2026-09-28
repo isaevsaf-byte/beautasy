@@ -1,3 +1,5 @@
+import type { ReviewTopic } from "./siteReviews";
+
 /**
  * The local landing pages under /alterations.
  *
@@ -54,6 +56,12 @@ export interface LocalService {
    * until now no service page led anywhere in the shop at all.
    */
   shop: ShopLink[];
+  /**
+   * The topics from the review form (/reviews) that are about this job. The
+   * page shows those reviews first, then the atelier's others — see
+   * reviewsForTopics in @/lib/siteReviews.
+   */
+  reviewTopics: ReviewTopic[];
   /** Shown as a banner when the service has a season running */
   seasonal?: string;
   /** Last day the seasonal banner is true, ISO date — after it the banner is a lie */
@@ -80,6 +88,7 @@ export function seasonalNote(service: LocalService, now: Date = new Date()): str
 export const LOCAL_SERVICES: LocalService[] = [
   {
     slug: "wedding-dress-southampton",
+    reviewTopics: ["alterations"],
     h1: "Wedding Dress Alterations in Southampton",
     metaTitle: "Wedding Dress Alterations Southampton | Bridal Fitting — Beautasy",
     metaDescription:
@@ -141,6 +150,7 @@ export const LOCAL_SERVICES: LocalService[] = [
   },
   {
     slug: "school-uniform-southampton",
+    reviewTopics: ["alterations", "repairs"],
     h1: "School Uniform Alterations & Hemming in Southampton",
     metaTitle: "School Uniform Alterations Southampton | Hemming from £8 — Beautasy",
     metaDescription:
@@ -205,6 +215,7 @@ export const LOCAL_SERVICES: LocalService[] = [
   },
   {
     slug: "prom-and-evening-dress-southampton",
+    reviewTopics: ["alterations", "made"],
     h1: "Prom & Evening Dress Alterations in Southampton",
     metaTitle: "Prom & Evening Dress Alterations Southampton | Beautasy",
     metaDescription:
@@ -264,6 +275,7 @@ export const LOCAL_SERVICES: LocalService[] = [
   },
   {
     slug: "jeans-and-trousers-southampton",
+    reviewTopics: ["alterations", "repairs"],
     h1: "Jeans & Trouser Hemming in Southampton",
     metaTitle: "Jeans & Trouser Hemming Southampton | From £15.50 — Beautasy",
     metaDescription:
@@ -322,6 +334,7 @@ export const LOCAL_SERVICES: LocalService[] = [
   },
   {
     slug: "zip-replacement-southampton",
+    reviewTopics: ["repairs"],
     h1: "Zip Replacement & Repairs in Southampton",
     metaTitle: "Zip Replacement Southampton | Coats, Dresses, Boots — Beautasy",
     metaDescription:
@@ -380,6 +393,7 @@ export const LOCAL_SERVICES: LocalService[] = [
   },
   {
     slug: "curtains-and-home-southampton",
+    reviewTopics: ["home"],
     h1: "Curtain Alterations & Home Textiles in Southampton",
     metaTitle: "Curtain Alterations Southampton | Hemming & Cushions — Beautasy",
     metaDescription:
