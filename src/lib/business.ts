@@ -50,12 +50,18 @@ export const BUSINESS = {
    */
   googleMapsUrl: "https://maps.google.com/?cid=5155324499486741351",
   googleReviewUrl: "https://g.page/r/CWeTxnVRZItHEBM/review",
+  /** The atelier's business page on Nextdoor, where its first paying clients came from */
+  nextdoorUrl: "https://nextdoor.co.uk/pages/kristina-tailoring-boutique/",
+  /** The shop's Etsy storefront, where its handmade pieces sold before this site */
+  etsyUrl: "https://www.etsy.com/shop/Beautasy",
 
   /** Public profiles, canonical URLs — no tracking parameters */
   sameAs: [
     "https://www.instagram.com/beautasy_lingerie_uk/",
     "https://www.pinterest.co.uk/beautasy_studio/",
     "https://maps.google.com/?cid=5155324499486741351",
+    "https://nextdoor.co.uk/pages/kristina-tailoring-boutique/",
+    "https://www.etsy.com/shop/Beautasy",
   ],
   /** Stable ids so every page points at the same two entities */
   organizationId: `${SITE_URL}#organization`,

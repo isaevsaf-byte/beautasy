@@ -25,9 +25,22 @@ export function fromNextdoor(document: unknown): boolean {
 }
 
 /**
- * Stars are required on a review written here, and a Nextdoor recommendation
- * has none. Sanity checks a field even while it hides it, so the rule itself
- * has to know which kind of review it is looking at.
+ * A review copied in from another site — a Nextdoor recommendation, or a
+ * review from Google or Etsy — rather than one written here. None has a piece
+ * on this site, photos or an order, and its date is the day it was written
+ * there. Google's and Etsy's keep their stars; a Nextdoor one has none.
+ */
+export function fromElsewhere(document: unknown): boolean {
+  const source = (document as { source?: unknown } | undefined)?.source;
+  return source === "nextdoor" || source === "google" || source === "etsy";
+}
+
+const sourceOf = (document: unknown) => (document as { source?: unknown } | undefined)?.source;
+
+/**
+ * Stars are required on a review written here and on one from Google, and a
+ * Nextdoor recommendation has none. Sanity checks a field even while it hides
+ * it, so the rule itself has to know which kind of review it is looking at.
  */
 export function ratingProblem(value: unknown, document: unknown): true | string {
   if (fromNextdoor(document)) return true;
@@ -35,6 +48,7 @@ export function ratingProblem(value: unknown, document: unknown): true | string 
 }
 
 const hiddenForNextdoor = ({ document }: { document?: unknown }) => fromNextdoor(document);
+const hiddenForElsewhere = ({ document }: { document?: unknown }) => fromElsewhere(document);
 
 export const review = defineType({
   name: "review",
@@ -46,7 +60,8 @@ export const review = defineType({
       title: "Откуда",
       type: "string",
       // Set once, by where the review was added: the site's form and the
-      // emailed links write "site", the «Рекомендации Nextdoor» list "nextdoor"
+      // emailed links write "site"; «Рекомендации Nextdoor», «Отзывы Google»
+      // and «Отзывы Etsy» write their own
       readOnly: true,
       initialValue: "site",
       hidden: ({ value }) => !value,
@@ -54,6 +69,8 @@ export const review = defineType({
         list: [
           { title: "С сайта", value: "site" },
           { title: "Nextdoor", value: "nextdoor" },
+          { title: "Google", value: "google" },
+          { title: "Etsy", value: "etsy" },
         ],
       },
     }),
@@ -63,7 +80,7 @@ export const review = defineType({
       type: "reference",
       to: [{ type: "product" }],
       description: "Заполнено, если отзыв о вещи из магазина, — тогда он показывается и на её странице.",
-      hidden: hiddenForNextdoor,
+      hidden: hiddenForElsewhere,
     }),
     defineField({
       name: "about",
@@ -82,14 +99,14 @@ export const review = defineType({
       description:
         "Заполняется, если отзыв оставил клиент, вошедший в аккаунт; пусто — если отзыв оставлен по ссылке из письма с просьбой об отзыве.",
       readOnly: true,
-      hidden: hiddenForNextdoor,
+      hidden: hiddenForElsewhere,
     }),
     defineField({
       name: "userName",
       title: "Имя автора",
       type: "string",
       description:
-        "Так отзыв подписан на сайте. Для Nextdoor — имя и первая буква фамилии, как на странице Nextdoor: Sarah M.",
+        "Так отзыв подписан на сайте. Для Nextdoor — имя и первая буква фамилии, как на странице Nextdoor: Sarah M. Для Google и Etsy — имя, как оно стоит над отзывом (у Etsy бывает «Etsy buyer»).",
       validation: (Rule) => Rule.required().max(60),
     }),
     defineField({
@@ -100,6 +117,15 @@ export const review = defineType({
         "Как район подписан у соседа на Nextdoor, по-английски: Shirley, Portswood, Bassett. На сайте стоит рядом с именем.",
       hidden: ({ document }) => !fromNextdoor(document),
       validation: (Rule) => Rule.max(40),
+    }),
+    defineField({
+      name: "item",
+      title: "Что купили на Etsy",
+      type: "string",
+      description:
+        "Коротко и по-английски, как вещь называют люди, а не как заголовок на Etsy: Floral scrunchie, Girls' cotton briefs. Стоит под отзывом.",
+      hidden: ({ document }) => sourceOf(document) !== "etsy",
+      validation: (Rule) => Rule.max(60),
     }),
     defineField({
       name: "rating",
@@ -125,7 +151,7 @@ export const review = defineType({
       name: "comment",
       title: "Текст отзыва",
       type: "text",
-      description: "Для Nextdoor вставьте текст рекомендации как есть, без правок.",
+      description: "Для Nextdoor, Google и Etsy вставьте текст как есть, без правок.",
       // A neighbour's "Brilliant, thank you!" is a whole recommendation; the
       // form on the site asks for at least ten characters on its own
       validation: (Rule) => Rule.required().min(2).max(2000),
@@ -137,7 +163,7 @@ export const review = defineType({
       of: [{ type: "image" }],
       validation: (Rule) => Rule.max(4),
       description: "Фото, которые клиент приложил к отзыву (не больше 4).",
-      hidden: hiddenForNextdoor,
+      hidden: hiddenForElsewhere,
     }),
     defineField({
       name: "orderId",
@@ -145,7 +171,7 @@ export const review = defineType({
       type: "string",
       readOnly: true,
       description: "Заказ, из которого оставлен отзыв, — чтобы на одну вещь из заказа можно было оставить только один отзыв.",
-      hidden: hiddenForNextdoor,
+      hidden: hiddenForElsewhere,
     }),
     defineField({
       name: "verifiedPurchase",
@@ -154,7 +180,7 @@ export const review = defineType({
       initialValue: false,
       readOnly: true,
       description: "Ставится автоматически, если отзыв пришёл по ссылке из письма с просьбой об отзыве.",
-      hidden: hiddenForNextdoor,
+      hidden: hiddenForElsewhere,
     }),
     defineField({
       name: "approved",
@@ -162,15 +188,16 @@ export const review = defineType({
       type: "boolean",
       initialValue: false,
       description:
-        "Отзыв не виден на сайте, пока здесь нет галочки, — так спам и оскорбления не попадут на сайт. У рекомендаций из Nextdoor галочка стоит сразу: их вносите вы сами.",
+        "Отзыв не виден на сайте, пока здесь нет галочки, — так спам и оскорбления не попадут на сайт. У рекомендаций из Nextdoor и отзывов из Google и Etsy галочка стоит сразу: их вносите вы сами.",
     }),
     defineField({
       name: "createdAt",
       title: "Дата отзыва",
       type: "datetime",
-      description: "Для Nextdoor поставьте день, когда сосед написал рекомендацию: по этой дате отзывы идут на сайте по порядку.",
+      description:
+        "Для Nextdoor, Google и Etsy поставьте день, когда отзыв написали там (у Google «3 недели назад» — примерно): по этой дате отзывы идут на сайте по порядку.",
       initialValue: () => new Date().toISOString(),
-      readOnly: ({ document }) => !fromNextdoor(document),
+      readOnly: ({ document }) => !fromElsewhere(document),
       validation: (Rule) => Rule.required(),
     }),
   ],
@@ -183,14 +210,27 @@ export const review = defineType({
       approved: "approved",
       source: "source",
       neighbourhood: "neighbourhood",
+      item: "item",
     },
-    prepare({ title, rating, productName, about, approved, source, neighbourhood }) {
+    prepare({ title, rating, productName, about, approved, source, neighbourhood, item }) {
       const mark = approved ? "✅" : "⏳";
       const topic = REVIEW_TOPIC_TITLES[about as ReviewTopic] ?? about;
       if (source === "nextdoor") {
         return {
           title: `${mark} ${title} — Nextdoor`,
           subtitle: [neighbourhood, topic].filter(Boolean).join(" · "),
+        };
+      }
+      if (source === "google") {
+        return {
+          title: `${mark} ${title} — Google ${"★".repeat(rating || 0)}`,
+          subtitle: topic ?? "",
+        };
+      }
+      if (source === "etsy") {
+        return {
+          title: `${mark} ${title} — Etsy ${"★".repeat(rating || 0)}`,
+          subtitle: item ?? "",
         };
       }
       return {

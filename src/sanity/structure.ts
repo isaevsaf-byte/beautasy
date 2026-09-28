@@ -1,7 +1,15 @@
 import type { StructureResolver } from "sanity/structure";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
 import { ManualBookingPane } from "./ManualBookingPane";
-import { NEXTDOOR_REVIEWS_FILTER, NEXTDOOR_TEMPLATE_ID, SITE_REVIEWS_FILTER } from "./reviewLists";
+import {
+  ETSY_REVIEWS_FILTER,
+  ETSY_TEMPLATE_ID,
+  GOOGLE_REVIEWS_FILTER,
+  GOOGLE_TEMPLATE_ID,
+  NEXTDOOR_REVIEWS_FILTER,
+  NEXTDOOR_TEMPLATE_ID,
+  SITE_REVIEWS_FILTER,
+} from "./reviewLists";
 
 /**
  * The Studio sidebar.
@@ -78,7 +86,8 @@ export const structure: StructureResolver = (S) =>
         .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
       S.documentTypeListItem("order").title("Заказы"),
       // Reviews written on the site wait here for approval; recommendations
-      // from Nextdoor are copied in by hand next door. See reviewLists.ts.
+      // from Nextdoor and reviews from Google and Etsy are copied in by hand
+      // beside them. See reviewLists.ts.
       S.listItem()
         .id("review")
         .title("Отзывы")
@@ -103,6 +112,32 @@ export const structure: StructureResolver = (S) =>
             .apiVersion("2024-01-29")
             .filter(NEXTDOOR_REVIEWS_FILTER)
             .initialValueTemplates([S.initialValueTemplateItem(NEXTDOOR_TEMPLATE_ID)])
+            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+        ),
+      S.listItem()
+        .id("google-reviews")
+        .title("Отзывы Google")
+        .schemaType("review")
+        .child(
+          S.documentList()
+            .title("Отзывы Google")
+            .schemaType("review")
+            .apiVersion("2024-01-29")
+            .filter(GOOGLE_REVIEWS_FILTER)
+            .initialValueTemplates([S.initialValueTemplateItem(GOOGLE_TEMPLATE_ID)])
+            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+        ),
+      S.listItem()
+        .id("etsy-reviews")
+        .title("Отзывы Etsy")
+        .schemaType("review")
+        .child(
+          S.documentList()
+            .title("Отзывы Etsy")
+            .schemaType("review")
+            .apiVersion("2024-01-29")
+            .filter(ETSY_REVIEWS_FILTER)
+            .initialValueTemplates([S.initialValueTemplateItem(ETSY_TEMPLATE_ID)])
             .defaultOrdering([{ field: "createdAt", direction: "desc" }])
         ),
       // The pictures of finished jobs on /work: the atelier's shop window

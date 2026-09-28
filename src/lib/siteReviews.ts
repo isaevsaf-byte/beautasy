@@ -108,8 +108,16 @@ export function checkSiteReview(body: unknown): SiteReviewCheck {
  * Studio by Kristina. Nextdoor gives other sites no way to read its
  * recommendations, so they are copied in by hand — and they have no stars,
  * because Nextdoor has none.
+ *
+ * "google" is a review from the Beautasy Atelier listing on Google, copied in
+ * the same way, stars and all. Its stars are Google's: they are shown on the
+ * review, and never added into the average of the ones written here.
+ *
+ * "etsy" is a buyer's review from the Beautasy shop on Etsy, copied in with
+ * its stars and a short name for what was bought. It is always about a piece
+ * from the shop.
  */
-export type ReviewSource = "site" | "nextdoor";
+export type ReviewSource = "site" | "nextdoor" | "google" | "etsy";
 
 const NEXTDOOR_DOMAINS = ["nextdoor.co.uk", "nextdoor.com"];
 
@@ -144,6 +152,8 @@ export interface PublishedReview {
   about?: string | null;
   /** Where a Nextdoor neighbour lives, as Nextdoor labels them: Shirley, Portswood */
   neighbourhood?: string | null;
+  /** What an Etsy buyer bought, in a few words: "Floral scrunchie" */
+  item?: string | null;
   verifiedPurchase?: boolean | null;
   product?: { name: string; slug: string } | null;
 }
@@ -159,8 +169,8 @@ export const PUBLISHED_REVIEWS_QUERY = `*[
   _id,
   "source": coalesce(source, "site"),
   userName,
-  "rating": select(coalesce(source, "site") == "site" => rating),
-  comment, createdAt, about, neighbourhood, verifiedPurchase,
+  "rating": select(coalesce(source, "site") != "nextdoor" => rating),
+  comment, createdAt, about, neighbourhood, item, verifiedPurchase,
   "product": product->{ name, "slug": slug.current }
 }`;
 
@@ -178,31 +188,41 @@ export const PRODUCT_REVIEWS_QUERY = `*[
 }`;
 
 /**
- * The stars written here, averaged, and how many neighbours recommend her on
- * Nextdoor. The two are never mixed: a recommendation has no stars to add.
+ * The stars written here, averaged; how many reviews came from Google and from
+ * Etsy; and how many neighbours recommend her on Nextdoor. Never mixed: a
+ * recommendation has no stars to add, and Google's and Etsy's stars are
+ * counted by those sites — an average made of the ones copied here would
+ * claim to be theirs without being it.
  */
 export function reviewSummary(reviews: Pick<PublishedReview, "rating" | "source">[]): {
   count: number;
   average: number;
   nextdoor: number;
+  google: number;
+  etsy: number;
 } {
-  const stars = reviews.flatMap((review) => (typeof review.rating === "number" ? [review.rating] : []));
+  const stars = reviews.flatMap((review) =>
+    review.source === "site" && typeof review.rating === "number" ? [review.rating] : []
+  );
   const count = stars.length;
   const average = count ? stars.reduce((sum, rating) => sum + rating, 0) / count : 0;
   const nextdoor = reviews.filter((review) => review.source === "nextdoor").length;
-  return { count, average, nextdoor };
+  const google = reviews.filter((review) => review.source === "google").length;
+  const etsy = reviews.filter((review) => review.source === "etsy").length;
+  return { count, average, nextdoor, google, etsy };
 }
 
 /* ─── Which reviews a page shows ─── */
 
-type Placeable = Pick<PublishedReview, "about" | "product">;
+type Placeable = Pick<PublishedReview, "about" | "product"> & { source?: ReviewSource };
 
 /**
  * Reviews of the atelier's work: everything except a piece from the shop. A
- * review of a bra says nothing to someone deciding who hems their curtains.
+ * review of a bra says nothing to someone deciding who hems their curtains —
+ * and every review from Etsy is about a piece from the shop.
  */
 export function atelierReviews<T extends Placeable>(reviews: readonly T[]): T[] {
-  return reviews.filter((review) => review.about !== "shop" && !review.product);
+  return reviews.filter((review) => review.source !== "etsy" && review.about !== "shop" && !review.product);
 }
 
 /**
@@ -223,8 +243,8 @@ export function reviewsForTopics<T extends Placeable>(
 }
 
 /** What the review was about, in the words a visitor reads */
-export function reviewSubject(review: Pick<PublishedReview, "about" | "product">): string | null {
-  return review.product?.name ?? topicLabel(review.about);
+export function reviewSubject(review: Pick<PublishedReview, "about" | "product"> & { item?: string | null }): string | null {
+  return review.product?.name ?? review.item ?? topicLabel(review.about);
 }
 
 /** When the newest approved review was written — null when there is none yet */

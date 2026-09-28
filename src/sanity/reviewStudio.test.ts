@@ -7,9 +7,15 @@ import { ConcreteRuleClass } from "sanity";
 import { review } from "@/sanity/schemaTypes/review";
 import { siteSettings } from "@/sanity/schemaTypes/siteSettings";
 import {
+  ETSY_REVIEWS_FILTER,
+  ETSY_TEMPLATE_ID,
+  GOOGLE_REVIEWS_FILTER,
+  GOOGLE_TEMPLATE_ID,
   NEXTDOOR_REVIEWS_FILTER,
   NEXTDOOR_TEMPLATE_ID,
   SITE_REVIEWS_FILTER,
+  etsyReviewTemplate,
+  googleReviewTemplate,
   nextdoorReviewTemplate,
 } from "@/sanity/reviewLists";
 
@@ -41,6 +47,8 @@ function field(doc: { fields: unknown }, name: string): FieldDef {
 const SITE = { _type: "review", source: "site" };
 const OLD = { _type: "review" }; // saved before reviews had a source
 const NEXTDOOR = { _type: "review", source: "nextdoor" };
+const GOOGLE = { _type: "review", source: "google" };
+const ETSY = { _type: "review", source: "etsy" };
 
 function flag(value: FieldDef["hidden"], document: unknown, fieldValue?: unknown): boolean {
   return typeof value === "function" ? value({ document, value: fieldValue }) : Boolean(value);
@@ -64,6 +72,10 @@ test("a review written on the site needs its stars; a Nextdoor recommendation ha
   assert.match((await says(ratingRule(), undefined, SITE)).join(), /^error: Поставьте оценку/);
   assert.match((await says(ratingRule(), undefined, OLD)).join(), /^error: Поставьте оценку/);
   assert.deepEqual(await says(ratingRule(), undefined, NEXTDOOR), [], "nothing stops Kristina publishing it");
+  // Google's and Etsy's reviews come with stars, so they need them here too
+  assert.match((await says(ratingRule(), undefined, GOOGLE)).join(), /^error: Поставьте оценку/);
+  assert.match((await says(ratingRule(), undefined, ETSY)).join(), /^error: Поставьте оценку/);
+  assert.deepEqual(await says(ratingRule(), 5, GOOGLE), []);
   assert.notDeepEqual(await says(ratingRule(), 6, SITE), [], "still one to five");
 });
 
@@ -74,14 +86,30 @@ test("the form for a Nextdoor recommendation asks only what Nextdoor has", () =>
     assert.equal(flag(hidden, SITE), false, `${name} still shows on a review from the site`);
     assert.equal(flag(hidden, OLD), false, `${name} still shows on an older review`);
   }
+  // Google and Etsy have no piece here, photos or order either — but they have stars
+  for (const name of ["product", "images", "orderId", "verifiedPurchase", "userId"]) {
+    const hidden = field(review, name).hidden;
+    assert.equal(flag(hidden, GOOGLE), true, `${name} is hidden for Google`);
+    assert.equal(flag(hidden, ETSY), true, `${name} is hidden for Etsy`);
+  }
+  assert.equal(flag(field(review, "rating").hidden, GOOGLE), false);
+  assert.equal(flag(field(review, "rating").hidden, ETSY), false);
+  const item = field(review, "item").hidden;
+  assert.equal(flag(item, ETSY), false, "what was bought on Etsy");
+  assert.equal(flag(item, GOOGLE), true);
+  assert.equal(flag(item, SITE), true);
   const area = field(review, "neighbourhood").hidden;
   assert.equal(flag(area, NEXTDOOR), false);
   assert.equal(flag(area, SITE), true, "a site review has no area to fill in");
+  assert.equal(flag(area, GOOGLE), true);
+  assert.equal(flag(area, ETSY), true);
 
   // The date is the day the neighbour wrote it, so Kristina sets it; a review
   // from the site keeps the moment it arrived
   const date = field(review, "createdAt").readOnly;
   assert.equal(flag(date, NEXTDOOR), false);
+  assert.equal(flag(date, GOOGLE), false);
+  assert.equal(flag(date, ETSY), false);
   assert.equal(flag(date, SITE), true);
   assert.equal(flag(date, OLD), true);
 
@@ -96,6 +124,17 @@ test("«Рекомендация Nextdoor» starts marked as Nextdoor, approved,
   assert.equal(value.approved, true);
   const age = Date.now() - Date.parse(String(value.createdAt));
   assert.ok(age >= 0 && age < 60_000, "dated now, for her to change");
+
+  assert.equal(googleReviewTemplate.id, GOOGLE_TEMPLATE_ID);
+  const google = await (googleReviewTemplate.value as () => Record<string, unknown>)();
+  assert.equal(google.source, "google");
+  assert.equal(google.approved, true);
+
+  assert.equal(etsyReviewTemplate.id, ETSY_TEMPLATE_ID);
+  const etsy = await (etsyReviewTemplate.value as () => Record<string, unknown>)();
+  assert.equal(etsy.source, "etsy");
+  assert.equal(etsy.approved, true);
+  assert.equal(etsy.about, "shop", "every Etsy review is about a piece from the shop");
 });
 
 test("the two lists split the reviews the way the site does, older ones counted as the site's", async () => {
@@ -103,12 +142,16 @@ test("the two lists split the reviews the way the site does, older ones counted 
     { _id: "old", ...OLD },
     { _id: "site", ...SITE },
     { _id: "nd", ...NEXTDOOR },
+    { _id: "g", ...GOOGLE },
+    { _id: "e", ...ETSY },
     { _id: "p", _type: "product", source: "site" },
   ];
   const ids = async (filter: string) =>
     (await (await evaluate(parse(`*[${filter}]._id`), { dataset })).get()) as string[];
   assert.deepEqual((await ids(SITE_REVIEWS_FILTER)).sort(), ["old", "site"]);
   assert.deepEqual(await ids(NEXTDOOR_REVIEWS_FILTER), ["nd"]);
+  assert.deepEqual(await ids(GOOGLE_REVIEWS_FILTER), ["g"]);
+  assert.deepEqual(await ids(ETSY_REVIEWS_FILTER), ["e"]);
 });
 
 test("the sidebar and the Studio use those lists and that template", () => {
@@ -121,7 +164,12 @@ test("the sidebar and the Studio use those lists and that template", () => {
     /\.filter\(NEXTDOOR_REVIEWS_FILTER\)\s*\.initialValueTemplates\(\[S\.initialValueTemplateItem\(NEXTDOOR_TEMPLATE_ID\)\]\)/
   );
   assert.doesNotMatch(structure, /documentTypeListItem\("review"\)/, "one list for every review would mix the two again");
-  assert.match(read("sanity.config.ts"), /templates: \(prev\) => \[\.\.\.prev, nextdoorReviewTemplate\]/);
+  assert.match(structure, /\.filter\(GOOGLE_REVIEWS_FILTER\)\s*\.initialValueTemplates\(\[S\.initialValueTemplateItem\(GOOGLE_TEMPLATE_ID\)\]\)/);
+  assert.match(structure, /\.filter\(ETSY_REVIEWS_FILTER\)\s*\.initialValueTemplates\(\[S\.initialValueTemplateItem\(ETSY_TEMPLATE_ID\)\]\)/);
+  assert.match(
+    read("sanity.config.ts"),
+    /templates: \(prev\) => \[\.\.\.prev, nextdoorReviewTemplate, googleReviewTemplate, etsyReviewTemplate\]/
+  );
 });
 
 test("the Nextdoor page in Site Settings takes a Nextdoor address and nothing else", async () => {

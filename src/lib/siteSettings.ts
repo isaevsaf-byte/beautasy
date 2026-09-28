@@ -95,9 +95,10 @@ export async function googleReviewUrl({ forPage = false }: { forPage?: boolean }
 }
 
 /**
- * Beautasy's page on Nextdoor, when it has been put in the Studio. Only ever
- * a Nextdoor address, whatever was typed: the button that uses it says
- * "Nextdoor". Read with the page, every five minutes, like googleReviewUrl.
+ * Beautasy's page on Nextdoor: the one in the Studio when it has been put
+ * there, otherwise the one the site knows. Only ever a Nextdoor address,
+ * whatever was typed: the button that uses it says "Nextdoor". Read with the
+ * page, every five minutes, like googleReviewUrl.
  */
 export async function nextdoorPageUrl(): Promise<string | null> {
   try {
@@ -106,10 +107,11 @@ export async function nextdoorPageUrl(): Promise<string | null> {
       {},
       { next: { revalidate: 300 } }
     );
-    return isNextdoorUrl(url) ? url : null;
+    if (isNextdoorUrl(url)) return url;
   } catch {
-    return null;
+    // The page the site knows is the right answer here, not an error
   }
+  return isNextdoorUrl(BUSINESS.nextdoorUrl) ? BUSINESS.nextdoorUrl : null;
 }
 
 /* ── Defaults ── */

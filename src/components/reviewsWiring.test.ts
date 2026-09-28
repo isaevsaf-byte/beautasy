@@ -7,7 +7,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import nextConfig from "../../next.config";
 import ReviewCard from "./reviews/ReviewCard";
 import ReviewStrip from "./reviews/ReviewStrip";
-import type { PublishedReview } from "../lib/siteReviews";
+import { isNextdoorUrl, type PublishedReview } from "../lib/siteReviews";
+import { BUSINESS } from "../lib/business";
 
 /**
  * The review form is open to anyone, so its safety sits in the wiring as much
@@ -130,14 +131,18 @@ test("a Nextdoor recommendation shows where it was written and the neighbour's a
   assert.doesNotMatch(noPage, /<a /, "no link until the page is set in the Studio");
 });
 
-test("the reviews page counts Nextdoor apart and offers it only once its page is set", () => {
+test("the reviews page counts Nextdoor apart and offers it only with a real Nextdoor page", () => {
   const page = read("src/app/reviews/page.tsx");
   assert.match(page, /nextdoorPageUrl\(\)/);
   assert.match(page, /\{nextdoorUrl && \(/);
   assert.match(page, /Recommend us on Nextdoor/);
   assert.match(page, /<ReviewCard key=\{review\._id\} review=\{review\} nextdoorUrl=\{nextdoorUrl\} \/>/);
-  // Only a Nextdoor address gets through, whatever was typed in the Studio
-  assert.match(read("src/lib/siteSettings.ts"), /return isNextdoorUrl\(url\) \? url : null;/);
+  // Only a Nextdoor address gets through, whatever was typed in the Studio;
+  // with none there, the page the site knows
+  const settings = read("src/lib/siteSettings.ts");
+  assert.match(settings, /if \(isNextdoorUrl\(url\)\) return url;/);
+  assert.match(settings, /return isNextdoorUrl\(BUSINESS\.nextdoorUrl\) \? BUSINESS\.nextdoorUrl : null;/);
+  assert.equal(isNextdoorUrl(BUSINESS.nextdoorUrl), true, "the page the site knows is a Nextdoor page");
 });
 
 /* ─── Reviews beside other things: home, /atelier, the service pages ─── */
@@ -194,4 +199,26 @@ test("the home page, /atelier and every service page show reviews, and none of t
   }
   // A page that shows reviews beside something else never fails over them
   assert.match(read("src/lib/getReviews.ts"), /catch \(error\) \{\s*console\.error\("Could not read the reviews:", error\);\s*return \[\];/);
+});
+
+test("a review from Google or Etsy shows its stars and leads to where it was written", () => {
+  const google = card({ source: "google", rating: 5, userName: "Maria" });
+  assert.match(google, /lucide-star/);
+  assert.match(google, /<a href="https:\/\/maps\.google\.com\/\?cid=5155324499486741351" target="_blank" rel="noopener noreferrer"[^>]*>Google review<\/a>/);
+  assert.doesNotMatch(google, /Nextdoor|Verified purchase/);
+
+  const etsy = card({ source: "etsy", rating: 5, userName: "Shannon", item: "Quilted cosmetic bag", about: "shop" });
+  assert.match(etsy, /lucide-star/);
+  assert.match(etsy, /<a href="https:\/\/www\.etsy\.com\/shop\/Beautasy#reviews"[^>]*>Etsy review<\/a>/);
+  assert.match(etsy, />Quilted cosmetic bag</, "what the buyer bought, under the review");
+
+  // "Verified purchase" is only ever for a purchase made on this site
+  assert.doesNotMatch(card({ source: "etsy", rating: 5, verifiedPurchase: true }), /Verified purchase/);
+  assert.match(card({ source: "site", rating: 5, verifiedPurchase: true }), /Verified purchase/);
+});
+
+test("the reviews page counts Google's and Etsy's reviews without averaging their stars", () => {
+  const page = read("src/app/reviews/page.tsx");
+  assert.match(page, /const \{ count, average, nextdoor, google, etsy \} = reviewSummary\(reviews\);/);
+  assert.match(page, /\{source\.n\} \{source\.n === 1 \? "review" : "reviews"\} from \{source\.where\}/);
 });

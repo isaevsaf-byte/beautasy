@@ -111,18 +111,19 @@ test("every topic has a label for the site and a Russian title for the Studio", 
 
 test("a review of a piece names the piece, otherwise what it was about", () => {
   assert.equal(reviewSubject({ about: "shop", product: { name: "Silk scrunchie", slug: "silk-scrunchie" } }), "Silk scrunchie");
+  assert.equal(reviewSubject({ about: "shop", product: null, item: "Floral scrunchie" }), "Floral scrunchie", "what an Etsy buyer bought");
   assert.equal(reviewSubject({ about: "home", product: null }), "Curtains & home");
   assert.equal(reviewSubject({ about: null, product: null }), null);
 });
 
 test("the summary averages the stars and is zero with nothing to average", () => {
-  assert.deepEqual(reviewSummary([]), { count: 0, average: 0, nextdoor: 0 });
+  assert.deepEqual(reviewSummary([]), { count: 0, average: 0, nextdoor: 0, google: 0, etsy: 0 });
   assert.deepEqual(
     reviewSummary([
       { rating: 5, source: "site" },
       { rating: 4, source: "site" },
     ]),
-    { count: 2, average: 4.5, nextdoor: 0 }
+    { count: 2, average: 4.5, nextdoor: 0, google: 0, etsy: 0 }
   );
 });
 
@@ -134,9 +135,9 @@ test("Nextdoor recommendations are counted apart, and never pull the stars down"
       { rating: 4, source: "site" },
       { rating: null, source: "nextdoor" },
     ]),
-    { count: 2, average: 4.5, nextdoor: 2 }
+    { count: 2, average: 4.5, nextdoor: 2, google: 0, etsy: 0 }
   );
-  assert.deepEqual(reviewSummary([{ rating: null, source: "nextdoor" }]), { count: 0, average: 0, nextdoor: 1 });
+  assert.deepEqual(reviewSummary([{ rating: null, source: "nextdoor" }]), { count: 0, average: 0, nextdoor: 1, google: 0, etsy: 0 });
 });
 
 test("only approved, published reviews reach the page, newest first, with the piece they are about", async () => {
@@ -183,7 +184,7 @@ test("a Nextdoor recommendation reaches the page with its area and without stars
   assert.equal(reviews[1].source, "nextdoor");
   assert.equal(reviews[1].neighbourhood, "Shirley");
   assert.equal(reviews[1].rating, null);
-  assert.deepEqual(reviewSummary(reviews), { count: 1, average: 5, nextdoor: 1 });
+  assert.deepEqual(reviewSummary(reviews), { count: 1, average: 5, nextdoor: 1, google: 0, etsy: 0 });
 });
 
 test("a piece's page, and its stars in Google, only ever count reviews written on this site", async () => {
@@ -226,6 +227,22 @@ test("only an https link to Nextdoor itself counts as Nextdoor", () => {
   }
 });
 
+test("Google's and Etsy's reviews keep their stars, and are counted apart from the ones written here", async () => {
+  const dataset = [
+    { _id: "s1", _type: "review", source: "site", approved: true, userName: "Anna", rating: 4, comment: "Lovely work.", createdAt: "2026-09-20T10:00:00Z" },
+    { _id: "g1", _type: "review", source: "google", approved: true, userName: "Maria", rating: 5, comment: "Lovely service.", createdAt: "2026-09-07T10:00:00Z" },
+    { _id: "e1", _type: "review", source: "etsy", approved: true, userName: "Shannon", rating: 5, comment: "Wonderful pouch.", item: "Quilted cosmetic bag", about: "shop", createdAt: "2025-08-25T10:00:00Z" },
+  ];
+  const reviews = await (await evaluate(parse(PUBLISHED_REVIEWS_QUERY), { dataset })).get();
+  assert.deepEqual(
+    reviews.map((review: { _id: string; rating: number }) => [review._id, review.rating]),
+    [["s1", 4], ["g1", 5], ["e1", 5]]
+  );
+  assert.equal(reviews[2].item, "Quilted cosmetic bag");
+  // 4.0 is the site's own; Google's and Etsy's fives are theirs to average
+  assert.deepEqual(reviewSummary(reviews), { count: 1, average: 4, nextdoor: 0, google: 1, etsy: 1 });
+});
+
 /* ─── Which reviews a page shows ─── */
 
 const PIECE = { name: "Silk scrunchie", slug: "silk-scrunchie" };
@@ -244,6 +261,9 @@ const ids = (reviews: { id: string }[]) => reviews.map((review) => review.id);
 
 test("the atelier shows reviews of its own work, never a piece from the shop", () => {
   assert.deepEqual(ids(atelierReviews(newestFirst)), ["curtains", "nextdoor", "hem", "zip", "blind"]);
+  // Every Etsy review is about a piece from the shop, whatever its topic says
+  const etsy = { id: "etsy", about: null, product: null, source: "etsy" as const };
+  assert.deepEqual(ids(atelierReviews([etsy, ...newestFirst])), ["curtains", "nextdoor", "hem", "zip", "blind"]);
 });
 
 test("a service page shows reviews about its job first, then the atelier's others", () => {

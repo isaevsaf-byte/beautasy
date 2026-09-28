@@ -62,7 +62,11 @@ export default async function ReviewsPage() {
     googleReviewUrl({ forPage: true }),
     nextdoorPageUrl(),
   ]);
-  const { count, average, nextdoor } = reviewSummary(reviews);
+  const { count, average, nextdoor, google, etsy } = reviewSummary(reviews);
+  const elsewhere = [
+    { n: google, where: "Google", href: BUSINESS.googleMapsUrl },
+    { n: etsy, where: "Etsy", href: `${BUSINESS.etsyUrl}#reviews` },
+  ].filter((source) => source.n > 0);
 
   return (
     <>
@@ -79,7 +83,7 @@ export default async function ReviewsPage() {
                 What people say after a fitting, a set of curtains or a piece from the shop. Kristina reads every
                 review before it goes up here.
               </p>
-              {(count > 0 || nextdoor > 0) && (
+              {(count > 0 || nextdoor > 0 || elsewhere.length > 0) && (
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-charcoal-light">
                   {count > 0 && (
                     <span className="inline-flex items-center gap-3">
@@ -89,6 +93,18 @@ export default async function ReviewsPage() {
                       </span>
                     </span>
                   )}
+                  {/* Counted, never averaged: those stars are Google's and Etsy's to add up */}
+                  {elsewhere.map((source) => (
+                    <a
+                      key={source.where}
+                      href={source.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="tabular-nums underline-offset-4 hover:underline"
+                    >
+                      {source.n} {source.n === 1 ? "review" : "reviews"} from {source.where}
+                    </a>
+                  ))}
                   {/* No stars for these: a Nextdoor recommendation has none to count */}
                   {nextdoor > 0 && (
                     <span className="inline-flex items-center gap-2">
