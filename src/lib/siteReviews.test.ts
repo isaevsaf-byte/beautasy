@@ -8,6 +8,7 @@ import {
   PUBLISHED_REVIEWS_QUERY,
   REVIEW_TOPICS,
   atelierReviews,
+  featuredReview,
   checkSiteReview,
   isNextdoorUrl,
   reviewsForTopics,
@@ -288,4 +289,18 @@ test("Kristina's email carries the review as written, escaped, with a link that 
   assert.match(html, /About: Curtains &amp; home/);
   assert.match(html, /\/studio\/intent\/edit\/id=abc123;type=review/);
   assert.match(newReviewEmail({ ...good, topic: "shop" } as never, "x", "Silk scrunchie"), /About: Silk scrunchie/);
+});
+
+test("the review at the top is the fullest five-star word about the atelier", () => {
+  const long = (words: number) => Array.from({ length: words }, () => "lovely").join(" ");
+  const reviews = [
+    { _id: "shop", source: "etsy" as const, about: "shop", product: null, rating: 5, comment: long(60) },
+    { _id: "four", source: "google" as const, about: null, product: null, rating: 4, comment: long(50) },
+    { _id: "short", source: "site" as const, about: "alterations", product: null, rating: 5, comment: "Lovely." },
+    { _id: "nextdoor", source: "nextdoor" as const, about: null, product: null, rating: null, comment: long(25) },
+    { _id: "google", source: "google" as const, about: null, product: null, rating: 5, comment: long(40) },
+  ];
+  assert.equal(featuredReview(reviews)?._id, "google", "Etsy's is the shop's, and four stars don't lead the page");
+  assert.equal(featuredReview(reviews.filter((review) => review._id !== "google"))?._id, "nextdoor", "a recommendation counts as full marks");
+  assert.equal(featuredReview(reviews.slice(0, 3)), null, "nothing long enough about the atelier: no quote at the top");
 });

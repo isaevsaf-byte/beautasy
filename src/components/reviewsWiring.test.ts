@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import nextConfig from "../../next.config";
 import ReviewCard from "./reviews/ReviewCard";
 import ReviewStrip from "./reviews/ReviewStrip";
+import ReviewWall from "../app/reviews/ReviewWall";
 import { isNextdoorUrl, type PublishedReview } from "../lib/siteReviews";
 import { BUSINESS } from "../lib/business";
 
@@ -136,7 +137,8 @@ test("the reviews page counts Nextdoor apart and offers it only with a real Next
   assert.match(page, /nextdoorPageUrl\(\)/);
   assert.match(page, /\{nextdoorUrl && \(/);
   assert.match(page, /Recommend us on Nextdoor/);
-  assert.match(page, /<ReviewCard key=\{review\._id\} review=\{review\} nextdoorUrl=\{nextdoorUrl\} \/>/);
+  assert.match(page, /<ReviewWall reviews=\{wall\} nextdoorUrl=\{nextdoorUrl\} \/>/);
+  assert.match(read("src/app/reviews/ReviewWall.tsx"), /review=\{review\}\s*nextdoorUrl=\{nextdoorUrl\}/);
   // Only a Nextdoor address gets through, whatever was typed in the Studio;
   // with none there, the page the site knows
   const settings = read("src/lib/siteSettings.ts");
@@ -220,5 +222,47 @@ test("a review from Google or Etsy shows its stars and leads to where it was wri
 test("the reviews page counts Google's and Etsy's reviews without averaging their stars", () => {
   const page = read("src/app/reviews/page.tsx");
   assert.match(page, /const \{ count, average, nextdoor, google, etsy \} = reviewSummary\(reviews\);/);
-  assert.match(page, /\{source\.n\} \{source\.n === 1 \? "review" : "reviews"\} from \{source\.where\}/);
+  assert.match(page, /`\$\{google\} \$\{google === 1 \? "review" : "reviews"\} from Google`/);
+  assert.match(page, /`\$\{etsy\} \$\{etsy === 1 \? "review" : "reviews"\} from Etsy`/);
+  // The average is only ever of the stars written here
+  assert.match(page, /`\$\{average\.toFixed\(1\)\} from \$\{count\} \$\{count === 1 \? "review" : "reviews"\} here`/);
+});
+
+const wallOf = (reviews: Partial<PublishedReview>[]) =>
+  renderToStaticMarkup(
+    createElement(ReviewWall, {
+      reviews: reviews.map((review, i) => ({
+        _id: `w${i}`,
+        source: "site" as const,
+        userName: `Client ${i}`,
+        rating: 5,
+        comment: "Lovely work, thank you.",
+        createdAt: "2026-09-20T10:00:00Z",
+        ...review,
+      })),
+      nextdoorUrl: null,
+    })
+  );
+
+test("the wall opens on every review, and offers the atelier's or the shop's when there are both", () => {
+  const both = wallOf([
+    { source: "nextdoor", rating: null },
+    { source: "google" },
+    { source: "etsy", about: "shop", item: "Floral scrunchie" },
+  ]);
+  assert.equal(both.match(/<li /g)?.length, 3, "all of them in the page as it arrives");
+  assert.match(both, /aria-pressed="true"[^>]*>All<span[^>]*>3</);
+  assert.match(both, />Alterations &amp; sewing<span[^>]*>2</);
+  assert.match(both, />Handmade pieces<span[^>]*>1</);
+
+  const shopOnly = wallOf([{ source: "etsy", about: "shop" }, { source: "etsy", about: "shop" }]);
+  assert.doesNotMatch(shopOnly, /aria-pressed/, "no choice to make with one kind only");
+  assert.equal(shopOnly.match(/<li /g)?.length, 2);
+});
+
+test("the page leads with one review, and doesn't show it twice", () => {
+  const page = read("src/app/reviews/page.tsx");
+  assert.match(page, /const featured = featuredReview\(reviews\);/);
+  assert.match(page, /const wall = featured \? reviews\.filter\(\(review\) => review\._id !== featured\._id\) : reviews;/);
+  assert.match(page, /<blockquote[^>]*>\s*\{featured\.comment\}/);
 });

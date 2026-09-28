@@ -41,7 +41,7 @@ export default function StarRating({
               size={size}
               className={
                 filled
-                  ? "fill-lavender text-lavender"
+                  ? "fill-[#BCA8F2] text-[#BCA8F2]"
                   : "text-charcoal/20"
               }
             />
@@ -52,7 +52,7 @@ export default function StarRating({
               size={size}
               className={
                 filled
-                  ? "fill-lavender text-lavender"
+                  ? "fill-[#BCA8F2] text-[#BCA8F2]"
                   : "text-charcoal/20"
               }
             />

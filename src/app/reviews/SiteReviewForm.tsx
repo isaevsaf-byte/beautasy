@@ -223,7 +223,7 @@ export default function SiteReviewForm({ googleUrl }: { googleUrl: string | null
                           size={30}
                           aria-hidden="true"
                           className={
-                            n <= shown ? "fill-lavender text-lavender" : "text-charcoal/35"
+                            n <= shown ? "fill-[#BCA8F2] text-[#BCA8F2]" : "text-charcoal/35"
                           }
                         />
                       </span>

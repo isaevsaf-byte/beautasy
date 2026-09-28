@@ -16,25 +16,22 @@ export default function ReviewCard({
   review,
   nextdoorUrl,
   clamp = false,
+  className = "",
 }: {
   review: PublishedReview;
   nextdoorUrl: string | null;
   /** Beside other things on a page, a long review stops at six lines; /reviews has it whole */
   clamp?: boolean;
+  className?: string;
 }) {
   const subject = reviewSubject(review);
   const fromNextdoor = review.source === "nextdoor";
-  const elsewhere = ELSEWHERE[review.source as keyof typeof ELSEWHERE];
 
   return (
-    <li className="bg-white/70 rounded-2xl p-6 border border-lavender-soft/30">
+    <li className={`bg-white/70 rounded-2xl p-6 border border-lavender-soft/30 ${className}`}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3">
-        {fromNextdoor ? (
-          <NextdoorMark href={nextdoorUrl} />
-        ) : typeof review.rating === "number" ? (
-          <StarRating rating={review.rating} size={14} />
-        ) : null}
-        {elsewhere && <SourceMark label={elsewhere.label} href={elsewhere.href} />}
+        {!fromNextdoor && typeof review.rating === "number" && <StarRating rating={review.rating} size={14} />}
+        <ReviewSourceMark source={review.source} nextdoorUrl={nextdoorUrl} />
         <span className="font-medium text-sm text-charcoal">{review.userName}</span>
         {fromNextdoor && review.neighbourhood && (
           <span className="text-xs text-charcoal-light">{review.neighbourhood}</span>
@@ -69,6 +66,22 @@ export default function ReviewCard({
       )}
     </li>
   );
+}
+
+/**
+ * Where a review was written, when that is not here: a mark that leads to it.
+ * Nothing for a review written on this site.
+ */
+export function ReviewSourceMark({
+  source,
+  nextdoorUrl,
+}: {
+  source: PublishedReview["source"];
+  nextdoorUrl: string | null;
+}) {
+  if (source === "nextdoor") return <NextdoorMark href={nextdoorUrl} />;
+  const elsewhere = ELSEWHERE[source as keyof typeof ELSEWHERE];
+  return elsewhere ? <SourceMark label={elsewhere.label} href={elsewhere.href} /> : null;
 }
 
 /** The sites whose reviews are copied in with their stars, and where each one's reviews are read */

@@ -226,6 +226,24 @@ export function atelierReviews<T extends Placeable>(reviews: readonly T[]): T[] 
 }
 
 /**
+ * The review at the top of /reviews: the fullest word from someone Kristina
+ * sewed for — about the atelier, five stars or a recommendation (which has
+ * none), and long enough to say something. Null when nothing qualifies; the
+ * page then simply starts with the wall.
+ */
+export function featuredReview<T extends Placeable & Pick<PublishedReview, "rating" | "comment">>(
+  reviews: readonly T[]
+): T | null {
+  const candidates = atelierReviews(reviews).filter(
+    (review) => (review.rating ?? 5) >= 5 && review.comment.trim().length >= 120
+  );
+  return candidates.reduce<T | null>(
+    (best, review) => (!best || review.comment.length > best.comment.length ? review : best),
+    null
+  );
+}
+
+/**
  * What a service page shows: the reviews about its kind of job first, then the
  * atelier's others, newest first within each, up to `limit`. One curtains
  * review on the curtains page still comes with two more kind words, rather

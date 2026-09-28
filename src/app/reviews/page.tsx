@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Heart } from "lucide-react";
+import { Heart, Star } from "lucide-react";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import StarRating from "@/components/StarRating";
@@ -7,10 +7,11 @@ import { googleReviewUrl, nextdoorPageUrl } from "@/lib/siteSettings";
 import { BUSINESS } from "@/lib/business";
 import { SITE_URL } from "@/lib/site";
 import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
-import { reviewSummary } from "@/lib/siteReviews";
+import { featuredReview, reviewSummary } from "@/lib/siteReviews";
 import { readReviews } from "@/lib/getReviews";
-import ReviewCard from "@/components/reviews/ReviewCard";
+import { ReviewSourceMark } from "@/components/reviews/ReviewCard";
 import SiteReviewForm from "./SiteReviewForm";
+import ReviewWall from "./ReviewWall";
 
 /**
  * Reviews: what clients say, and the place to add your own.
@@ -21,9 +22,9 @@ import SiteReviewForm from "./SiteReviewForm";
  * name in public. Everything written here waits for Kristina's approval in the
  * Studio before it shows.
  *
- * Neighbours' recommendations from Nextdoor show here too, copied in by
- * Kristina in the Studio: Nextdoor is where the atelier's first paying clients
- * came from, and its recommendations can't be read by another site.
+ * Reviews from Nextdoor, Google and Etsy show here too, copied in by Kristina
+ * in the Studio. The page opens with how many each site holds and the fullest
+ * word about the atelier, then the whole wall, then the two ways to add one.
  *
  * beautasy.co.uk/review — the short address for WhatsApp, cards in the bag and
  * the email after a finished job — lands on #write (see next.config.ts).
@@ -63,61 +64,124 @@ export default async function ReviewsPage() {
     nextdoorPageUrl(),
   ]);
   const { count, average, nextdoor, google, etsy } = reviewSummary(reviews);
-  const elsewhere = [
-    { n: google, where: "Google", href: BUSINESS.googleMapsUrl },
-    { n: etsy, where: "Etsy", href: `${BUSINESS.etsyUrl}#reviews` },
-  ].filter((source) => source.n > 0);
+  const featured = featuredReview(reviews);
+  const wall = featured ? reviews.filter((review) => review._id !== featured._id) : reviews;
+
+  // How many each site holds, each leading there. Counted, never averaged:
+  // Google's and Etsy's stars are theirs to add up.
+  const sources = [
+    count > 0 && { key: "site", text: `${average.toFixed(1)} from ${count} ${count === 1 ? "review" : "reviews"} here`, href: null, heart: false },
+    nextdoor > 0 && {
+      key: "nextdoor",
+      text: `${nextdoor} ${nextdoor === 1 ? "recommendation" : "recommendations"} on Nextdoor`,
+      href: nextdoorUrl,
+      heart: true,
+    },
+    google > 0 && { key: "google", text: `${google} ${google === 1 ? "review" : "reviews"} from Google`, href: BUSINESS.googleMapsUrl, heart: false },
+    etsy > 0 && { key: "etsy", text: `${etsy} ${etsy === 1 ? "review" : "reviews"} from Etsy`, href: `${BUSINESS.etsyUrl}#reviews`, heart: false },
+  ].filter((source) => source !== false);
 
   return (
     <>
       <HeaderWrapper />
       <main className="pt-28">
-        <section className="py-16 md:py-20">
-          <div className="max-w-5xl mx-auto px-6">
-            <div className="text-center mb-12">
-              <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4">Reviews</p>
-              <h1 className="font-serif text-4xl sm:text-5xl mb-6">
-                In their <span className="italic text-lavender">own words.</span>
-              </h1>
-              <p className="text-lg text-charcoal-light max-w-xl mx-auto leading-relaxed">
-                What people say after a fitting, a set of curtains or a piece from the shop. Kristina reads every
-                review before it goes up here.
-              </p>
-              {(count > 0 || nextdoor > 0 || elsewhere.length > 0) && (
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-charcoal-light">
-                  {count > 0 && (
-                    <span className="inline-flex items-center gap-3">
-                      <StarRating rating={Math.round(average)} />
-                      <span className="tabular-nums">
-                        {average.toFixed(1)} from {count} {count === 1 ? "review" : "reviews"} on this site
-                      </span>
-                    </span>
-                  )}
-                  {/* Counted, never averaged: those stars are Google's and Etsy's to add up */}
-                  {elsewhere.map((source) => (
-                    <a
-                      key={source.where}
-                      href={source.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="tabular-nums underline-offset-4 hover:underline"
-                    >
-                      {source.n} {source.n === 1 ? "review" : "reviews"} from {source.where}
-                    </a>
-                  ))}
-                  {/* No stars for these: a Nextdoor recommendation has none to count */}
-                  {nextdoor > 0 && (
-                    <span className="inline-flex items-center gap-2">
-                      <Heart size={15} aria-hidden="true" className="fill-lavender text-lavender" />
-                      <span className="tabular-nums">
-                        {nextdoor} {nextdoor === 1 ? "neighbour recommends" : "neighbours recommend"} us on Nextdoor
-                      </span>
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
+        {/* ──── The opening: what people say, and where ──── */}
+        <section className="relative overflow-hidden pt-16 pb-12 md:pt-20">
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-lavender-bg to-transparent pointer-events-none"
+          />
+          <div className="relative max-w-5xl mx-auto px-6 text-center">
+            <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4">Reviews</p>
+            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl mb-6 text-balance">
+              In their <span className="italic text-lavender">own words.</span>
+            </h1>
+            <p className="text-lg text-charcoal-light max-w-xl mx-auto leading-relaxed">
+              What people say after a fitting, a set of curtains or a piece from the shop — here, on Nextdoor, Google
+              and Etsy. Kristina reads every review before it goes up.
+            </p>
 
+            {sources.length > 0 && (
+              <ul className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+                {sources.map((source) => {
+                  const inner = (
+                    <>
+                      {source.heart ? (
+                        <Heart size={14} aria-hidden="true" className="fill-lavender text-lavender" />
+                      ) : (
+                        <Star size={14} aria-hidden="true" className="fill-lavender text-lavender" />
+                      )}
+                      <span className="tabular-nums">{source.text}</span>
+                    </>
+                  );
+                  const pill =
+                    "inline-flex items-center gap-2 rounded-full border border-lavender-soft bg-white/80 px-4 py-2 text-sm text-charcoal";
+                  return (
+                    <li key={source.key}>
+                      {source.href ? (
+                        <a
+                          href={source.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`${pill} hover:border-lavender transition-colors`}
+                        >
+                          {inner}
+                        </a>
+                      ) : (
+                        <span className={pill}>{inner}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <a
+              href="#write"
+              className="inline-flex items-center gap-2 mt-8 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+            >
+              Write a review
+            </a>
+          </div>
+
+          {/* ──── The fullest word about the atelier ──── */}
+          {featured && (
+            <figure className="relative max-w-3xl mt-14 mx-6 sm:mx-auto rounded-3xl bg-white/80 border border-lavender-soft/60 px-7 pt-12 pb-9 sm:px-14 text-center shadow-[0_20px_60px_-30px_rgba(74,74,74,0.25)]">
+              <span
+                aria-hidden="true"
+                className="absolute left-1/2 -translate-x-1/2 -top-7 font-serif text-8xl leading-none text-lavender select-none"
+              >
+                &ldquo;
+              </span>
+              <blockquote className="font-serif text-xl sm:text-2xl leading-relaxed text-charcoal whitespace-pre-line">
+                {featured.comment}
+              </blockquote>
+              <figcaption className="mt-7 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-charcoal-light">
+                {typeof featured.rating === "number" && <StarRating rating={featured.rating} size={14} />}
+                <span className="font-medium text-charcoal">{featured.userName}</span>
+                <ReviewSourceMark source={featured.source} nextdoorUrl={nextdoorUrl} />
+              </figcaption>
+            </figure>
+          )}
+        </section>
+
+        {/* ──── Everything else ──── */}
+        {wall.length > 0 && (
+          <section className="pb-20 md:pb-24">
+            <div className="max-w-6xl mx-auto px-6">
+              <h2 className="font-serif text-2xl sm:text-3xl mb-8 text-center">What people said</h2>
+              <ReviewWall reviews={wall} nextdoorUrl={nextdoorUrl} />
+            </div>
+          </section>
+        )}
+
+        {/* ──── Two ways to add one ──── */}
+        <section className="pb-24">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-center mb-10">
+              <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-3">Your turn</p>
+              <h2 className="font-serif text-3xl sm:text-4xl">Worked with Kristina?</h2>
+            </div>
             <div id="write" className="scroll-mt-28 grid gap-5 md:grid-cols-[1fr_1.5fr] items-start max-w-4xl mx-auto">
               <div className="bg-white/70 rounded-3xl p-7 sm:p-9 border border-lavender-soft/30">
                 <p className="text-xs tracking-wider uppercase text-charcoal-light mb-2">Helps the most</p>
@@ -162,17 +226,6 @@ export default async function ReviewsPage() {
 
               <SiteReviewForm googleUrl={googleUrl} />
             </div>
-
-            {reviews.length > 0 && (
-              <div className="max-w-3xl mx-auto mt-20">
-                <h2 className="font-serif text-2xl sm:text-3xl mb-8 text-center">What people said</h2>
-                <ul className="grid gap-4">
-                  {reviews.map((review) => (
-                    <ReviewCard key={review._id} review={review} nextdoorUrl={nextdoorUrl} />
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </section>
       </main>
