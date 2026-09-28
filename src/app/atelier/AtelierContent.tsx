@@ -114,11 +114,17 @@ function PriceLine({ item, index }: { item: PriceItem; index: number }) {
       custom={index}
       className="flex items-end gap-2 py-3 group"
     >
-      <span className="text-[15px] text-charcoal whitespace-nowrap">
+      {/* The name wraps and the price never does: "Shorten Jeans (Keep
+          Original Hem)" on one line made the whole page wider than a 320px
+          phone, which then showed it zoomed out and sliding sideways */}
+      <span className="min-w-0 text-[15px] text-charcoal">
         {item.name}
       </span>
-      <span className="flex-1 border-b border-dotted border-charcoal/15 mb-1.5 group-hover:border-lavender/50 transition-colors" />
-      <span className="text-[15px] font-medium text-charcoal whitespace-nowrap">
+      <span
+        className="flex-1 min-w-6 border-b border-dotted border-charcoal/15 mb-1.5 group-hover:border-lavender/50 transition-colors"
+        aria-hidden="true"
+      />
+      <span className="text-[15px] font-medium text-charcoal whitespace-nowrap tabular-nums">
         {item.price}
       </span>
     </motion.div>
