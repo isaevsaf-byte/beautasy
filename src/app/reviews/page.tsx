@@ -1,20 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Heart } from "lucide-react";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import StarRating from "@/components/StarRating";
 import { sanityClient } from "@/lib/sanity";
-import { googleReviewUrl } from "@/lib/siteSettings";
+import { googleReviewUrl, nextdoorPageUrl } from "@/lib/siteSettings";
 import { BUSINESS } from "@/lib/business";
 import { SITE_URL } from "@/lib/site";
 import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
-import {
-  PUBLISHED_REVIEWS_QUERY,
-  reviewSubject,
-  reviewSummary,
-  type PublishedReview,
-} from "@/lib/siteReviews";
+import { PUBLISHED_REVIEWS_QUERY, reviewSummary, type PublishedReview } from "@/lib/siteReviews";
 import SiteReviewForm from "./SiteReviewForm";
+import ReviewCard from "./ReviewCard";
 
 /**
  * Reviews: what clients say, and the place to add your own.
@@ -24,6 +20,10 @@ import SiteReviewForm from "./SiteReviewForm";
  * anyone without a Google account, or who would rather not post under their
  * name in public. Everything written here waits for Kristina's approval in the
  * Studio before it shows.
+ *
+ * Neighbours' recommendations from Nextdoor show here too, copied in by
+ * Kristina in the Studio: Nextdoor is where the atelier's first paying clients
+ * came from, and its recommendations can't be read by another site.
  *
  * beautasy.co.uk/review — the short address for WhatsApp, cards in the bag and
  * the email after a finished job — lands on #write (see next.config.ts).
@@ -66,8 +66,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ReviewsPage() {
-  const [reviews, googleUrl] = await Promise.all([readReviews(), googleReviewUrl({ forPage: true })]);
-  const { count, average } = reviewSummary(reviews);
+  const [reviews, googleUrl, nextdoorUrl] = await Promise.all([
+    readReviews(),
+    googleReviewUrl({ forPage: true }),
+    nextdoorPageUrl(),
+  ]);
+  const { count, average, nextdoor } = reviewSummary(reviews);
 
   return (
     <>
@@ -84,12 +88,25 @@ export default async function ReviewsPage() {
                 What people say after a fitting, a set of curtains or a piece from the shop. Kristina reads every
                 review before it goes up here.
               </p>
-              {count > 0 && (
-                <div className="mt-6 inline-flex items-center gap-3">
-                  <StarRating rating={Math.round(average)} />
-                  <span className="text-sm text-charcoal-light tabular-nums">
-                    {average.toFixed(1)} from {count} {count === 1 ? "review" : "reviews"} on this site
-                  </span>
+              {(count > 0 || nextdoor > 0) && (
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-charcoal-light">
+                  {count > 0 && (
+                    <span className="inline-flex items-center gap-3">
+                      <StarRating rating={Math.round(average)} />
+                      <span className="tabular-nums">
+                        {average.toFixed(1)} from {count} {count === 1 ? "review" : "reviews"} on this site
+                      </span>
+                    </span>
+                  )}
+                  {/* No stars for these: a Nextdoor recommendation has none to count */}
+                  {nextdoor > 0 && (
+                    <span className="inline-flex items-center gap-2">
+                      <Heart size={15} aria-hidden="true" className="fill-lavender text-lavender" />
+                      <span className="tabular-nums">
+                        {nextdoor} {nextdoor === 1 ? "neighbour recommends" : "neighbours recommend"} us on Nextdoor
+                      </span>
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -118,6 +135,22 @@ export default async function ReviewsPage() {
                 >
                   Read our Google reviews
                 </a>
+                {nextdoorUrl && (
+                  <div className="mt-7 pt-6 border-t border-lavender-soft/40">
+                    <p className="text-sm text-charcoal-light leading-relaxed mb-3">
+                      Found Kristina through Nextdoor? A recommendation there helps your neighbours find her too.
+                    </p>
+                    <a
+                      href={nextdoorUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-charcoal underline underline-offset-4 decoration-lavender hover:decoration-charcoal"
+                    >
+                      <Heart size={14} aria-hidden="true" className="fill-lavender text-lavender" />
+                      Recommend us on Nextdoor
+                    </a>
+                  </div>
+                )}
               </div>
 
               <SiteReviewForm googleUrl={googleUrl} />
@@ -127,45 +160,9 @@ export default async function ReviewsPage() {
               <div className="max-w-3xl mx-auto mt-20">
                 <h2 className="font-serif text-2xl sm:text-3xl mb-8 text-center">What people said</h2>
                 <ul className="grid gap-4">
-                  {reviews.map((review) => {
-                    const subject = reviewSubject(review);
-                    return (
-                      <li key={review._id} className="bg-white/70 rounded-2xl p-6 border border-lavender-soft/30">
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3">
-                          <StarRating rating={review.rating} size={14} />
-                          <span className="font-medium text-sm text-charcoal">{review.userName}</span>
-                          {review.verifiedPurchase && (
-                            <span className="text-[10px] tracking-wider uppercase text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
-                              Verified purchase
-                            </span>
-                          )}
-                          <time dateTime={review.createdAt} className="text-xs text-charcoal-light">
-                            {new Date(review.createdAt).toLocaleDateString("en-GB", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                              timeZone: "Europe/London",
-                            })}
-                          </time>
-                        </div>
-                        <p className="text-sm text-charcoal leading-relaxed whitespace-pre-line">{review.comment}</p>
-                        {subject && (
-                          <p className="text-xs text-charcoal-light mt-3">
-                            {review.product?.slug ? (
-                              <Link
-                                href={`/shop/${review.product.slug}`}
-                                className="underline underline-offset-2 hover:text-charcoal"
-                              >
-                                {subject}
-                              </Link>
-                            ) : (
-                              subject
-                            )}
-                          </p>
-                        )}
-                      </li>
-                    );
-                  })}
+                  {reviews.map((review) => (
+                    <ReviewCard key={review._id} review={review} nextdoorUrl={nextdoorUrl} />
+                  ))}
                 </ul>
               </div>
             )}

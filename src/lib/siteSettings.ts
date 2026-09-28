@@ -1,6 +1,7 @@
 import { sanityClient } from "./sanity";
 import { SITE_SETTINGS } from "./siteSettingsDocument";
 import { BUSINESS } from "./business";
+import { isNextdoorUrl } from "./siteReviews";
 import type { ReferralSettings } from "@/lib/referralRules";
 
 export interface SiteSettings {
@@ -91,6 +92,24 @@ export async function googleReviewUrl({ forPage = false }: { forPage?: boolean }
     // Falling through to the variable is the right answer, not an error
   }
   return process.env.GOOGLE_REVIEW_URL || BUSINESS.googleReviewUrl || null;
+}
+
+/**
+ * Beautasy's page on Nextdoor, when it has been put in the Studio. Only ever
+ * a Nextdoor address, whatever was typed: the button that uses it says
+ * "Nextdoor". Read with the page, every five minutes, like googleReviewUrl.
+ */
+export async function nextdoorPageUrl(): Promise<string | null> {
+  try {
+    const url = await sanityClient.fetch<string | null>(
+      `${SITE_SETTINGS}.nextdoorUrl`,
+      {},
+      { next: { revalidate: 300 } }
+    );
+    return isNextdoorUrl(url) ? url : null;
+  } catch {
+    return null;
+  }
 }
 
 /* ── Defaults ── */

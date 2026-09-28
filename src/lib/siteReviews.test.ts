@@ -4,9 +4,11 @@ import { evaluate, parse } from "groq-js";
 import {
   COMMENT_MAX,
   LATEST_REVIEW_QUERY,
+  PRODUCT_REVIEWS_QUERY,
   PUBLISHED_REVIEWS_QUERY,
   REVIEW_TOPICS,
   checkSiteReview,
+  isNextdoorUrl,
   reviewSubject,
   reviewSummary,
   topicLabel,
@@ -112,8 +114,27 @@ test("a review of a piece names the piece, otherwise what it was about", () => {
 });
 
 test("the summary averages the stars and is zero with nothing to average", () => {
-  assert.deepEqual(reviewSummary([]), { count: 0, average: 0 });
-  assert.deepEqual(reviewSummary([{ rating: 5 }, { rating: 4 }]), { count: 2, average: 4.5 });
+  assert.deepEqual(reviewSummary([]), { count: 0, average: 0, nextdoor: 0 });
+  assert.deepEqual(
+    reviewSummary([
+      { rating: 5, source: "site" },
+      { rating: 4, source: "site" },
+    ]),
+    { count: 2, average: 4.5, nextdoor: 0 }
+  );
+});
+
+test("Nextdoor recommendations are counted apart, and never pull the stars down", () => {
+  assert.deepEqual(
+    reviewSummary([
+      { rating: 5, source: "site" },
+      { rating: null, source: "nextdoor" },
+      { rating: 4, source: "site" },
+      { rating: null, source: "nextdoor" },
+    ]),
+    { count: 2, average: 4.5, nextdoor: 2 }
+  );
+  assert.deepEqual(reviewSummary([{ rating: null, source: "nextdoor" }]), { count: 0, average: 0, nextdoor: 1 });
 });
 
 test("only approved, published reviews reach the page, newest first, with the piece they are about", async () => {
@@ -131,11 +152,76 @@ test("only approved, published reviews reach the page, newest first, with the pi
   );
   assert.deepEqual(reviews[0].product, { name: "Silk scrunchie", slug: "silk-scrunchie" });
   assert.equal(reviews[1].product, null);
+  // Saved before reviews had a source: they are the site's
+  assert.deepEqual(
+    reviews.map((review: { source: string }) => review.source),
+    ["site", "site"]
+  );
 
   const latest = await (await evaluate(parse(LATEST_REVIEW_QUERY), { dataset })).get();
   assert.equal(latest, "2026-09-25T10:00:00Z");
   const none = await (await evaluate(parse(LATEST_REVIEW_QUERY), { dataset: dataset.slice(3) })).get();
   assert.equal(none, null, "no approved review means no date — the sitemap leaves /reviews out");
+});
+
+test("a Nextdoor recommendation reaches the page with its area and without stars", async () => {
+  const dataset = [
+    { _id: "s1", _type: "review", source: "site", approved: true, userName: "Anna", rating: 5, comment: "Lovely work.", createdAt: "2026-09-20T10:00:00Z" },
+    // Stars left over on a recommendation are not Nextdoor's, so they don't show
+    { _id: "n1", _type: "review", source: "nextdoor", approved: true, userName: "Sarah M.", neighbourhood: "Shirley", rating: 5, comment: "Hemmed three curtains perfectly.", createdAt: "2026-09-19T10:00:00Z", about: "home" },
+    { _id: "n2", _type: "review", source: "nextdoor", approved: false, userName: "Held back", comment: "Not yet.", createdAt: "2026-09-21T10:00:00Z" },
+  ];
+  const reviews = await (await evaluate(parse(PUBLISHED_REVIEWS_QUERY), { dataset })).get();
+  assert.deepEqual(
+    reviews.map((review: { _id: string }) => review._id),
+    ["s1", "n1"],
+    "approved ones only, newest first, whichever the source"
+  );
+  assert.equal(reviews[0].rating, 5);
+  assert.equal(reviews[1].source, "nextdoor");
+  assert.equal(reviews[1].neighbourhood, "Shirley");
+  assert.equal(reviews[1].rating, null);
+  assert.deepEqual(reviewSummary(reviews), { count: 1, average: 5, nextdoor: 1 });
+});
+
+test("a piece's page, and its stars in Google, only ever count reviews written on this site", async () => {
+  const dataset = [
+    { _id: "p1", _type: "product", name: "Silk scrunchie", slug: { current: "silk-scrunchie" } },
+    { _id: "old", _type: "review", approved: true, userName: "Lia", rating: 4, comment: "So soft.", createdAt: "2026-09-25T10:00:00Z", product: { _type: "reference", _ref: "p1" } },
+    { _id: "new", _type: "review", source: "site", approved: true, userName: "Anna", rating: 5, comment: "Lovely.", createdAt: "2026-09-26T10:00:00Z", product: { _type: "reference", _ref: "p1" } },
+    { _id: "nd", _type: "review", source: "nextdoor", approved: true, userName: "Sarah M.", comment: "Great.", createdAt: "2026-09-27T10:00:00Z", product: { _type: "reference", _ref: "p1" } },
+    { _id: "wait", _type: "review", source: "site", approved: false, userName: "Spam", rating: 1, comment: "Buy.", createdAt: "2026-09-28T10:00:00Z", product: { _type: "reference", _ref: "p1" } },
+  ];
+  const reviews = await (await evaluate(parse(PRODUCT_REVIEWS_QUERY), { dataset, params: { id: "p1" } })).get();
+  assert.deepEqual(
+    reviews.map((review: { _id: string }) => review._id),
+    ["new", "old"]
+  );
+});
+
+test("only an https link to Nextdoor itself counts as Nextdoor", () => {
+  for (const good of [
+    "https://nextdoor.co.uk/pages/beautasy-atelier-southampton-eng/",
+    "https://www.nextdoor.co.uk/pages/beautasy-atelier/?init_source=copy_link_share",
+    "https://nextdoor.com/pages/beautasy/",
+  ]) {
+    assert.equal(isNextdoorUrl(good), true, good);
+  }
+  for (const bad of [
+    "http://nextdoor.co.uk/pages/beautasy/",
+    "https://nextdoor.co.uk.example.com/pages/beautasy/",
+    "https://evilnextdoor.co.uk/pages/beautasy/",
+    "https://example.com/?next=https://nextdoor.co.uk/",
+    "https://user:pass@nextdoor.co.uk/pages/beautasy/",
+    "javascript:alert(1)//nextdoor.co.uk",
+    "nextdoor.co.uk/pages/beautasy",
+    "",
+    null,
+    undefined,
+    42,
+  ]) {
+    assert.equal(isNextdoorUrl(bad), false, String(bad));
+  }
 });
 
 /* ─── Kristina's email ─── */

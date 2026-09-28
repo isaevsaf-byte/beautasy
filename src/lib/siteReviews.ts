@@ -8,7 +8,8 @@
  *
  * Product reviews from buyers still come through the emailed link
  * (/review/[token]) and carry "Verified purchase"; both kinds live in the same
- * `review` documents and show together.
+ * `review` documents and show together, with the neighbours' recommendations
+ * Kristina copies in from Nextdoor (see ReviewSource).
  */
 
 /** What a review can be about. The labels are what visitors read on the site. */
@@ -96,34 +97,100 @@ export function checkSiteReview(body: unknown): SiteReviewCheck {
   return { ok: true, trap: false, review: { name, topic, productId, rating, comment } };
 }
 
+/* ─── Where a review came from ─── */
+
+/**
+ * "site" is anything written here: the form at /reviews and the buyers'
+ * emailed links. Documents saved before this was recorded have no source, and
+ * they are the site's too.
+ *
+ * "nextdoor" is a neighbour's recommendation on Nextdoor, typed into the
+ * Studio by Kristina. Nextdoor gives other sites no way to read its
+ * recommendations, so they are copied in by hand — and they have no stars,
+ * because Nextdoor has none.
+ */
+export type ReviewSource = "site" | "nextdoor";
+
+const NEXTDOOR_DOMAINS = ["nextdoor.co.uk", "nextdoor.com"];
+
+/**
+ * Whether a link goes to Nextdoor itself. The address of Beautasy's page there
+ * is typed into the Studio, and a button that says "Nextdoor" must never send
+ * a visitor anywhere else.
+ */
+export function isNextdoorUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:" || url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  return NEXTDOOR_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`));
+}
+
 /* ─── What the site shows ─── */
 
 export interface PublishedReview {
   _id: string;
+  source: ReviewSource;
   userName: string;
-  rating: number;
+  /** Every review written here has stars; a Nextdoor recommendation never does */
+  rating: number | null;
   comment: string;
   createdAt: string;
   about?: string | null;
+  /** Where a Nextdoor neighbour lives, as Nextdoor labels them: Shirley, Portswood */
+  neighbourhood?: string | null;
   verifiedPurchase?: boolean | null;
   product?: { name: string; slug: string } | null;
 }
 
 /**
  * Every review Kristina has approved, newest first: the ones written on the
- * site and the buyers' reviews of pieces from the shop.
+ * site, the buyers' reviews of pieces from the shop, and the recommendations
+ * she has copied in from Nextdoor. Stars only ever come from the site's own.
  */
 export const PUBLISHED_REVIEWS_QUERY = `*[
   _type == "review" && approved == true && !(_id in path("drafts.**"))
 ] | order(createdAt desc) [0...60] {
-  _id, userName, rating, comment, createdAt, about, verifiedPurchase,
+  _id,
+  "source": coalesce(source, "site"),
+  userName,
+  "rating": select(coalesce(source, "site") == "site" => rating),
+  comment, createdAt, about, neighbourhood, verifiedPurchase,
   "product": product->{ name, "slug": slug.current }
 }`;
 
-export function reviewSummary(reviews: Pick<PublishedReview, "rating">[]): { count: number; average: number } {
-  const count = reviews.length;
-  const average = count ? reviews.reduce((sum, review) => sum + review.rating, 0) / count : 0;
-  return { count, average };
+/**
+ * The reviews on a piece's own page, which also make its stars in Google
+ * (aggregateRating). Only the site's own: Google does not allow marking up
+ * reviews gathered on another site, and a Nextdoor recommendation is about
+ * Kristina, never about one piece.
+ */
+export const PRODUCT_REVIEWS_QUERY = `*[
+  _type == "review" && product._ref == $id && approved == true && coalesce(source, "site") == "site"
+] | order(createdAt desc) {
+  _id, userName, rating, comment, createdAt, verifiedPurchase,
+  "images": images[].asset->url
+}`;
+
+/**
+ * The stars written here, averaged, and how many neighbours recommend her on
+ * Nextdoor. The two are never mixed: a recommendation has no stars to add.
+ */
+export function reviewSummary(reviews: Pick<PublishedReview, "rating" | "source">[]): {
+  count: number;
+  average: number;
+  nextdoor: number;
+} {
+  const stars = reviews.flatMap((review) => (typeof review.rating === "number" ? [review.rating] : []));
+  const count = stars.length;
+  const average = count ? stars.reduce((sum, rating) => sum + rating, 0) / count : 0;
+  const nextdoor = reviews.filter((review) => review.source === "nextdoor").length;
+  return { count, average, nextdoor };
 }
 
 /** What the review was about, in the words a visitor reads */

@@ -1,6 +1,7 @@
 import type { StructureResolver } from "sanity/structure";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
 import { ManualBookingPane } from "./ManualBookingPane";
+import { NEXTDOOR_REVIEWS_FILTER, NEXTDOOR_TEMPLATE_ID, SITE_REVIEWS_FILTER } from "./reviewLists";
 
 /**
  * The Studio sidebar.
@@ -76,7 +77,34 @@ export const structure: StructureResolver = (S) =>
         .title("Часы для примерок")
         .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
       S.documentTypeListItem("order").title("Заказы"),
-      S.documentTypeListItem("review").title("Отзывы"),
+      // Reviews written on the site wait here for approval; recommendations
+      // from Nextdoor are copied in by hand next door. See reviewLists.ts.
+      S.listItem()
+        .id("review")
+        .title("Отзывы")
+        .schemaType("review")
+        .child(
+          S.documentList()
+            .title("Отзывы с сайта")
+            .schemaType("review")
+            .apiVersion("2024-01-29")
+            .filter(SITE_REVIEWS_FILTER)
+            .initialValueTemplates([S.initialValueTemplateItem("review")])
+            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+        ),
+      S.listItem()
+        .id("nextdoor")
+        .title("Рекомендации Nextdoor")
+        .schemaType("review")
+        .child(
+          S.documentList()
+            .title("Рекомендации Nextdoor")
+            .schemaType("review")
+            .apiVersion("2024-01-29")
+            .filter(NEXTDOOR_REVIEWS_FILTER)
+            .initialValueTemplates([S.initialValueTemplateItem(NEXTDOOR_TEMPLATE_ID)])
+            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+        ),
       // The pictures of finished jobs on /work: the atelier's shop window
       S.documentTypeListItem("workPiece").title("Наши работы"),
 

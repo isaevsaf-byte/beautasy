@@ -10,6 +10,7 @@ import { approvePostAction, publishNowAction } from "./src/sanity/socialActions"
 import { revealContactAction } from "./src/sanity/revealAction";
 import { moveBookingAction } from "./src/sanity/moveBookingAction";
 import { structure } from "./src/sanity/structure";
+import { nextdoorReviewTemplate } from "./src/sanity/reviewLists";
 import { dashboardTool } from "./src/sanity/dashboardTool";
 
 export default defineConfig({
@@ -47,6 +48,10 @@ export default defineConfig({
 
   schema: {
     types: schemaTypes,
+    // "Рекомендация Nextdoor" starts a review already marked as Nextdoor and
+    // approved; the «Рекомендации Nextdoor» list offers only that. `prev` keeps
+    // the ordinary template of every type, the plain review's included.
+    templates: (prev) => [...prev, nextdoorReviewTemplate],
   },
 
   document: {

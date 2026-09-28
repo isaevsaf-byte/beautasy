@@ -2,7 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import nextConfig from "../../next.config";
+import ReviewCard from "../app/reviews/ReviewCard";
+import type { PublishedReview } from "../lib/siteReviews";
 
 /**
  * The review form is open to anyone, so its safety sits in the wiring as much
@@ -25,6 +29,7 @@ test("the review route turns away other sites, limits each visitor and saves the
   assert.match(source, /if \(check\.trap\) return NextResponse\.json\(\{ ok: true \}, \{ status: 201 \}\);/);
   // Unapproved, whatever the body said: the value is written here, never taken from the request
   assert.match(source, /approved: false,/);
+  assert.match(source, /source: "site",/, "marked as written here, so it lands in «Отзывы» and never among Nextdoor's");
   assert.doesNotMatch(source, /approved: (?:body|review|input)/);
   assert.doesNotMatch(source, /\.\.\.body|\.\.\.review\b/, "only the checked fields reach the document");
 });
@@ -63,6 +68,12 @@ test("the page puts Google first, the form beside it, and hides from search unti
   assert.doesNotMatch(page, /ld\+json|jsonLdScript|AggregateRating/);
 });
 
+test("a piece's page shows, and marks up for Google, only the reviews written here", () => {
+  const page = read("src/app/shop/[param]/page.tsx");
+  assert.match(page, /sanityClient\.fetch\(PRODUCT_REVIEWS_QUERY, \{ id: product\._id \}\)/);
+  assert.doesNotMatch(page, /_type == "review"/, "one query, in @/lib/siteReviews, where its test can read it");
+});
+
 test("a piece's page sends reviews to the form with the piece filled in", () => {
   const detail = read("src/app/shop/[param]/ProductDetail.tsx");
   assert.match(detail, /href=\{`\/reviews\?product=\$\{encodeURIComponent\(product\._id\)\}&piece=\$\{encodeURIComponent\(product\.name\)\}#write`\}/);
@@ -74,4 +85,56 @@ test("a piece's page sends reviews to the form with the piece filled in", () => 
 
 test("the footer leads to the reviews", () => {
   assert.match(read("src/components/Footer.tsx"), /\{ label: "Reviews", href: "\/reviews" \}/);
+});
+
+const card = (review: Partial<PublishedReview>, nextdoorUrl: string | null = null) =>
+  renderToStaticMarkup(
+    createElement(ReviewCard, {
+      review: {
+        _id: "r1",
+        source: "site",
+        userName: "Anna",
+        rating: 5,
+        comment: "Took up my wedding dress beautifully.",
+        createdAt: "2026-09-20T10:00:00Z",
+        ...review,
+      },
+      nextdoorUrl,
+    })
+  );
+
+const PAGE = "https://nextdoor.co.uk/pages/beautasy-atelier-southampton-eng/";
+
+test("a review written here shows its stars and nothing about Nextdoor", () => {
+  const html = card({});
+  assert.match(html, /lucide-star/);
+  assert.match(html, />Anna</);
+  assert.doesNotMatch(html, /Nextdoor/);
+});
+
+test("a Nextdoor recommendation shows where it was written and the neighbour's area, not stars", () => {
+  const html = card(
+    { source: "nextdoor", rating: null, userName: "Sarah M.", neighbourhood: "Shirley", verifiedPurchase: true },
+    PAGE
+  );
+  assert.doesNotMatch(html, /lucide-star/, "Nextdoor has no stars, and none are drawn");
+  assert.match(html, /Recommended on Nextdoor/);
+  assert.match(html, /Sarah M\./);
+  assert.match(html, />Shirley</);
+  assert.match(html, new RegExp(`<a href="${PAGE}" target="_blank" rel="noopener noreferrer"`));
+  assert.doesNotMatch(html, /Verified purchase/, "nothing was bought through the site");
+
+  const noPage = card({ source: "nextdoor", rating: null, userName: "Sarah M." }, null);
+  assert.match(noPage, /Recommended on Nextdoor/);
+  assert.doesNotMatch(noPage, /<a /, "no link until the page is set in the Studio");
+});
+
+test("the reviews page counts Nextdoor apart and offers it only once its page is set", () => {
+  const page = read("src/app/reviews/page.tsx");
+  assert.match(page, /nextdoorPageUrl\(\)/);
+  assert.match(page, /\{nextdoorUrl && \(/);
+  assert.match(page, /Recommend us on Nextdoor/);
+  assert.match(page, /<ReviewCard key=\{review\._id\} review=\{review\} nextdoorUrl=\{nextdoorUrl\} \/>/);
+  // Only a Nextdoor address gets through, whatever was typed in the Studio
+  assert.match(read("src/lib/siteSettings.ts"), /return isNextdoorUrl\(url\) \? url : null;/);
 });

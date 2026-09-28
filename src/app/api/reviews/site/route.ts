@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
   try {
     const created = await sanityWriteClient.create({
       _type: "review",
+      source: "site",
       userName: review.name,
       rating: review.rating,
       comment: review.comment,

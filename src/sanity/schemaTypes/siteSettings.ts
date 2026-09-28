@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity";
+import { isNextdoorUrl } from "@/lib/siteReviews";
 
 /** Southampton clock hours, shown as 22:00 rather than 22. */
 const HOURS = Array.from({ length: 24 }, (_, hour) => ({
@@ -118,6 +119,20 @@ export const siteSettings = defineType({
             ? true
             : "Похоже, это ссылка на ваш профиль, а не на окно отзыва. Возьмите ссылку через Get more reviews → copy link.";
         }),
+    }),
+
+    defineField({
+      name: "nextdoorUrl",
+      title: "Страница Beautasy на Nextdoor",
+      type: "url",
+      description:
+        "Откройте страницу ателье на Nextdoor и скопируйте адрес из браузера. На странице отзывов появится кнопка «Recommend us on Nextdoor», а пометка «Recommended on Nextdoor» у рекомендаций будет вести сюда. Пусто — кнопки нет.",
+      validation: (Rule) =>
+        Rule.uri({ scheme: ["https"] }).custom((value) =>
+          !value || isNextdoorUrl(value)
+            ? true
+            : "Это не адрес Nextdoor. Он начинается с https://nextdoor.co.uk/ — скопируйте его со своей страницы там."
+        ),
     }),
 
     /* ── Instagram posting ── */

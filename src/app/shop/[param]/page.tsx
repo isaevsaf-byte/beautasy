@@ -13,6 +13,7 @@ import { SITE_SETTINGS } from "@/lib/siteSettingsDocument";
 import { getShelves } from "@/lib/getShelves";
 import { placeLink } from "@/lib/shelves";
 import { productDescription } from "@/lib/productMeta";
+import { PRODUCT_REVIEWS_QUERY } from "@/lib/siteReviews";
 
 /* ─── Safe image URL builder (won't crash on incomplete data) ─── */
 function safeImageUrl(image: unknown): string | null {
@@ -112,11 +113,8 @@ const PRODUCT_BY_SLUG_QUERY = `*[_type == "product" && slug.current == $slug][0]
 }`;
 
 /* Approved reviews — fetched server-side so the text is in the HTML (and so we
-   can publish an aggregateRating, which is what puts stars in Google results) */
-const REVIEWS_QUERY = `*[_type == "review" && product._ref == $id && approved == true] | order(createdAt desc) {
-  _id, userName, rating, comment, createdAt, verifiedPurchase,
-  "images": images[].asset->url
-}`;
+   can publish an aggregateRating, which is what puts stars in Google results).
+   PRODUCT_REVIEWS_QUERY keeps them to reviews written on this site. */
 
 /* Related products: same collection first, then same category to fill remaining slots */
 const RELATED_BY_COLLECTION_QUERY = `*[_type == "product" && _id != $id && collection._ref == $collectionId] | order(_createdAt desc) [0...4] {
@@ -390,7 +388,7 @@ export default async function ShopParamPage({
     verifiedPurchase?: boolean;
   }[] = [];
   try {
-    reviews = await sanityClient.fetch(REVIEWS_QUERY, { id: product._id });
+    reviews = await sanityClient.fetch(PRODUCT_REVIEWS_QUERY, { id: product._id });
   } catch (error) {
     console.error("Error fetching reviews:", error);
   }
