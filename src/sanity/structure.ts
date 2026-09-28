@@ -1,6 +1,7 @@
 import type { StructureResolver } from "sanity/structure";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
 import { ManualBookingPane } from "./ManualBookingPane";
+import { FacebookGroupsPane } from "./FacebookGroupsPane";
 import {
   ETSY_REVIEWS_FILTER,
   ETSY_TEMPLATE_ID,
@@ -63,6 +64,13 @@ export const structure: StructureResolver = (S) =>
             .filter('_type == "socialPost" && status == "published"')
             .defaultOrdering([{ field: "publishedAt", direction: "desc" }])
         ),
+      // Facebook lets no site post to a group, so the Studio writes each
+      // group's post and Kristina publishes it herself — see FacebookGroupsPane
+      S.listItem()
+        .id("group-posts")
+        .title("Посты в группы")
+        .child(S.component(FacebookGroupsPane).id("group-posts-pane").title("Посты в группы")),
+      S.documentTypeListItem("facebookGroup").title("Группы Facebook"),
 
       S.divider(),
 

@@ -16,6 +16,7 @@ import { socialPost } from "./socialPost";
 import { referrer } from "./referrer";
 import { referral } from "./referral";
 import { workPiece } from "./workPiece";
+import { facebookGroup } from "./facebookGroup";
 
 export const schemaTypes = [
   product,
@@ -36,4 +37,5 @@ export const schemaTypes = [
   referrer,
   referral,
   workPiece,
+  facebookGroup,
 ];

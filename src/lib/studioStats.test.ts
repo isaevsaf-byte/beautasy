@@ -1335,3 +1335,26 @@ test("a string that cannot be a Sanity token is refused before Sanity is asked",
   assert.equal(looksLikeAToken("sk" + "A1b2C3d4".repeat(20)), true);
   assert.equal(looksLikeAToken(`${"x".repeat(40)}.${"y".repeat(40)}-_`), true);
 });
+
+test("the groups whose rules allow a post today are an open door on the page, not an alarm", () => {
+  // NOW is a Saturday in Southampton
+  const facebookGroups = [
+    { name: "Southampton Mums" },
+    { name: "Saturday Traders", days: ["sat"] },
+    { name: "Monday Market", days: ["mon"] },
+    { name: "Posted Thursday", everyDays: 7, lastPostedAt: "2026-09-17T09:00:00Z" },
+  ];
+  const line = allLines({ facebookGroups }).find((l) => l.key === "group-posts");
+  assert.ok(line, "two groups allow a post today");
+  assert.equal(line.value, "2 группы");
+  assert.equal(line.label, "Facebook ждут сегодняшнего поста");
+  assert.equal(line.tone, "plain", "nobody is waiting on her here");
+  assert.match(line.action ?? "", /Откройте "Посты в группы"/);
+
+  assert.equal(
+    allLines({ facebookGroups: facebookGroups.slice(2) }).find((l) => l.key === "group-posts"),
+    undefined,
+    "no line when no group allows a post today"
+  );
+  assert.equal(allLines().find((l) => l.key === "group-posts"), undefined, "nor before any group is added");
+});

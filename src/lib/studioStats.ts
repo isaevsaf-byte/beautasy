@@ -22,8 +22,15 @@
  * tests can ask what a Tuesday in September looked like.
  */
 
+import { groupStatus, type FacebookGroup } from "./groupPosts";
+
 /** Sums are in pence, the way Stripe and every document in the dataset hold them. */
 export const STUDIO_STATS_QUERY = `{
+  // ── Facebook groups: their rules, to tell which allow a post today ──
+  "facebookGroups": *[
+    _type == "facebookGroup" && !(_id in path("drafts.**")) && active != false
+  ]{ name, active, days, everyDays, lastPostedAt },
+
   // ── Someone is waiting on Kristina ──
   "bookingsWaiting": count(*[
     _type == "atelierBooking" && !(_id in path("drafts.**")) && status == "new"
@@ -235,6 +242,8 @@ export interface StatsRaw {
   giftCardsLate: number;
   friendLinks: number;
   friendsRewarded30: number;
+  /** The groups she posts in, with their rules — optional, as older answers had none */
+  facebookGroups?: FacebookGroup[];
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -403,6 +412,7 @@ export const STUDIO_LISTS = {
   reviews: "Отзывы",
   giftCards: "Подарочные карты",
   siteSettings: "Настройки сайта",
+  groupPosts: "Посты в группы",
 } as const;
 
 /**
@@ -876,6 +886,19 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
           ),
     tone: published === 0 ? "needs-you" : "good",
   });
+
+  // The groups whose rules allow a post today: an open door, not a debt, so plain
+  const groupsToday = (raw.facebookGroups ?? []).filter((group) => groupStatus(group, now).state === "today").length;
+  if (groupsToday > 0) {
+    reach.push({
+      key: "group-posts",
+      value: count(groupsToday, "группа", "группы", "групп"),
+      label: `Facebook ${agrees(groupsToday, "ждёт", "ждут")} сегодняшнего поста`,
+      meaning: "Их правила сегодня разрешают рекламу, и текст для каждой уже написан — минута на группу.",
+      action: `Откройте "${STUDIO_LISTS.groupPosts}", скопируйте текст и опубликуйте его в группе.`,
+      tone: "plain",
+    });
+  }
 
   reach.push({
     key: "subscribers",
