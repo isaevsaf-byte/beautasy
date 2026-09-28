@@ -353,15 +353,25 @@ export default function Header({
            sits in the middle while both sides have room, and a wide side nav
            pushes it over instead of printing through it (which is what
            happened with six links on a tablet-width screen). */}
-      <div className="max-w-6xl mx-auto px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-        {/* Mobile menu button */}
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden justify-self-start text-charcoal p-1"
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+      {/* On a phone the row is the menu button, the logo and three icons, and
+          at the desktop sizes they came to 399px: on a 375px iPhone the cart
+          sat on the very edge, and at 320px (a small iPhone with Display Zoom
+          on) it was pushed off the screen entirely, where nobody could tap it.
+          The logo and the gaps now shrink with the screen instead. */}
+      <div className="max-w-6xl mx-auto px-4 min-[360px]:px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4">
+        {/* Mobile menu button, with search beside it: two icons on each side
+            of the logo keep it in the middle of a phone screen, where one on
+            the left and three on the right pushed it well off centre. */}
+        <div className="md:hidden justify-self-start flex items-center gap-2">
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="text-charcoal p-1"
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+          <SearchOverlay />
+        </div>
 
         {/* Nav left (desktop) */}
         <nav className="hidden md:flex justify-self-start items-center gap-6">
@@ -399,7 +409,7 @@ export default function Header({
 
         {/* Logo center */}
         <Link href="/" className="justify-self-center whitespace-nowrap">
-          <span className="block font-serif text-2xl md:text-3xl tracking-[0.3em] text-charcoal">
+          <span className="block font-serif text-lg tracking-[0.22em] min-[360px]:text-xl min-[360px]:tracking-[0.25em] min-[400px]:text-2xl min-[400px]:tracking-[0.3em] md:text-3xl text-charcoal">
             BEAUTASY
           </span>
         </Link>
@@ -464,8 +474,7 @@ export default function Header({
         </nav>
 
         {/* Cart + Wishlist for mobile */}
-        <div className="md:hidden justify-self-end flex items-center gap-3">
-          <SearchOverlay />
+        <div className="md:hidden justify-self-end flex items-center gap-2">
           <Link
             href="/wishlist"
             className="relative p-1 text-charcoal/70 hover:text-charcoal transition-colors"

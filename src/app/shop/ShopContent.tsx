@@ -323,7 +323,7 @@ export default function ShopContent({
                   className={`px-5 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
                     !activeSubcategory
                       ? "bg-lavender text-charcoal"
-                      : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                      : "bg-cream border border-lavender-soft/40 text-charcoal/80 hover:text-charcoal"
                   }`}
                 >
                   All
@@ -335,7 +335,7 @@ export default function ShopContent({
                     className={`px-5 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
                       activeSubcategory === tag.slug
                         ? "bg-lavender text-charcoal"
-                        : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                        : "bg-cream border border-lavender-soft/40 text-charcoal/80 hover:text-charcoal"
                     }`}
                   >
                     {tag.label}
@@ -463,6 +463,11 @@ export default function ShopContent({
                     {displayedProducts.length}{" "}
                     {displayedProducts.length === 1 ? "piece" : "pieces"}
                   </p>
+                  {/* Three pills and the word "Sort" have to fit a 320px phone on
+                      one line: at the wider padding the last "Price ↓" wrapped
+                      alone, and on Kristina's phone it was cut off at the edge.
+                      The pale text on the inactive pills read as missing words
+                      too, so it is darker now. */}
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs tracking-wider uppercase text-charcoal-light mr-1">
                       Sort
@@ -479,10 +484,10 @@ export default function ShopContent({
                           href={buildHref({ sort: option.key })}
                           scroll={false}
                           aria-current={active ? "true" : undefined}
-                          className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
+                          className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-200 ${
                             active
                               ? "bg-lavender text-charcoal"
-                              : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                              : "bg-cream border border-lavender-soft/40 text-charcoal/80 hover:text-charcoal"
                           }`}
                         >
                           {option.label}
@@ -510,7 +515,7 @@ export default function ShopContent({
                               className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
                                 active
                                   ? "bg-lavender text-charcoal"
-                                  : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                                  : "bg-cream border border-lavender-soft/40 text-charcoal/80 hover:text-charcoal"
                               }`}
                             >
                               {size}
@@ -526,7 +531,7 @@ export default function ShopContent({
                       className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
                         readyOnly
                           ? "bg-lavender text-charcoal"
-                          : "bg-cream border border-lavender-soft/40 text-charcoal/60 hover:text-charcoal"
+                          : "bg-cream border border-lavender-soft/40 text-charcoal/80 hover:text-charcoal"
                       }`}
                     >
                       Ready to ship
