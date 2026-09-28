@@ -139,6 +139,26 @@ export function isNextdoorUrl(value: unknown): value is string {
   return NEXTDOOR_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`));
 }
 
+/**
+ * Nextdoor's own link for asking a neighbour to recommend a business: its
+ * page with recommend/ on the end. It opens the recommendation form itself —
+ * in the Nextdoor app, where neighbours are signed in, or on the web right
+ * after signing in — where the page alone leaves them to find the button, and
+ * anyone not signed in at Nextdoor's sign-up. The link the app copies when
+ * the page is shared ("/page/…?share_platform=…") leads to the same form; any
+ * other Nextdoor address is kept as it is.
+ */
+export function nextdoorRecommendUrl(pageUrl: string): string {
+  let url: URL;
+  try {
+    url = new URL(pageUrl);
+  } catch {
+    return pageUrl;
+  }
+  const slug = url.pathname.match(/^\/pages?\/([^/]+)/)?.[1];
+  return slug ? `${url.origin}/pages/${slug}/recommend/` : pageUrl;
+}
+
 /* ─── What the site shows ─── */
 
 export interface PublishedReview {

@@ -7,7 +7,7 @@ import { googleReviewUrl, nextdoorPageUrl } from "@/lib/siteSettings";
 import { BUSINESS } from "@/lib/business";
 import { SITE_URL } from "@/lib/site";
 import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
-import { featuredReview, reviewSummary } from "@/lib/siteReviews";
+import { featuredReview, nextdoorRecommendUrl, reviewSummary } from "@/lib/siteReviews";
 import { readReviews } from "@/lib/getReviews";
 import { ReviewSourceMark } from "@/components/reviews/ReviewCard";
 import SiteReviewForm from "./SiteReviewForm";
@@ -212,7 +212,7 @@ export default async function ReviewsPage() {
                       Found Kristina through Nextdoor? A recommendation there helps your neighbours find her too.
                     </p>
                     <a
-                      href={nextdoorUrl}
+                      href={nextdoorRecommendUrl(nextdoorUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 text-sm text-charcoal underline underline-offset-4 decoration-lavender hover:decoration-charcoal"
@@ -220,6 +220,9 @@ export default async function ReviewsPage() {
                       <Heart size={14} aria-hidden="true" className="fill-lavender text-lavender" />
                       Recommend us on Nextdoor
                     </a>
+                    <p className="mt-2 text-xs text-charcoal-light">
+                      Opens Nextdoor&rsquo;s recommendation form &mdash; sign in there if it asks.
+                    </p>
                   </div>
                 )}
               </div>

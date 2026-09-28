@@ -137,6 +137,10 @@ test("the reviews page counts Nextdoor apart and offers it only with a real Next
   assert.match(page, /nextdoorPageUrl\(\)/);
   assert.match(page, /\{nextdoorUrl && \(/);
   assert.match(page, /Recommend us on Nextdoor/);
+  // The ask opens Nextdoor's recommendation form; the marks on the reviews
+  // lead to the page itself, where the recommendations are read
+  assert.match(page, /href=\{nextdoorRecommendUrl\(nextdoorUrl\)\}[^]*?Recommend us on Nextdoor/);
+  assert.doesNotMatch(page, /href=\{nextdoorUrl\}[^<]*<Heart[^]*?Recommend us on Nextdoor/);
   assert.match(page, /<ReviewWall reviews=\{wall\} nextdoorUrl=\{nextdoorUrl\} \/>/);
   assert.match(read("src/app/reviews/ReviewWall.tsx"), /review=\{review\}\s*nextdoorUrl=\{nextdoorUrl\}/);
   // Only a Nextdoor address gets through, whatever was typed in the Studio;

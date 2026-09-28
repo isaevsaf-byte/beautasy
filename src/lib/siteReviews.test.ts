@@ -11,6 +11,7 @@ import {
   featuredReview,
   checkSiteReview,
   isNextdoorUrl,
+  nextdoorRecommendUrl,
   reviewsForTopics,
   reviewSubject,
   reviewSummary,
@@ -226,6 +227,22 @@ test("only an https link to Nextdoor itself counts as Nextdoor", () => {
   ]) {
     assert.equal(isNextdoorUrl(bad), false, String(bad));
   }
+});
+
+test("asking for a recommendation opens Nextdoor's own form, whichever address of the page was typed", () => {
+  const form = "https://nextdoor.co.uk/pages/kristina-tailoring-boutique/recommend/";
+  for (const page of [
+    "https://nextdoor.co.uk/pages/kristina-tailoring-boutique/",
+    "https://nextdoor.co.uk/pages/kristina-tailoring-boutique",
+    // What the Nextdoor app copies when the page is shared
+    "https://nextdoor.co.uk/page/kristina-tailoring-boutique?share_platform=10&utm_campaign=1790624662372&share_action_id=c77834fa",
+    form,
+  ]) {
+    assert.equal(nextdoorRecommendUrl(page), form, page);
+  }
+  assert.equal(nextdoorRecommendUrl("https://nextdoor.com/pages/beautasy/"), "https://nextdoor.com/pages/beautasy/recommend/");
+  // Not a business page: kept as typed rather than guessed at
+  assert.equal(nextdoorRecommendUrl("https://nextdoor.co.uk/news_feed/"), "https://nextdoor.co.uk/news_feed/");
 });
 
 test("Google's and Etsy's reviews keep their stars, and are counted apart from the ones written here", async () => {
