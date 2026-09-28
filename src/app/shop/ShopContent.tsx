@@ -463,19 +463,21 @@ export default function ShopContent({
                     {displayedProducts.length}{" "}
                     {displayedProducts.length === 1 ? "piece" : "pieces"}
                   </p>
-                  {/* Three pills and the word "Sort" have to fit a 320px phone on
-                      one line: at the wider padding the last "Price ↓" wrapped
-                      alone, and on Kristina's phone it was cut off at the edge.
-                      The pale text on the inactive pills read as missing words
-                      too, so it is darker now. */}
+                  {/* The price order is said in words. The ↑ and ↓ it used to
+                      show did not draw on Kristina's phone, so both pills read
+                      "Price" and the row looked cut off. The three pills fit a
+                      320px screen on one line; the word "Sort" joins them from
+                      360px, and screen readers always hear it. The inactive
+                      pills' text is darker too — at 60% it was faint enough
+                      to read as missing. */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs tracking-wider uppercase text-charcoal-light mr-1">
+                    <span className="sr-only min-[360px]:not-sr-only text-xs tracking-wider uppercase text-charcoal-light min-[360px]:mr-1">
                       Sort
                     </span>
                     {[
                       { key: undefined, label: "Newest" },
-                      { key: "price-asc", label: "Price ↑" },
-                      { key: "price-desc", label: "Price ↓" },
+                      { key: "price-asc", label: "Price: low" },
+                      { key: "price-desc", label: "Price: high" },
                     ].map((option) => {
                       const active = (activeSort ?? undefined) === option.key;
                       return (
