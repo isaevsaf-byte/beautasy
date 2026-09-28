@@ -444,18 +444,26 @@ export interface StatSection {
   lines: StatLine[];
 }
 
-/* ─── Visitors, when Google is connected ─── */
+/* ─── Visitors, when a counter is connected ─── */
 
 export interface TrafficSource {
-  /** "Organic Search", "Direct", "Instagram" — Google's own wording, tidied. */
+  /** Google's channel ("Organic Search", "Direct"), or the site Vercel saw ("Facebook") */
   name: string;
   visitors: number;
 }
 
+/**
+ * Which counter the numbers come from. Vercel's sees everybody, with no
+ * cookie; Google's sees only those who accepted the cookie banner, and names
+ * its sources by channel ("Organic Search") where Vercel names the site. No
+ * `by` is Google, the only counter the Dashboard had before Vercel's.
+ */
+export type TrafficCounter = "vercel" | "google";
+
 export type Traffic =
-  | { state: "connected"; visitors: number; views: number; sources: TrafficSource[] }
+  | { state: "connected"; by?: TrafficCounter; visitors: number; views: number; sources: TrafficSource[] }
   | { state: "not-connected" }
-  | { state: "error"; detail: string };
+  | { state: "error"; by?: TrafficCounter; detail: string };
 
 export interface Dashboard {
   /** When the numbers were read, so a cached page can say so. */

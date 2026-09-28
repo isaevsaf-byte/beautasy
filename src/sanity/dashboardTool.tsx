@@ -117,9 +117,10 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
  * The visitors block.
  *
  * "Not connected" is a state this page is expected to spend time in, not an
- * error — reading Google needs a key that somebody has to create by hand — so
- * it says what is missing and who fixes it, and the rest of the page carries
- * on regardless.
+ * error — reading a counter needs a key that somebody has to create by hand —
+ * so it says what is missing and who fixes it, and the rest of the page
+ * carries on regardless. Vercel's counter and Google's count differently, and
+ * the note under the number says which one this is.
  */
 function Visitors({ traffic }: { traffic: Traffic }) {
   if (traffic.state === "not-connected") {
@@ -131,7 +132,7 @@ function Visitors({ traffic }: { traffic: Traffic }) {
           откуда — из Google, из Instagram или по чьей-то ссылке. Всё остальное на этой
           странице работает и без неё.
         </div>
-        <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6 }}>Попросите Сафара подключить Google Analytics.</div>
+        <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6 }}>Попросите Сафара включить счётчик посещений.</div>
       </div>
     );
   }
@@ -139,7 +140,9 @@ function Visitors({ traffic }: { traffic: Traffic }) {
   if (traffic.state === "error") {
     return (
       <div style={{ ...CARD, borderStyle: "dashed" }}>
-        <div style={{ fontSize: 15, fontWeight: 600 }}>Google сейчас не ответил</div>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>
+          Счётчик {traffic.by === "vercel" ? "Vercel" : "Google"} сейчас не отвечает
+        </div>
         <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6, lineHeight: 1.5 }}>
           С остальной страницей всё в порядке — не хватает только статистики посещений. Если
           завтра её всё ещё не будет, покажите Сафару эту строку: {traffic.detail}
@@ -163,9 +166,10 @@ function Visitors({ traffic }: { traffic: Traffic }) {
           </span>
         </div>
         <div style={{ fontSize: 13, opacity: 0.7, marginTop: 6, lineHeight: 1.5 }}>
-          Всего просмотров страниц: {traffic.views.toLocaleString("ru-RU")}. Здесь считаются
-          только те, кто принял баннер о cookie, поэтому на самом деле людей чуть больше — с
-          Vercel эти цифры никогда не совпадут точно, и это нормально.
+          Всего просмотров страниц: {traffic.views.toLocaleString("ru-RU")}.{" "}
+          {traffic.by === "vercel"
+            ? "Счётчик Vercel обходится без cookie и видит всех, кроме роботов и ваших заходов в Studio. Кто заходил в разные дни, посчитан в каждый из них: без cookie назавтра человека не узнать."
+            : "Здесь считаются только те, кто принял баннер о cookie, поэтому на самом деле людей чуть больше — с Vercel эти цифры никогда не совпадут точно, и это нормально."}
         </div>
       </div>
 
@@ -187,7 +191,7 @@ function Visitors({ traffic }: { traffic: Traffic }) {
                     gap: 12,
                   }}
                 >
-                  <span>{channelInRussian(source.name)}</span>
+                  <span>{traffic.by === "vercel" ? source.name : channelInRussian(source.name)}</span>
                   <span style={{ opacity: 0.7, whiteSpace: "nowrap" }}>
                     {source.visitors.toLocaleString("ru-RU")}
                   </span>

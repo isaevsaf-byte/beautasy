@@ -5,6 +5,7 @@ import { isProjectMember, looksLikeAToken } from "@/lib/studioMember";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { fromThisSite } from "@/lib/sameOrigin";
 import { ga4Configured, readGa4 } from "@/lib/ga4";
+import { readVercelVisits, vercelVisitsConfigured } from "@/lib/vercelVisits";
 import {
   buildDashboard,
   statsParams,
@@ -12,6 +13,7 @@ import {
   type Dashboard,
   type StatsRaw,
   type Traffic,
+  type TrafficCounter,
 } from "@/lib/studioStats";
 
 export const dynamic = "force-dynamic";
@@ -86,25 +88,37 @@ const liveClient = createClient({
   timeout: SANITY_TIMEOUT_MS,
 });
 
+/**
+ * The visitors block. Vercel's counter first: it sees everybody, where
+ * Google sees only those who accepted the cookie banner. Google answers while
+ * Vercel's is not set up, as it did before Vercel's could be read.
+ */
 async function trafficBlock(now: Date): Promise<Traffic> {
-  if (!ga4Configured()) return { state: "not-connected" };
+  const counter: { by: TrafficCounter; read: typeof readVercelVisits } | null = vercelVisitsConfigured()
+    ? { by: "vercel", read: readVercelVisits }
+    : ga4Configured()
+      ? { by: "google", read: readGa4 }
+      : null;
+  if (!counter) return { state: "not-connected" };
+
   try {
-    const reading = await readGa4(now);
+    const reading = await counter.read(now);
     return {
       state: "connected",
+      by: counter.by,
       visitors: reading.visitors,
       views: reading.views,
       sources: reading.sources,
     };
   } catch (error) {
-    // Google being unreachable, or a key that was revoked, must not take the
-    // shop's own numbers down with it — that half of the page is the half
-    // that matters.
-    // Google's own words when there are some: this line is for Safar, and the
-    // Dashboard tells Kristina to show it to him.
+    // A counter that is unreachable, or a key that was revoked, must not take
+    // the shop's own numbers down with it — that half of the page is the half
+    // that matters. Its own words when there are some: this line is for
+    // Safar, and the Dashboard tells Kristina to show it to him.
     return {
       state: "error",
-      detail: error instanceof Error ? error.message : "Google не ответил.",
+      by: counter.by,
+      detail: error instanceof Error ? error.message : "Счётчик не ответил.",
     };
   }
 }

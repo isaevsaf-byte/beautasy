@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Analytics } from "@vercel/analytics/next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Playfair_Display, Inter } from "next/font/google";
 import Script from "next/script";
 import CookieConsent from "@/components/CookieConsent";
 import MetaPixel from "@/components/MetaPixel";
+import SiteAnalytics from "@/components/SiteAnalytics";
 import { CONSENT_KEY } from "@/lib/consent";
 import { clerkEnabled } from "@/lib/clerk";
 import "./globals.css";
@@ -165,8 +165,9 @@ export default function RootLayout({
             id, so it sits outside the consent banner rather than behind it —
             which matters, because a banner nobody accepts measures nothing.
             The shop has taken no orders yet and there has been no way to tell
-            whether that is nobody arriving or everybody leaving. */}
-        <Analytics />
+            whether that is nobody arriving or everybody leaving. The Studio is
+            left out: Kristina opening it every day is not a visitor. */}
+        <SiteAnalytics />
       </body>
     </html>
   );
