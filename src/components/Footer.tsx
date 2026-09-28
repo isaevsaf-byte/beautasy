@@ -37,6 +37,7 @@ const navLinks = [
   { label: "Atelier", href: "/atelier" },
   { label: "Alterations", href: "/alterations" },
   { label: "Our Work", href: "/work" },
+  { label: "Reviews", href: "/reviews" },
   { label: "Contact", href: "/contact" },
 ];
 

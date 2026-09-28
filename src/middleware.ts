@@ -4,12 +4,13 @@ import { clerkEnabled } from "@/lib/clerk";
 
 // Auth lives inside the review routes themselves rather than here: a customer
 // following a review-request link has no account, and blanket-protecting
-// /api/reviews(.*) sent them to a sign-in page instead of the API. Each route
-// decides for itself — signed-in user, valid review token, or 401.
+// /api/reviews(.*) sent them to a sign-in page instead of the API. The form at
+// /reviews needs no account at all. Each route decides for itself.
 const isPublicApiRoute = createRouteMatcher([
   "/api/webhook(.*)",
   "/api/meta-feed(.*)",
   "/api/reviews/by-token(.*)",
+  "/api/reviews/site(.*)",
 ]);
 
 

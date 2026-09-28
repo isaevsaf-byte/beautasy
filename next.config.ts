@@ -60,6 +60,12 @@ const nextConfig: NextConfig = {
   // be a failed delivery.
   async redirects() {
     return [
+      // The short address for asking: WhatsApp, the card in the bag, the email
+      // after a finished job. It opens the review form with Google beside it.
+      // Temporary (307), so it can point somewhere else later without every
+      // browser having remembered the old place. /review/<token> — the
+      // buyers' emailed links — is a different path and is not touched.
+      { source: "/review", destination: "/reviews#write", permanent: false },
       {
         source: "/:path((?!api/).*)",
         has: [{ type: "host", value: "beautasy.vercel.app" }],

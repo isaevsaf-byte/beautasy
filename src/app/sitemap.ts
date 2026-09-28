@@ -5,6 +5,7 @@ import { LOCAL_SERVICES } from "@/lib/localServices";
 import { getShelves } from "@/lib/getShelves";
 import { placeLink } from "@/lib/shelves";
 import { getWork } from "@/lib/getWork";
+import { LATEST_REVIEW_QUERY } from "@/lib/siteReviews";
 
 const base = SITE_URL;
 
@@ -137,5 +138,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ]
     : [];
 
-  return [...stockedRoutes, ...workRoutes, ...productRoutes, ...giftBoxRoutes, ...legalRoutes, ...collectionRoutes];
+  // Reviews, by the same rule again: the page is a form and a link until the
+  // first review is approved, and it tells search engines not to index it until
+  // then (see src/app/reviews/page.tsx)
+  let latestReview: string | null | undefined;
+  try {
+    latestReview = await sanityClient.fetch<string | null>(LATEST_REVIEW_QUERY);
+  } catch {
+    latestReview = undefined;
+  }
+  const reviewed = new Date(latestReview ?? "");
+  const reviewRoutes: MetadataRoute.Sitemap = latestReview !== null
+    ? [
+        {
+          url: `${base}/reviews`,
+          lastModified: Number.isNaN(reviewed.getTime()) ? STATIC_PAGES_CHANGED : reviewed,
+          changeFrequency: "weekly",
+          priority: 0.6,
+        },
+      ]
+    : [];
+
+  return [...stockedRoutes, ...workRoutes, ...reviewRoutes, ...productRoutes, ...giftBoxRoutes, ...legalRoutes, ...collectionRoutes];
 }

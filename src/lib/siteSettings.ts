@@ -77,12 +77,14 @@ export async function getSiteSettings(): Promise<SiteSettings> {
  * review ask — the cheapest local marketing there is, switched off because
  * nobody had pasted a link the code already knew.
  */
-export async function googleReviewUrl(): Promise<string | null> {
+export async function googleReviewUrl({ forPage = false }: { forPage?: boolean } = {}): Promise<string | null> {
   try {
     const fromStudio = await sanityClient.fetch<string | null>(
       `${SITE_SETTINGS}.googleReviewUrl`,
       {},
-      { cache: "no-store" }
+      // An email reads it fresh. A page reads it with the page, every five
+      // minutes: uncached, it would make the page render on every visit.
+      forPage ? { next: { revalidate: 300 } } : { cache: "no-store" }
     );
     if (fromStudio) return fromStudio;
   } catch {

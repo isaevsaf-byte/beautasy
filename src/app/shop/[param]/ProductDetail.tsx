@@ -21,7 +21,6 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { PortableText } from "@portabletext/react";
-import dynamic from "next/dynamic";
 import WishlistButton from "@/components/WishlistButton";
 import ReviewList, { type Review } from "@/components/ReviewList";
 import Lightbox from "@/components/Lightbox";
@@ -29,12 +28,6 @@ import SizeQuiz from "@/components/SizeQuiz";
 import { useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
 import { trackViewItem, trackAddToCart } from "@/lib/analytics";
-
-// Client-only: the review form uses Clerk's useUser hook, which can't run during SSG.
-// The published reviews are server-rendered by <ReviewList> below.
-const ReviewForm = dynamic(() => import("@/components/ReviewForm"), {
-  ssr: false,
-});
 import { fadeUp, stagger } from "@/components/animations";
 
 /* eslint-disable @next/next/no-img-element */
@@ -1023,8 +1016,18 @@ export default function ProductDetail({
         {/* ── Reviews ── */}
         <section className="max-w-6xl mx-auto px-6 pb-16">
           <div className="py-16 border-t border-lavender-soft/40">
-            <h2 className="font-serif text-2xl mb-6">Customer Reviews</h2>
-            <ReviewForm productId={product._id} />
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <h2 className="font-serif text-2xl">Customer Reviews</h2>
+              {/* The same form as /reviews, with this piece filled in: no account,
+                  and Kristina approves it before it shows here. It replaced a
+                  form that asked people to sign in first — nobody ever did. */}
+              <Link
+                href={`/reviews?product=${encodeURIComponent(product._id)}&piece=${encodeURIComponent(product.name)}#write`}
+                className="inline-flex items-center px-6 py-2.5 rounded-full border border-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-lavender transition-colors duration-300"
+              >
+                Write a review
+              </Link>
+            </div>
             <ReviewList reviews={reviews} averageRating={averageRating} />
           </div>
         </section>

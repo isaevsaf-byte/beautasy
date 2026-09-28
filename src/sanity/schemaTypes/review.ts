@@ -1,4 +1,19 @@
 import { defineField, defineType } from "sanity";
+import { REVIEW_TOPICS, type ReviewTopic } from "@/lib/siteReviews";
+
+/**
+ * What a review is about, in the Studio's Russian. The site shows the English
+ * labels from REVIEW_TOPICS; a Record keyed by topic makes a new topic without
+ * a Russian title a type error rather than a blank line in the list.
+ */
+export const REVIEW_TOPIC_TITLES: Record<ReviewTopic, string> = {
+  alterations: "Подгонка по фигуре",
+  repairs: "Ремонт одежды",
+  made: "Пошив по меркам",
+  home: "Шторы и дом",
+  shop: "Вещь из магазина",
+  other: "Другое",
+};
 
 export const review = defineType({
   name: "review",
@@ -10,7 +25,16 @@ export const review = defineType({
       title: "Товар",
       type: "reference",
       to: [{ type: "product" }],
-      validation: (Rule) => Rule.required(),
+      description: "Заполнено, если отзыв о вещи из магазина, — тогда он показывается и на её странице.",
+    }),
+    defineField({
+      name: "about",
+      title: "О чём отзыв",
+      type: "string",
+      description: "Что клиент выбрал в форме на сайте. У отзывов покупателей по ссылке из письма пусто — там видно товар.",
+      options: {
+        list: REVIEW_TOPICS.map((topic) => ({ title: REVIEW_TOPIC_TITLES[topic.value], value: topic.value })),
+      },
     }),
     defineField({
       name: "userId",
@@ -76,7 +100,7 @@ export const review = defineType({
       type: "boolean",
       initialValue: false,
       description:
-        "Отзыв не виден в магазине, пока вы не одобрите его здесь, — так спам и оскорбления не попадут на сайт.",
+        "Отзыв не виден на сайте, пока вы не одобрите его здесь, — так спам и оскорбления не попадут на сайт.",
     }),
     defineField({
       name: "createdAt",
@@ -91,12 +115,13 @@ export const review = defineType({
       title: "userName",
       subtitle: "rating",
       productName: "product.name",
+      about: "about",
       approved: "approved",
     },
-    prepare({ title, subtitle, productName, approved }) {
+    prepare({ title, subtitle, productName, about, approved }) {
       return {
         title: `${approved ? "✅" : "⏳"} ${title} — ${"★".repeat(subtitle || 0)}`,
-        subtitle: productName,
+        subtitle: productName ?? REVIEW_TOPIC_TITLES[about as ReviewTopic] ?? about ?? "",
       };
     },
   },
