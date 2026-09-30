@@ -24,6 +24,7 @@ import AtelierBookingForm from "@/components/AtelierBookingForm";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { LOCAL_SERVICES } from "@/lib/localServices";
 import { BUSINESS, whatsappLink as whatsappWith } from "@/lib/business";
+import type { CollectionOffer } from "@/lib/collection";
 
 /* ─────────────── Data ─────────────── */
 
@@ -142,9 +143,12 @@ function PriceLine({ item, index }: { item: PriceItem; index: number }) {
 export default function AtelierContent({
   recentWork,
   reviews,
+  collection = null,
 }: {
   recentWork?: React.ReactNode;
   reviews?: React.ReactNode;
+  /** Collect & return as the Studio has it, or null when it is switched off */
+  collection?: CollectionOffer | null;
 }) {
   const [activeTab, setActiveTab] = useState("denim");
   const whatsappLink = "https://wa.me/447729741116";
@@ -676,6 +680,11 @@ export default function AtelierContent({
               >
                 Request a Fitting
               </motion.h2>
+              {collection && (
+                <motion.p variants={fadeUp} custom={2} className="text-sm text-charcoal-light mt-4">
+                  Can&apos;t bring it in? {collection.headline} — choose Collect &amp; return below.
+                </motion.p>
+              )}
             </motion.div>
             <motion.div
               initial="hidden"
@@ -685,7 +694,7 @@ export default function AtelierContent({
               custom={2}
               className="bg-white/70 backdrop-blur-sm border border-lavender-soft/30 rounded-3xl p-6 sm:p-10"
             >
-              <AtelierBookingForm />
+              <AtelierBookingForm collection={collection} />
             </motion.div>
           </div>
         </section>

@@ -1,8 +1,9 @@
-import { sanityClient } from "./sanity";
+import { sanityClient, sanityWriteClient } from "./sanity";
 import { SITE_SETTINGS } from "./siteSettingsDocument";
 import { BUSINESS } from "./business";
 import { isNextdoorUrl } from "./siteReviews";
 import type { ReferralSettings } from "@/lib/referralRules";
+import { collectionSettingsFrom, type CollectionSettings } from "./collection";
 
 export interface SiteSettings {
   announcementBar?: {
@@ -112,6 +113,33 @@ export async function nextdoorPageUrl(): Promise<string | null> {
     // The page the site knows is the right answer here, not an error
   }
   return isNextdoorUrl(BUSINESS.nextdoorUrl) ? BUSINESS.nextdoorUrl : null;
+}
+
+/**
+ * Collection and return, as the Studio has it now, with the agreed defaults
+ * under anything left empty (see @/lib/collection).
+ *
+ * `fresh` for the booking route, which is about to promise a collection and
+ * must see a zone Kristina switched off a minute ago. Pages read it with the
+ * page, every five minutes.
+ *
+ * When the Studio cannot be read at all, nothing is offered. A fitting can
+ * still be booked, and a collection promised from settings nobody could check
+ * is a drive somebody did not agree to.
+ */
+export async function collectionSettings({ fresh = false }: { fresh?: boolean } = {}): Promise<CollectionSettings> {
+  try {
+    // Past the CDN when fresh, the way the diary is read before a booking
+    const client = fresh ? sanityWriteClient : sanityClient;
+    const raw = await client.fetch<unknown>(
+      `${SITE_SETTINGS}.collection`,
+      {},
+      fresh ? { cache: "no-store" } : { next: { revalidate: 300 } }
+    );
+    return collectionSettingsFrom(raw);
+  } catch {
+    return { ...collectionSettingsFrom(null), enabled: false };
+  }
 }
 
 /* ── Defaults ── */

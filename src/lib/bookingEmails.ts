@@ -56,6 +56,8 @@ export interface NotifiableBooking {
   movedFrom?: string;
   replyNote?: string;
   createdAt?: string;
+  /** Collect & return rather than a visit — see @/lib/collection */
+  collection?: { district?: string; zone?: string; window?: string; terms?: string };
   /** A friend sent them: who, and what to take off when they pay */
   referrer?: { _ref: string };
   referredBy?: string;
@@ -72,6 +74,9 @@ const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
  * reading, not for a calendar.
  */
 export function fittingOf(booking: NotifiableBooking): CalendarEvent | null {
+  // Collect & return happens at the customer's door: an invite would send
+  // them to the atelier for a visit nobody arranged
+  if (booking.collection) return null;
   if (!booking.slotStart || !SLOT_SHAPE.test(booking.slotStart)) return null;
   // A booked slot Kristina has since moved by hand — declined with another
   // time offered, then confirmed for it — keeps its old slotStart, which the
@@ -184,6 +189,30 @@ function arrivalHtml(): string {
       </div>`;
 }
 
+/**
+ * What a customer whose things are being collected needs instead: nobody is
+ * coming to the atelier, so "where" is their own door, and "bring your shoes"
+ * would be nonsense. A confirmation that sent them looking for an address
+ * they were never going to need is the mistake this replaces.
+ */
+function collectionArrivalHtml(collection: NonNullable<NotifiableBooking["collection"]>): string {
+  return `
+      <div style="background:#f7f3ff;border-radius:12px;padding:20px 24px;margin:22px 0 0;">
+        <p style="${LABEL_STYLE}">Where</p>
+        <p style="${LINE_STYLE}margin-bottom:16px;">From your door. If Kristina doesn't have your address yet, she'll ask for it before the collection.</p>
+        <p style="${LABEL_STYLE}">Have ready</p>
+        <p style="${LINE_STYLE}margin-bottom:16px;">The piece, pinned where you'd like it changed, or one that fits you well as a guide.</p>${
+          collection.terms
+            ? `
+        <p style="${LABEL_STYLE}">Collection &amp; return</p>
+        <p style="${LINE_STYLE}margin-bottom:16px;">${escapeHtml(collection.terms)}. The work itself is priced before Kristina starts.</p>`
+            : ""
+        }
+        <p style="${LABEL_STYLE}">Need to move it?</p>
+        <p style="${LINE_STYLE}">Reply to this email, or WhatsApp Kristina on ${BUSINESS.telephone}.</p>
+      </div>`;
+}
+
 export function bookingEmailHtml(
   booking: NotifiableBooking,
   status: NotifiableStatus,
@@ -201,12 +230,17 @@ export function bookingEmailHtml(
   // is a label from the form, and "Anna, Your Alterations is confirmed" was
   // what the first line of every confirmation said
   const service = escapeHtml((booking.service ?? "fitting").toLowerCase());
-  const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
+  // A collection confirmed without a day typed in still has the window the
+  // customer chose, which is better than no time at all
+  const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? booking.collection?.window ?? "");
 
   const reviewUrl = reviewLink || undefined;
-  const fitting = status === "confirmed" ? fittingOf(booking) : null;
+  // Collect & return: nobody visits, so there is no fitting to put in a calendar
+  const collection = booking.collection ?? null;
+  const visit = collection ? "collection" : "appointment";
+  const fitting = status === "confirmed" && !collection ? fittingOf(booking) : null;
   const whatsappKristina = whatsappLink(
-    `Hi Kristina, it's ${booking.displayName ?? ""}, about my appointment${
+    `Hi Kristina, it's ${booking.displayName ?? ""}, about my ${visit}${
       booking.confirmedFor ? ` on ${booking.confirmedFor}` : ""
     }: `
   );
@@ -215,23 +249,27 @@ export function bookingEmailHtml(
 
   const heading =
     status === "confirmed"
-      ? moved
+      ? collection
+        ? "Your collection is arranged"
+        : moved
         ? "Your fitting has moved"
         : "You're booked in"
       : status === "completed"
       ? "Thank you"
       : status === "cancelled"
-      ? "Your appointment is cancelled"
+      ? `Your ${visit} is cancelled`
       : "About your booking";
   const body =
     status === "confirmed"
-      ? moved
+      ? collection
+        ? `we'll collect your ${service}${when ? ` on <strong>${when}</strong>` : ""} and bring it back when it's done.`
+        : moved
         ? `your appointment for ${service} has moved to <strong>${when}</strong> (it was ${moved}). If the old time is in your calendar, you can delete it.`
         : `your appointment for ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}.`
       : status === "completed"
       ? `thank you for trusting us with your ${service}. If it fits the way you hoped, a sentence about it${reviewUrl ? " on Google" : ""} helps the next person in Southampton find a small atelier — and means a great deal to the one pair of hands that did the work.`
       : status === "cancelled"
-      ? `your appointment${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked. Whenever you're ready, choosing a new time takes a minute.`
+      ? `your ${visit}${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked. Whenever you're ready, choosing a new time takes a minute.`
       : `we're so sorry — we can't take your ${service}${when ? ` on ${when}` : ""} after all.`;
   const button =
     status === "completed"
@@ -286,10 +324,10 @@ export function bookingEmailHtml(
       }
       ${
         status === "confirmed" && booking.referralDiscount
-          ? `<p style="color:#3d3d3d;line-height:1.7;margin:0;">Your <strong>${pounds(booking.referralDiscount)} off</strong>${booking.referredBy ? ` from ${escapeHtml(booking.referredBy)}` : ""} is noted — it comes off when you pay at the atelier.</p>`
+          ? `<p style="color:#3d3d3d;line-height:1.7;margin:0;">Your <strong>${pounds(booking.referralDiscount)} off</strong>${booking.referredBy ? ` from ${escapeHtml(booking.referredBy)}` : ""} is noted — it comes off when you pay${collection ? "" : " at the atelier"}.</p>`
           : ""
       }
-      ${status === "confirmed" ? arrivalHtml() : ""}
+      ${status === "confirmed" ? (collection ? collectionArrivalHtml(collection) : arrivalHtml()) : ""}
       <p style="text-align:center;margin:26px 0 0;">
         <a href="${escapeHtml(button.href)}" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">${button.label}</a>
       </p>
@@ -305,14 +343,20 @@ export function bookingEmailHtml(
 }
 
 /** The subject line, from the same facts as the email itself. */
-export function bookingEmailSubject(booking: Pick<NotifiableBooking, "movedFrom">, status: NotifiableStatus): string {
+export function bookingEmailSubject(
+  booking: Pick<NotifiableBooking, "movedFrom" | "collection">,
+  status: NotifiableStatus
+): string {
   if (status === "confirmed") {
+    if (booking.collection) return "Your Beautasy collection is arranged 💜";
     return booking.movedFrom
       ? "Your Beautasy atelier appointment has moved 💜"
       : "Your Beautasy atelier appointment is confirmed 💜";
   }
   if (status === "completed") return "Thank you from the Beautasy atelier 💜";
-  if (status === "cancelled") return "Your Beautasy atelier appointment is cancelled";
+  if (status === "cancelled") {
+    return booking.collection ? "Your Beautasy collection is cancelled" : "Your Beautasy atelier appointment is cancelled";
+  }
   return "About your Beautasy atelier booking";
 }
 
@@ -333,7 +377,7 @@ export const PENDING_QUERY = `*[
 ] | order(createdAt desc) [0...$limit] {
   _id, _rev, status, notifiedStatus, displayName, nameSealed, emailSealed,
   service, preferredDate, confirmedFor, slotStart, movedFrom, replyNote, createdAt,
-  referrer, referredBy, referralDiscount
+  referrer, referredBy, referralDiscount, collection
 }`;
 
 /**

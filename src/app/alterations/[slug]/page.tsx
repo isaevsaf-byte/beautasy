@@ -15,7 +15,8 @@ import WorkStrip from "@/components/work/WorkStrip";
 import ReviewStrip from "@/components/reviews/ReviewStrip";
 import { getWork } from "@/lib/getWork";
 import { getReviews } from "@/lib/getReviews";
-import { nextdoorPageUrl } from "@/lib/siteSettings";
+import { collectionSettings, nextdoorPageUrl } from "@/lib/siteSettings";
+import { collectionOffer } from "@/lib/collection";
 import { reviewsForTopics } from "@/lib/siteReviews";
 import { piecesForService } from "@/lib/work";
 import { showPiece } from "@/lib/workMedia";
@@ -68,12 +69,15 @@ export default async function LocalServicePage({
   const { slug } = await params;
   const service = getLocalService(slug);
   if (!service) notFound();
+  // Asked alongside the rest, not after it
+  const collectionAsSet = collectionSettings();
   const [shelves, work, reviews, nextdoorUrl] = await Promise.all([
     getShelves(),
     getWork(),
     getReviews(),
     nextdoorPageUrl(),
   ]);
+  const collection = collectionOffer(await collectionAsSet);
   // Only the shelves with something on them: a bride sent here for garters
   // used to find "Coming Soon" — see @/lib/shelves
   const fromTheShop = stockedLinks(service.shop, shelves);
@@ -346,7 +350,7 @@ export default async function LocalServicePage({
               Tell us what needs doing and when suits you. We reply by email or WhatsApp,
               usually the same day.
             </p>
-            <AtelierBookingForm defaultService={service.serviceName} />
+            <AtelierBookingForm defaultService={service.serviceName} collection={collection} />
 
             <div className="flex flex-wrap gap-x-8 gap-y-3 mt-9 pt-7 border-t border-charcoal/10 text-sm text-charcoal-light">
               <span className="inline-flex items-center gap-2">

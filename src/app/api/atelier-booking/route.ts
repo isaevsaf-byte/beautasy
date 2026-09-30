@@ -24,6 +24,8 @@ import {
   type NotifiableBooking,
 } from "@/lib/bookingEmails";
 import { sendEmail } from "@/lib/sendEmail";
+import { judgeCollection, type CollectionRequest } from "@/lib/collection";
+import { collectionSettings } from "@/lib/siteSettings";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,8 @@ interface BookingBody {
   notes?: string;
   /** A friend's link code, left on this device by /r/CODE */
   referralCode?: string;
+  /** Collect & return instead of a fitting: their postcode and the window that suits them */
+  collection?: { postcode?: string; window?: string };
 }
 
 const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -148,18 +152,38 @@ export function replyToCustomerHtml(input: {
   phone?: string;
   slot?: string;
   service: string;
+  /** Collect & return: the first message asks for their address, not tells them hers */
+  collection?: boolean;
 }): string {
   const first = firstNameOf(input.name) ?? "there";
   const number = whatsappNumberOf(input.phone);
   const opening = input.slot
     ? `Hi ${first}, it's Kristina from Beautasy. Looking forward to seeing you on ${slotLabel(input.slot)}. Here's how to find me: `
+    : input.collection
+    ? `Hi ${first}, it's Kristina from Beautasy, about collecting your ${input.service.toLowerCase()}. What's the address? `
     : `Hi ${first}, it's Kristina from Beautasy, about your ${input.service.toLowerCase()} request: `;
   const whatsapp = number
     ? `<a href="${escapeHtml(`https://wa.me/${number}?text=${encodeURIComponent(opening)}`)}" style="color:#5e4b9a;font-weight:bold;">WhatsApp ${escapeHtml(first)}</a> or reply to this email.`
     : "Reply to this email to reach them.";
-  return input.slot
-    ? `<p style="padding:12px 16px;background:#fff6e0;border-radius:10px;color:#5c4400;line-height:1.6;">📍 <strong>Send ${escapeHtml(first)} the address</strong> and how to find the door. Their confirmation says you will, before the visit.<br/>${whatsapp}</p>`
+  if (input.slot) {
+    return `<p style="padding:12px 16px;background:#fff6e0;border-radius:10px;color:#5c4400;line-height:1.6;">📍 <strong>Send ${escapeHtml(first)} the address</strong> and how to find the door. Their confirmation says you will, before the visit.<br/>${whatsapp}</p>`;
+  }
+  return input.collection
+    ? `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}<br/>🚗 Ask for their address and agree when Safar collects. Nobody comes to the door, so there is no address of ours to send.</p>`
     : `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}<br/>📍 When you confirm a time in the Studio, their email says you'll send the address before the visit.</p>`;
+}
+
+/**
+ * The collection, in Kristina's email: everything Safar needs to plan the
+ * drive. The full postcode is here and nowhere else — the booking keeps only
+ * the district (see @/lib/collection), and the street is agreed in a message.
+ */
+export function collectionForKristinaHtml(collection: { request: CollectionRequest; postcode: string }): string {
+  const { request, postcode } = collection;
+  return `<p style="padding:12px 16px;background:#eaf2fb;border-radius:10px;color:#1f3a5c;line-height:1.7;">🚗 <strong>Collect &amp; return</strong><br/>
+            Postcode: <strong>${escapeHtml(postcode)}</strong> · ${escapeHtml(request.zone)}<br/>
+            ${request.window ? `Best time: <strong>${escapeHtml(request.window)}</strong><br/>` : ""}
+            They were told: ${escapeHtml(request.terms)}. The work itself is priced as usual, before you start.</p>`;
 }
 
 export async function POST(req: NextRequest) {
@@ -175,7 +199,11 @@ export async function POST(req: NextRequest) {
   try {
     const body: BookingBody = await req.json();
     const { name, email, phone, service, preferredDate, notes } = body;
-    const slot = typeof body.slot === "string" && SLOT_SHAPE.test(body.slot) ? body.slot : undefined;
+    // Collect & return is a request, never a fitting: it holds no time in the
+    // diary, so a slot sent beside it is not taken
+    const wantsCollection = body.collection !== undefined && body.collection !== null;
+    const slot =
+      !wantsCollection && typeof body.slot === "string" && SLOT_SHAPE.test(body.slot) ? body.slot : undefined;
 
     if (!name || typeof name !== "string" || name.trim().length < 2) {
       return NextResponse.json({ error: "Please enter your name" }, { status: 400 });
@@ -185,6 +213,19 @@ export async function POST(req: NextRequest) {
     }
     if (!service || typeof service !== "string") {
       return NextResponse.json({ error: "Please select a service" }, { status: 400 });
+    }
+
+    // Decided here, from the settings as they are this minute. The form showed
+    // the customer the same answer while they typed, but a page left open all
+    // day, or a request written by hand, must not book a drive to a district
+    // nobody covers at a time nobody offered. See @/lib/collection.
+    let collection: { request: CollectionRequest; postcode: string } | null = null;
+    if (wantsCollection) {
+      const verdict = judgeCollection(await collectionSettings({ fresh: true }), body.collection);
+      if (!verdict.ok) {
+        return NextResponse.json({ error: verdict.error }, { status: 400 });
+      }
+      collection = { request: verdict.request, postcode: verdict.postcode };
     }
 
     // A friend's link: the discount is noted on the booking and taken off by
@@ -286,6 +327,8 @@ export async function POST(req: NextRequest) {
         // Keyed and one-way: what "first visit?" is asked of next time
         emailFingerprint: emailFingerprint(email),
         service,
+        // The district, the window and the terms they saw: never the street
+        ...(collection ? { collection: collection.request } : {}),
         ...(friend
           ? {
               referrer: { _type: "reference", _ref: friend.referrer._id, _weak: true },
@@ -342,7 +385,7 @@ export async function POST(req: NextRequest) {
         try {
           const created = await sanityWriteClient.create({
             ...person,
-            preferredDate: slot ? slotLabel(slot) : preferredDate || undefined,
+            preferredDate: slot ? slotLabel(slot) : collection ? undefined : preferredDate || undefined, // a collection's time is its window
             status: "new",
           });
           saved = true;
@@ -382,6 +425,8 @@ export async function POST(req: NextRequest) {
           ? `Booked — ${name.trim()}, ${slotLabel(slot)}`
           : slot
           ? `⚠️ Not held — ${name.trim()} asked for ${slotLabel(slot)}`
+          : collection
+          ? `🚗 Collection request — ${name.trim()}, ${collection.request.district}`
           : `New atelier booking request — ${name.trim()}`
       }`,
       html: `
@@ -401,13 +446,14 @@ export async function POST(req: NextRequest) {
               ? `<p style="padding:12px 16px;background:#f7f3ff;border-radius:10px;color:#5e4b9a;line-height:1.6;">💜 Sent by <strong>${escapeHtml(referredBy)}</strong> — take <strong>${pounds(friend.discount)} off</strong> when they pay. Marking the booking Done credits ${escapeHtml(referredBy)} automatically.</p>`
               : ""
           }
+          ${collection ? collectionForKristinaHtml(collection) : ""}
           ${notes ? `<p style="color:#3d3d3d;line-height:1.7;"><strong>Notes:</strong><br/>${escapeHtml(notes)}</p>` : ""}
           ${
             slot && !held
               ? `<p style="padding:12px 16px;background:#fde8e4;border-radius:10px;color:#7a2a1a;line-height:1.6;">⚠️ <strong>This time is not held.</strong> The site could not write it into the diary, so somebody else could still book ${escapeHtml(slotLabel(slot))}. ${saved ? "It is in the Studio as a request: open it and use <strong>Назначить время</strong> to hold the time — they get the confirmation, and everything on the request goes with it." : "It is not in the Studio either: confirm with them, then use <strong>Записать вручную</strong> in the Studio to hold the time."}</p>`
               : ""
           }
-          ${replyToCustomerHtml({ name, phone, slot: held ? slot : undefined, service })}
+          ${replyToCustomerHtml({ name, phone, slot: held ? slot : undefined, service, collection: !!collection })}
         </div>`,
         });
         emailed = true;
@@ -441,6 +487,8 @@ export async function POST(req: NextRequest) {
       replyTo: KRISTINA_EMAIL,
       subject: confirmation
         ? "Your Beautasy atelier appointment is confirmed 💜"
+        : collection
+        ? "We've received your Beautasy collection request 💜"
         : "We've received your Beautasy atelier booking request 💜",
       html: confirmation
         ? bookingEmailHtml(confirmation, "confirmed")
@@ -448,15 +496,27 @@ export async function POST(req: NextRequest) {
         <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;">
           <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#9b7fd4;">Beautasy Atelier</p>
           <h1 style="font-size:22px;font-weight:400;">Thanks, ${escapeHtml(name.split(" ")[0])}!</h1>
+          ${
+            collection
+              ? `<p style="color:#3d3d3d;line-height:1.8;">
+            We've received your request to collect your <strong>${escapeHtml(service.toLowerCase())}</strong>.
+            Kristina will message you to arrange the address and time${
+              collection.request.window ? ` (you said ${escapeHtml(collection.request.window)} suits you)` : ""
+            }. Nothing is collected until you've agreed it together.
+          </p>
           <p style="color:#3d3d3d;line-height:1.8;">
+            Collection &amp; return: <strong>${escapeHtml(collection.request.terms)}</strong>. The price of the work itself is confirmed before Kristina starts.
+          </p>`
+              : `<p style="color:#3d3d3d;line-height:1.8;">
             We've received your request for <strong>${escapeHtml(service)}</strong>${
               slot ? ` on ${escapeHtml(slotLabel(slot))}` : preferredDate ? ` on ${escapeHtml(preferredDate)}` : ""
             }.
             Kristina will confirm your time by email shortly — you'll get a message either way, so nothing is left hanging.
-          </p>
+          </p>`
+          }
           ${
             friend
-              ? `<p style="color:#3d3d3d;line-height:1.8;">Your <strong>${pounds(friend.discount)} off</strong> from ${escapeHtml(referredBy)} is noted — it comes off when you pay at the atelier.</p>`
+              ? `<p style="color:#3d3d3d;line-height:1.8;">Your <strong>${pounds(friend.discount)} off</strong> from ${escapeHtml(referredBy)} is noted — it comes off when you pay${collection ? "" : " at the atelier"}.</p>`
               : ""
           }
         </div>`,
@@ -520,6 +580,9 @@ export async function POST(req: NextRequest) {
         ok: true,
         emailed,
         ...(held && slot ? { confirmedFor: slotLabel(slot) } : {}),
+        ...(collection
+          ? { collection: { terms: collection.request.terms, window: collection.request.window ?? null } }
+          : {}),
         ...(friend
           ? { referral: { applied: true, discount: friend.discount, referredBy } }
           : referralCode

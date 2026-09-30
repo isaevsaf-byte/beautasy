@@ -19,6 +19,9 @@ import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./Slo
  *
  * Disabled while the booking has unpublished changes: the move copies the
  * published booking, and a draft left behind would be lost with it.
+ *
+ * Not offered on Collect & return: that happens at the customer's door, holds
+ * no time in the diary, and is confirmed by its status.
  */
 
 interface BookingDoc {
@@ -26,6 +29,8 @@ interface BookingDoc {
   slotStart?: string;
   confirmedFor?: string;
   displayName?: string;
+  /** Collect & return — confirmed by its status, never given a time in the diary */
+  collection?: unknown;
 }
 
 /** What the dialog says about where the booking stands now. */
@@ -141,7 +146,7 @@ export const moveBookingAction: DocumentActionComponent = (props: DocumentAction
   const [open, setOpen] = useState(false);
 
   const doc = props.published as BookingDoc | null;
-  if (!doc || !canMove(doc.status)) return null;
+  if (!doc || !canMove(doc.status) || doc.collection) return null;
 
   const again = releasesItsTime(doc.status);
   const label = again ? "Записать снова" : doc.slotStart ? "Перенести на другое время" : "Назначить время";

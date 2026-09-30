@@ -91,6 +91,11 @@ async function tellCustomer(doc: DiaryDoc, slotMinutes: number): Promise<boolean
     movedFrom: typeof doc.movedFrom === "string" ? doc.movedFrom : undefined,
     referredBy: typeof doc.referredBy === "string" ? doc.referredBy : undefined,
     referralDiscount: typeof doc.referralDiscount === "number" ? doc.referralDiscount : undefined,
+    // Carried so the email can never call a collection an appointment
+    collection:
+      doc.collection && typeof doc.collection === "object"
+        ? (doc.collection as NotifiableBooking["collection"])
+        : undefined,
   };
 
   try {
@@ -223,6 +228,14 @@ export async function POST(req: NextRequest) {
     }
     if (!from || from._type !== "atelierBooking") return answer(404, "Этой записи больше нет.");
     if (!canMove(from.status)) return answer(400, "У записи со статусом «Выполнена» время не меняется.");
+    // Collect & return happens at the customer's door, not in the atelier: a
+    // time in the diary would block a fitting and send them an invite to visit
+    if (from.collection) {
+      return answer(
+        400,
+        "Это заявка на забор — время в дневнике ей не нужно. Поставьте статус «Подтверждена» и впишите в «Подтверждено на» день и окно по-английски, например «Tuesday 6 October, 6–8pm»."
+      );
+    }
     // The booking that holds this very time: moving it onto itself would hand
     // its own time back. One that gave it back only needs its status again.
     if (from._id === slotDocumentId(slot)) {

@@ -1,5 +1,7 @@
 import { defineField, defineType } from "sanity";
 import { isNextdoorUrl } from "@/lib/siteReviews";
+import { collectionTerms, postcodeDistrict } from "@/lib/collection";
+import { penceRules } from "./product";
 
 /** Southampton clock hours, shown as 22:00 rather than 22. */
 const HOURS = Array.from({ length: 24 }, (_, hour) => ({
@@ -238,6 +240,121 @@ export const siteSettings = defineType({
           initialValue: 20,
           description: "Чтобы код, выложенный на сайте с купонами, не приносил бонусы бесконечно.",
           validation: (Rule) => Rule.required().min(1),
+        }),
+      ],
+    }),
+
+    /* ── Collection & return ── */
+    defineField({
+      name: "collection",
+      title: "Забор и доставка",
+      type: "object",
+      description:
+        "Сафар забирает вещь у клиента и привозит обратно. В форме записи клиент выбирает «Collect & return», вводит индекс и сразу видит цену своей зоны. Суммы в пенсах: 800 = £8.",
+      fields: [
+        defineField({
+          name: "enabled",
+          title: "Предлагать забор и доставку",
+          type: "boolean",
+          initialValue: true,
+          description: "Выключите — и выбор «Collect & return» пропадёт из формы записи и со страниц сайта.",
+        }),
+        defineField({
+          name: "zones",
+          title: "Зоны",
+          type: "array",
+          description:
+            "Зона — районы по почтовому индексу (первая половина: SO17) и своя цена. Если индекса клиента нет ни в одной зоне, сайт предложит ему прийти на примерку.",
+          // A district in two zones would quietly take the first zone's price
+          validation: (Rule) =>
+            Rule.custom((zones) => {
+              const seen = new Set<string>();
+              const twice = new Set<string>();
+              for (const zone of (zones as { districts?: unknown[] }[] | undefined) ?? []) {
+                for (const district of new Set((zone.districts ?? []).map((d) => String(d).trim().toUpperCase()))) {
+                  if (seen.has(district)) twice.add(district);
+                  seen.add(district);
+                }
+              }
+              return twice.size === 0
+                ? true
+                : `Район указан в двух зонах: ${[...twice].join(", ")}. Оставьте его в одной — иначе сайт возьмёт цену первой зоны.`;
+            }),
+          of: [
+            {
+              type: "object",
+              name: "collectionZone",
+              title: "Зона",
+              fields: [
+                defineField({
+                  name: "name",
+                  title: "Название для клиента",
+                  type: "string",
+                  description: "По-английски, его увидит клиент: например, «Southampton».",
+                  validation: (Rule) => Rule.required().max(60),
+                }),
+                defineField({
+                  name: "districts",
+                  title: "Районы (первая половина индекса)",
+                  type: "array",
+                  of: [{ type: "string" }],
+                  options: { layout: "tags" },
+                  description: "Например: SO14, SO15, SO16, SO17, SO18, SO19.",
+                  validation: (Rule) =>
+                    Rule.required()
+                      .min(1)
+                      .custom((list) => {
+                        const bad = ((list as string[] | undefined) ?? []).filter(
+                          (d) => postcodeDistrict(d) !== String(d).trim().toUpperCase()
+                        );
+                        return bad.length === 0
+                          ? true
+                          : `Это не район по индексу: ${bad.join(", ")}. Нужна первая половина индекса, например SO17.`;
+                      }),
+                }),
+                defineField({
+                  name: "fee",
+                  title: "Цена забора и доставки (в пенсах)",
+                  type: "number",
+                  description: "За оба конца. 800 = £8. 0 — всегда бесплатно.",
+                  // "8" for £8 would show customers £0.08
+                  validation: (Rule) => [Rule.required().min(0), ...penceRules(Rule)],
+                }),
+                defineField({
+                  name: "freeFrom",
+                  title: "Бесплатно при заказе от (в пенсах)",
+                  type: "number",
+                  initialValue: 0,
+                  description: "4000 = бесплатно при заказе от £40. 0 — бесплатного порога нет, всегда по цене выше.",
+                  validation: (Rule) => [Rule.min(0), ...penceRules(Rule)],
+                }),
+              ],
+              preview: {
+                select: { title: "name", districts: "districts", fee: "fee", freeFrom: "freeFrom" },
+                prepare({ title, districts, fee, freeFrom }) {
+                  const list = ((districts as string[] | undefined) ?? []).join(", ");
+                  const terms =
+                    typeof fee === "number" ? collectionTerms({ fee, freeFrom: typeof freeFrom === "number" ? freeFrom : 0 }) : "цена не указана";
+                  return { title: title ?? "Без названия", subtitle: [list, terms].filter(Boolean).join(" · ") };
+                },
+              },
+            },
+          ],
+        }),
+        defineField({
+          name: "windows",
+          title: "Когда Сафар ездит",
+          type: "array",
+          of: [{ type: "string" }],
+          description:
+            "По-английски, как увидит клиент: «Tuesday 6–8pm». Клиент выбирает одно. Пустой список — время не спрашиваем, договариваетесь в переписке.",
+        }),
+        defineField({
+          name: "note",
+          title: "Для каких работ",
+          type: "text",
+          rows: 2,
+          description: "По-английски, одна-две строки под выбором в форме записи.",
         }),
       ],
     }),

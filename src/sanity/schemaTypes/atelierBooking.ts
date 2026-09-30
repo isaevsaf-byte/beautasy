@@ -22,7 +22,7 @@ export const atelierBooking = defineType({
   title: "Запись в ателье",
   type: "document",
   description:
-    "Заявка на подгонку, ремонт или примерку. Смените статус, чтобы подтвердить её или отказать, — клиенту автоматически придёт письмо. Чтобы назначить время, перенести запись или записать клиента снова, нажмите «Назначить время», «Перенести на другое время» или «Записать снова» в меню внизу. Контакты хранятся в зашифрованном виде — чтобы их прочитать, нажмите «Показать контакты».",
+    "Заявка на подгонку, ремонт или примерку. Смените статус, чтобы подтвердить её или отказать, — клиенту автоматически придёт письмо. Чтобы назначить время, перенести запись или записать клиента снова, нажмите «Назначить время», «Перенести на другое время» или «Записать снова» в меню внизу. Заявку на забор (🚗) подтверждают без этих кнопок: статус «Подтверждена» и день с окном в «Подтверждено на». Контакты хранятся в зашифрованном виде — чтобы их прочитать, нажмите «Показать контакты».",
   fields: [
     defineField({
       name: "displayName",
@@ -101,6 +101,21 @@ export const atelierBooking = defineType({
       description: "Что попросил клиент, когда не смог выбрать время сам.",
     }),
     defineField({
+      name: "collection",
+      title: "🚗 Забор и доставка",
+      type: "object",
+      readOnly: true,
+      hidden: ({ document }) => !document?.collection,
+      description:
+        "Клиент попросил забрать вещь и привезти обратно. Адрес уточните в переписке: сайт хранит только район, полный индекс пришёл в письме. Цена — по условиям ниже, их видел клиент. Когда договоритесь, поставьте статус «Подтверждена» и впишите в «Подтверждено на» день и окно по-английски, например «Tuesday 6 October, 6–8pm», — клиенту уйдёт письмо «Your collection is arranged». Кнопки «Назначить время» у забора нет: он проходит у двери клиента и не занимает время примерок в дневнике.",
+      fields: [
+        defineField({ name: "district", title: "Район (индекс)", type: "string" }),
+        defineField({ name: "zone", title: "Зона", type: "string" }),
+        defineField({ name: "window", title: "Когда удобно забрать", type: "string" }),
+        defineField({ name: "terms", title: "Условия, которые увидел клиент", type: "string" }),
+      ],
+    }),
+    defineField({
       name: "releasedAt",
       title: "Её время занял другой клиент",
       type: "datetime",
@@ -131,7 +146,7 @@ export const atelierBooking = defineType({
       // moved with the action, which holds the new time first.
       readOnly: ({ document }) => Boolean(document?.slotStart),
       description:
-        "Только для заявки, своими словами — например, «Tuesday 3 March, 2pm». Это попадёт в письмо клиенту, поэтому пишите по-английски. Лучше нажмите «Назначить время» в меню внизу: кнопка закрепит время в дневнике записей и отправит подтверждение с приглашением в календарь. В подтверждении также сказано, что вы пришлёте адрес и объясните, как найти дверь, — так что после подтверждения пришлите их.",
+        "Только для заявки, своими словами — например, «Tuesday 3 March, 2pm». Это попадёт в письмо клиенту, поэтому пишите по-английски. Лучше нажмите «Назначить время» в меню внизу: кнопка закрепит время в дневнике записей и отправит подтверждение с приглашением в календарь. В подтверждении также сказано, что вы пришлёте адрес и объясните, как найти дверь, — так что после подтверждения пришлите их. У забора (🚗) кнопки нет: впишите сюда день и окно забора — например, «Tuesday 6 October, 6–8pm».",
     }),
     defineField({
       name: "replyNote",
@@ -184,9 +199,17 @@ export const atelierBooking = defineType({
       confirmedFor: "confirmedFor",
       referralDiscount: "referralDiscount",
       referredBy: "referredBy",
+      district: "collection.district",
+      collectAt: "collection.window",
     },
-    prepare({ title, service, status, date, confirmedFor, referralDiscount, referredBy }) {
-      const when = confirmedFor ? ` · ${confirmedFor}` : date ? ` · желаемая дата: ${date}` : "";
+    prepare({ title, service, status, date, confirmedFor, referralDiscount, referredBy, district, collectAt }) {
+      const when = confirmedFor
+        ? ` · ${confirmedFor}`
+        : district
+        ? ` · 🚗 забрать: ${[district, collectAt].filter(Boolean).join(", ")}`
+        : date
+        ? ` · желаемая дата: ${date}`
+        : "";
       const friend =
         typeof referralDiscount === "number" && referralDiscount > 0
           ? ` · скидка £${(referralDiscount / 100).toFixed(0)}, рекомендация от ${referredBy ?? "друга"}`

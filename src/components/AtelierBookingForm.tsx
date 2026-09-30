@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, CheckCircle2, CalendarClock, Sparkles } from "lucide-react";
+import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car } from "lucide-react";
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 import { ATELIER_SERVICES } from "@/lib/atelierServices";
+import { onItsWayTo, postcodeDistrict, type CollectionOffer } from "@/lib/collection";
 
 /**
  * Google Ads conversion for a fitting request. Create a "Lead" conversion in
@@ -41,11 +42,19 @@ interface SlotDay {
  * from the wedding page arrives in the Studio as "Wedding Dress Alterations"
  * rather than a generic "Alterations", so Kristina can see which page is
  * actually bringing work in without opening analytics.
+ *
+ * `collection` is the Collect & return offer as the Studio has it (see
+ * @/lib/collection), handed down by the page; without it the form is exactly
+ * what it was. Chosen, it replaces the diary with a postcode and a window: a
+ * collection holds no fitting time, and the price shows as the postcode is
+ * typed, so nobody has to ask what it costs.
  */
 export default function AtelierBookingForm({
   defaultService,
+  collection = null,
 }: {
   defaultService?: string;
+  collection?: CollectionOffer | null;
 } = {}) {
   const options =
     defaultService && !SERVICES.includes(defaultService)
@@ -59,6 +68,18 @@ export default function AtelierBookingForm({
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+
+  // Collect & return
+  const [mode, setMode] = useState<"fitting" | "collect">("fitting");
+  const [postcode, setPostcode] = useState("");
+  const [collectWindow, setCollectWindow] = useState("");
+  const [collected, setCollected] = useState<{ terms: string; window: string | null } | null>(null);
+  const collecting = mode === "collect" && !!collection;
+  const district = postcodeDistrict(postcode);
+  const zone = district ? collection?.zones.find((z) => z.districts.includes(district)) ?? null : null;
+  // "SO1" is a district of its own, but here it is usually SO17 half typed
+  const typing = !zone && onItsWayTo(collection?.zones.flatMap((z) => z.districts) ?? [], postcode);
+  const refused = district && !zone && !typing ? district : null;
 
   // A friend's link left its code on this device; the discount is noted on the
   // booking and taken off when they pay
@@ -120,7 +141,19 @@ export default function AtelierBookingForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (bookable && !slot) {
+    if (collecting) {
+      // The server decides again; this only saves a round trip for the obvious
+      if (!zone) {
+        setError(refused ? `Sorry, we don't collect from ${refused} yet.` : "Please enter your postcode, like SO17 1AB.");
+        setStatus("error");
+        return;
+      }
+      if (collection && collection.windows.length > 0 && !collectWindow) {
+        setError("Please choose a time for the collection.");
+        setStatus("error");
+        return;
+      }
+    } else if (bookable && !slot) {
       setError("Please choose a time.");
       setStatus("error");
       return;
@@ -138,7 +171,11 @@ export default function AtelierBookingForm({
           phone,
           service,
           notes,
-          ...(slot ? { slot } : { preferredDate }),
+          ...(collecting
+            ? { collection: { postcode, ...(collectWindow ? { window: collectWindow } : {}) } }
+            : slot
+            ? { slot }
+            : { preferredDate }),
           ...(friend ? { referralCode: friend.code } : {}),
         }),
       });
@@ -154,6 +191,7 @@ export default function AtelierBookingForm({
       }
 
       setConfirmedFor(data.confirmedFor ?? null);
+      setCollected(data.collection ?? null);
       setReferralResult(data.referral ?? null);
       if (data.referral?.applied) trackReferralApply("atelier");
       setStatus("done");
@@ -168,7 +206,17 @@ export default function AtelierBookingForm({
     return (
       <div className="flex flex-col items-center text-center py-8" role="status">
         <CheckCircle2 size={36} className="text-lavender mb-4" aria-hidden="true" />
-        {confirmedFor ? (
+        {collected ? (
+          <>
+            <p className="font-serif text-xl mb-2">Collection requested</p>
+            <p className="text-sm text-charcoal-light max-w-sm">
+              Kristina will message you to arrange the address and time
+              {collected.window ? ` (${collected.window} suits you)` : ""}. Nothing is collected until you&apos;ve agreed
+              it together.
+            </p>
+            <p className="text-sm text-charcoal mt-3 font-medium">Collection &amp; return: {collected.terms}</p>
+          </>
+        ) : confirmedFor ? (
           <>
             <p className="font-serif text-xl mb-2">You&apos;re booked in</p>
             <p className="text-sm text-charcoal mb-1 font-medium">{confirmedFor}</p>
@@ -200,11 +248,128 @@ export default function AtelierBookingForm({
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+      {/* ── Fitting, or Collect & return ── */}
+      {collection && (
+        <fieldset className="sm:col-span-2 min-w-0 border-0 p-0 m-0">
+          <legend className="text-xs tracking-wider uppercase text-charcoal-light mb-3">How should it reach Kristina?</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {(
+              [
+                { value: "fitting", title: "Bring it to a fitting", line: "Pinned on you, in the atelier" },
+                { value: "collect", title: "Collect & return", line: collection.headline },
+              ] as const
+            ).map((option) => {
+              const active = mode === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    setMode(option.value);
+                    setError(null);
+                    if (status === "error") setStatus("idle");
+                  }}
+                  aria-pressed={active}
+                  className={`text-left px-4 py-3 rounded-xl border transition-colors ${
+                    active
+                      ? "bg-lavender border-lavender text-charcoal shadow-sm"
+                      : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
+                  }`}
+                >
+                  <span className="block text-sm font-medium">{option.title}</span>
+                  <span className="block text-xs text-charcoal-light mt-0.5">{option.line}</span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+
+      {collecting && collection && (
+        <fieldset className="sm:col-span-2 min-w-0 border-0 p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <legend className="sr-only">Collection</legend>
+          <div>
+            <label htmlFor="booking-postcode" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+              Your postcode
+            </label>
+            <input
+              id="booking-postcode"
+              name="postcode"
+              autoComplete="postal-code"
+              required
+              value={postcode}
+              onChange={(e) => {
+                setPostcode(e.target.value);
+                setError(null);
+                if (status === "error") setStatus("idle");
+              }}
+              placeholder="SO17 1AB"
+              className={FIELD_CLASS}
+            />
+          </div>
+          {collection.windows.length > 0 && (
+            <div>
+              <label htmlFor="booking-window" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+                Collection time
+              </label>
+              <select
+                id="booking-window"
+                name="collectionWindow"
+                required
+                value={collectWindow}
+                onChange={(e) => {
+                  setCollectWindow(e.target.value);
+                  setError(null);
+                  if (status === "error") setStatus("idle");
+                }}
+                className={FIELD_CLASS}
+              >
+                <option value="">Choose a time</option>
+                {collection.windows.map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <p className="sm:col-span-2 flex items-start gap-2 text-sm text-charcoal" aria-live="polite">
+            <Car size={16} className="text-lavender shrink-0 mt-0.5" aria-hidden="true" />
+            <span>
+              {zone ? (
+                <>
+                  <strong>{zone.name}:</strong> {zone.terms}. Kristina will message you to arrange the address.
+                </>
+              ) : refused ? (
+                <>
+                  Sorry, we don&apos;t collect from {refused} yet. You&apos;re welcome to{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("fitting");
+                      setError(null);
+                      if (status === "error") setStatus("idle");
+                    }}
+                    className="underline underline-offset-2"
+                  >
+                    book a fitting
+                  </button>{" "}
+                  instead.
+                </>
+              ) : (
+                <>Type your postcode to see the price.</>
+              )}
+            </span>
+          </p>
+          <p className="sm:col-span-2 text-[11px] text-charcoal-light -mt-2">{collection.note}</p>
+        </fieldset>
+      )}
+
       {/* ── Pick a time ──
           min-w-0 matters more than it looks: a grid item will not shrink below
           its own content, so without it the strip of days stretches the whole
           form instead of scrolling inside it, and takes the page sideways. */}
-      {bookable && (
+      {bookable && !collecting && (
         <fieldset className="sm:col-span-2 min-w-0 border-0 p-0 m-0">
           <legend className="flex items-center gap-2 text-xs tracking-wider uppercase text-charcoal-light mb-3">
             <CalendarClock size={14} aria-hidden="true" />
@@ -328,8 +493,8 @@ export default function AtelierBookingForm({
         </select>
       </div>
 
-      {/* Only worth asking when there is no diary to pick from */}
-      {!bookable && (
+      {/* Only worth asking when there is no diary to pick from, and nothing to collect */}
+      {!bookable && !collecting && (
         <div className="sm:col-span-1">
           <label htmlFor="booking-date" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
             Preferred Date <span className="normal-case text-charcoal-light/70">(optional)</span>
@@ -380,6 +545,8 @@ export default function AtelierBookingForm({
           {status === "loading" && <Loader2 size={16} className="animate-spin" />}
           {status === "loading"
             ? "Sending..."
+            : collecting
+            ? "Request Collection"
             : bookable
             ? "Book This Time"
             : "Request Booking"}
