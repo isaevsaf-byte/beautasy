@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from "react";
 import { useRouter } from "sanity/router";
 import { ATELIER_SERVICES } from "@/lib/atelierServices";
 import { askDiary, useDiaryToken, useFreeTimes } from "./diaryClient";
+import { askPartners, errorOf as partnerErrorOf, usePartnerOptions } from "./partnersClient";
 import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./SlotPicker";
 
 /**
@@ -48,6 +49,8 @@ interface Booked {
   label: string;
   emailed: boolean;
   withEmail: boolean;
+  /** What happened when the booking was put down to the salon that sent them */
+  partnerNote?: { ok: boolean; text: string };
 }
 
 export function ManualBookingPane() {
@@ -62,6 +65,9 @@ export function ManualBookingPane() {
   const [email, setEmail] = useState("");
   const [service, setService] = useState(ATELIER_SERVICES[0]);
   const [notes, setNotes] = useState("");
+  // A salon's client who wrote on WhatsApp: put down to the salon as the booking is made
+  const partners = usePartnerOptions(token);
+  const [partnerId, setPartnerId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booked, setBooked] = useState<Booked | null>(null);
@@ -73,8 +79,8 @@ export function ManualBookingPane() {
     setBusy(true);
     setError(null);
     const reply = await askDiary(token, { action: "book", slot, name, phone, email, service, notes });
-    setBusy(false);
     if (!reply.ok) {
+      setBusy(false);
       setError(String(reply.data.error ?? "Не удалось записать."));
       if (reply.data.slotTaken) {
         setSlot(null);
@@ -82,8 +88,24 @@ export function ManualBookingPane() {
       }
       return;
     }
+    // The booking exists now; who sent them is a second step, and its failure
+    // is said beside the booking rather than taking the booking back
+    let partnerNote: Booked["partnerNote"];
+    if (partnerId) {
+      const attributed = await askPartners(token, { action: "attribute", bookingId: String(reply.data.id), partnerId });
+      partnerNote = attributed.ok
+        ? { ok: true, text: String(attributed.data.message ?? "Записано на салон.") }
+        : {
+            ok: false,
+            text: `${partnerErrorOf(attributed, "Салон не записался.")} Запись создана — откройте её и нажмите «🤝 Кто прислал».`,
+          };
+    }
+    // Busy until here: the button comes back only when the salon is put down too,
+    // or a second click would try to book the time this booking already holds
+    setBusy(false);
     setBooked({
       id: String(reply.data.id),
+      partnerNote,
       // The time the diary says it booked, in Kristina's words; the English
       // label beside it is kept for anything older that only sends that.
       label: typeof reply.data.slot === "string" ? slotInRussian(reply.data.slot) : String(reply.data.label),
@@ -100,6 +122,7 @@ export function ManualBookingPane() {
     setEmail("");
     setNotes("");
     setService(ATELIER_SERVICES[0]);
+    setPartnerId("");
     setAttempt((n) => n + 1);
   }
 
@@ -127,6 +150,11 @@ export function ManualBookingPane() {
                 ? "Письмо сейчас не отправилось — сайт отправит его утром."
                 : "Эл. почту не указали, поэтому сообщите клиенту время сами."}
             </p>
+            {booked.partnerNote && (
+              <p style={{ fontSize: 13, margin: 0, color: booked.partnerNote.ok ? "#2f8a57" : "#c0392b" }}>
+                {booked.partnerNote.text}
+              </p>
+            )}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
                 type="button"
@@ -194,6 +222,21 @@ export function ManualBookingPane() {
                   ))}
                 </select>
               </label>
+              {partners.some((p) => p.active) && (
+                <label style={labelStyle}>
+                  Кто прислал (по желанию)
+                  <select id="manual-partner" style={inputStyle} value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
+                    <option value="">— никто, клиентка пришла сама —</option>
+                    {partners
+                      .filter((p) => p.active)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
               <label style={labelStyle}>
                 Заметки (по желанию, видите только вы)
                 <textarea

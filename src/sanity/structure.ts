@@ -2,6 +2,7 @@ import type { StructureResolver } from "sanity/structure";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
 import { ManualBookingPane } from "./ManualBookingPane";
 import { LedgerPane } from "./LedgerPane";
+import { PartnersPane } from "./PartnersPane";
 import { FacebookGroupsPane } from "./FacebookGroupsPane";
 import {
   ETSY_REVIEWS_FILTER,
@@ -96,6 +97,13 @@ export const structure: StructureResolver = (S) =>
       // What came in and what went out. Entries are sealed (the dataset is
       // public), so this is a pane that asks the server, not a document list
       S.listItem().id("kassa").title("Касса").child(S.component(LedgerPane).id("kassa-pane").title("Касса")),
+      // Salons and shops that send their clients, each with a link, a card and
+      // a month's statement. Contacts and payments are sealed, so it is a pane
+      // that asks the server — see PartnersPane
+      S.listItem()
+        .id("partners")
+        .title("Партнёры")
+        .child(S.component(PartnersPane).id("partners-pane").title("Партнёры")),
       S.documentTypeListItem("order").title("Заказы"),
       // Reviews written on the site wait here for approval; recommendations
       // from Nextdoor and reviews from Google and Etsy are copied in by hand
@@ -157,8 +165,20 @@ export const structure: StructureResolver = (S) =>
 
       S.divider(),
 
-      // "Give £5, get £5": who has a link, and every friend who came through one
-      S.documentTypeListItem("referrer").title("Ссылки для друзей"),
+      // "Give £5, get £5": who has a link, and every friend who came through one.
+      // A partner's link is a referrer too, and lives in «Партнёры» instead
+      S.listItem()
+        .id("referrer")
+        .title("Ссылки для друзей")
+        .schemaType("referrer")
+        .child(
+          S.documentList()
+            .title("Ссылки для друзей")
+            .schemaType("referrer")
+            .apiVersion("2024-01-29")
+            .filter('_type == "referrer" && !defined(partner)')
+            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+        ),
       S.documentTypeListItem("referral").title("Бонусы за друзей"),
 
       S.divider(),

@@ -22,7 +22,9 @@ import {
   judgeFriend,
   creditExpiry,
   eventIdFor,
+  settingsForReferrer,
 } from "@/lib/referralRules";
+import { partnerLink, partnerLinkShown, type PartnerInfo } from "@/lib/partners";
 
 /**
  * Beautasy Friends — "Give £5, get £5" — the server side.
@@ -44,7 +46,10 @@ import {
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 
-export type ReferrerSource = "order" | "booking" | "page";
+export type ReferrerSource = "order" | "booking" | "page" | "partner";
+
+/** A partner's business, as its link document keeps it — see @/lib/partners. */
+export type PartnerOnReferrer = PartnerInfo & { phoneSealed?: string };
 
 export interface Referrer {
   _id: string;
@@ -58,9 +63,12 @@ export interface Referrer {
   rewardsCount?: number;
   creditCard?: { _ref: string };
   lastRewardAt?: string;
+  source?: string;
+  /** Set when the link is a salon's or a shop's rather than a person's */
+  partner?: PartnerOnReferrer;
 }
 
-const REFERRER_FIELDS = `_id, displayName, emailHint, emailFingerprint, emailSealed, codeHint, codeSealed, active, rewardsCount, creditCard, lastRewardAt`;
+export const REFERRER_FIELDS = `_id, displayName, emailHint, emailFingerprint, emailSealed, codeHint, codeSealed, active, rewardsCount, creditCard, lastRewardAt, source, partner`;
 
 /** Links and credit are keyed and sealed, so neither can exist without the key. */
 export function referralsConfigured(): boolean {
@@ -234,7 +242,7 @@ export async function judgeFriendFor(args: {
       : await bookingHistoryExists(friendFp, args.excludeId, args.before)
     : false;
   return judgeFriend({
-    settings: args.settings,
+    settings: settingsForReferrer(args.settings, args.referrer),
     referrerActive: args.referrer.active !== false,
     referrerFingerprint: args.referrer.emailFingerprint,
     friendFingerprint: friendFp,
@@ -533,6 +541,23 @@ export function friendsBlockHtml(code: string, settings: ReferralSettings): stri
       </div>`;
 }
 
+/**
+ * What a partner is reminded of under its credit: its own link, the one on its
+ * cards. A friend's block would hand a salon a personal share message and a
+ * /r/ code it never printed.
+ */
+export function partnerBlockHtml(slug: string, settings: ReferralSettings): string {
+  return `
+      <div style="background:#f7f3ff;border-radius:12px;padding:22px 24px;margin:28px 0 0;text-align:center;">
+        <p style="margin:0 0 6px;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#7a6d9a;">Your salon's link</p>
+        <p style="margin:0 0 14px;color:#3d3d3d;line-height:1.7;font-size:14px;">
+          Every client who books through it — or tells Kristina you sent her — gets ${pounds(settings.friendAtelierDiscount)} off
+          her first alteration, and ${pounds(settings.referrerReward)} lands on your card when her work is done.
+        </p>
+        <p style="margin:0;font-size:15px;letter-spacing:0.5px;"><a href="${escapeHtml(partnerLink(slug))}" style="color:#2d2d2d;">${escapeHtml(partnerLinkShown(slug))}</a></p>
+      </div>`;
+}
+
 function shell(heading: string, body: string, eyebrow = "Beautasy Friends"): string {
   return `
 <!DOCTYPE html>
@@ -580,6 +605,8 @@ export function rewardEmailHtml(args: {
   credit: Credit;
   code: string;
   settings: ReferralSettings;
+  /** Set for a partner: its own link goes at the foot instead of a friend's share block */
+  partnerSlug?: string;
 }): string {
   const name = escapeHtml(args.referrerName ?? "there");
   const friend = escapeHtml(args.friendName ?? "A friend");
@@ -602,7 +629,7 @@ export function rewardEmailHtml(args: {
         <p style="margin:0;font-size:13px;color:#777;">Enter it in your bag at checkout, or tell Kristina at the atelier. Valid until ${expires}.</p>
       </div>
       <p style="text-align:center;margin:0;">${button(`${SITE_URL}/shop`, "Choose something")}</p>
-      ${friendsBlockHtml(args.code, args.settings)}`
+      ${args.partnerSlug ? partnerBlockHtml(args.partnerSlug, args.settings) : friendsBlockHtml(args.code, args.settings)}`
   );
 }
 
@@ -627,12 +654,14 @@ async function emailReward(
           ? `${friendName} just ordered — ${pounds(settings.referrerReward)} is yours 💜`
           : `${friendName} came to the atelier — ${pounds(settings.referrerReward)} is yours 💜`,
       html: rewardEmailHtml({
-        referrerName: referrer.displayName,
+        // A salon is greeted by its owner's name, not by the salon's
+        referrerName: referrer.partner?.contactName ?? referrer.displayName,
         friendName,
         kind: input.kind,
         credit,
         code,
         settings,
+        partnerSlug: referrer.partner?.slug,
       }),
     });
     await sanityWriteClient.patch(eventId).set({ rewardEmailedAt: new Date().toISOString() }).commit();

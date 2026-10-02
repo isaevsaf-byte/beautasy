@@ -3,6 +3,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { fromThisSite } from "@/lib/sameOrigin";
 import { sendPendingStatusEmails } from "@/lib/orderStatusEmails";
 import { sendPendingBookingEmails } from "@/lib/bookingEmails";
+import { settleReferredBookings } from "@/lib/referralSettle";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,12 @@ export async function POST(req: NextRequest) {
     sendPendingStatusEmails(10),
     sendPendingBookingEmails(10),
   ]);
+  // After the emails, so a client with an email hears "thank you" before the
+  // friend or salon who sent her hears about the credit. Never fails the button.
+  const referrals = await settleReferredBookings(10).catch((error) => {
+    console.error("Could not settle recommendations:", error);
+    return { checked: 0, settled: 0 };
+  });
 
-  return NextResponse.json({ orders, bookings });
+  return NextResponse.json({ orders, bookings, referrals });
 }

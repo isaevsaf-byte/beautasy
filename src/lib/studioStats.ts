@@ -193,7 +193,7 @@ export const STUDIO_STATS_QUERY = `{
 
   // ── Friends telling friends ──
   "friendLinks": count(*[
-    _type == "referrer" && !(_id in path("drafts.**")) && active == true
+    _type == "referrer" && !(_id in path("drafts.**")) && active == true && !defined(partner)
   ]),
   "friendsRewarded30": count(*[
     _type == "referral" && !(_id in path("drafts.**")) && outcome == "rewarded"

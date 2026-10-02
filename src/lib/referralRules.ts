@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import { CODE_SHAPE, normaliseReferralCode } from "@/lib/friendsLink";
+import { partnerRewardsCap } from "@/lib/partners";
 
 /**
  * The rules of Beautasy Friends, with nothing attached.
@@ -141,6 +142,16 @@ export function verdictMessage(verdict: FriendVerdict, kind: "order" | "booking"
 }
 
 /* ─── Money ─── */
+
+/**
+ * The rules one link plays by. A partner is a business Kristina signed up in
+ * person, so its yearly allowance of rewards is a business's — see
+ * partnerRewardsCap — and everything else is the friend's.
+ */
+export function settingsForReferrer(settings: ReferralSettings, referrer: { partner?: unknown }): ReferralSettings {
+  if (!referrer.partner) return settings;
+  return { ...settings, maxRewardsPerYear: partnerRewardsCap(settings.maxRewardsPerYear) };
+}
 
 /** The friend's discount on a basket of this size — 0 when it does not apply. */
 export function friendShopDiscount(subtotal: number, settings: ReferralSettings): number {

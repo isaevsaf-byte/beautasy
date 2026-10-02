@@ -50,7 +50,7 @@ export const atelierBooking = defineType({
       type: "string",
       readOnly: true,
       description:
-        "Клиента прислал друг. Когда клиент будет платить, вычтите скидку за друга (поле ниже) — онлайн она не списывается.",
+        "Клиента прислал друг или салон-партнёр. Когда клиент будет платить, вычтите скидку (поле ниже) — онлайн она не списывается. Клиентку из WhatsApp можно приписать салону кнопкой «🤝 Кто прислал» в меню внизу.",
     }),
     defineField({
       name: "referralDiscount",
@@ -69,6 +69,32 @@ export const atelierBooking = defineType({
       readOnly: true,
       hidden: true,
     }),
+    defineField({
+      name: "referralOutcome",
+      title: "Бонус тому, кто прислал",
+      type: "string",
+      readOnly: true,
+      hidden: ({ document }) => !document?.referralOutcome,
+      description: "Решается сам, когда запись отмечена «Выполнена». Все бонусы — в разделе «Бонусы за друзей».",
+      options: {
+        list: [
+          { title: "Начислен", value: "rewarded" },
+          { title: "Ожидает — не удалось начислить, проверьте «Бонусы за друзей»", value: "pending" },
+          { title: "Отозван — за заказ вернули деньги", value: "reversed" },
+          { title: "Не положен: почта клиентки совпадает с почтой того, кто прислал", value: "self" },
+          { title: "Не положен: не первый визит клиентки", value: "repeat" },
+          { title: "Не положен: исчерпан лимит за год", value: "capped" },
+          { title: "Не положен: ссылка на паузе", value: "inactive" },
+          { title: "Не положен: программа выключена", value: "disabled" },
+          { title: "Не удалось начислить — проверьте «Бонусы за друзей»", value: "failed" },
+          { title: "Ссылки больше нет", value: "missing" },
+        ],
+      },
+    }),
+    // Set by the morning job once the reward is decided, so it is asked about once
+    defineField({ name: "referralSettledAt", title: "Бонус решён", type: "datetime", readOnly: true, hidden: true }),
+    // "studio" when Kristina put the booking down to a partner by hand
+    defineField({ name: "referralSource", title: "Как приписан", type: "string", readOnly: true, hidden: true }),
     defineField({
       name: "slotStart",
       title: "Забронированное время",

@@ -15,6 +15,14 @@ const SOURCES = [
   { title: "После заказа", value: "order" },
   { title: "После примерки", value: "booking" },
   { title: "Страница /refer", value: "page" },
+  { title: "Партнёр — салон или магазин", value: "partner" },
+];
+
+// Kept in step with PARTNER_KINDS in @/lib/partners, which the server checks against
+const PARTNER_KINDS = [
+  { title: "Салон красоты или парикмахерская", value: "salon" },
+  { title: "Свадебный или вечерний салон", value: "bridal" },
+  { title: "Другое: химчистка, отель, магазин", value: "other" },
 ];
 
 export const referrer = defineType({
@@ -83,11 +91,41 @@ export const referrer = defineType({
     }),
     defineField({ name: "createdAt", title: "Создана", type: "datetime", readOnly: true }),
     defineField({ name: "lastRewardAt", title: "Последний бонус", type: "datetime", readOnly: true }),
+    defineField({
+      name: "partner",
+      title: "Партнёр",
+      type: "object",
+      readOnly: true,
+      hidden: ({ document }) => !document?.partner,
+      description:
+        "Это ссылка салона-партнёра. Её название, условия, отчёт за месяц и карточки для печати — в разделе «Партнёры»; меняйте их там.",
+      fields: [
+        defineField({ name: "name", title: "Название", type: "string" }),
+        defineField({ name: "slug", title: "Ссылка: beautasy.co.uk/p/…", type: "string" }),
+        defineField({ name: "kind", title: "Кто это", type: "string", options: { list: PARTNER_KINDS } }),
+        defineField({ name: "commissionPercent", title: "Комиссия деньгами, %", type: "number" }),
+        defineField({ name: "contactName", title: "Имя владелицы", type: "string" }),
+        defineField({ name: "phoneSealed", title: "Телефон (зашифрован)", type: "string", hidden: true }),
+      ],
+    }),
   ],
   preview: {
-    select: { name: "displayName", hint: "codeHint", rewards: "rewardsCount", source: "source", active: "active" },
-    prepare({ name, hint, rewards, source, active }) {
+    select: {
+      name: "displayName",
+      hint: "codeHint",
+      rewards: "rewardsCount",
+      source: "source",
+      active: "active",
+      partnerSlug: "partner.slug",
+    },
+    prepare({ name, hint, rewards, source, active, partnerSlug }) {
       const count = typeof rewards === "number" ? rewards : 0;
+      if (partnerSlug) {
+        return {
+          title: name ?? "Партнёр",
+          subtitle: `Партнёр · /p/${partnerSlug} · клиенток с бонусом: ${count}${active === false ? " · на паузе" : ""}`,
+        };
+      }
       const from = SOURCES.find((s) => s.value === source)?.title.toLowerCase() ?? source ?? "ссылка";
       return {
         title: `${name ?? "Без имени"}${hint ? ` …${hint}` : ""}`,

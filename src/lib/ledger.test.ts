@@ -24,7 +24,7 @@ import {
  * hand because the site already counted it.
  */
 
-const BOM = "﻿";
+const BOM = "\ufeff";
 
 test("an amount is read the way Kristina types it, and never through a float", () => {
   for (const [typed, pence] of [
@@ -39,7 +39,7 @@ test("an amount is read the way Kristina types it, and never through a float", (
     ["1,250", 125000],
     ["1 250", 125000],
     ["1 250,50", 125050],
-    ["1 250", 125000],
+    ["1\u00a0250", 125000],
     ["0.10", 10],
     ["10000", 1_000_000],
     ["19.99", 1999],
