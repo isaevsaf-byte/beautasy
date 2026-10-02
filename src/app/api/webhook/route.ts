@@ -22,6 +22,7 @@ import {
   rewardReferral,
   reverseReferralReward,
 } from "@/lib/referrals";
+import { stampRefund } from "@/lib/ledgerStore";
 import { splitDiscount, type ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import {
@@ -733,32 +734,48 @@ export async function POST(req: NextRequest) {
   if (event.type === "charge.refunded") {
     const charge = event.data.object as Stripe.Charge;
 
+    // The referral event and the order are both keyed on the Checkout
+    // session, and a charge only knows its payment intent, so ask Stripe for
+    // the session once, for both.
+    let sessionId: string | undefined;
+    try {
+      const paymentIntent =
+        typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+      if (paymentIntent) {
+        const stripe = getStripeInstance();
+        const sessions = await stripe.checkout.sessions.list({
+          payment_intent: paymentIntent,
+          limit: 1,
+        });
+        sessionId = sessions.data[0]?.id;
+      }
+    } catch (err) {
+      console.error("Could not find the Checkout session for a refund:", err);
+    }
+
+    // «Касса» hears about every refund, part or whole: either way it is money
+    // going back out, and the order's own total never changes to say so.
+    if (sessionId) {
+      try {
+        await stampRefund(sessionId, charge.amount_refunded, new Date().toISOString());
+      } catch (err) {
+        console.error("Failed to note a refund for the ledger:", err);
+      }
+    }
+
     // Part of an order coming back is not the order coming undone: the friend
     // still bought something, so the reward stands.
     if (charge.amount_refunded < charge.amount) {
       return NextResponse.json({ received: true, partialRefund: true });
     }
 
-    try {
-      const paymentIntent =
-        typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
-
-      if (paymentIntent) {
-        // The referral event is keyed on the Checkout session, and a charge
-        // only knows its payment intent, so ask Stripe for the session.
-        const stripe = getStripeInstance();
-        const sessions = await stripe.checkout.sessions.list({
-          payment_intent: paymentIntent,
-          limit: 1,
-        });
-        const session = sessions.data[0];
-        if (session) {
-          const outcome = await reverseReferralReward("order", session.id);
-          console.log("Refund of session", session.id, "→ referral", outcome);
-        }
+    if (sessionId) {
+      try {
+        const outcome = await reverseReferralReward("order", sessionId);
+        console.log("Refund of session", sessionId, "→ referral", outcome);
+      } catch (err) {
+        console.error("Failed to take back a referral reward after a refund:", err);
       }
-    } catch (err) {
-      console.error("Failed to take back a referral reward after a refund:", err);
     }
   }
 

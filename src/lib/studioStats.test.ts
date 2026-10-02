@@ -1087,7 +1087,10 @@ function resolveImport(specifier: string, fromFile: string): string | null {
   return null;
 }
 
-const IMPORTS = /(?:^|\n)\s*(?:import|export)[\s\S]*?from\s*["']([^"']+)["']|(?:^|\n)\s*import\s*["']([^"']+)["']/g;
+// An import never crosses a semicolon. Letting it run across lines unbounded
+// (it used to be [\s\S]*?) let a bare `import "x";` be swallowed into the
+// import after it, so a side-effect import of the key passed unseen.
+const IMPORTS = /(?:^|\n)\s*(?:import|export)[^;]*?from\s*["']([^"']+)["']|(?:^|\n)\s*import\s*["']([^"']+)["']/g;
 
 function importsOf(source: string): string[] {
   const found: string[] = [];

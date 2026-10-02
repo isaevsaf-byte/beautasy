@@ -9,6 +9,7 @@ import { notifyCustomerAction } from "./src/sanity/notifyAction";
 import { approvePostAction, publishNowAction } from "./src/sanity/socialActions";
 import { revealContactAction } from "./src/sanity/revealAction";
 import { moveBookingAction } from "./src/sanity/moveBookingAction";
+import { recordPaymentAction } from "./src/sanity/paymentAction";
 import { structure } from "./src/sanity/structure";
 import { etsyReviewTemplate, googleReviewTemplate, nextdoorReviewTemplate } from "./src/sanity/reviewLists";
 import { dashboardTool } from "./src/sanity/dashboardTool";
@@ -72,7 +73,7 @@ export default defineConfig({
       // A booking is given a time, or moved, through the diary — never by
       // typing into "Confirmed For", which held nothing. See moveBookingAction.
       if (context.schemaType === "atelierBooking") {
-        return [...prev, moveBookingAction, notifyCustomerAction, revealContactAction];
+        return [...prev, moveBookingAction, recordPaymentAction, notifyCustomerAction, revealContactAction];
       }
       if (context.schemaType === "order") {
         return [...prev, notifyCustomerAction, revealContactAction];

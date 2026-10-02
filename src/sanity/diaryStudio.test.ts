@@ -103,7 +103,7 @@ test("a move takes the new time before letting go of the old one, and only for a
 test("the move is not offered over unpublished changes, and it asks the diary route", () => {
   assert.match(ACTION, /disabled: Boolean\(props\.draft\)/);
   assert.match(ACTION, /askDiary\(token, \{ action: "move", id, slot \}\)/);
-  assert.match(CONFIG, /return \[\.\.\.prev, moveBookingAction, notifyCustomerAction, revealContactAction\];/);
+  assert.match(CONFIG, /return \[\.\.\.prev, moveBookingAction, recordPaymentAction, notifyCustomerAction, revealContactAction\];/);
   assert.match(STRUCTURE, /\.title\("Записать вручную"\)/);
 });
 

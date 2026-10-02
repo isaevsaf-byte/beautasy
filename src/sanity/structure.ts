@@ -1,6 +1,7 @@
 import type { StructureResolver } from "sanity/structure";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
 import { ManualBookingPane } from "./ManualBookingPane";
+import { LedgerPane } from "./LedgerPane";
 import { FacebookGroupsPane } from "./FacebookGroupsPane";
 import {
   ETSY_REVIEWS_FILTER,
@@ -92,6 +93,9 @@ export const structure: StructureResolver = (S) =>
       S.listItem()
         .title("Часы для примерок")
         .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
+      // What came in and what went out. Entries are sealed (the dataset is
+      // public), so this is a pane that asks the server, not a document list
+      S.listItem().id("kassa").title("Касса").child(S.component(LedgerPane).id("kassa-pane").title("Касса")),
       S.documentTypeListItem("order").title("Заказы"),
       // Reviews written on the site wait here for approval; recommendations
       // from Nextdoor and reviews from Google and Etsy are copied in by hand
