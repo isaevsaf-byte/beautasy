@@ -8,6 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useWishlist } from "@/store/useWishlist";
 import { useCart } from "@/store/useCart";
+import { cardAction } from "@/lib/shopCard";
 import { fadeUp, stagger } from "@/components/animations";
 
 /* eslint-disable @next/next/no-img-element */
@@ -18,14 +19,6 @@ export default function WishlistPage() {
   const hydrated = useIsClient();
 
   const wishlistItems = hydrated ? items : [];
-
-  // Items that require a size/colour selection cannot be added directly from
-  // the wishlist — they need to go through the PDP first.
-  function itemNeedsOptions(item: (typeof items)[0]): boolean {
-    // If availableSizes is undefined (old wishlist items) assume it needs options
-    // to be safe. If it's an empty array the product has no size variants.
-    return item.availableSizes === undefined || item.availableSizes.length > 0;
-  }
 
   function handleAddToCart(item: (typeof items)[0]) {
     addToCart({
@@ -84,6 +77,13 @@ export default function WishlistPage() {
                     const itemHref = item.slug.includes("/")
                       ? `/${item.slug}`
                       : `/shop/${item.slug}`;
+                    // The shop card's own rule (@/lib/shopCard): a size or a
+                    // colour to choose goes to the page; only a piece with
+                    // nothing to choose goes straight into the bag. Sizes alone
+                    // let a colourless sleeping mask in, and checkout then
+                    // refused the whole bag. Saved before colours were kept, or
+                    // a gift box: the page, which knows.
+                    const action = cardAction(item);
 
                     return (
                     <motion.div
@@ -117,17 +117,17 @@ export default function WishlistPage() {
                       </p>
 
                       <div className="flex gap-2">
-                        {itemNeedsOptions(item) ? (
-                          /* Product needs size/colour — send to PDP */
+                        {action.kind === "page" ? (
+                          /* Something to choose — send to the PDP */
                           <Link
                             href={itemHref}
                             className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
                           >
                             <ShoppingBag size={14} />
-                            Select Options
+                            {action.label}
                           </Link>
                         ) : (
-                          /* No size variant — add directly to cart */
+                          /* Nothing to choose — add directly to cart */
                           <button
                             onClick={() => handleAddToCart(item)}
                             className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"

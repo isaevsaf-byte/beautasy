@@ -36,6 +36,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PortableText } from "@portabletext/react";
 import WishlistButton from "@/components/WishlistButton";
+import { wishlistEntry } from "@/store/useWishlist";
 import ReviewList, { type Review } from "@/components/ReviewList";
 import Lightbox from "@/components/Lightbox";
 import SizeQuiz from "@/components/SizeQuiz";
@@ -934,14 +935,10 @@ export default function ProductDetail({
                   {bagButtonLabel(blockers, bagTotal)}
                 </button>
                 <WishlistButton
-                  product={{
-                    id: product._id,
-                    name: product.name,
-                    price: product.price,
-                    image: images[0],
-                    slug: product.slug,
-                    availableSizes: product.availableSizes,
-                  }}
+                  product={wishlistEntry(
+                    { ...product, colorCount: product.availableColors?.length ?? 0 },
+                    images[0]
+                  )}
                 />
               </div>
 
