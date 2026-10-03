@@ -27,6 +27,12 @@ interface Slot {
   label: string;
 }
 
+interface SlotDay {
+  date: string;
+  label: string;
+  slots: Slot[];
+}
+
 /**
  * What a customer whose booking got no answer sees in place of the browser's
  * "Load failed": what probably happened, that trying again is safe, and
@@ -50,11 +56,6 @@ export function NoAnswer({ whatsapp }: { whatsapp: string }) {
       </a>
     </div>
   );
-}
-interface SlotDay {
-  date: string;
-  label: string;
-  slots: Slot[];
 }
 
 /**
