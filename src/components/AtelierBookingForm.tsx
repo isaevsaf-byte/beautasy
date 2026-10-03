@@ -532,7 +532,7 @@ export default function AtelierBookingForm({
       </div>
       <div className="sm:col-span-1">
         <label htmlFor="booking-phone" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
-          Phone <span className="normal-case text-charcoal-light/70">(optional)</span>
+          Phone <span className="normal-case text-charcoal-light">(optional)</span>
         </label>
         <input
           id="booking-phone"
@@ -564,7 +564,7 @@ export default function AtelierBookingForm({
       {!bookable && !collecting && (
         <div className="sm:col-span-1">
           <label htmlFor="booking-date" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
-            Preferred Date <span className="normal-case text-charcoal-light/70">(optional)</span>
+            Preferred Date <span className="normal-case text-charcoal-light">(optional)</span>
           </label>
           <input
             id="booking-date"
@@ -579,7 +579,7 @@ export default function AtelierBookingForm({
 
       <div className="sm:col-span-2">
         <label htmlFor="booking-notes" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
-          Notes <span className="normal-case text-charcoal-light/70">(optional)</span>
+          Notes <span className="normal-case text-charcoal-light">(optional)</span>
         </label>
         <textarea
           id="booking-notes"

@@ -71,3 +71,28 @@ test("the form shows that block, not the browser's words, when no answer comes b
   assert.match(source, /\{unanswered && <NoAnswer whatsapp=\{whatsappAboutBooking\(\{ name, service, slot, collecting \}\)\} \/>\}/);
   assert.doesNotMatch(source, /await fetch\("\/api\/atelier-booking"/, "the form posts around the helper that knows a dropped connection");
 });
+
+/** WCAG's contrast ratio of a "#rrggbb" colour against white. */
+function contrastOnWhite(hex: string): number {
+  const channel = (i: number) => {
+    const c = parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(0) + 0.7152 * channel(1) + 0.0722 * channel(2);
+  return 1.05 / (luminance + 0.05);
+}
+
+test("'(optional)' is as readable as the label it sits in", () => {
+  // At 70% the grey read 2.85:1 on white; the full colour clears the 4.5:1 small text needs
+  const css = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+  const grey = css.match(/--color-charcoal-light:\s*(#[0-9a-fA-F]{6})/)?.[1];
+  assert.ok(grey, "the colour moved out of globals.css");
+  assert.ok(contrastOnWhite(grey) >= 4.5, `${grey} is ${contrastOnWhite(grey).toFixed(2)}:1`);
+
+  const optional = [...html.matchAll(/<span class="([^"]*)">\(optional\)<\/span>/g)].map((m) => m[1]);
+  assert.equal(optional.length, 3, "phone, preferred date and notes");
+  for (const classes of optional) {
+    assert.ok(classes.split(" ").includes("text-charcoal-light"), classes);
+    assert.doesNotMatch(classes, /text-charcoal-light\/\d+/, "faded again");
+  }
+});
