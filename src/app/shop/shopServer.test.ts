@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { evaluate, parse } from "groq-js";
 
 /**
  * Guards the shop's server pages: which of them can be cached, what they say
@@ -52,4 +53,53 @@ test("collection pages name their one address and say their name once", () => {
 test("the site's functions run in London, beside the people using it", () => {
   const vercel = JSON.parse(read("vercel.json"));
   assert.deepEqual(vercel.regions, ["lhr1"]);
+});
+
+/**
+ * A listing card says how long a made-to-order piece takes, and sends a piece
+ * with a colour to choose to its own page instead of adding it to the bag
+ * without one. ShopContent reads both from the listing — so each of the three
+ * listings has to ask Sanity for them and hand them on. The queries are run
+ * here with groq-js, Sanity's own evaluator, against pieces shaped like the
+ * real ones.
+ */
+const LISTINGS: [file: string, source: string, query: string, params: Record<string, string>][] = [
+  ["shop/page.tsx", SHOP, "PRODUCTS_QUERY", {}],
+  ["shop/[param]/page.tsx", PARAM, "CATEGORY_PRODUCTS_QUERY", { cat: "lingerie" }],
+  ["shop/collection/[slug]/page.tsx", COLLECTION, "COLLECTION_PRODUCTS_QUERY", { slug: "winter" }],
+];
+
+test("every listing asks how many colours a piece comes in and how long it takes to make", async () => {
+  const dataset = [
+    { _id: "c1", _type: "collection", slug: { current: "winter" } },
+    {
+      _id: "p-slip", _type: "product", name: "Silk Slip", category: "lingerie", price: 3800, _createdAt: "2026-09-02T00:00:00Z",
+      collection: { _type: "reference", _ref: "c1" }, productionTime: "3-5",
+      availableColors: [{ _key: "a", name: "Ivory" }, { _key: "b", name: "Lavender" }, { _key: "c", name: "Black" }],
+    },
+    {
+      _id: "p-scrunchie", _type: "product", name: "Scrunchie", category: "lingerie", price: 1200, _createdAt: "2026-09-01T00:00:00Z",
+      collection: { _type: "reference", _ref: "c1" },
+    },
+  ];
+  for (const [file, source, name, params] of LISTINGS) {
+    const query = source.match(new RegExp(`const ${name} = \`([\\s\\S]*?)\`;`))?.[1];
+    assert.ok(query, `${file}: ${name} not found — update this test`);
+    const rows = (await (await evaluate(parse(query), { dataset, params })).get()) as Record<string, unknown>[];
+    assert.deepEqual(
+      rows.map((row) => [row._id, row.colorCount, row.productionTime]),
+      [
+        ["p-slip", 3, "3-5"],
+        ["p-scrunchie", null, null],
+      ],
+      file
+    );
+  }
+});
+
+test("every listing hands both on, with a piece of no colours counted as none", () => {
+  for (const [file, source] of LISTINGS) {
+    assert.match(source, /colorCount: p\.colorCount \?\? 0,/, `${file}: an unknown count makes the card say "View Options" for a piece with nothing to choose`);
+    assert.match(source, /productionTime: p\.productionTime \?\? null,/, file);
+  }
 });

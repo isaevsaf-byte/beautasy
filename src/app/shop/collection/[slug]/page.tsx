@@ -36,6 +36,8 @@ const COLLECTION_PRODUCTS_QUERY = `*[_type == "product" && collection->slug.curr
   subcategory,
   stock,
   availableSizes,
+  productionTime,
+  "colorCount": count(availableColors),
   "collection": collection->{ name, "slug": slug.current }
 }`;
 
@@ -104,6 +106,8 @@ export default async function CollectionPage({
     subcategory?: string;
     stock?: number;
     availableSizes?: string[];
+    productionTime?: string | null;
+    colorCount?: number | null;
     collection?: { name: string; slug: string } | null;
   }[]).map((p) => {
     const resolvedImages =
@@ -126,6 +130,8 @@ export default async function CollectionPage({
       subcategory: p.subcategory,
       stock: p.stock ?? 0,
       availableSizes: p.availableSizes || [],
+      productionTime: p.productionTime ?? null,
+      colorCount: p.colorCount ?? 0,
       collection: p.collection ?? null,
     };
   });

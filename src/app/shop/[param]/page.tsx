@@ -76,6 +76,8 @@ const CATEGORY_PRODUCTS_QUERY = `*[_type == "product" && category == $cat] | ord
   subcategory,
   stock,
   availableSizes,
+  productionTime,
+  "colorCount": count(availableColors),
   "collection": collection->{ name, "slug": slug.current }
 }`;
 
@@ -254,6 +256,9 @@ export default async function ShopParamPage({
       subcategory?: string;
       stock?: number;
       availableSizes: string[];
+      productionTime?: string | null;
+      colorCount?: number | null;
+      collection?: { name: string; slug: string } | null;
     }[] = [];
 
     try {
@@ -277,6 +282,8 @@ export default async function ShopParamPage({
             subcategory?: string;
             stock?: number;
             availableSizes?: string[];
+            productionTime?: string | null;
+            colorCount?: number | null;
             collection?: { name: string; slug: string } | null;
           }) => {
             const resolvedImages =
@@ -301,6 +308,8 @@ export default async function ShopParamPage({
               subcategory: p.subcategory,
               stock: p.stock ?? 0,
               availableSizes: p.availableSizes || [],
+              productionTime: p.productionTime ?? null,
+              colorCount: p.colorCount ?? 0,
               collection: p.collection ?? null,
             };
           }
