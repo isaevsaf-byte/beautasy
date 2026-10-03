@@ -141,7 +141,7 @@ test("under the booking button: what booking agrees to, both pages linked, and t
   assert.ok(start > html.indexOf(button), "the line comes after the button");
   const line = html.slice(start, html.indexOf("</p>", start) + 4);
   const text = line.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
-  assert.equal(text, "By booking you agree to our Terms & Conditions and Privacy Policy.");
+  assert.equal(text, "By booking you agree to our Terms & Conditions. Our Privacy Policy explains how we use your details.");
   const hrefs = [...line.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(hrefs, [TERMS_HREF, PRIVACY_HREF]);
   // Across both columns of the form, in the readable grey

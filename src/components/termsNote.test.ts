@@ -31,7 +31,7 @@ test("the line says what pressing the button agrees to, with each page one tap a
   assert.equal(PRIVACY_HREF, "/pages/privacy-policy");
 
   const booking = renderToStaticMarkup(createElement(TermsNote, { doing: "booking", privacy: true, id: "terms-1" }));
-  assert.equal(visible(booking), "By booking you agree to our Terms & Conditions and Privacy Policy.");
+  assert.equal(visible(booking), "By booking you agree to our Terms & Conditions. Our Privacy Policy explains how we use your details.");
   assert.deepEqual(
     links(booking).map(({ href, text }) => [href, text]),
     [[TERMS_HREF, "Terms & Conditions"], [PRIVACY_HREF, "Privacy Policy"]],
@@ -94,8 +94,9 @@ test("the gift card's pay button carries the line, and names it as its descripti
   const start = html.indexOf(`<p id="${id}"`);
   assert.ok(start > html.indexOf(button), "the line is there, after the button");
   const line = html.slice(start, html.indexOf("</p>", start) + 4);
-  assert.equal(visible(line), "By paying you agree to our Terms & Conditions.");
-  assert.deepEqual(links(line).map(({ href }) => href), [TERMS_HREF]);
+  // A gift card carries someone else's name, email and a message, so the privacy policy is pointed to as well
+  assert.equal(visible(line), "By paying you agree to our Terms & Conditions. Our Privacy Policy explains how we use your details.");
+  assert.deepEqual(links(line).map(({ href }) => href), [TERMS_HREF, PRIVACY_HREF]);
 });
 
 test("the bag's Checkout carries the same line, and names it as its description", () => {
@@ -106,5 +107,18 @@ test("the bag's Checkout carries the same line, and names it as its description"
   const button = cart.slice(cart.indexOf("onClick={handleCheckout}"), cart.indexOf("</button>", cart.indexOf("onClick={handleCheckout}")));
   assert.match(button, /aria-describedby=\{termsId\}/);
   const after = cart.slice(cart.indexOf("onClick={handleCheckout}"), cart.indexOf("Clear bag"));
-  assert.match(after, /<\/button>[\s\S]*<TermsNote id=\{termsId\} doing="paying"[^>]*\/>/, "under Checkout, above Clear bag");
+  // Right under the button and unconditional: a `{false && ...}` or an `items.length === 0 &&` in front of it would still match a looser pattern
+  assert.match(after, /<\/button>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<TermsNote id=\{termsId\} doing="paying"[^>]*\/>/, "right under Checkout, unconditionally");
+});
+
+test("the privacy policy is pointed to, never agreed to", () => {
+  // A privacy notice informs; bookings are handled under the contract, not consent
+  const booking = renderToStaticMarkup(createElement(TermsNote, { doing: "booking", privacy: true }));
+  assert.doesNotMatch(visible(booking), /agree to[^.]*Privacy/);
+});
+
+test("on a short phone the bag scrolls as one column, so Checkout and Clear bag can be reached", () => {
+  const cart = read("src/components/Cart.tsx");
+  assert.match(cart, /fixed top-0 right-0 bottom-0 w-full max-w-md[^"]*flex flex-col overflow-y-auto overscroll-contain/);
+  assert.match(cart, /flex-1 min-h-32 overflow-y-auto px-6 py-4/);
 });

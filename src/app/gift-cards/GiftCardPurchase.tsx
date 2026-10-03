@@ -231,7 +231,7 @@ export default function GiftCardPurchase() {
       {/* What paying agrees to, said before Stripe's page. It rises with the
           button (the same step of the fade), so it never shows up on its own. */}
       <motion.div variants={fadeUp} custom={2} className="mt-3 text-center">
-        <TermsNote id={termsId} doing="paying" />
+        <TermsNote id={termsId} doing="paying" privacy />
       </motion.div>
 
       <motion.p

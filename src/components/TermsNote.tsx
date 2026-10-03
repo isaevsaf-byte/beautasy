@@ -28,7 +28,11 @@ export default function TermsNote({
   className = "",
 }: {
   doing: "booking" | "paying";
-  /** Name the privacy policy too: a booking hands us a name, a phone number and sometimes an address */
+  /**
+   * Point to the privacy policy too: a booking hands us a name, a phone number
+   * and sometimes a postcode. Pointed to, not agreed to — a privacy notice only
+   * informs, and these details are used under the contract, not consent.
+   */
   privacy?: boolean;
   id?: string;
   className?: string;
@@ -39,15 +43,16 @@ export default function TermsNote({
       <Link href={TERMS_HREF} className={LINK_CLASS}>
         Terms &amp; Conditions
       </Link>
+      .
       {privacy && (
         <>
-          {" "}and{" "}
+          {" "}Our{" "}
           <Link href={PRIVACY_HREF} className={LINK_CLASS}>
             Privacy Policy
-          </Link>
+          </Link>{" "}
+          explains how we use your details.
         </>
       )}
-      .
     </p>
   );
 }

@@ -319,7 +319,7 @@ export function CartDrawer({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-[#FDFBF7] z-[9999] shadow-2xl flex flex-col"
+            className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-[#FDFBF7] z-[9999] shadow-2xl flex flex-col overflow-y-auto overscroll-contain"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-lavender-soft/40 shrink-0">
@@ -334,7 +334,7 @@ export function CartDrawer({
             </div>
 
             {/* Items */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="flex-1 min-h-32 overflow-y-auto px-6 py-4">
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <ShoppingBag
