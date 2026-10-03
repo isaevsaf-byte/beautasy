@@ -193,3 +193,78 @@ test("the length comes from the service, never from what the form says", async (
   assert.equal(docs.get(slotDocumentId(`${day}T10:00`))?.slotEnd, undefined);
   assert.equal(emailFingerprint(ANNA.email), docs.get(slotDocumentId(`${day}T10:00`))?.emailFingerprint);
 });
+
+/* ─── Abuse of the form ─── */
+
+test("a request with the hidden field filled in is thanked, and nothing is saved or sent", async () => {
+  const day = openDiary();
+  const res = await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T10:00`, website: "http://spam.example" }));
+  assert.equal(res.status, 201, "a bot told it failed tries again");
+  assert.equal((await res.json()).ok, true);
+  assert.equal(bookings().length, 0);
+  assert.equal(emails.length, 0);
+});
+
+test("a field too long, or a service the form never offers, is refused with the reason, before anything is written", async () => {
+  openDiary();
+  for (const [body, said] of [
+    [{ ...ANNA, service: "Alterations", notes: "x".repeat(2001) }, /under 2,000 characters/],
+    [{ ...ANNA, service: "Alterations", name: "A".repeat(81) }, /80 characters/],
+    [{ ...ANNA, service: "Alterations", phone: "1".repeat(31) }, /phone number is too long/],
+    [{ ...ANNA, service: "Viagra" }, /choose a service from the list/],
+  ] as const) {
+    const res = await POST(request(body));
+    assert.equal(res.status, 400);
+    assert.match((await res.json()).error, said);
+  }
+  assert.equal(bookings().length, 0);
+  assert.equal(emails.length, 0);
+});
+
+test("the landing pages' services and the old 'not sure' still book", async () => {
+  openDiary();
+  for (const service of ["Prom and Evening Dress Alterations", "Other / Not Sure", "Not sure — free 10-minute look"]) {
+    const res = await POST(request({ ...ANNA, email: `${service.length}@example.com`, service }));
+    assert.equal(res.status, 201, service);
+  }
+  assert.equal(bookings().length, 3);
+});
+
+test("one address holds at most two times ahead; the third is asked to message instead", async () => {
+  const day = openDiary();
+  for (const time of ["10:00", "11:00"]) {
+    assert.equal((await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T${time}` }))).status, 201);
+  }
+  const sent = emails.length;
+  const third = await POST(request({ ...ANNA, email: "ANNA@example.com ", service: "Repairs", slot: `${day}T12:00` }));
+  assert.equal(third.status, 409);
+  assert.match((await third.json()).error, /already have two appointments booked/);
+  assert.equal(bookings().length, 2, "the third time was taken");
+  assert.equal(emails.length, sent);
+
+  // A request with no time holds nothing, so it still goes through
+  assert.equal((await POST(request({ ...ANNA, service: "Repairs" }))).status, 201);
+  // Somebody else is not counted against her
+  assert.equal((await POST(request({ ...ANNA, email: "bea@example.com", service: "Repairs", slot: `${day}T12:00` }))).status, 201);
+});
+
+test("a cancelled time, or one already past, does not count against the next booking", async () => {
+  const day = openDiary();
+  const fingerprint = emailFingerprint(ANNA.email);
+  docs.set("slot-2026-01-05-1000", {
+    _id: "slot-2026-01-05-1000",
+    _type: "atelierBooking",
+    status: "completed",
+    slotStart: "2026-01-05T10:00",
+    emailFingerprint: fingerprint,
+  });
+  docs.set(slotDocumentId(`${day}T09:00`), {
+    _id: slotDocumentId(`${day}T09:00`),
+    _type: "atelierBooking",
+    status: "cancelled",
+    slotStart: `${day}T09:00`,
+    emailFingerprint: fingerprint,
+  });
+  assert.equal((await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T10:00` }))).status, 201);
+  assert.equal((await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T11:00` }))).status, 201);
+});

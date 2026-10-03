@@ -137,6 +137,18 @@ export function localDateOf(instant: Date): string {
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
+/** This minute in Southampton, written the way a slot is: "2026-09-10T14:30". */
+export function localMinuteOf(instant: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: ATELIER_TIME_ZONE,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(instant);
+  const value = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  return `${localDateOf(instant)}T${value("hour")}:${value("minute")}`;
+}
+
 /* ─── Labels ─── */
 
 /** "14:30" → "2:30pm", because nobody says "fourteen thirty" about a fitting. */

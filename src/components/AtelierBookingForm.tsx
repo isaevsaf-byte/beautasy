@@ -7,6 +7,7 @@ import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
 import { durationLabel, slotIsOffered } from "@/lib/slots";
+import { FIELD_LIMITS, HONEYPOT_FIELD } from "@/lib/bookingForm";
 import { WHEN_MAX, onItsWayTo, postcodeDistrict, type CollectionOffer } from "@/lib/collection";
 
 /**
@@ -72,6 +73,8 @@ export default function AtelierBookingForm({
   const [service, setService] = useState(defaultService ?? SERVICES[0]);
   const [preferredDate, setPreferredDate] = useState("");
   const [notes, setNotes] = useState("");
+  // Only a bot fills this in — see HONEYPOT_FIELD
+  const [trap, setTrap] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -183,6 +186,7 @@ export default function AtelierBookingForm({
           phone,
           service,
           notes,
+          [HONEYPOT_FIELD]: trap,
           ...(collecting
             ? { collection: { postcode, ...(collectWhen.trim() ? { when: collectWhen } : {}) } }
             : slot
@@ -263,6 +267,17 @@ export default function AtelierBookingForm({
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+      {/* Only a bot fills this in: hidden from people, from screen readers and from the keyboard */}
+      <input
+        type="text"
+        name={HONEYPOT_FIELD}
+        tabIndex={-1}
+        autoComplete="off"
+        value={trap}
+        onChange={(e) => setTrap(e.target.value)}
+        aria-hidden="true"
+        className="hidden"
+      />
       {/* ── Fitting, or Collect & return ── */}
       {collection && (
         <fieldset className="sm:col-span-2 min-w-0 border-0 p-0 m-0">
@@ -312,6 +327,7 @@ export default function AtelierBookingForm({
               name="postcode"
               autoComplete="postal-code"
               required
+              maxLength={FIELD_LIMITS.postcode}
               value={postcode}
               onChange={(e) => {
                 setPostcode(e.target.value);
@@ -456,6 +472,7 @@ export default function AtelierBookingForm({
           name="name"
           autoComplete="name"
           required
+          maxLength={FIELD_LIMITS.name}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className={FIELD_CLASS}
@@ -469,6 +486,7 @@ export default function AtelierBookingForm({
           autoComplete="email"
           type="email"
           required
+          maxLength={FIELD_LIMITS.email}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className={FIELD_CLASS}
@@ -483,6 +501,7 @@ export default function AtelierBookingForm({
           name="phone"
           type="tel"
           autoComplete="tel"
+          maxLength={FIELD_LIMITS.phone}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           className={FIELD_CLASS}
@@ -528,6 +547,7 @@ export default function AtelierBookingForm({
           id="booking-notes"
           name="notes"
           rows={3}
+          maxLength={FIELD_LIMITS.notes}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Tell us about the garment and what you need done..."

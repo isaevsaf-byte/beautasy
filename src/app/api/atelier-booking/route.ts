@@ -14,9 +14,17 @@ import {
 import { verdictMessage } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { getAvailableSlots } from "@/lib/schedule";
-import { spanIsOffered, spanLabel, slotLabel, slotDocumentId } from "@/lib/slots";
+import { localMinuteOf, spanIsOffered, spanLabel, slotLabel, slotDocumentId } from "@/lib/slots";
 import { claimSlot, fittingEnd, sanityDiaryStore } from "@/lib/diary";
 import { slotsFor } from "@/lib/atelierServices";
+import {
+  FUTURE_HOLDS_QUERY,
+  MAX_FUTURE_HOLDS,
+  TOO_MANY_HOLDS,
+  filledHoneypot,
+  postcodeFits,
+  readBookingFields,
+} from "@/lib/bookingRequest";
 import {
   bookingEmailHtml,
   bookingInvite,
@@ -49,8 +57,6 @@ interface BookingBody {
 }
 
 const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Whether this request reached nobody at all.
@@ -236,21 +242,45 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: BookingBody = await req.json();
-    const { name, email, phone, service, preferredDate, notes } = body;
+
+    // The field only a bot fills in. Answered as if all went well — a bot told
+    // it failed tries again — and nothing is saved, nothing is sent.
+    if (filledHoneypot(body)) {
+      return NextResponse.json({ ok: true, emailed: true }, { status: 201 });
+    }
+
+    // Only what the form itself can send: a service from its lists, and fields
+    // no longer than a person types. See @/lib/bookingRequest.
+    const read = readBookingFields(body);
+    if (!read.ok) return NextResponse.json({ error: read.error }, { status: 400 });
+    const { name, email, phone, service, preferredDate, notes } = read.fields;
+
     // Collect & return is a request, never a fitting: it holds no time in the
     // diary, so a slot sent beside it is not taken
     const wantsCollection = body.collection !== undefined && body.collection !== null;
     const slot =
       !wantsCollection && typeof body.slot === "string" && SLOT_SHAPE.test(body.slot) ? body.slot : undefined;
+    if (wantsCollection && !postcodeFits(body.collection)) {
+      return NextResponse.json({ error: "Please enter your postcode, like SO17 1AB." }, { status: 400 });
+    }
 
-    if (!name || typeof name !== "string" || name.trim().length < 2) {
-      return NextResponse.json({ error: "Please enter your name" }, { status: 400 });
-    }
-    if (!email || typeof email !== "string" || !EMAIL_RE.test(email)) {
-      return NextResponse.json({ error: "Please enter a valid email" }, { status: 400 });
-    }
-    if (!service || typeof service !== "string") {
-      return NextResponse.json({ error: "Please select a service" }, { status: 400 });
+    // Keyed and one-way: how the same customer is recognised without their address in the database
+    const fingerprint =
+      process.env.SANITY_API_WRITE_TOKEN && secretsConfigured() ? emailFingerprint(email) : null;
+
+    // Somebody holding the diary's future under one address — a real customer
+    // with two fittings ahead is asked to message for a third
+    if (slot && fingerprint) {
+      let holds = 0;
+      try {
+        holds = (await sanityWriteClient.fetch<number>(FUTURE_HOLDS_QUERY, { fingerprint, now: localMinuteOf(new Date()) })) ?? 0;
+      } catch (err) {
+        // The diary itself is read strictly below; this check is not worth a refused booking
+        console.error("Could not count a customer's booked times:", err);
+      }
+      if (holds >= MAX_FUTURE_HOLDS) {
+        return NextResponse.json({ error: TOO_MANY_HOLDS }, { status: 409 });
+      }
     }
 
     // Decided here, from the settings as they are this minute. The form showed
@@ -272,8 +302,7 @@ export async function POST(req: NextRequest) {
     // does not apply — a returning customer is welcome, just not as a first visit.
     let friend: { referrer: Referrer; discount: number } | null = null;
     let referralNote: string | null = null;
-    const referralCode =
-      typeof body.referralCode === "string" && body.referralCode.trim() ? body.referralCode : undefined;
+    const referralCode = read.fields.referralCode;
     if (referralCode && referralsConfigured()) {
       try {
         const settings = await referralSettings();
@@ -369,7 +398,8 @@ export async function POST(req: NextRequest) {
         phoneSealed: sealOptional(phone),
         // When they're in is their own words, so it is sealed with the notes
         notesSealed: sealOptional(sealedNotesText(collection?.when, notes)),
-        // Keyed and one-way: what "first visit?" is asked of next time
+        // Keyed and one-way: what "first visit?" is asked of next time, and
+        // how many times one address holds
         emailFingerprint: emailFingerprint(email),
         service,
         // The district and the terms they saw: never the street
