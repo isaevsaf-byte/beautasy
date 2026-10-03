@@ -68,7 +68,7 @@ test("a refund reaches the ledger whether part or whole, and only a whole one un
   assert.notEqual(stamp, -1, "refunds no longer reach the ledger");
   assert.match(
     block,
-    /if \(sessionId\) \{\s*try \{\s*await stampRefund\(sessionId, charge\.amount_refunded,/,
+    /if \(sessionId\) \{\s*try \{\s*(?:stamped = )?await stampRefund\(sessionId, charge\.amount_refunded,/,
     "Every refund is noted — no condition on how much came back."
   );
   assert.ok(stamp < partial, "A partial refund is money going back too: note it before the partial return.");

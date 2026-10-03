@@ -7,6 +7,7 @@ import {
   giftCardNotChargedAlert,
   giftCardNotIssuedAlert,
   orderNotSavedAlert,
+  paymentRefundedFirstAlert,
   sendPaymentAlert,
 } from "./paymentAlerts";
 
@@ -82,4 +83,39 @@ test("an alert goes to hello@, and a mail failure never throws out of the webhoo
     }),
     false
   );
+});
+
+/** The words of an alert, without its markup, so a sentence can be read across a tag. */
+const words = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, " ");
+
+test("a card that was not issued is never to be made by hand, and a refund in Stripe is final", () => {
+  // The old advice: "refund the payment in Stripe or make the card by hand".
+  // The Studio cannot make a code that works (its fingerprint is hidden), and
+  // a refund used to be overtaken by Stripe's next retry, which issued the card.
+  const text = words(ALERTS[1].html);
+  assert.doesNotMatch(text, /refund the payment in Stripe or make the card by hand/);
+  assert.match(text, /don't make one by hand/);
+  assert.match(text, /once any of it is refunded, no card is made, however many more times Stripe tries/);
+});
+
+test("a lost order's alert says what a refund in Stripe does to it", () => {
+  assert.match(words(ALERTS[0].html), /a payment refunded in full is kept as refunded and nothing is sent for it/);
+});
+
+test("a payment refunded before it was saved says so, and whether anything is left to do", () => {
+  const card = paymentRefundedFirstAlert({ kind: "giftCard", sessionId: SESSION, paymentIntent: "pi_1", paid: 10000, refunded: 10000 });
+  assert.ok(card.subject.startsWith("⚠️"));
+  assert.match(card.subject, /Refunded before it was saved — gift card £100\.00 · #E5F6G7H8/);
+  assert.match(words(card.html), /no card has been made and nobody has been sent a code/);
+  assert.match(words(card.html), /Nothing to do/);
+
+  const part = paymentRefundedFirstAlert({ kind: "giftCard", sessionId: SESSION, paid: 10000, refunded: 2500 });
+  assert.match(words(part.html), /£25\.00 of a £100\.00 gift card was refunded/);
+  assert.match(words(part.html), /ask Safar to make it/, "part of a card's money back needs a person to decide what is owed");
+  assert.doesNotMatch(words(part.html), /Nothing to do/);
+
+  const order = paymentRefundedFirstAlert({ kind: "order", sessionId: SESSION, paid: 4800, refunded: 4800 });
+  assert.match(order.subject, /order £48\.00/);
+  assert.match(words(order.html), /kept in the Studio as refunded/);
+  assert.match(words(order.html), /no confirmation, no stock taken off, no friend's reward/);
 });

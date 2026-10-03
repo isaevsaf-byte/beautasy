@@ -46,13 +46,24 @@ import {
   giftCardNotChargedAlert,
   giftCardNotIssuedAlert,
   orderNotSavedAlert,
+  paymentRefundedFirstAlert,
   sendPaymentAlert,
 } from "@/lib/paymentAlerts";
+import {
+  leaveRefundedRecord,
+  refundBeforeWriting,
+  refundOfCharge,
+  type BeforeWriting,
+  type RecordWriter,
+} from "@/lib/paymentRefunds";
 
 export const dynamic = "force-dynamic";
 
 const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
+
+/** Sanity, as the refund guard writes to it (see @/lib/paymentRefunds). */
+const refundRecords = sanityWriteClient as unknown as RecordWriter;
 
 /* ─── Types ─── */
 interface ShippingDetails {
@@ -498,6 +509,11 @@ async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<vo
  * before the create moves money or sends anything; the emails after it never
  * throw (see @/lib/giftCardEmails), and a card that exists but was never
  * emailed is picked up by the daily job.
+ *
+ * A retry is the same event as the first try, so it still says "paid" after
+ * the money has gone back. Stripe is asked before the card is made, and a
+ * payment with any of it refunded gets a switched-off card with no code in
+ * its place (see @/lib/paymentRefunds).
  */
 async function issueGiftCard(session: Stripe.Checkout.Session, purchase: GiftCardPurchase): Promise<void> {
   const { amount, meta } = purchase;
@@ -510,6 +526,26 @@ async function issueGiftCard(session: Stripe.Checkout.Session, purchase: GiftCar
     { id: session.id }
   );
   if (existing) return;
+
+  // The alert for a card that failed invites exactly this refund, and the
+  // event Stripe retries cannot know about it
+  const before = await refundBeforeWriting(session, purchase, {
+    stripe: getStripeInstance(),
+    sanity: refundRecords,
+  });
+  if (before.stop) {
+    await sendPaymentAlert(
+      paymentRefundedFirstAlert({
+        kind: "giftCard",
+        sessionId: session.id,
+        paymentIntent: paymentIntentOf(session),
+        paid: before.refund.charged,
+        refunded: before.refund.refunded,
+      })
+    );
+    console.log("Gift card not issued — its payment was refunded first:", before.recordId);
+    return;
+  }
 
   const deliverAt = meta.gift_card_deliver_at;
   // Generated here and stored only keyed and sealed — the clear code exists
@@ -725,6 +761,56 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, giftCard: true });
     }
 
+    // A retry carries the payment as it was when it was paid, and the "not
+    // saved" alert offers a refund — so Stripe is asked before the order is
+    // written. All of it back: the order is kept as refunded and nothing else
+    // happens. Part of it back: the order is written with its refund on it.
+    // See @/lib/paymentRefunds.
+    let before: BeforeWriting;
+    try {
+      before = await refundBeforeWriting(session, null, {
+        stripe: getStripeInstance(),
+        sanity: refundRecords,
+      });
+    } catch (err) {
+      // Not knowing is not "not refunded". Nothing has been done for this
+      // order yet, so it goes back to Stripe the way a failed write does.
+      console.error("Could not check the payment for a refund:", err);
+      await sendPaymentAlert(
+        orderNotSavedAlert({
+          sessionId: session.id,
+          paymentIntent: paymentIntentOf(session),
+          total: session.amount_total ?? 0,
+          customerName,
+          customerEmail,
+          phone: session.customer_details?.phone,
+          address: plainAddress(shippingOf(session)),
+          items: itemLines(items),
+          reason: `Could not ask Stripe whether it was refunded: ${alertReason(err)}`,
+        })
+      );
+      return NextResponse.json({ error: "Order not saved yet" }, { status: 500 });
+    }
+    if (before.stop) {
+      // A gift card that paid for part of it is still held for this checkout
+      try {
+        await releaseGiftCard(session);
+      } catch (err) {
+        console.error("Failed to release a gift card hold:", err);
+      }
+      await sendPaymentAlert(
+        paymentRefundedFirstAlert({
+          kind: "order",
+          sessionId: session.id,
+          paymentIntent: paymentIntentOf(session),
+          paid: before.refund.charged,
+          refunded: before.refund.refunded,
+        })
+      );
+      console.log("Order kept as refunded — its payment was refunded first:", before.recordId);
+      return NextResponse.json({ received: true, refunded: true });
+    }
+
     // The order is written before anything else is done for it — before the
     // gift card is charged, the stock taken off or anybody emailed — because
     // that order is what makes a failure here safe to hand back to Stripe.
@@ -782,6 +868,11 @@ export async function POST(req: NextRequest) {
         total: session.amount_total ?? 0,
         shippingAddressSealed: sealOptional(formatAddress(shippingOf(session))),
         status: "paid",
+        // Part of it given back while Stripe was retrying: the refund's own
+        // event found no order to note it on, so «Касса» hears about it here
+        ...(before.refund && before.refund.refunded > 0
+          ? { refundedAmount: before.refund.refunded, refundedAt: new Date().toISOString() }
+          : {}),
         createdAt: new Date().toISOString(),
       });
     } catch (err) {
@@ -921,9 +1012,11 @@ export async function POST(req: NextRequest) {
 
     // «Касса» hears about every refund, part or whole: either way it is money
     // going back out, and the order's own total never changes to say so.
+    // How many records it reached is kept: none means nothing was written yet.
+    let stamped: number | null = null;
     if (sessionId) {
       try {
-        await stampRefund(sessionId, charge.amount_refunded, new Date().toISOString());
+        stamped = await stampRefund(sessionId, charge.amount_refunded, new Date().toISOString());
       } catch (err) {
         console.error("Failed to note a refund for the ledger:", err);
       }
@@ -933,6 +1026,25 @@ export async function POST(req: NextRequest) {
     // still bought something, so the reward stands.
     if (charge.amount_refunded < charge.amount) {
       return NextResponse.json({ received: true, partialRefund: true });
+    }
+
+    // All of it went back and there was nothing to note it on: this payment's
+    // card or order was never written, and its "paid" event may still be
+    // being retried. Leave a switched-off card or a refunded order under the
+    // id that retry would write, so it finds one and stops, rather than issue
+    // a card or confirm an order for money already returned. A record that
+    // existed would have been stamped, so an older card with an id of its own
+    // is never doubled. See @/lib/paymentRefunds.
+    if (refundedSession && stamped === 0) {
+      try {
+        const recordId = await leaveRefundedRecord(refundedSession, refundOfCharge(charge), {
+          stripe: getStripeInstance(),
+          sanity: refundRecords,
+        });
+        console.log("Refund of a payment not yet written, session", sessionId, "→ left", recordId);
+      } catch (err) {
+        console.error("Failed to leave a refunded record for a payment not yet written:", err);
+      }
     }
 
     // A gift card whose money has all gone back stops being money. It used to

@@ -119,7 +119,7 @@ export function orderNotSavedAlert(input: {
       ],
       lines: input.items,
       todo:
-        "Stripe tries again by itself over the next three days. If a \"New order\" email for this reference arrives, it has put itself right and there is nothing to do. If these keep coming, the Studio cannot be written to: make the piece from this email, write to the customer yourself, and ask Safar to look — the order appears in the Studio on the first try after it is fixed.",
+        "Stripe tries again by itself over the next three days. If a \"New order\" email for this reference arrives, it has put itself right and there is nothing to do. If these keep coming, the Studio cannot be written to: make the piece from this email, write to the customer yourself, and ask Safar to look — the order appears in the Studio on the first try after it is fixed. If the customer would rather have the money back, refund it in Stripe: a payment refunded in full is kept as refunded and nothing is sent for it, however many more times Stripe tries.",
       link: stripeLink(input.sessionId, input.paymentIntent),
     }),
   };
@@ -152,7 +152,51 @@ export function giftCardNotIssuedAlert(input: {
         ["Why", input.reason],
       ],
       todo:
-        "Stripe tries again by itself over the next three days, and a retry cannot make two cards. If a \"Gift card sold\" email for this amount arrives, it has put itself right. If these keep coming, refund the payment in Stripe or make the card by hand, and write to the buyer.",
+        "Stripe tries again by itself over the next three days, and a retry cannot make two cards. If a \"Gift card sold\" email for this amount arrives, it has put itself right. If these keep coming, ask Safar to look — the card is made and sent on the first try after it is fixed. Please don't make one by hand: the Studio cannot make a code that works, and the retry would still send the real one. If the buyer would rather have the money back, refund it in Stripe and write to them: once any of it is refunded, no card is made, however many more times Stripe tries.",
+      link: stripeLink(input.sessionId, input.paymentIntent),
+    }),
+  };
+}
+
+/**
+ * A payment's money went back while Stripe was still retrying it, so the order
+ * or card it paid for was never written and never will be (see
+ * @/lib/paymentRefunds). This is the end of the "not saved" / "not issued"
+ * emails about that reference, so it says plainly whether anything is left to
+ * do. Only a gift card can be refunded in part here: an order with part of
+ * its money back is written as usual.
+ */
+export function paymentRefundedFirstAlert(input: {
+  kind: "order" | "giftCard";
+  sessionId: string;
+  paymentIntent?: string | null;
+  paid: number;
+  refunded: number;
+}): PaymentAlert {
+  const ref = referenceOf(input.sessionId);
+  const whole = input.refunded >= input.paid;
+  const card = input.kind === "giftCard";
+  const what = card ? "gift card" : "order";
+  return {
+    subject: `⚠️ Refunded before it was saved — ${what} ${pounds(input.paid)} · #${ref}`,
+    html: alertHtml({
+      heading: whole
+        ? `A ${pounds(input.paid)} ${what} was refunded before it was saved`
+        : `${pounds(input.refunded)} of a ${pounds(input.paid)} gift card was refunded before the card was made`,
+      happened: card
+        ? whole
+          ? "Stripe tried this payment again after the card could not be made, and by then all of its money had gone back to the buyer. So no card has been made and nobody has been sent a code — and none will be, however many more times Stripe tries."
+          : "Stripe tried this payment again after the card could not be made, and by then part of its money had gone back to the buyer. A card is money the moment its code is sent, so none has been made."
+        : "Stripe tried this payment again after the order could not be saved, and by then all of its money had gone back to the customer. The order is kept in the Studio as refunded, and nothing else has happened: no confirmation, no stock taken off, no friend's reward.",
+      facts: [
+        ["Reference", `#${ref}`],
+        ["Stripe session", input.sessionId],
+        ["Paid", pounds(input.paid)],
+        ["Refunded", pounds(input.refunded)],
+      ],
+      todo: whole
+        ? `Nothing to do. The earlier emails about #${ref} can be ignored; «Касса» shows the money coming in and going back.`
+        : "If the buyer should still have a card for what is left, ask Safar to make it — the Studio cannot make a code that works. Otherwise refund the rest in Stripe.",
       link: stripeLink(input.sessionId, input.paymentIntent),
     }),
   };
