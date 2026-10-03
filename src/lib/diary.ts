@@ -1,5 +1,16 @@
 import type { SanityClient } from "next-sanity";
-import { slotDocumentId, slotLabel, spanLabel, startsCovered } from "@/lib/slots";
+import { slotsFor } from "@/lib/atelierServices";
+import {
+  instantOf,
+  slotDocumentId,
+  slotLabel,
+  spanEnd,
+  spanLabel,
+  spanMinutes,
+  spansOffered,
+  startsCovered,
+  type SlotDay,
+} from "@/lib/slots";
 
 /**
  * The atelier's diary, as bookings hold it.
@@ -63,6 +74,59 @@ export function canMove(status: unknown): boolean {
 export function heldBy(booking: { slotStart?: string; slotEnd?: string; status?: string }, slotMinutes: number): string[] {
   if (!booking.slotStart || releasesItsTime(booking.status)) return [];
   return startsCovered(booking.slotStart, booking.slotEnd, slotMinutes);
+}
+
+/**
+ * How long a fitting holds the diary, in minutes: its own span when it has
+ * one, a single slot when it holds a single time, and — for a request with no
+ * time yet — as many slots as its service takes (see slotsFor). Moved or
+ * booked again, a fitting keeps its own length, so a bride booked for two
+ * slots is moved with both.
+ */
+export function fittingMinutes(
+  booking: { slotStart?: string; slotEnd?: string; service?: unknown },
+  slotMinutes: number
+): number {
+  if (booking.slotStart) return spanMinutes(booking.slotStart, booking.slotEnd) ?? slotMinutes;
+  return slotsFor(typeof booking.service === "string" ? booking.service : undefined) * slotMinutes;
+}
+
+/** Where a fitting of `minutes` from `slot` ends — only when it holds more than one slot; a single slot keeps no end. */
+export function fittingEnd(slot: string, minutes: number, slotMinutes: number): string | undefined {
+  return minutes > slotMinutes ? spanEnd(slot, minutes, slotMinutes) : undefined;
+}
+
+/**
+ * The starts a fitting can be given — moved to, or booked again at — as of
+ * `nowMs`: every slot of its own length free, its own slots counting as its
+ * own (so a bride's hour can move half an hour either way), and nothing that
+ * has begun. The very start it holds now is left out: moving onto it is not
+ * a move.
+ */
+export function startsToMoveTo(
+  days: SlotDay[],
+  booking: { slotStart?: string; slotEnd?: string; status?: string; service?: unknown },
+  slotMinutes: number,
+  nowMs: number
+): SlotDay[] {
+  const minutes = fittingMinutes(booking, slotMinutes);
+  const holding = booking.slotStart && !releasesItsTime(booking.status) ? booking.slotStart : null;
+  return spansOffered(days, minutes, slotMinutes, heldBy(booking, slotMinutes), nowMs)
+    .map((day) => ({
+      ...day,
+      slots: day.slots.filter((slot) => slot.start !== holding && instantOf(slot.start).getTime() > nowMs),
+    }))
+    .filter((day) => day.slots.length > 0);
+}
+
+/**
+ * A booking's time in the customer's words. A collection is a window —
+ * Kristina is at their door some time in it — so "between 2:00pm and
+ * 3:00pm". A fitting is a moment however many slots it holds: a bride is
+ * expected at 2:00pm, and her email says separately how long it takes.
+ */
+export function timeTold(booking: { [field: string]: unknown }, slot: string, end?: string | null): string {
+  return end && booking.collection ? spanLabel(slot, end) : slotLabel(slot);
 }
 
 function statusCodeOf(error: unknown): number | undefined {
@@ -264,7 +328,7 @@ export function sameWords(a: string, b: string): boolean {
 function toldTimeOf(from: DiaryDoc): string | undefined {
   // Told it is off — cancelled, or declined — they hold no time to move from
   if (releasesItsTime(from.status) && from.notifiedStatus === from.status) return undefined;
-  if (from.slotStart) return from.slotEnd ? spanLabel(from.slotStart, from.slotEnd) : slotLabel(from.slotStart);
+  if (from.slotStart) return timeTold(from, from.slotStart, from.slotEnd);
   const typed = typeof from.confirmedFor === "string" ? from.confirmedFor.trim() : "";
   return typed && from.status === "confirmed" && from.notifiedStatus === "confirmed" ? typed : undefined;
 }
@@ -286,8 +350,9 @@ function noteWaits(from: DiaryDoc): boolean {
  * Kristina moves bookings herself, so she knows: `kristinaNotifiedAt` is now,
  * and the morning check does not chase her about her own change.
  *
- * `toEnd` is for a collection: it holds the diary until then, and the customer
- * is told the window, "between 2:00pm and 3:00pm", rather than a moment.
+ * `toEnd` is for a booking that holds more than one slot: it holds the diary
+ * until then. A collection's customer is told the window, "between 2:00pm and
+ * 3:00pm"; a bride the moment she is expected (see timeTold).
  */
 export function movedCopy(from: DiaryDoc, toSlot: string, now: string, toEnd?: string): DiaryDoc {
   // The marks of past moves do not travel, and neither does a note written for
@@ -303,7 +368,7 @@ export function movedCopy(from: DiaryDoc, toSlot: string, now: string, toEnd?: s
   ]);
 
   const was = toldTimeOf(from);
-  const to = toEnd ? spanLabel(toSlot, toEnd) : slotLabel(toSlot);
+  const to = timeTold(from, toSlot, toEnd);
   return {
     ...kept,
     _id: slotDocumentId(toSlot),
@@ -416,7 +481,7 @@ export function reheldMark(
   end?: string
 ): InPlace {
   const was = toldTimeOf(from);
-  const to = end ? spanLabel(slot, end) : slotLabel(slot);
+  const to = timeTold(from, slot, end);
   const movedFrom = was && !sameWords(was, to) ? was : undefined;
   return {
     mark: {

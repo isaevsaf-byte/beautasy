@@ -14,8 +14,24 @@ import {
 import { verdictMessage } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { getAvailableSlots } from "@/lib/schedule";
-import { slotIsOffered, slotLabel, slotDocumentId } from "@/lib/slots";
-import { claimSlot, sanityDiaryStore } from "@/lib/diary";
+import { localMinuteOf, spanIsOffered, spanLabel, slotLabel, slotDocumentId } from "@/lib/slots";
+import { claimSlot, fittingEnd, sanityDiaryStore } from "@/lib/diary";
+import { pieceInSentence, serviceInSentence, slotsFor } from "@/lib/atelierServices";
+import {
+  FUTURE_HOLDS_QUERY,
+  MAX_FUTURE_HOLDS,
+  REPEAT_REQUEST_QUERY,
+  REPEAT_WINDOW_MS,
+  TOO_MANY_HOLDS,
+  filledHoneypot,
+  heldBySameCustomer,
+  postcodeFits,
+  readBookingFields,
+  requestFingerprint,
+  requestKeyOf,
+  sameAnswerAgain,
+  type EarlierBooking,
+} from "@/lib/bookingRequest";
 import {
   bookingEmailHtml,
   bookingInvite,
@@ -24,6 +40,7 @@ import {
   type NotifiableBooking,
 } from "@/lib/bookingEmails";
 import { sendEmail } from "@/lib/sendEmail";
+import { whatsappLink } from "@/lib/business";
 import { judgeCollection, type CollectionRequest } from "@/lib/collection";
 import { collectionSettings } from "@/lib/siteSettings";
 
@@ -49,7 +66,55 @@ interface BookingBody {
 
 const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Who is asking: the address's fingerprint, and the form's own (see requestFingerprint). */
+interface Asker {
+  email: string;
+  request: string;
+}
+
+/**
+ * The booking holding this slot, if it is this same form's — read again
+ * wherever the route is about to say "that time has just been taken", because
+ * the first copy of this request may have landed a moment ago. Nothing found,
+ * or a database that cannot be asked, is null: then the time is somebody else's.
+ */
+async function ownBookingOn(slot: string, asker: Asker): Promise<EarlierBooking | null> {
+  const holder = await sanityWriteClient
+    .getDocument<EarlierBooking>(slotDocumentId(slot))
+    .catch((err) => {
+      console.error("Could not read who holds a slot:", err);
+      return undefined;
+    });
+  return holder && heldBySameCustomer(holder, asker.email, asker.request) ? holder : null;
+}
+
+/**
+ * The booking this request repeats, if it is one: this form's booking holding
+ * the very slot picked, or — with no time held — the same form's request with
+ * the same words in the last fifteen minutes (see @/lib/bookingRequest). A
+ * phone that lost the answer to the first request sends it again, and that
+ * customer is owed the first answer, not "that time has just been taken"
+ * about their own booking, nor a second booking and a second email. A
+ * database that cannot be asked is no reason to turn a customer away: then it
+ * is not a repeat.
+ */
+async function sameRequestBefore(asker: Asker, slot: string | undefined): Promise<EarlierBooking | null> {
+  if (slot) {
+    const holder = await ownBookingOn(slot, asker);
+    if (holder) return holder;
+  }
+  try {
+    const earlier = await sanityWriteClient.fetch<EarlierBooking | null>(REPEAT_REQUEST_QUERY, {
+      fingerprint: asker.email,
+      request: asker.request,
+      since: new Date(Date.now() - REPEAT_WINDOW_MS).toISOString(),
+    });
+    return earlier ?? null;
+  } catch (err) {
+    console.error("Could not look for an earlier copy of a booking request:", err);
+    return null;
+  }
+}
 
 /**
  * Whether this request reached nobody at all.
@@ -160,8 +225,8 @@ export function replyToCustomerHtml(input: {
   const opening = input.slot
     ? `Hi ${first}, it's Kristina from Beautasy. Looking forward to seeing you on ${slotLabel(input.slot)}. Here's how to find me: `
     : input.collection
-    ? `Hi ${first}, it's Kristina from Beautasy, about collecting your ${input.service.toLowerCase()}. What's the address? `
-    : `Hi ${first}, it's Kristina from Beautasy, about your ${input.service.toLowerCase()} request: `;
+    ? `Hi ${first}, it's Kristina from Beautasy, about collecting your ${pieceInSentence(input.service)}. What's the address? `
+    : `Hi ${first}, it's Kristina from Beautasy, about your ${serviceInSentence(input.service)} request: `;
   const whatsapp = number
     ? `<a href="${escapeHtml(`https://wa.me/${number}?text=${encodeURIComponent(opening)}`)}" style="color:#5e4b9a;font-weight:bold;">WhatsApp ${escapeHtml(first)}</a> or reply to this email.`
     : "Reply to this email to reach them.";
@@ -193,7 +258,7 @@ export function collectionReceivedHtml(
   collection: { request: CollectionRequest; when?: string }
 ): string {
   return `<p style="color:#3d3d3d;line-height:1.8;">
-            We've received your request to collect your <strong>${escapeHtml(service.toLowerCase())}</strong>.
+            We've received your request to collect your <strong>${escapeHtml(pieceInSentence(service))}</strong>.
             Kristina will email you the time she'll come and ask for your address. Nothing is collected until you've agreed it together.
           </p>${
             collection.when
@@ -204,6 +269,20 @@ export function collectionReceivedHtml(
           <p style="color:#3d3d3d;line-height:1.8;">
             Collection &amp; return: <strong>${escapeHtml(collection.request.terms)}</strong>. The price of the work itself is confirmed before Kristina starts.
           </p>`;
+}
+
+/**
+ * The one line in a customer's "we've got your request" email that gets them
+ * a price before anything is booked: a photo on WhatsApp, with the first
+ * message already written. Nothing here about what a fitting costs or how it
+ * is paid — that is Kristina's to say.
+ */
+export function priceFirstHtml(name: string, service: string): string {
+  const first = firstNameOf(name);
+  const link = whatsappLink(
+    `Hi Kristina, it's ${first ?? "me"}. I've just sent a booking request (${service}). Here's a photo for a price: `
+  );
+  return `<p style="color:#3d3d3d;line-height:1.8;">Want a price first? <a href="${escapeHtml(link)}" style="color:#5e4b9a;font-weight:bold;">Send Kristina a photo on WhatsApp</a>.</p>`;
 }
 
 /**
@@ -235,21 +314,60 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: BookingBody = await req.json();
-    const { name, email, phone, service, preferredDate, notes } = body;
+
+    // The field only a bot fills in. Answered as if all went well — a bot told
+    // it failed tries again — and nothing is saved, nothing is sent.
+    if (filledHoneypot(body)) {
+      return NextResponse.json({ ok: true, emailed: true }, { status: 201 });
+    }
+
+    // Only what the form itself can send: a service from its lists, and fields
+    // no longer than a person types. See @/lib/bookingRequest.
+    const read = readBookingFields(body);
+    if (!read.ok) return NextResponse.json({ error: read.error }, { status: 400 });
+    const { name, email, phone, service, preferredDate, notes } = read.fields;
+
     // Collect & return is a request, never a fitting: it holds no time in the
     // diary, so a slot sent beside it is not taken
     const wantsCollection = body.collection !== undefined && body.collection !== null;
     const slot =
       !wantsCollection && typeof body.slot === "string" && SLOT_SHAPE.test(body.slot) ? body.slot : undefined;
+    if (wantsCollection && !postcodeFits(body.collection)) {
+      return NextResponse.json({ error: "Please enter your postcode, like SO17 1AB." }, { status: 400 });
+    }
 
-    if (!name || typeof name !== "string" || name.trim().length < 2) {
-      return NextResponse.json({ error: "Please enter your name" }, { status: 400 });
+    // Keyed and one-way: how the same customer is recognised without their address in the database
+    const fingerprint =
+      process.env.SANITY_API_WRITE_TOKEN && secretsConfigured() ? emailFingerprint(email) : null;
+    // And the same form: only a request carrying the key its first copy
+    // carried is answered as that first copy — see requestFingerprint
+    const requestKey = requestKeyOf(body);
+    const asker: Asker | null =
+      fingerprint && requestKey
+        ? {
+            email: fingerprint,
+            request: requestFingerprint({ key: requestKey, slot, fields: read.fields, collection: body.collection }),
+          }
+        : null;
+
+    if (asker) {
+      const earlier = await sameRequestBefore(asker, slot);
+      if (earlier) return NextResponse.json(sameAnswerAgain(earlier), { status: 201 });
     }
-    if (!email || typeof email !== "string" || !EMAIL_RE.test(email)) {
-      return NextResponse.json({ error: "Please enter a valid email" }, { status: 400 });
-    }
-    if (!service || typeof service !== "string") {
-      return NextResponse.json({ error: "Please select a service" }, { status: 400 });
+
+    // Somebody holding the diary's future under one address — a real customer
+    // with two fittings ahead is asked to message for a third
+    if (slot && fingerprint) {
+      let holds = 0;
+      try {
+        holds = (await sanityWriteClient.fetch<number>(FUTURE_HOLDS_QUERY, { fingerprint, now: localMinuteOf(new Date()) })) ?? 0;
+      } catch (err) {
+        // The diary itself is read strictly below; this check is not worth a refused booking
+        console.error("Could not count a customer's booked times:", err);
+      }
+      if (holds >= MAX_FUTURE_HOLDS) {
+        return NextResponse.json({ error: TOO_MANY_HOLDS }, { status: 409 });
+      }
     }
 
     // Decided here, from the settings as they are this minute. The form showed
@@ -271,8 +389,7 @@ export async function POST(req: NextRequest) {
     // does not apply — a returning customer is welcome, just not as a first visit.
     let friend: { referrer: Referrer; discount: number } | null = null;
     let referralNote: string | null = null;
-    const referralCode =
-      typeof body.referralCode === "string" && body.referralCode.trim() ? body.referralCode : undefined;
+    const referralCode = read.fields.referralCode;
     if (referralCode && referralsConfigured()) {
       try {
         const settings = await referralSettings();
@@ -309,6 +426,8 @@ export async function POST(req: NextRequest) {
     // is exactly how two people end up at the door at the same time.
     /** The diary's slot length, so the calendar invite is as long as the fitting */
     let slotMinutes: number | undefined;
+    /** Where the fitting ends when it holds more than one slot — a bride's two (see slotsFor) */
+    let slotEnd: string | undefined;
     if (slot) {
       // Read strictly: a diary that cannot be read used to look empty, and
       // every customer was told their time had gone while the database was
@@ -317,7 +436,11 @@ export async function POST(req: NextRequest) {
       try {
         const { days, schedule } = await getAvailableSlots({ fresh: true, strict: true });
         slotMinutes = schedule.slotMinutes;
-        offered = slotIsOffered(days, slot);
+        // How long it is comes from the service, never from the form: a bride
+        // takes two slots in a row, everyone else one, and both have to be free
+        const minutes = slotsFor(service) * schedule.slotMinutes;
+        offered = spanIsOffered(days, slot, minutes, schedule.slotMinutes);
+        slotEnd = fittingEnd(slot, minutes, schedule.slotMinutes);
       } catch (err) {
         console.error("Could not read the diary to take a booking:", err);
         return NextResponse.json(
@@ -326,6 +449,10 @@ export async function POST(req: NextRequest) {
         );
       }
       if (!offered) {
+        // The diary may not offer it because this very form holds it: its
+        // first copy landed after the check above. That customer has the time.
+        const own = asker ? await ownBookingOn(slot, asker) : null;
+        if (own) return NextResponse.json(sameAnswerAgain(own), { status: 201 });
         return NextResponse.json(
           {
             error: "Sorry — that time has just been taken. Please pick another.",
@@ -362,8 +489,11 @@ export async function POST(req: NextRequest) {
         phoneSealed: sealOptional(phone),
         // When they're in is their own words, so it is sealed with the notes
         notesSealed: sealOptional(sealedNotesText(collection?.when, notes)),
-        // Keyed and one-way: what "first visit?" is asked of next time
+        // Keyed and one-way: what "first visit?" is asked of next time, and
+        // how many times one address holds
         emailFingerprint: emailFingerprint(email),
+        // What recognises this form's request when it is sent again
+        ...(asker ? { requestFingerprint: asker.request } : {}),
         service,
         // The district and the terms they saw: never the street
         ...(collection ? { collection: collection.request } : {}),
@@ -388,6 +518,12 @@ export async function POST(req: NextRequest) {
             ...person,
             _id: slotDocumentId(slot),
             slotStart: slot,
+            // The second slot of a bride's fitting is held through this, the
+            // way a collection holds its trip (see TAKEN_QUERY in @/lib/schedule).
+            // Accepted race, as for a collection: only the first slot's id is
+            // guarded, so a booking of the second slot in the same second slips past.
+            ...(slotEnd ? { slotEnd } : {}),
+            // A moment, not a window: she is expected at the start
             confirmedFor: slotLabel(slot),
             status: "confirmed",
             // A picked time is marked as told at birth, and that mark is a claim
@@ -399,6 +535,10 @@ export async function POST(req: NextRequest) {
           createdAt
         );
         if (claim === "taken") {
+          // Taken by this same request, sent twice at once: the first one got
+          // there, so this one gets its answer
+          const own = asker ? await ownBookingOn(slot, asker) : null;
+          if (own) return NextResponse.json(sameAnswerAgain(own), { status: 201 });
           return NextResponse.json(
             {
               error: "Sorry — that time has just been taken. Please pick another.",
@@ -435,6 +575,9 @@ export async function POST(req: NextRequest) {
     } else if (!secretsConfigured()) {
       console.error("DATA_SECRET is not set — a booking cannot be stored without sealing the contact details");
     }
+
+    /** The whole time, for Kristina: a bride's two slots are both hers to keep free */
+    const askedFor = slot ? (slotEnd ? spanLabel(slot, slotEnd) : slotLabel(slot)) : undefined;
 
     // The request is already safe in the Studio, so a mail outage is not the
     // customer's problem. Each email is best-effort on its own: a failed
@@ -473,8 +616,8 @@ export async function POST(req: NextRequest) {
           <h1 style="font-size:22px;font-weight:400;">${escapeHtml(name)}</h1>
           <p style="color:#3d3d3d;line-height:1.8;">
             <strong>Service:</strong> ${escapeHtml(service)}<br/>
-            ${held && slot ? `<strong>Booked for:</strong> ${escapeHtml(slotLabel(slot))}<br/>` : ""}
-            ${!held && slot ? `<strong>Asked for:</strong> ${escapeHtml(slotLabel(slot))}<br/>` : ""}
+            ${held && askedFor ? `<strong>Booked for:</strong> ${escapeHtml(askedFor)}<br/>` : ""}
+            ${!held && askedFor ? `<strong>Asked for:</strong> ${escapeHtml(askedFor)}<br/>` : ""}
             ${!slot && preferredDate ? `<strong>Preferred date:</strong> ${escapeHtml(preferredDate)}<br/>` : ""}
             <strong>Email:</strong> ${escapeHtml(email)}<br/>
             ${phone ? `<strong>Phone:</strong> ${escapeHtml(phone)}<br/>` : ""}
@@ -488,7 +631,7 @@ export async function POST(req: NextRequest) {
           ${notes ? `<p style="color:#3d3d3d;line-height:1.7;"><strong>Notes:</strong><br/>${escapeHtml(notes)}</p>` : ""}
           ${
             slot && !held
-              ? `<p style="padding:12px 16px;background:#fde8e4;border-radius:10px;color:#7a2a1a;line-height:1.6;">⚠️ <strong>This time is not held.</strong> The site could not write it into the diary, so somebody else could still book ${escapeHtml(slotLabel(slot))}. ${saved ? "It is in the Studio as a request: open it and use <strong>Назначить время</strong> to hold the time — they get the confirmation, and everything on the request goes with it." : "It is not in the Studio either: confirm with them, then use <strong>Записать вручную</strong> in the Studio to hold the time."}</p>`
+              ? `<p style="padding:12px 16px;background:#fde8e4;border-radius:10px;color:#7a2a1a;line-height:1.6;">⚠️ <strong>This time is not held.</strong> The site could not write it into the diary, so somebody else could still book ${escapeHtml(askedFor ?? slotLabel(slot))}. ${saved ? "It is in the Studio as a request: open it and use <strong>Назначить время</strong> to hold the time — they get the confirmation, and everything on the request goes with it." : "It is not in the Studio either: confirm with them, then use <strong>Записать вручную</strong> in the Studio to hold the time."}</p>`
               : ""
           }
           ${replyToCustomerHtml({ name, phone, slot: held ? slot : undefined, service, collection: !!collection })}
@@ -511,6 +654,7 @@ export async function POST(req: NextRequest) {
             service,
             confirmedFor: slotLabel(slot),
             slotStart: slot,
+            slotEnd,
             slotMinutes,
             referredBy,
             referralDiscount: friend?.discount,
@@ -544,6 +688,7 @@ export async function POST(req: NextRequest) {
             Kristina will confirm your time by email shortly — you'll get a message either way, so nothing is left hanging.
           </p>`
           }
+          ${priceFirstHtml(name, service)}
           ${
             friend
               ? `<p style="color:#3d3d3d;line-height:1.8;">Your <strong>${pounds(friend.discount)} off</strong> from ${escapeHtml(referredBy)} is noted — it comes off when you pay${collection ? "" : " at the atelier"}.</p>`

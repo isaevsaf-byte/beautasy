@@ -1,11 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car } from "lucide-react";
+import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car, MessageCircle } from "lucide-react";
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
-import { ATELIER_SERVICES } from "@/lib/atelierServices";
+import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
+import { durationLabel, slotIsOffered } from "@/lib/slots";
+import {
+  FIELD_LIMITS,
+  HONEYPOT_FIELD,
+  NO_ANSWER,
+  bookingBody,
+  newRequestKey,
+  sendBooking,
+  whatsappAboutBooking,
+} from "@/lib/bookingForm";
 import { WHEN_MAX, onItsWayTo, postcodeDistrict, type CollectionOffer } from "@/lib/collection";
 
 /**
@@ -24,10 +34,36 @@ interface Slot {
   start: string;
   label: string;
 }
+
 interface SlotDay {
   date: string;
   label: string;
   slots: Slot[];
+}
+
+/**
+ * What a customer whose booking got no answer sees in place of the browser's
+ * "Load failed": what probably happened, that trying again is safe, and
+ * Kristina's WhatsApp one tap away with the booking already described.
+ */
+export function NoAnswer({ whatsapp }: { whatsapp: string }) {
+  return (
+    <div
+      role="alert"
+      className="sm:col-span-2 rounded-xl border border-lavender-soft/40 bg-lavender-bg/70 px-4 py-3 text-sm text-charcoal"
+    >
+      <p>{NO_ANSWER}</p>
+      <a
+        href={whatsapp}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-charcoal/20 bg-white text-xs tracking-wider uppercase font-medium hover:border-lavender transition-colors"
+      >
+        <MessageCircle size={14} aria-hidden="true" />
+        WhatsApp Kristina
+      </a>
+    </div>
+  );
 }
 
 /**
@@ -42,6 +78,11 @@ interface SlotDay {
  * from the wedding page arrives in the Studio as "Wedding Dress Alterations"
  * rather than a generic "Alterations", so Kristina can see which page is
  * actually bringing work in without opening analytics.
+ *
+ * A bridal fitting holds two slots in a row (see slotsFor), so with one
+ * chosen the picker offers only starts where both are free, and a start that
+ * no longer fits once the service changes is let go. If no such start is free
+ * at all, the form asks for a preferred date instead, as it does with no diary.
  *
  * `collection` is the Collect & return offer as the Studio has it (see
  * @/lib/collection), handed down by the page; without it the form is exactly
@@ -66,8 +107,15 @@ export default function AtelierBookingForm({
   const [service, setService] = useState(defaultService ?? SERVICES[0]);
   const [preferredDate, setPreferredDate] = useState("");
   const [notes, setNotes] = useState("");
+  // Only a bot fills this in — see HONEYPOT_FIELD
+  const [trap, setTrap] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  // No answer came back at all: said in plain words, with WhatsApp beside it
+  const [unanswered, setUnanswered] = useState(false);
+  // This form's own key, made on the first send and sent with every retry —
+  // see REQUEST_KEY_FIELD
+  const requestKey = useRef<string | null>(null);
 
   // Collect & return
   const [mode, setMode] = useState<"fitting" | "collect">("fitting");
@@ -110,8 +158,9 @@ export default function AtelierBookingForm({
 
   // The diary
   const [days, setDays] = useState<SlotDay[] | null>(null);
+  const [slotMinutes, setSlotMinutes] = useState(30);
   const [activeDate, setActiveDate] = useState<string | null>(null);
-  const [slot, setSlot] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
 
   const loadSlots = useCallback(async () => {
@@ -119,13 +168,12 @@ export default function AtelierBookingForm({
       const res = await fetch("/api/atelier/slots", { cache: "no-store" });
       const data = await res.json();
       const available: SlotDay[] = data?.bookable ? data.days ?? [] : [];
+      if (typeof data?.slotMinutes === "number" && data.slotMinutes > 0) setSlotMinutes(data.slotMinutes);
       setDays(available);
       setActiveDate((current) =>
         current && available.some((d) => d.date === current) ? current : available[0]?.date ?? null
       );
-      setSlot((current) =>
-        current && available.some((d) => d.slots.some((s) => s.start === current)) ? current : null
-      );
+      setPicked((current) => (current && slotIsOffered(available, current) ? current : null));
     } catch {
       // No diary is the same as no diary configured: ask for a date instead
       setDays([]);
@@ -136,11 +184,26 @@ export default function AtelierBookingForm({
     loadSlots();
   }, [loadSlots]);
 
-  const bookable = !!days && days.length > 0;
-  const day = days?.find((d) => d.date === activeDate) ?? null;
+  // The starts this service can take: a bride's need the next slot free too
+  const offered = useMemo(() => (days ? startsFor(days, service, slotMinutes) : null), [days, service, slotMinutes]);
+  const bookable = !!offered && offered.length > 0;
+  const day = offered?.find((d) => d.date === activeDate) ?? offered?.[0] ?? null;
+  const slot = days ? startForService(days, service, slotMinutes, picked) : null;
+  const visitMinutes = slotsFor(service) * slotMinutes;
+  const twoSlots = slotsFor(service) > 1;
+
+  function chooseService(next: string) {
+    setService(next);
+    setUnanswered(false);
+    // A start that fitted one slot may not fit two: let it go rather than send it
+    if (days) setPicked((current) => startForService(days, next, slotMinutes, current));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Whatever is said next replaces "we couldn't hear back" — a time to
+    // choose included, which that block used to hide
+    setUnanswered(false);
     if (collecting) {
       // The server decides again; this only saves a round trip for the obvious
       if (!zone) {
@@ -156,30 +219,44 @@ export default function AtelierBookingForm({
 
     setStatus("loading");
     setError(null);
+    requestKey.current ??= newRequestKey();
     try {
-      const res = await fetch("/api/atelier-booking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const reply = await sendBooking(
+        bookingBody({
           name,
           email,
           phone,
           service,
           notes,
-          ...(collecting
-            ? { collection: { postcode, ...(collectWhen.trim() ? { when: collectWhen } : {}) } }
-            : slot
-            ? { slot }
-            : { preferredDate }),
-          ...(friend ? { referralCode: friend.code } : {}),
-        }),
-      });
-      const data = await res.json();
+          trap,
+          requestKey: requestKey.current,
+          collection: collecting ? { postcode, when: collectWhen } : null,
+          slot,
+          preferredDate,
+          referralCode: friend?.code ?? null,
+        })
+      );
 
-      if (!res.ok) {
-        if (data?.slotTaken) {
+      // The connection dropped, or what came back was not the booking's answer.
+      // Trying again goes with the same key, so a first copy that did arrive
+      // is answered as itself rather than booked twice.
+      if (!reply.reached) {
+        setUnanswered(true);
+        setStatus("error");
+        return;
+      }
+      const data = reply.data as {
+        error?: string;
+        slotTaken?: boolean;
+        confirmedFor?: string;
+        collection?: { terms: string; when: string | null };
+        referral?: { applied: true; discount: number; referredBy?: string } | { applied: false; reason?: string | null };
+      };
+
+      if (!reply.ok) {
+        if (data.slotTaken) {
           // Somebody got there first — show the diary as it is now
-          setSlot(null);
+          setPicked(null);
           await loadSlots();
         }
         throw new Error(data.error || "Failed to send request");
@@ -215,6 +292,9 @@ export default function AtelierBookingForm({
           <>
             <p className="font-serif text-xl mb-2">You&apos;re booked in</p>
             <p className="text-sm text-charcoal mb-1 font-medium">{confirmedFor}</p>
+            {twoSlots && (
+              <p className="text-sm text-charcoal mb-1">Your fitting takes {durationLabel(visitMinutes)}.</p>
+            )}
             <p className="text-sm text-charcoal-light max-w-sm">
               A confirmation is on its way to your inbox. Reply to it if you need to move the time.
             </p>
@@ -243,6 +323,17 @@ export default function AtelierBookingForm({
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+      {/* Only a bot fills this in: hidden from people, from screen readers and from the keyboard */}
+      <input
+        type="text"
+        name={HONEYPOT_FIELD}
+        tabIndex={-1}
+        autoComplete="off"
+        value={trap}
+        onChange={(e) => setTrap(e.target.value)}
+        aria-hidden="true"
+        className="hidden"
+      />
       {/* ── Fitting, or Collect & return ── */}
       {collection && (
         <fieldset className="sm:col-span-2 min-w-0 border-0 p-0 m-0">
@@ -262,6 +353,7 @@ export default function AtelierBookingForm({
                   onClick={() => {
                     setMode(option.value);
                     setError(null);
+                    setUnanswered(false);
                     if (status === "error") setStatus("idle");
                   }}
                   aria-pressed={active}
@@ -292,6 +384,7 @@ export default function AtelierBookingForm({
               name="postcode"
               autoComplete="postal-code"
               required
+              maxLength={FIELD_LIMITS.postcode}
               value={postcode}
               onChange={(e) => {
                 setPostcode(e.target.value);
@@ -332,6 +425,7 @@ export default function AtelierBookingForm({
                     onClick={() => {
                       setMode("fitting");
                       setError(null);
+                      setUnanswered(false);
                       if (status === "error") setStatus("idle");
                     }}
                     className="underline underline-offset-2"
@@ -360,9 +454,15 @@ export default function AtelierBookingForm({
             Choose a time
           </legend>
 
+          {twoSlots && (
+            <p className="text-xs text-charcoal-light mb-3">
+              A bridal fitting takes {durationLabel(visitMinutes)}, so these are the times with all of it free.
+            </p>
+          )}
+
           <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-2 -mx-1 px-1">
-            {days!.map((d) => {
-              const active = d.date === activeDate;
+            {offered!.map((d) => {
+              const active = d.date === day?.date;
               return (
                 <button
                   key={d.date}
@@ -390,8 +490,9 @@ export default function AtelierBookingForm({
                     key={s.start}
                     type="button"
                     onClick={() => {
-                      setSlot(s.start);
+                      setPicked(s.start);
                       setError(null);
+                      setUnanswered(false);
                       if (status === "error") setStatus("idle");
                     }}
                     aria-pressed={active}
@@ -430,6 +531,7 @@ export default function AtelierBookingForm({
           name="name"
           autoComplete="name"
           required
+          maxLength={FIELD_LIMITS.name}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className={FIELD_CLASS}
@@ -443,6 +545,7 @@ export default function AtelierBookingForm({
           autoComplete="email"
           type="email"
           required
+          maxLength={FIELD_LIMITS.email}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className={FIELD_CLASS}
@@ -450,13 +553,14 @@ export default function AtelierBookingForm({
       </div>
       <div className="sm:col-span-1">
         <label htmlFor="booking-phone" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
-          Phone <span className="normal-case text-charcoal-light/70">(optional)</span>
+          Phone <span className="normal-case text-charcoal-light">(optional)</span>
         </label>
         <input
           id="booking-phone"
           name="phone"
           type="tel"
           autoComplete="tel"
+          maxLength={FIELD_LIMITS.phone}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           className={FIELD_CLASS}
@@ -468,7 +572,7 @@ export default function AtelierBookingForm({
           id="booking-service"
           name="service"
           value={service}
-          onChange={(e) => setService(e.target.value)}
+          onChange={(e) => chooseService(e.target.value)}
           className={FIELD_CLASS}
         >
           {options.map((s) => (
@@ -481,7 +585,7 @@ export default function AtelierBookingForm({
       {!bookable && !collecting && (
         <div className="sm:col-span-1">
           <label htmlFor="booking-date" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
-            Preferred Date <span className="normal-case text-charcoal-light/70">(optional)</span>
+            Preferred Date <span className="normal-case text-charcoal-light">(optional)</span>
           </label>
           <input
             id="booking-date"
@@ -496,12 +600,13 @@ export default function AtelierBookingForm({
 
       <div className="sm:col-span-2">
         <label htmlFor="booking-notes" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
-          Notes <span className="normal-case text-charcoal-light/70">(optional)</span>
+          Notes <span className="normal-case text-charcoal-light">(optional)</span>
         </label>
         <textarea
           id="booking-notes"
           name="notes"
           rows={3}
+          maxLength={FIELD_LIMITS.notes}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Tell us about the garment and what you need done..."
@@ -536,7 +641,7 @@ export default function AtelierBookingForm({
             : "Request Booking"}
         </button>
         <AnimatePresence>
-          {error && (
+          {error && !unanswered && (
             <motion.p
               role="alert"
               initial={{ opacity: 0 }}
@@ -549,6 +654,8 @@ export default function AtelierBookingForm({
           )}
         </AnimatePresence>
       </div>
+
+      {unanswered && <NoAnswer whatsapp={whatsappAboutBooking({ name, service, slot, collecting })} />}
     </form>
   );
 }

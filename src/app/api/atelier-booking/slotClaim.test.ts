@@ -25,7 +25,7 @@ const ROUTE = readFileSync(
 );
 
 test("a chosen slot is checked against the diary before anything is written", () => {
-  const check = ROUTE.indexOf("slotIsOffered(");
+  const check = ROUTE.indexOf("spanIsOffered(");
   const write = ROUTE.indexOf("sanityWriteClient.create(");
   assert.notEqual(check, -1, "the route no longer checks the slot is on offer");
   assert.notEqual(write, -1, "the route no longer writes the booking");
@@ -55,7 +55,11 @@ test("a chosen slot is written through claimSlot, so a time given back can be bo
 
 test("only a real 'taken' is answered as taken; a database outage is kept as a request", () => {
   const claimed = ROUTE.slice(ROUTE.indexOf("const claim = await claimSlot("));
-  assert.match(claimed, /if \(claim === "taken"\) \{\s*return NextResponse\.json\(\s*\{\s*error: "Sorry — that time has just been taken/);
+  // Taken is said only after looking whether the holder is this same request sent twice (bookingFlow.test.ts)
+  assert.match(
+    claimed,
+    /if \(claim === "taken"\) \{[\s\S]{0,600}?ownBookingOn\(slot, asker\)[\s\S]{0,200}?return NextResponse\.json\(\s*\{\s*error: "Sorry — that time has just been taken/
+  );
   assert.doesNotMatch(ROUTE, /claim !== "claimed"[\s\S]{0,120}slotTaken/, "'failed' must not be told the time has gone");
   assert.match(ROUTE, /if \(!held\) \{\s*try \{\s*const created = await sanityWriteClient\.create\(\{\s*\.\.\.person,\s*preferredDate: slot \? slotLabel\(slot\)/);
 });

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentActionComponent, DocumentActionProps } from "sanity";
 import { useRouter } from "sanity/router";
-import { canMove, releasesItsTime } from "@/lib/diary";
+import { canMove, fittingMinutes, releasesItsTime, startsToMoveTo } from "@/lib/diary";
+import { slotIsOffered } from "@/lib/slots";
 import { askDiary, useDiaryToken, useFreeTimes } from "./diaryClient";
-import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./SlotPicker";
+import { SlotPicker, primaryButton, secondaryButton, slotInRussian, spanInRussian, tripInRussian } from "./SlotPicker";
 
 /**
  * "Назначить время" (Choose a time) on a request, "Перенести на другое время"
@@ -22,11 +23,18 @@ import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./Slo
  *
  * Not offered on Collect & return: that is given the time Kristina drives out,
  * with the length of the trip, by collectionAction.
+ *
+ * A fitting keeps its own length wherever it goes — a bride's two slots stay
+ * two — so the picker offers only starts where all of it is free, its own
+ * slots counting as its own (see startsToMoveTo in @/lib/diary).
  */
 
 interface BookingDoc {
   status?: string;
   slotStart?: string;
+  /** Where a fitting of more than one slot ends — a bride's */
+  slotEnd?: string;
+  service?: string;
   confirmedFor?: string;
   displayName?: string;
   /** Collect & return — given its time by collectionAction instead */
@@ -39,7 +47,8 @@ function standing(doc: BookingDoc): string | null {
     return `Эта запись была на ${slotInRussian(doc.slotStart)}, но время освободилось. Выберите время, чтобы записать клиента снова.`;
   }
   if (doc.slotStart) {
-    return `Сейчас: ${slotInRussian(doc.slotStart)}. Выберите новое время — старое освободится, как только новое будет закреплено.`;
+    const now = doc.slotEnd ? spanInRussian(doc.slotStart, doc.slotEnd) : slotInRussian(doc.slotStart);
+    return `Сейчас: ${now}. Выберите новое время — старое освободится, как только новое будет закреплено.`;
   }
   if (doc.status === "confirmed" && doc.confirmedFor) {
     // confirmedFor is what was typed or stored, often the site's English
@@ -51,7 +60,12 @@ function standing(doc: BookingDoc): string | null {
 
 /** What Kristina is told once it is done — the old booking is gone by then, and its dialog with it. */
 function doneMessage(data: Record<string, unknown>): string {
-  const when = typeof data.slot === "string" ? slotInRussian(data.slot) : String(data.label);
+  const when =
+    typeof data.slot === "string"
+      ? typeof data.end === "string"
+        ? spanInRussian(data.slot, data.end)
+        : slotInRussian(data.slot)
+      : String(data.label);
   const told = data.emailed
     ? "Клиенту ушло письмо с новым временем и приглашением в календарь."
     : data.hadEmail
@@ -60,12 +74,23 @@ function doneMessage(data: Record<string, unknown>): string {
   return `✓ Записано на ${when}. Время на сайте закреплено.\n\n${told}`;
 }
 
-function MoveDialog({ id, note, onClose }: { id: string; note: string | null; onClose: () => void }) {
+function MoveDialog({ id, doc, onClose }: { id: string; doc: BookingDoc; onClose: () => void }) {
   const token = useDiaryToken();
   const router = useRouter();
   const [attempt, setAttempt] = useState(0);
   const times = useFreeTimes(token, attempt);
-  const [slot, setSlot] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const note = standing(doc);
+
+  // The starts where all of this booking fits, as of when the diary was read
+  const slotMinutes = times.state === "ready" ? times.slotMinutes : 30;
+  const length = fittingMinutes(doc, slotMinutes);
+  const days = useMemo(
+    () => (times.state === "ready" ? startsToMoveTo(times.days, doc, times.slotMinutes, times.readAt) : []),
+    [times, doc]
+  );
+  // A start picked before the diary was read again may no longer fit
+  const slot = picked && slotIsOffered(days, picked) ? picked : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,7 +125,7 @@ function MoveDialog({ id, note, onClose }: { id: string; note: string | null; on
     setBusy(false);
     setError(message);
     if (reply.data.slotTaken) {
-      setSlot(null);
+      setPicked(null);
       setAttempt((n) => n + 1);
     }
   }
@@ -122,9 +147,12 @@ function MoveDialog({ id, note, onClose }: { id: string; note: string | null; on
           Онлайн-запись выключена в разделе «Часы для примерок», поэтому в дневнике нечего закреплять.
         </p>
       )}
-      {times.state === "ready" && times.enabled && (
-        <SlotPicker days={times.days} value={slot} onChange={setSlot} />
+      {times.state === "ready" && times.enabled && length > slotMinutes && (
+        <p style={{ fontSize: 13, margin: 0, opacity: 0.75 }}>
+          Эта запись длится {tripInRussian(length)} — здесь только время, где свободно всё это время.
+        </p>
       )}
+      {times.state === "ready" && times.enabled && <SlotPicker days={days} value={slot} onChange={setPicked} />}
       {error && (
         <p role="alert" style={{ fontSize: 14, margin: 0, color: "#c0392b" }}>
           {error}
@@ -171,7 +199,7 @@ export const moveBookingAction: DocumentActionComponent = (props: DocumentAction
           type: "dialog",
           header: `${label}${doc.displayName ? ` — ${doc.displayName}` : ""}`,
           onClose: close,
-          content: <MoveDialog id={props.id} note={standing(doc)} onClose={close} />,
+          content: <MoveDialog id={props.id} doc={doc} onClose={close} />,
         }
       : undefined,
   };

@@ -9,12 +9,15 @@ import { askDiary, useDiaryToken, useFreeTimes } from "./diaryClient";
 import {
   SlotPicker,
   chipStyle,
-  dayInRussian,
   primaryButton,
   secondaryButton,
   slotInRussian,
-  timeInRussian,
+  spanInRussian,
+  tripInRussian,
 } from "./SlotPicker";
+
+// Spelt in SlotPicker now that a bride's two slots are worded the same way
+export { spanInRussian, tripInRussian };
 
 /**
  * "🚗 Назначить забор" on a Collect & return request — and "Перенести забор"
@@ -41,19 +44,6 @@ interface CollectionDoc {
   confirmedFor?: string;
   displayName?: string;
   collection?: unknown;
-}
-
-/** "1 час", "1,5 часа" — how long the trip takes, in the Studio's words. */
-export function tripInRussian(minutes: number): string {
-  if (minutes < 60) return `${minutes} мин`;
-  const hours = minutes / 60;
-  if (hours === 1) return "1 час";
-  return `${String(hours).replace(".", ",")} часа`;
-}
-
-/** "вторник, 6 октября, 14:00–15:00" */
-export function spanInRussian(start: string, end: string): string {
-  return `${dayInRussian(start.slice(0, 10))}, ${timeInRussian(start)}–${timeInRussian(end)}`;
 }
 
 /** The start still chosen, if it still fits the trip — a longer trip may not fit after it. */

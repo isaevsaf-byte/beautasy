@@ -93,6 +93,19 @@ export function slotInRussian(localMinute: string): string {
   return `${dayInRussian(localMinute.slice(0, 10))}, в ${timeInRussian(localMinute)}`;
 }
 
+/** "вторник, 6 октября, 14:00–15:00" — a collection's trip, or a bride's two slots. */
+export function spanInRussian(start: string, end: string): string {
+  return `${dayInRussian(start.slice(0, 10))}, ${timeInRussian(start)}–${timeInRussian(end)}`;
+}
+
+/** "1 час", "1,5 часа" — how long a trip or a fitting takes, in the Studio's words. */
+export function tripInRussian(minutes: number): string {
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = minutes / 60;
+  if (hours === 1) return "1 час";
+  return `${String(hours).replace(".", ",")} часа`;
+}
+
 export function SlotPicker({
   days,
   value,

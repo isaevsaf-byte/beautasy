@@ -6,11 +6,14 @@ import { fromThisSite } from "@/lib/sameOrigin";
 import { secretsConfigured } from "@/lib/secrets";
 import { emailFingerprint, firstNameOf, maskEmail, open, sealOptional } from "@/lib/pii";
 import { getAvailableSlots } from "@/lib/schedule";
-import { DEFAULT_SCHEDULE, slotDocumentId, slotIsOffered, slotLabel } from "@/lib/slots";
+import { DEFAULT_SCHEDULE, slotDocumentId, slotIsOffered, slotLabel, spanIsOffered } from "@/lib/slots";
+import { slotsFor } from "@/lib/atelierServices";
 import { carryOut, planCollection, planOutside } from "@/lib/collectionTime";
 import {
   canMove,
   claimSlot,
+  fittingEnd,
+  fittingMinutes,
   heldBy,
   moveBooking,
   movedCopy,
@@ -18,6 +21,7 @@ import {
   reheldDoc,
   reholdBooking,
   sanityDiaryStore,
+  startsToMoveTo,
   type DiaryDoc,
   type Move,
 } from "@/lib/diary";
@@ -208,10 +212,9 @@ export async function POST(req: NextRequest) {
 
   const slot = typeof body.slot === "string" && SLOT_SHAPE.test(body.slot) ? body.slot : null;
   if (!slot) return answer(400, "Сначала выберите время.");
-  // A collection is checked for the whole trip, counting its own slots as its own (see planCollection)
-  if (body.action !== "collect" && !slotIsOffered(days, slot)) {
-    return answer(409, "Это время уже занято — выберите другое.", { slotTaken: true });
-  }
+  // Each action checks the whole time it would hold: a booking by hand as long
+  // as its service takes, a move as long as the booking already is, a
+  // collection its whole trip — the last two counting their own slots as their own.
 
   if (body.action === "book") {
     const name = text(body.name, 80);
@@ -223,6 +226,19 @@ export async function POST(req: NextRequest) {
     const phone = text(body.phone, 40);
     const notes = text(body.notes, 2000);
     const service = text(body.service, 60) ?? "Alterations";
+
+    // A bride takes two slots in a row (see slotsFor), and both have to be free
+    const minutes = slotsFor(service) * schedule.slotMinutes;
+    if (!spanIsOffered(days, slot, minutes, schedule.slotMinutes)) {
+      return answer(
+        409,
+        minutes > schedule.slotMinutes
+          ? "С этого времени нет двух свободных слотов подряд — выберите другое."
+          : "Это время уже занято — выберите другое.",
+        { slotTaken: true }
+      );
+    }
+    const end = fittingEnd(slot, minutes, schedule.slotMinutes);
 
     const doc: DiaryDoc = {
       _id: slotDocumentId(slot),
@@ -236,6 +252,8 @@ export async function POST(req: NextRequest) {
         : {}),
       service,
       slotStart: slot,
+      // A bride's second slot is held through this, as a collection's trip is
+      ...(end ? { slotEnd: end } : {}),
       confirmedFor: slotLabel(slot),
       status: "confirmed",
       // Marked as told at birth — a claim, handed back if the email is refused
@@ -261,7 +279,7 @@ export async function POST(req: NextRequest) {
     const emailed = email ? await tellCustomer(doc, schedule.slotMinutes) : false;
     // `slot` is what the Studio words the time from, in Russian; `label` is
     // the site's English wording of the same time.
-    return NextResponse.json({ ok: true, id: doc._id, slot, label: slotLabel(slot), emailed });
+    return NextResponse.json({ ok: true, id: doc._id, slot, ...(end ? { end } : {}), label: slotLabel(slot), emailed });
   }
 
   if (body.action === "move") {
@@ -283,15 +301,29 @@ export async function POST(req: NextRequest) {
       return answer(400, "Это заявка на забор — время для неё назначает кнопка «🚗 Назначить забор» в меню внизу.");
     }
     // The booking that holds this very time: moving it onto itself would hand
-    // its own time back. One that gave it back is booked again in place — the
-    // diary above has just said the time is free, which a status set back by
+    // its own time back. One that gave it back is booked again in place — once
+    // the diary below has said the time is free, which a status set back by
     // hand never asked (a collection may hold that time without its id).
     const sameSlot = from._id === slotDocumentId(slot);
     if (sameSlot && !releasesItsTime(from.status)) return answer(400, "Запись уже стоит на это время.");
 
-    const to = sameSlot ? reheldDoc(from, slot, now) : movedCopy(from, slot, now);
+    // It keeps its own length — a bride's two slots stay two — and its own
+    // slots count as free for it, so it can move half an hour either way
+    const minutes = fittingMinutes(from, schedule.slotMinutes);
+    if (!slotIsOffered(startsToMoveTo(days, from, schedule.slotMinutes, Date.now()), slot)) {
+      return answer(
+        409,
+        minutes > schedule.slotMinutes
+          ? "С этого времени не хватает свободного времени на всю запись — выберите другое."
+          : "Это время уже занято — выберите другое.",
+        { slotTaken: true }
+      );
+    }
+    const end = fittingEnd(slot, minutes, schedule.slotMinutes);
+
+    const to = sameSlot ? reheldDoc(from, slot, now, end) : movedCopy(from, slot, now, end);
     const moved: Move = sameSlot
-      ? await reholdBooking(store, { from, slot, now })
+      ? await reholdBooking(store, { from, slot, now, end })
       : await moveBooking(store, { from, to, now });
     if (moved === "taken") {
       return answer(409, "Это время только что заняли — выберите другое.", { slotTaken: true });
@@ -312,6 +344,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       id: to._id,
       slot,
+      ...(end ? { end } : {}),
       label: slotLabel(slot),
       emailed,
       hadEmail: typeof from.emailSealed === "string",

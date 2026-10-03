@@ -6,9 +6,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ConcreteRuleClass } from "sanity";
 import { atelierBooking } from "./schemaTypes/atelierBooking";
+import { atelierSchedule } from "./schemaTypes/atelierSchedule";
 import { SlotPicker, shortDay, slotInRussian } from "./SlotPicker";
-import { SERVICE_TITLES } from "./ManualBookingPane";
-import { ATELIER_SERVICES } from "@/lib/atelierServices";
+import { SERVICE_TITLES, bookedInRussian } from "./ManualBookingPane";
+import { ATELIER_SERVICES, LEGACY_SERVICES } from "@/lib/atelierServices";
 import type { SlotDay } from "@/lib/slots";
 
 /**
@@ -21,6 +22,7 @@ import type { SlotDay } from "@/lib/slots";
 const ROOT = process.cwd();
 const ROUTE = readFileSync(join(ROOT, "src/app/api/studio/diary/route.ts"), "utf8");
 const ACTION = readFileSync(join(ROOT, "src/sanity/moveBookingAction.tsx"), "utf8");
+const MANUAL = readFileSync(join(ROOT, "src/sanity/ManualBookingPane.tsx"), "utf8");
 const CONFIG = readFileSync(join(ROOT, "sanity.config.ts"), "utf8");
 const STRUCTURE = readFileSync(join(ROOT, "src/sanity/structure.ts"), "utf8");
 const SCHEMA = readFileSync(join(ROOT, "src/sanity/schemaTypes/atelierBooking.ts"), "utf8");
@@ -67,7 +69,8 @@ test("a time reads as the atelier's clock says it, in summer and in winter", () 
 });
 
 test("every service the site offers has a Russian name in Book by hand", () => {
-  for (const service of ATELIER_SERVICES) {
+  // The old "not sure" too: bookings made before the rename still carry it
+  for (const service of [...ATELIER_SERVICES, ...LEGACY_SERVICES]) {
     assert.ok(
       SERVICE_TITLES[service],
       `"${service}" has no Russian title in SERVICE_TITLES (ManualBookingPane.tsx), so Kristina would pick it in English.`
@@ -87,8 +90,15 @@ test("only a member of the project reaches the diary, before anything is read or
 
 test("the Studio books from the fresh diary, strictly, without the customers' notice period", () => {
   assert.match(ROUTE, /getAvailableSlots\(\{ fresh: true, strict: true, leadTimeHours: 0 \}\)/);
-  // Every action but a collection's checks the bare slot; a collection checks its whole trip (planCollection)
-  assert.match(ROUTE, /if \(body\.action !== "collect" && !slotIsOffered\(days, slot\)\)/);
+  // Each action checks the whole time it would hold, before anything is written:
+  // a booking by hand as long as its service takes, a move as long as the
+  // booking already is (startsToMoveTo, measured in src/lib/diary.test.ts)
+  const book = ROUTE.slice(ROUTE.indexOf('if (body.action === "book")'), ROUTE.indexOf('if (body.action === "move")'));
+  assert.match(book, /const minutes = slotsFor\(service\) \* schedule\.slotMinutes;\s*if \(!spanIsOffered\(days, slot, minutes, schedule\.slotMinutes\)\)/);
+  assert.ok(book.indexOf("spanIsOffered(") < book.indexOf("claimSlot("), "the time is claimed before it is checked");
+  const move = ROUTE.slice(ROUTE.indexOf('if (body.action === "move")'), ROUTE.indexOf('if (body.action === "collect")'));
+  assert.match(move, /if \(!slotIsOffered\(startsToMoveTo\(days, from, schedule\.slotMinutes, Date\.now\(\)\), slot\)\)/);
+  assert.ok(move.indexOf("startsToMoveTo(") < move.indexOf("moveBooking("), "the booking is moved before the time is checked");
 });
 
 test("a booking made by hand goes through the same claim as one made on the site", () => {
@@ -209,7 +219,7 @@ test("the booking that holds a time is not moved onto it, whatever its status", 
   assert.match(ROUTE, /const sameSlot = from\._id === slotDocumentId\(slot\);/);
   assert.match(ROUTE, /if \(sameSlot && !releasesItsTime\(from\.status\)\) return answer\(400, "Запись уже стоит на это время\."\);/);
   // One that gave its time back is booked again in place, after the diary said the time is free
-  assert.match(ROUTE, /\? await reholdBooking\(store, \{ from, slot, now \}\)/);
+  assert.match(ROUTE, /\? await reholdBooking\(store, \{ from, slot, now, end \}\)/);
   assert.doesNotMatch(ROUTE, /from\.slotStart === slot/, "a record the diary kept has the time but not the id");
 });
 
@@ -228,4 +238,38 @@ test("a finished move opens the new booking and says how it went, even with the 
   assert.match(success, /router\.navigateIntent\("edit", \{ id: String\(reply\.data\.id\), type: "atelierBooking" \}\)/);
   assert.match(success, /window\.alert\(doneMessage\(reply\.data\)\)/);
   assert.match(ACTION, /if \(!shown\.current\) \{\s*window\.alert\(message\);/);
+});
+
+test("the schedule has the bank-holiday switch, off unless Kristina turns it on, explained in Russian", () => {
+  const fields = (atelierSchedule as unknown as { fields: { name: string; title?: string; type: string; initialValue?: unknown; description?: string }[] }).fields;
+  const field = fields.find((f) => f.name === "workBankHolidays");
+  assert.ok(field, "no switch for bank holidays in «Часы для примерок»");
+  assert.equal(field.title, "Работать в банковские выходные");
+  assert.equal(field.type, "boolean");
+  assert.equal(field.initialValue, false, "a new schedule would open bank holidays");
+  assert.match(field.description ?? "", /25 и 26 декабря закрыты в любом случае/);
+  // Boxing Day moves too, and in 2026 it is the one that does: the 26th is a
+  // Saturday, so Monday the 28th is shut while the switch is off
+  assert.match(field.description ?? "", /Новый год, Рождество и День подарков/);
+  assert.match(field.description ?? "", /в 2026 году это понедельник, 28 декабря/);
+  assert.doesNotMatch(field.description ?? "", /[A-Za-z]{4,}/, "the description slipped into English");
+});
+
+test("a bride booked by hand is reported with her whole hour, anyone else with their start", () => {
+  assert.equal(
+    bookedInRussian({ slot: "2026-10-06T14:00", end: "2026-10-06T15:00", label: "Tuesday 6 October at 2:00pm" }),
+    "вторник, 6 октября, 14:00–15:00"
+  );
+  assert.equal(bookedInRussian({ slot: "2026-10-06T14:00", label: "Tuesday 6 October at 2:00pm" }), "вторник, 6 октября, в 14:00");
+  // Anything older that only sends the English label
+  assert.equal(bookedInRussian({ label: "Tuesday 6 October at 2:00pm" }), "Tuesday 6 October at 2:00pm");
+});
+
+test("the pickers offer only the starts the whole fitting fits from", () => {
+  // Moving: a bride's hour has to fit, her own slots counting as hers, and only times still ahead
+  assert.match(ACTION, /startsToMoveTo\(times\.days, doc, times\.slotMinutes, times\.readAt\)/);
+  assert.match(ACTION, /<SlotPicker days=\{days\} value=\{slot\} onChange=\{setPicked\} \/>/);
+  // Booking by hand: a bride's two slots in a row, or the picker shows a time nothing can be booked at
+  assert.match(MANUAL, /startsFor\(times\.days, service, slotMinutes\)/);
+  assert.match(MANUAL, /<SlotPicker\s+days=\{days\}\s+value=\{chosen\}/);
 });
