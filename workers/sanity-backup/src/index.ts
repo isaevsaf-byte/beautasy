@@ -28,7 +28,11 @@ import {
 export interface Env {
   SANITY_PROJECT_ID: string;
   SANITY_DATASET: string;
-  /** A Viewer token made for this Worker alone, set with `wrangler secret put`. */
+  /**
+   * A Viewer token made for this Worker alone, set with `wrangler secret put`.
+   * Optional: without it the copy holds every published document — orders,
+   * the diary, the ledger — and only unpublished drafts are missing.
+   */
   SANITY_READ_TOKEN?: string;
   BACKUPS: BackupBucket;
 }
@@ -60,18 +64,17 @@ async function storedBackups(bucket: BackupBucket, dataset: string): Promise<str
 }
 
 export async function backUp(env: Env, now: Date): Promise<void> {
-  if (!env.SANITY_READ_TOKEN) {
-    // Loud, not silent: a missing token means no copies are being made.
-    throw new Error("SANITY_READ_TOKEN is not set on the Worker, so no backup was taken");
-  }
-
+  // The dataset is public, so without a token Sanity still hands over every
+  // published document. A copy without drafts beats no copy while the token
+  // is waiting to be made; each night's log line says which kind it took.
+  const token = env.SANITY_READ_TOKEN;
   const res = await fetch(
     `https://${env.SANITY_PROJECT_ID}.api.sanity.io/${API_VERSION}/data/export/${env.SANITY_DATASET}`,
     {
       // With a token the export includes drafts; the public dataset's open
       // door would hand back published documents only. The token goes in a
       // header, never the address, so it cannot end up in a log of URLs.
-      headers: { Authorization: `Bearer ${env.SANITY_READ_TOKEN}` },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       // Today's export takes about a second. Ten minutes is a hung
       // connection, not a big dataset.
       signal: AbortSignal.timeout(10 * 60_000),
@@ -89,7 +92,7 @@ export async function backUp(env: Env, now: Date): Promise<void> {
   const { documents, bytes } = await streamToBucket(env.BACKUPS, key, res.body, exportTally());
   // A sudden drop in documents from one night to the next is the thing to
   // look for in these lines.
-  console.log(JSON.stringify({ saved: key, documents, bytes }));
+  console.log(JSON.stringify({ saved: key, documents, bytes, drafts: Boolean(token) }));
 
   // Old copies go only after tonight's is safely in. A night that failed
   // never gets here, so a run of failures can never prune the bucket empty.

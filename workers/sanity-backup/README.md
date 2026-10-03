@@ -42,20 +42,24 @@ cd ~/Projects/Beautasy/workers/sanity-backup
 
 1. Проверить, что вход в Cloudflare есть: `npx wrangler whoami`.
    Если нет — `npx wrangler login`.
-2. Создать хранилище (weur — Западная Европа, ближе к Британии):
+2. Создать хранилище в ЕС (`--location weur` Cloudflare может не
+   послушать — 03.10 так оно оказалось в США; `--jurisdiction eu` держит
+   данные в ЕС наверняка):
 
    ```
-   npx wrangler r2 bucket create beautasy-backups --location weur
+   npx wrangler r2 bucket create beautasy-backups --jurisdiction eu
    ```
 
 3. Убедиться, что оно закрыто — ответ должен быть, что публичный доступ
    выключен (disabled):
 
    ```
-   npx wrangler r2 bucket dev-url get beautasy-backups
+   npx wrangler r2 bucket dev-url get beautasy-backups --jurisdiction eu
    ```
 
-4. Сделать токен в Sanity: sanity.io/manage → проект Beautasy → API →
+4. (Можно позже.) Без токена копия берёт все опубликованные документы —
+   заказы, дневник, кассу, — но не черновики. С токеном — и черновики.
+   Сделать токен в Sanity: sanity.io/manage → проект Beautasy → API →
    Tokens → Add API token. Имя `Cloudflare backup`, права **Viewer**
    (только чтение). Sanity покажет токен один раз — скопировать.
    Токен отдельный, свой: если что, его можно отозвать, не трогая сайт.
@@ -79,7 +83,8 @@ cd ~/Projects/Beautasy/workers/sanity-backup
 - Cloudflare → R2 → `beautasy-backups` → папка `sanity/` → файл
   `production-ГГГГ-ММ-ДД.ndjson` с сегодняшней датой.
 - Cloudflare → Workers → `beautasy-sanity-backup` → Logs. Строка вида
-  `{"saved":"sanity/production-2026-10-04.ndjson","documents":251,"bytes":580462}`.
+  `{"saved":"sanity/production-2026-10-04.ndjson","documents":251,"bytes":580462,"drafts":false}`.
+  `drafts: false` — копия без черновиков (токена нет, шаги 4 и 6).
   `documents` — сколько документов в копии. Если число резко упало (было
   250, стало 20) — что-то стёрли, смотреть сразу: старые копии целы ещё
   30 дней.
@@ -93,7 +98,6 @@ cd ~/Projects/Beautasy/workers/sanity-backup
 
 | Ошибка | Что случилось | Что делать |
 |---|---|---|
-| `SANITY_READ_TOKEN is not set` | Робот без токена | Шаг 6 |
 | `answered 401` или `403` | Токен отозван или неверный | Новый токен: шаги 4 и 6 |
 | `answered 404` | Неверный проект или датасет | Проверить `vars` в `wrangler.jsonc` |
 | `incomplete` или ошибка сети (`Network connection lost` и похожие) | Sanity оборвал выгрузку на середине | Обычно разовое, следующей ночью повторит. Несколько ночей подряд — разбираться |

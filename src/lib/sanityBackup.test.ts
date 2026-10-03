@@ -356,15 +356,25 @@ test("a failed night saves nothing, prunes nothing, and says so without the toke
   }
 });
 
-test("without its token the Worker fails loudly and asks Sanity for nothing", async () => {
-  const { bucket } = fakeBucket();
-  await withSanity(
-    () => new Response(ndjson(1)),
-    async (requests) => {
-      await assert.rejects(backUp(env(bucket, null), TONIGHT), /SANITY_READ_TOKEN is not set/);
-      assert.equal(requests.length, 0);
-    }
-  );
+test("without its token the Worker still copies the published documents, and says it has no drafts", async () => {
+  const { bucket, objects } = fakeBucket();
+  const logs: string[] = [];
+  const realLog = console.log;
+  console.log = (line: string) => logs.push(line);
+  try {
+    await withSanity(
+      () => new Response(ndjson(3)),
+      async (requests) => {
+        await backUp(env(bucket, null), TONIGHT);
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].headers.get("authorization"), null, "no token, so no header — not 'Bearer undefined'");
+      }
+    );
+  } finally {
+    console.log = realLog;
+  }
+  assert.equal(objects.size, 1, "a copy without drafts beats no copy");
+  assert.match(logs.join("\n"), /"documents":3[^}]*"drafts":false/);
 });
 
 /* ─── The Worker's settings ─── */
@@ -386,7 +396,7 @@ test("it is not reachable from the internet", () => {
 test("the token is never written into the config, and the names line up", () => {
   assert.ok(!/"SANITY_READ_TOKEN"\s*:/.test(CONFIG), "SANITY_READ_TOKEN belongs in `wrangler secret put`, not in vars.");
   assert.match(CONFIG, /"binding":\s*"BACKUPS"/, "the code writes to env.BACKUPS");
-  assert.match(CONFIG, /"bucket_name":\s*"beautasy-backups"/);
+  assert.match(CONFIG, /"bucket_name":\s*"beautasy-backups",[^}]*"jurisdiction":\s*"eu"/, "the copies are made in the EU and the Worker must say so to reach them");
   assert.match(CONFIG, /"SANITY_PROJECT_ID":\s*"5uun6fw6"/);
   assert.match(CONFIG, /"SANITY_DATASET":\s*"production"/);
   // The guide is what a person follows on a bad day; it has to name the same things.

@@ -30,12 +30,16 @@
   },
   // SANITY_READ_TOKEN is a secret, set with `wrangler secret put
   // SANITY_READ_TOKEN`: a Viewer token made for this Worker alone, so it can
-  // be revoked without touching the site. Never in this file.
+  // be revoked without touching the site. Never in this file. Without it the
+  // copy is the published documents only.
 
   "r2_buckets": [
     {
       "binding": "BACKUPS",
-      "bucket_name": "beautasy-backups"
+      "bucket_name": "beautasy-backups",
+      // Made with --jurisdiction eu: the copies stay in the EU, which UK
+      // data law treats as safe. A location hint alone landed it in the US.
+      "jurisdiction": "eu"
     }
   ],
 
