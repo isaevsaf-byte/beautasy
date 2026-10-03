@@ -90,9 +90,12 @@ export const STUDIO_STATS_QUERY = `{
   ]),
 
   // ── The till that did not ring ──
-  // Someone reached the card form and stopped. At a shop with no orders this
-  // is the most useful number on the page: none at all means they are leaving
-  // before checkout, several means checkout itself is where it goes wrong.
+  // Someone reached the card form and stopped — but only someone who ticked
+  // "send me news" at Stripe's checkout. A cart is recorded so that a reminder
+  // can be sent, and a reminder is marketing, so nothing is kept about anybody
+  // who said no (see mayRemind in @/lib/orderLines). Several here still means
+  // people get as far as paying and stop. None proves nothing: whoever left
+  // without ticking the box was never written down.
   "cartsLeft7": count(*[
     _type == "abandonedCart" && !(_id in path("drafts.**"))
     && defined(createdAt) && dateTime(createdAt) > dateTime($weekAgo)
@@ -740,7 +743,7 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
     label: lastOrder ? "был последний заказ" : "пока ничего не купил",
     meaning: lastOrder
       ? "Когда кто-то в последний раз оплатил покупку."
-      : "Для такого нового магазина это нормально — это не поломка, и оплата не сломана, пока об этом не скажет строка о корзинах ниже.",
+      : "Для такого нового магазина это нормально и само по себе не значит, что что-то сломалось.",
     tone: "plain",
   });
 
@@ -771,7 +774,7 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
         back > 0
           ? `${back} из них ${agrees(back, "вернулся и заплатил", "вернулись и заплатили")} после напоминания.`
           : oneOrMany(n, "Этот покупатель пока не вернулся.", "Пока никто из них не вернулся.")
-      }`,
+      } Здесь видны только те, кто при оплате согласился получать письма, — на деле таких покупателей может быть больше.`,
       action: "До покупки оставались секунды. Если это число большое, а заказов мало, дело в самой оплате — скажите Сафару.",
       tone: "plain",
     });
@@ -779,9 +782,9 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
     moneyLines.push({
       key: "carts-left",
       value: "Никто",
-      label: "на этой неделе даже не дошёл до оплаты картой",
+      label: "из согласившихся на письма не бросил оплату на этой неделе",
       meaning:
-        "Значит, людей останавливает не оплата. Они уходят раньше — на страницах товаров или ещё до них.",
+        "Брошенную оплату сайт запоминает только у тех, кто при оплате согласился получать письма, — про остальных он ничего не хранит. Поэтому ноль здесь не доказывает, что дело не в оплате: кто-то мог дойти до карты и уйти, не согласившись на письма. Если заказов нет долго, а люди на сайт заходят, скажите Сафару — пусть проверит оплату.",
       tone: "plain",
     });
   }

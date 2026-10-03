@@ -534,10 +534,23 @@ test("a quiet week is explained without the word conversion", () => {
   }
 });
 
-test("no carts at all is turned into the diagnosis it actually is", () => {
+/**
+ * Abandoned carts are recorded only for shoppers who ticked "send me news" at
+ * Stripe's checkout: the record exists to send a reminder, and a reminder is
+ * marketing. So no carts is not "they leave before paying" — the people who
+ * left without ticking were never written down — and the line must not say it
+ * is. Several still means people reach the card form and stop.
+ */
+test("no carts at all is said honestly: only people who agreed to emails are counted", () => {
   const line = allLines({ orders7: 0, cartsLeft7: 0 }).find((l) => l.key === "carts-left");
-  assert.ok(line, "At a shop with no orders, an empty basket list is the most useful fact on the page.");
-  assert.match(line.meaning, /уходят раньше/);
+  assert.ok(line, "At a shop with no orders, the empty basket list still needs saying, and saying right.");
+  assert.doesNotMatch(line.meaning, /уходят раньше|останавливает не оплата/, "a zero that only counts the people who said yes proves nothing about the rest");
+  assert.match(line.label, /согласившихся на письма/);
+  assert.match(line.meaning, /только у тех, кто при оплате согласился получать письма/);
+  assert.match(line.meaning, /не доказывает/);
+
+  const some = allLines({ cartsLeft7: 2, cartsLeftValue7: 9000 }).find((l) => l.key === "carts-left");
+  assert.match(some?.meaning ?? "", /только те, кто при оплате согласился получать письма/);
 
   const busy = allLines({ orders7: 3, revenue7: 20000, cartsLeft7: 0 }).find((l) => l.key === "carts-left");
   assert.equal(busy, undefined, "At a shop that is selling, the line has nothing to say and does not appear.");
