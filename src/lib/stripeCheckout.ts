@@ -84,6 +84,32 @@ export function lookupIdOf(id: string): string {
   return id;
 }
 
+/** The colours a piece is offered in, as Sanity names them; an unnamed swatch is not one to choose. */
+function coloursOf(product: PriceLookupProduct): string[] {
+  return (product.colorNames ?? []).filter((name): name is string => typeof name === "string" && name.trim() !== "");
+}
+
+/**
+ * The piece's name when it comes in colours and this line chose none, or null.
+ *
+ * The product page asks for a colour before Add to Bag, and a listing card
+ * sends a coloured piece to that page. This is the net under both: a bag
+ * saved before either, or edited by hand, can still hold a sleeping mask with
+ * no colour, and that is an order Kristina cannot make up. Asked separately
+ * from resolveLine so the shopper is told what to fix rather than that the
+ * piece is "no longer available". Add-on lines have ids of their own and never
+ * match a piece here, so they are never asked for a colour.
+ */
+export function colourNotChosen(
+  item: Pick<CheckoutItem, "id" | "color">,
+  products: Map<string, PriceLookupProduct>
+): string | null {
+  if (item.color) return null;
+  const product = products.get(item.id);
+  if (!product || coloursOf(product).length === 0) return null;
+  return product.name ?? "This piece";
+}
+
 /**
  * What a bag line costs and what it is called, from Sanity.
  *
@@ -129,9 +155,13 @@ export function resolveLine(
     }
 
     let color: string | undefined;
+    const colours = coloursOf(product);
     if (item.color) {
-      if (!(product.colorNames ?? []).includes(item.color)) return null;
+      if (!colours.includes(item.color)) return null;
       color = item.color;
+    } else if (colours.length > 0) {
+      // A piece that comes in colours is never sold without one (see colourNotChosen)
+      return null;
     }
 
     const sizePrice = size ? product.sizePrices?.find((sp) => sp.size === size)?.price : undefined;

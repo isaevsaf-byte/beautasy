@@ -5,6 +5,7 @@ import {
   checkoutReturnBase,
   createCheckoutSession,
   refusedSetting,
+  colourNotChosen,
   resolveLine,
   trustedImage,
   type PriceLookupGiftBox,
@@ -51,15 +52,39 @@ test("a line's name is Sanity's, never the one the bag sent", () => {
 });
 
 test("a size or colour the piece is not offered in cannot be bought", () => {
-  assert.equal(resolveLine({ id: "p-slip", size: "XXL" }, products, boxes), null);
+  assert.equal(resolveLine({ id: "p-slip", size: "XXL", color: "Ivory" }, products, boxes), null);
   assert.equal(resolveLine({ id: "p-slip", color: "Hot pink" }, products, boxes), null);
   const noSizes = new Map([["p-scrunchie", { _id: "p-scrunchie", name: "Scrunchie", price: 1200 }]]);
   assert.equal(resolveLine({ id: "p-scrunchie", size: "M" }, noSizes, boxes), null, "a size on a piece with no sizes");
 });
 
 test("a size with its own price is charged that price", () => {
-  assert.equal(resolveLine({ id: "p-slip", size: "L" }, products, boxes)?.price, 4200);
-  assert.equal(resolveLine({ id: "p-slip", size: "S" }, products, boxes)?.price, 3800);
+  assert.equal(resolveLine({ id: "p-slip", size: "L", color: "Ivory" }, products, boxes)?.price, 4200);
+  assert.equal(resolveLine({ id: "p-slip", size: "S", color: "Ivory" }, products, boxes)?.price, 3800);
+});
+
+test("a piece that comes in colours is not sold without one, and the shopper is told which", () => {
+  // As a bag saved before the shop asked for a colour, or edited by hand, holds it
+  assert.equal(resolveLine({ id: "p-slip", size: "M" }, products, boxes), null);
+  assert.equal(colourNotChosen({ id: "p-slip" }, products), "Silk Slip");
+  assert.equal(colourNotChosen({ id: "p-slip", color: "" }, products), "Silk Slip", "an empty choice is no choice");
+  assert.equal(colourNotChosen({ id: "p-slip", color: "Ivory" }, products), null);
+
+  // Nothing to choose: no colours, or only swatches nobody named
+  const plain = new Map<string, PriceLookupProduct>([
+    ["p-scrunchie", { _id: "p-scrunchie", name: "Scrunchie", price: 1200 }],
+    ["p-band", { _id: "p-band", name: "Hair band", price: 900, colorNames: [] }],
+    ["p-mask", { _id: "p-mask", name: "Mask", price: 1500, colorNames: [null as unknown as string, " "] }],
+  ]);
+  for (const id of ["p-scrunchie", "p-band", "p-mask"]) {
+    assert.equal(colourNotChosen({ id }, plain), null, id);
+    assert.ok(resolveLine({ id }, plain, boxes), `${id} sells without a colour`);
+  }
+
+  // An add-on is priced from its piece but is not the piece: it never needs a colour
+  assert.equal(colourNotChosen({ id: "p-slip-giftbox" }, products), null);
+  assert.equal(colourNotChosen({ id: "p-slip-madetomeasure" }, products), null);
+  assert.equal(colourNotChosen({ id: "gb-1" }, products), null);
 });
 
 test("add-ons are named and priced from their piece", () => {

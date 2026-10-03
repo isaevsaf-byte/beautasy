@@ -29,6 +29,7 @@ import { checkoutWrongCodes } from "@/lib/codeAttempts";
 import {
   PRICE_LOOKUP_QUERY,
   checkoutReturnBase,
+  colourNotChosen,
   createCheckoutSession,
   lookupIdOf,
   resolveLine,
@@ -147,6 +148,13 @@ export async function POST(req: NextRequest) {
 
     const pricedItems: (CheckoutItem & { verified: ResolvedLine })[] = [];
     for (const item of items) {
+      const unchosen = colourNotChosen(item, products);
+      if (unchosen) {
+        return NextResponse.json(
+          { error: `Please choose a colour for "${unchosen}": open it from the shop, pick one and add it to your bag again.` },
+          { status: 400 }
+        );
+      }
       const verified = resolveLine(item, products, giftBoxes);
       if (verified == null || verified.price < 1) {
         return NextResponse.json(

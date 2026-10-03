@@ -34,6 +34,13 @@ test("the Stripe line is named from Sanity, not from the bag", () => {
   assert.match(post, /resolveLine\(item, products, giftBoxes\)/);
 });
 
+test("a piece with no colour chosen is refused with what to do, before it is priced", () => {
+  const loop = post.slice(post.indexOf("for (const item of items) {"), post.indexOf("pricedItems.push("));
+  const asked = loop.indexOf("colourNotChosen(item, products)");
+  assert.ok(asked !== -1 && asked < loop.indexOf("resolveLine(item, products, giftBoxes)"), "asked first, so the answer is not \"no longer available\"");
+  assert.match(loop, /Please choose a colour for "\$\{unchosen\}"/);
+});
+
 test("wrong codes are counted, and the count is checked before any code is looked up", () => {
   const checkAt = post.indexOf("checkoutWrongCodes.blocked(ip)");
   assert.notEqual(checkAt, -1, "checkout no longer limits wrong codes");
