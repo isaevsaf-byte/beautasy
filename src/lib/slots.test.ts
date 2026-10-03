@@ -399,3 +399,20 @@ test("this minute is written in Southampton's wall clock, the way a slot is, sum
   assert.equal(localMinuteOf(new Date("2026-07-01T23:30:00Z")), "2026-07-02T00:30");
   assert.equal(localMinuteOf(new Date("2026-07-01T23:00:00Z")), "2026-07-02T00:00", "midnight is 00, never 24");
 });
+
+test("this minute is Southampton's wherever the server runs", () => {
+  // The machine the tests run on is usually in London too, so the test above
+  // cannot tell Southampton's clock from the server's. Vercel runs in UTC,
+  // where the server's clock is an hour behind all summer.
+  const was = process.env.TZ;
+  try {
+    for (const zone of ["UTC", "America/New_York", "Asia/Tokyo"]) {
+      process.env.TZ = zone;
+      assert.equal(localMinuteOf(new Date("2026-07-01T08:05:00Z")), "2026-07-01T09:05", zone);
+      assert.equal(localMinuteOf(new Date("2026-12-01T23:30:00Z")), "2026-12-01T23:30", zone);
+    }
+  } finally {
+    if (was === undefined) delete process.env.TZ;
+    else process.env.TZ = was;
+  }
+});

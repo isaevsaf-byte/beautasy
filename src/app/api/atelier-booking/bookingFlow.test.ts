@@ -4,8 +4,8 @@ import { evaluate, parse } from "groq-js";
 import { NextRequest } from "next/server";
 import { sanityWriteClient } from "@/lib/sanity";
 import { emailFingerprint } from "@/lib/pii";
-import { instantOf, localDateOf, slotDocumentId } from "@/lib/slots";
-import { requestFingerprint } from "@/lib/bookingRequest";
+import { instantOf, localDateOf, localMinuteOf, slotDocumentId } from "@/lib/slots";
+import { FUTURE_HOLDS_QUERY, requestFingerprint } from "@/lib/bookingRequest";
 import { POST, priceFirstHtml } from "./route";
 
 /**
@@ -254,6 +254,25 @@ test("one address holds at most two times ahead; the third is asked to message i
   assert.equal((await POST(request({ ...ANNA, email: "bea@example.com", service: "Repairs", slot: `${day}T12:00` }))).status, 201);
 });
 
+test("the times ahead are counted from this minute in Southampton, written as a slot is", async () => {
+  const day = openDiary();
+  const seen: unknown[] = [];
+  const answering = client.fetch as (query: string, params?: Record<string, unknown>) => Promise<unknown>;
+  client.fetch = async (query: string, params: Record<string, unknown> = {}) => {
+    if (query === FUTURE_HOLDS_QUERY) seen.push(params.now);
+    return answering(query, params);
+  };
+  const before = localMinuteOf(new Date());
+  assert.equal((await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T10:00` }))).status, 201);
+  const after = localMinuteOf(new Date());
+  assert.equal(seen.length, 1);
+  // Compared as text with slotStart, so it has to be Southampton's wall clock
+  // in the same shape: a UTC instant runs an hour behind all summer, and
+  // a fitting that began up to an hour ago would still count as ahead
+  assert.match(String(seen[0]), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+  assert.ok(seen[0] === before || seen[0] === after, `${seen[0]} is not this minute in Southampton`);
+});
+
 test("a cancelled time, or one already past, does not count against the next booking", async () => {
   const day = openDiary();
   const fingerprint = emailFingerprint(ANNA.email);
@@ -445,6 +464,18 @@ test("a time the diary could not hold is kept as a request, and sending it again
   assert.deepEqual(await again.json(), { ok: true, emailed: true }, "told 'request sent' both times");
   assert.equal(bookings().length, 1);
   assert.equal(emails.length, 2);
+});
+
+/* ─── Collect & return ─── */
+
+test("a postcode padded past any real one is refused, not tidied up", async () => {
+  openDiary();
+  const res = await POST(request({ ...ANNA, service: "Repairs", collection: { postcode: `SO17${" ".repeat(30)}1AB` } }));
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error, /enter your postcode/);
+  assert.equal(bookings().length, 0);
+  // The postcode itself, as typed, is taken
+  assert.equal((await POST(request({ ...ANNA, service: "Repairs", collection: { postcode: "SO17 1AB" } }))).status, 201);
 });
 
 /* ─── Not sure yet ─── */

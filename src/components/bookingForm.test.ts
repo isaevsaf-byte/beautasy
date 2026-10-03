@@ -123,3 +123,9 @@ test("a message about what to fix is never hidden behind 'we couldn't hear back'
   assert.match(source, /setMode\("fitting"\);\s*setError\(null\);\s*setUnanswered\(false\);/);
 });
 
+test("the time sent is one the chosen service still fits, and the postcode stops where the route does", () => {
+  // A bride's start whose second slot has gone is sent as no time, not as a time the route refuses
+  assert.match(source, /const slot = days \? startForService\(days, service, slotMinutes, picked\) : null;/);
+  // The postcode only shows in collect mode, which a first render never reaches
+  assert.match(source, /name="postcode"[\s\S]{0,200}maxLength=\{FIELD_LIMITS\.postcode\}/);
+});

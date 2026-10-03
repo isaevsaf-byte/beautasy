@@ -1069,6 +1069,19 @@ test("a bride moves only where her whole hour is free, her own slots counting as
   );
 });
 
+test("a time that has begun is never offered to move to, even from a diary read before it began", () => {
+  // Read at 1:00pm, offered at 2:00pm: 1:00pm has started since, 3:00pm has not
+  const read: SlotDay[] = [
+    {
+      date: "2026-10-06",
+      label: "Tuesday 6 October",
+      slots: ["13:00", "15:00"].map((time) => ({ start: `2026-10-06T${time}`, label: timeLabel(time) })),
+    },
+  ];
+  const twoPm = Date.parse("2026-10-06T13:00:00Z");
+  assert.deepEqual(startsIn(startsToMoveTo(read, booking("2026-10-06T16:30"), 30, twoPm)), ["2026-10-06T15:00"]);
+});
+
 test("a bride booked again after cancelling needs her hour free again, since she held none of it", () => {
   const cancelled = bride({ status: "cancelled", notifiedStatus: "cancelled" });
   // Her 2:00pm–3:00pm is back in the diary once she let it go

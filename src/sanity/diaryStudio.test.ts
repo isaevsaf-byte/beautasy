@@ -22,6 +22,7 @@ import type { SlotDay } from "@/lib/slots";
 const ROOT = process.cwd();
 const ROUTE = readFileSync(join(ROOT, "src/app/api/studio/diary/route.ts"), "utf8");
 const ACTION = readFileSync(join(ROOT, "src/sanity/moveBookingAction.tsx"), "utf8");
+const MANUAL = readFileSync(join(ROOT, "src/sanity/ManualBookingPane.tsx"), "utf8");
 const CONFIG = readFileSync(join(ROOT, "sanity.config.ts"), "utf8");
 const STRUCTURE = readFileSync(join(ROOT, "src/sanity/structure.ts"), "utf8");
 const SCHEMA = readFileSync(join(ROOT, "src/sanity/schemaTypes/atelierBooking.ts"), "utf8");
@@ -262,4 +263,13 @@ test("a bride booked by hand is reported with her whole hour, anyone else with t
   assert.equal(bookedInRussian({ slot: "2026-10-06T14:00", label: "Tuesday 6 October at 2:00pm" }), "вторник, 6 октября, в 14:00");
   // Anything older that only sends the English label
   assert.equal(bookedInRussian({ label: "Tuesday 6 October at 2:00pm" }), "Tuesday 6 October at 2:00pm");
+});
+
+test("the pickers offer only the starts the whole fitting fits from", () => {
+  // Moving: a bride's hour has to fit, her own slots counting as hers, and only times still ahead
+  assert.match(ACTION, /startsToMoveTo\(times\.days, doc, times\.slotMinutes, times\.readAt\)/);
+  assert.match(ACTION, /<SlotPicker days=\{days\} value=\{slot\} onChange=\{setPicked\} \/>/);
+  // Booking by hand: a bride's two slots in a row, or the picker shows a time nothing can be booked at
+  assert.match(MANUAL, /startsFor\(times\.days, service, slotMinutes\)/);
+  assert.match(MANUAL, /<SlotPicker\s+days=\{days\}\s+value=\{chosen\}/);
 });

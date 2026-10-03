@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { evaluate, parse } from "groq-js";
 import { sanityClient } from "./sanity";
 import { TAKEN_QUERY, getAvailableSlots } from "./schedule";
 
@@ -77,6 +78,36 @@ test("a schedule saved before the bank-holiday switch existed keeps bank holiday
     assert.deepEqual(await read(null), [], "a switch never touched opened the bank holiday");
     assert.deepEqual(await read(false), []);
     assert.deepEqual(await read(true), ["2026-05-04"]);
+  } finally {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (sanityClient as any).fetch = real;
+  }
+});
+
+test("the bank-holiday switch Kristina saves reaches the diary through the real schedule query", async () => {
+  // The test above hands back the same object whatever is asked, so a field
+  // left out of the query's projection would pass it. Here the query runs.
+  const real = sanityClient.fetch;
+  const dataset = [
+    {
+      _id: "atelierSchedule",
+      _type: "atelierSchedule",
+      enabled: true,
+      slotMinutes: 30,
+      leadTimeHours: 0,
+      horizonDays: 7,
+      workBankHolidays: true,
+      weekly: [{ _key: "mon", day: "mon", from: "09:00", to: "10:00" }],
+      closures: [],
+    },
+  ];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (sanityClient as any).fetch = async (query: string, params: Record<string, unknown> = {}) =>
+    (await evaluate(parse(query), { dataset, params })).get();
+  try {
+    // Thursday 30 April 2026: the early May bank holiday, Monday 4th, is the only Monday in view
+    const { days } = await getAvailableSlots({ now: new Date("2026-04-30T08:00:00Z") });
+    assert.deepEqual(days.map((day) => day.date), ["2026-05-04"], "the switch is on in the Studio and the bank holiday is still shut");
   } finally {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (sanityClient as any).fetch = real;
