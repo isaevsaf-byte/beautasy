@@ -48,7 +48,8 @@ export async function askDiary(token: string | null, body: Record<string, unknow
 
 export type FreeTimes =
   | { state: "loading" }
-  | { state: "ready"; enabled: boolean; days: SlotDay[]; slotMinutes: number }
+  /** `readAt`: when the times were read — a time can pass while a dialog stands open */
+  | { state: "ready"; enabled: boolean; days: SlotDay[]; slotMinutes: number; readAt: number }
   | { state: "failed"; message: string };
 
 /** The free times, read again whenever `attempt` changes. */
@@ -65,6 +66,7 @@ export function useFreeTimes(token: string | null, attempt: number): FreeTimes {
               enabled: Boolean(reply.data.enabled),
               days: (reply.data.days as SlotDay[]) ?? [],
               slotMinutes: typeof reply.data.slotMinutes === "number" && reply.data.slotMinutes > 0 ? reply.data.slotMinutes : 30,
+              readAt: Date.now(),
             }
           : { state: "failed", message: String(reply.data.error ?? "Не удалось прочитать дневник записей.") }
       );

@@ -292,6 +292,10 @@ export function spanEnd(start: string, minutes: number, slotMinutes: number): st
  * in @/lib/diary). They count as free for it, and those still ahead of
  * `nowMs` can be starts too, so a collection can move half an hour either way,
  * or keep its start and take longer, without tripping over its own time.
+ *
+ * The diary leaves out a day with no free slot, and a collection that fills
+ * the rest of its day is exactly that — so its own days are put back, or it
+ * could never be shortened or shifted inside its own trip.
  */
 export function spansOffered(
   days: SlotDay[],
@@ -301,7 +305,13 @@ export function spansOffered(
   nowMs?: number
 ): SlotDay[] {
   const own = alsoFree.filter((start) => nowMs === undefined || instantOf(start).getTime() > nowMs);
-  return days
+  const byDate = new Map(days.map((day) => [day.date, day]));
+  for (const start of own) {
+    const date = start.split("T")[0];
+    if (!byDate.has(date)) byDate.set(date, { date, label: dayLabel(date), slots: [] });
+  }
+  return [...byDate.values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
     .map((day) => {
       const free = new Set([...day.slots.map((slot) => slot.start), ...alsoFree]);
       const candidates = [

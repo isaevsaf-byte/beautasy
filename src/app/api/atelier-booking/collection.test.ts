@@ -236,12 +236,15 @@ test("the Studio's email is built with the collection, its window and Kristina's
       slotEnd: "2026-10-06T15:00",
       confirmedFor: "Tuesday 6 October, between 2:00pm and 3:00pm",
       replyNote: "Could you have the hooks off?",
+      movedFrom: "Monday 5 October, between 10:00am and 11:00am",
       collection: { district: "SO17", zone: "Southampton", terms: "Free" },
       emailSealed: "v1.secret",
     },
     30
   );
   assert.equal(booking.collection?.district, "SO17", "a collection would be written up as a visit");
+  assert.equal(booking.movedFrom, "Monday 5 October, between 10:00am and 11:00am", "the customer is never told the old time is void");
+  assert.equal(bookingEmailSubject(booking, "confirmed"), "Your Beautasy collection has moved 💜");
   assert.equal(booking.slotEnd, "2026-10-06T15:00");
   assert.equal(booking.replyNote, "Could you have the hooks off?", "Kristina's note was dropped on the way");
   assert.equal(booking.status, "confirmed");
@@ -259,6 +262,11 @@ test("a moved collection says it moved, and from when", () => {
   };
   const html = bookingEmailHtml(moved, "confirmed");
   assert.match(html, /Your collection has moved/);
+  assert.match(
+    html,
+    /we'll now collect your curtain alterations on <strong>Thursday 8 October, between 10:00am and 11:00am<\/strong>/,
+    "the new time is not the one they are told to be in for"
+  );
   assert.match(html, /\(it was Tuesday 6 October, between 2:00pm and 3:00pm\)/);
   assert.match(html, /If the old time is in your calendar, you can delete it/);
   assert.equal(bookingEmailSubject(moved, "confirmed"), "Your Beautasy collection has moved 💜");
@@ -266,6 +274,7 @@ test("a moved collection says it moved, and from when", () => {
 
 test("a cancelled collection is not told to choose a time it cannot choose", () => {
   const html = bookingEmailHtml({ ...collected, status: "cancelled" }, "cancelled");
+  assert.match(html, /your collection on <strong>Tuesday 6 October, 6–8pm<\/strong> is cancelled/, "which collection was cancelled?");
   assert.match(html, /ask for a new collection and Kristina will email you a time/);
   assert.match(html, /Ask for a collection/);
   assert.doesNotMatch(html, /choosing a new time takes a minute/);
@@ -302,6 +311,15 @@ test("what they typed is quoted, escaped, in their acknowledgement", () => {
   assert.match(html, /You told us: &ldquo;&lt;a href=/);
   const silent = collectionReceivedHtml("Curtains", { request: { district: "SO17", zone: "Southampton", terms: "Free" } });
   assert.doesNotMatch(silent, /You told us/);
+
+  // The service and the terms reach the route as posted, and the route only
+  // checks that the service is some text
+  const posted = collectionReceivedHtml('<a href="https://x">Curtains</a>', {
+    request: { district: "SO17", zone: "Southampton", terms: "<b>free</b>" },
+  });
+  assert.doesNotMatch(posted, /<a href|<b>free/, "HTML posted by anyone went out from orders@");
+  assert.match(posted, /collect your <strong>&lt;a href=/);
+  assert.match(posted, /Collection &amp; return: <strong>&lt;b&gt;free&lt;\/b&gt;<\/strong>/);
 });
 
 test("Kristina's request email carries the collection, with when they're in", () => {

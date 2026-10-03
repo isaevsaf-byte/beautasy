@@ -6,11 +6,12 @@ import { fromThisSite } from "@/lib/sameOrigin";
 import { secretsConfigured } from "@/lib/secrets";
 import { emailFingerprint, firstNameOf, maskEmail, open, sealOptional } from "@/lib/pii";
 import { getAvailableSlots } from "@/lib/schedule";
-import { slotDocumentId, slotIsOffered, slotLabel } from "@/lib/slots";
-import { planCollection } from "@/lib/collectionTime";
+import { DEFAULT_SCHEDULE, slotDocumentId, slotIsOffered, slotLabel } from "@/lib/slots";
+import { carryOut, planCollection, planOutside } from "@/lib/collectionTime";
 import {
   canMove,
   claimSlot,
+  heldBy,
   moveBooking,
   movedCopy,
   releasesItsTime,
@@ -37,6 +38,7 @@ export const dynamic = "force-dynamic";
  *   { token, action: "book", slot, name, ... }         → a booking agreed elsewhere
  *   { token, action: "move", id, slot }                → a booking given a (new) time
  *   { token, action: "collect", id, slot, minutes }    → a collection given the time Kristina drives out
+ *   { token, action: "collectOutside", id, told }      → a collection given a time outside the diary's hours
  *
  * Why it exists: the diary only knew about bookings made on the site. A time
  * agreed on WhatsApp or Nextdoor stayed on offer online, and moving a booking
@@ -70,6 +72,22 @@ const KRISTINA_EMAIL = "hello@beautasy.co.uk";
  */
 function answer(status: number, error: string, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ error, ...extra }, { status });
+}
+
+/** What Kristina is told when a collection's time did not go through — nothing when it did. */
+function collectionNotGiven(moved: Move): NextResponse | null {
+  if (moved === "taken") return answer(409, "Это время только что заняли — выберите другое.", { slotTaken: true });
+  if (moved === "changed") {
+    return answer(409, "Пока вы назначали забор, заявку изменили. Откройте её заново и попробуйте ещё раз.");
+  }
+  if (moved === "failed") return answer(500, "Не удалось сохранить, поэтому ничего не изменилось. Попробуйте через минуту.");
+  if (moved === "unsure") {
+    return answer(
+      500,
+      "Дневник записей перестал отвечать на полпути. Загляните в «Записи в ателье»: заявка может стоять на старом времени, на новом или на обоих. Оставьте нужную, остальные удалите и сообщите клиенту время сами."
+    );
+  }
+  return null;
 }
 
 /** A trimmed string, cut to length, or nothing. */
@@ -136,6 +154,45 @@ export async function POST(req: NextRequest) {
     return answer(503, "Сейчас в дневник записей ничего нельзя записать — на сайте не хватает ключей.");
   }
 
+  const now = new Date().toISOString();
+  const store = sanityDiaryStore(sanityWriteClient);
+
+  // Outside the diary's hours a collection holds nothing in it, so this one
+  // neither reads the diary nor waits for it
+  if (body.action === "collectOutside") {
+    const id = typeof body.id === "string" ? body.id.replace(/^drafts\./, "") : "";
+    if (!id) return answer(400, "Какую заявку на забор назначить?");
+
+    let from: DiaryDoc | null;
+    try {
+      from = await store.read(id);
+    } catch (error) {
+      console.error(`Could not read collection ${id} to give it a time:`, error);
+      return answer(503, "Не удалось прочитать заявку. Попробуйте через минуту.");
+    }
+
+    // A timed one moves to an id of its own and lets go of its slot (see planOutside)
+    const plan = planOutside({ from, told: body.told, now, freshId: `collection-${crypto.randomUUID()}` });
+    if (!plan.ok) return answer(plan.status, plan.error);
+    const request = from as DiaryDoc;
+
+    const { moved, to } = await carryOut(store, { from: request, plan, now });
+    const notGiven = collectionNotGiven(moved);
+    if (notGiven) return notGiven;
+
+    // No slot, so no invite and no length: the slot length is never read
+    const emailed = await tellCustomer(to, DEFAULT_SCHEDULE.slotMinutes);
+    return NextResponse.json({
+      ok: true,
+      id: to._id,
+      label: to.confirmedFor,
+      emailed,
+      hadEmail: typeof request.emailSealed === "string",
+      // The trip it held is free in the diary again
+      freed: heldBy(request, DEFAULT_SCHEDULE.slotMinutes).length > 0,
+    });
+  }
+
   let days: Awaited<ReturnType<typeof getAvailableSlots>>["days"];
   let schedule: Awaited<ReturnType<typeof getAvailableSlots>>["schedule"];
   try {
@@ -155,9 +212,6 @@ export async function POST(req: NextRequest) {
   if (body.action !== "collect" && !slotIsOffered(days, slot)) {
     return answer(409, "Это время уже занято — выберите другое.", { slotTaken: true });
   }
-
-  const now = new Date().toISOString();
-  const store = sanityDiaryStore(sanityWriteClient);
 
   if (body.action === "book") {
     const name = text(body.name, 80);
@@ -289,31 +343,17 @@ export async function POST(req: NextRequest) {
     // planCollection has looked: there is a request to change
     const request = from as DiaryDoc;
 
-    const { end } = plan;
-    const to = plan.inPlace ? reheldDoc(request, slot, now, end) : plan.to;
-    const moved: Move = plan.inPlace
-      ? await reholdBooking(store, { from: request, slot, now, end })
-      : await moveBooking(store, { from: request, to, now });
-    if (moved === "taken") {
-      return answer(409, "Это время только что заняли — выберите другое.", { slotTaken: true });
-    }
-    if (moved === "changed") {
-      return answer(409, "Пока вы назначали забор, заявку изменили. Откройте её заново и попробуйте ещё раз.");
-    }
-    if (moved === "failed") return answer(500, "Не удалось сохранить, поэтому ничего не изменилось. Попробуйте через минуту.");
-    if (moved === "unsure") {
-      return answer(
-        500,
-        "Дневник записей перестал отвечать на полпути. Загляните в «Записи в ателье»: заявка может стоять на старом времени, на новом или на обоих. Оставьте нужную, остальные удалите и сообщите клиенту время сами."
-      );
-    }
+    // The booking as the plan wrote it is the one stored and the one emailed (see carryOut)
+    const { moved, to } = await carryOut(store, { from: request, plan, now });
+    const notGiven = collectionNotGiven(moved);
+    if (notGiven) return notGiven;
 
     const emailed = await tellCustomer(to, schedule.slotMinutes);
     return NextResponse.json({
       ok: true,
       id: to._id,
       slot,
-      end,
+      end: plan.end,
       label: to.confirmedFor,
       emailed,
       hadEmail: typeof request.emailSealed === "string",

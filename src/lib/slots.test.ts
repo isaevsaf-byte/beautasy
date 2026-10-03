@@ -273,3 +273,58 @@ test("a day with no room for the trip is not shown at all", () => {
   ];
   assert.deepEqual(spansOffered(gappy, 60, 30), []);
 });
+
+const twoDays = (times: string[]): SlotDay[] =>
+  ["2026-10-06", "2026-10-07"].map((date) => ({
+    date,
+    label: dayLabel(date),
+    slots: times.map((t) => ({ start: `${date}T${t}`, label: timeLabel(t) })),
+  }));
+
+test("a collection's own slots are starts on their own day only", () => {
+  const offered = spansOffered(twoDays(["09:00", "09:30"]), 30, 30, ["2026-10-06T10:00"]);
+  for (const day of offered) {
+    for (const slot of day.slots) {
+      assert.ok(slot.start.startsWith(`${day.date}T`), `${slot.start} is offered under ${day.date}: the chip says 10:00 and books another day`);
+    }
+  }
+  const wednesday = offered.find((day) => day.date === "2026-10-07");
+  assert.deepEqual(wednesday?.slots.map((slot) => slot.start), ["2026-10-07T09:00", "2026-10-07T09:30"]);
+});
+
+test("a collection's own slots take their place among the free ones, in order", () => {
+  const starts = spansOffered(TUESDAY, 30, 30, ["2026-10-06T10:00"]).flatMap((day) => day.slots.map((slot) => slot.start));
+  assert.deepEqual(starts, [
+    "2026-10-06T09:00",
+    "2026-10-06T09:30",
+    "2026-10-06T10:00",
+    "2026-10-06T10:30",
+    "2026-10-06T11:00",
+    "2026-10-06T11:30",
+    "2026-10-06T13:00",
+    "2026-10-06T14:00",
+    "2026-10-06T14:30",
+  ]);
+});
+
+test("a day the diary left out because the collection fills it comes back for that collection", () => {
+  // Wednesday is free; Tuesday has no free slot left, so the diary dropped it
+  const wednesday: SlotDay[] = [twoDays(["09:00", "09:30"])[1]];
+  const own = ["2026-10-06T14:00", "2026-10-06T14:30"];
+
+  const half = spansOffered(wednesday, 30, 30, own);
+  assert.deepEqual(
+    half.map((day) => day.date),
+    ["2026-10-06", "2026-10-07"],
+    "the days are out of order, or the collection's own day is missing"
+  );
+  assert.equal(half[0].label, "Tuesday 6 October");
+  assert.deepEqual(half[0].slots.map((slot) => slot.start), own);
+  assert.deepEqual(half[0].slots.map((slot) => slot.label), ["2:00pm", "2:30pm"]);
+  // The whole hour from 2pm is its own; from 2:30 it runs into somebody's 3pm
+  assert.deepEqual(spansOffered(wednesday, 60, 30, own)[0].slots.map((slot) => slot.start), ["2026-10-06T14:00"]);
+
+  // Once its slots have passed, there is nothing to bring the day back for
+  const afterwards = Date.parse("2026-10-06T14:00:00Z"); // 3pm in Southampton
+  assert.deepEqual(spansOffered(wednesday, 30, 30, own, afterwards).map((day) => day.date), ["2026-10-07"]);
+});

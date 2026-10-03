@@ -1,4 +1,4 @@
-import { defineField, defineType } from "sanity";
+import { defineField, defineType, type ValidationContext } from "sanity";
 
 // The Studio's words for each status. The values are what is stored, and what
 // the site and the emails read, so only the titles are ever translated. The
@@ -11,6 +11,37 @@ const STATUS_OPTIONS = [
   { title: "Выполнена — клиент получит благодарность и просьбу об отзыве", value: "completed" },
 ];
 
+/**
+ * Whether a booking may be published as "new" or "confirmed" — the statuses
+ * that hold a time. One whose time is already given back (declined or
+ * cancelled, as published) may not: a collection holds a whole trip, so its
+ * time may have gone without anyone taking its id, and flipping the status
+ * would put two people on one time and email this one a time somebody else
+ * holds. «Записать снова» asks the diary first. «Выполнена» holds nothing
+ * ahead, and is what sends the thank-you and settles the friend's and the
+ * salon's reward, so it is always allowed.
+ *
+ * The published version is asked, not the draft: the draft already carries
+ * the new status.
+ */
+export async function statusTakesTimeBack(value: unknown, context: ValidationContext): Promise<string | true> {
+  if (value !== "new" && value !== "confirmed") return true;
+  const doc = context.document as { _id?: string; slotStart?: unknown } | undefined;
+  if (!doc?._id || !doc.slotStart) return true;
+  let published: { status?: string } | null | undefined;
+  try {
+    published = await context
+      .getClient({ apiVersion: "2026-02-13" })
+      .getDocument<{ _id: string; status?: string }>(doc._id.replace(/^drafts\./, ""));
+  } catch {
+    // Only this one flip waits on the answer; every other status publishes as usual
+    return "Не удалось проверить, свободно ли ещё время этой записи. Проверьте интернет и попробуйте ещё раз.";
+  }
+  return published && ["declined", "cancelled"].includes(String(published.status))
+    ? "Время уже освобождено — его мог занять другой клиент. Чтобы вернуть запись, нажмите «Записать снова» (или «🚗 Назначить забор снова»)."
+    : true;
+}
+
 /** A status as the list preview names it. A value with no title shows as itself, never blank. */
 function statusWord(value: string): string {
   const title = STATUS_OPTIONS.find((option) => option.value === value)?.title;
@@ -22,7 +53,7 @@ export const atelierBooking = defineType({
   title: "Запись в ателье",
   type: "document",
   description:
-    "Заявка на подгонку, ремонт или примерку. Смените статус, чтобы подтвердить её или отказать, — клиенту автоматически придёт письмо. Чтобы назначить время, перенести запись или записать клиента снова, нажмите «Назначить время», «Перенести на другое время» или «Записать снова» в меню внизу. Заявке на забор (🚗) время назначает кнопка «🚗 Назначить забор»: она закрывает в дневнике время поездки. Вписывать время руками в «Подтверждено на» стоит, только если кнопкой нельзя — забор вне часов дневника или онлайн-запись выключена. Контакты хранятся в зашифрованном виде — чтобы их прочитать, нажмите «Показать контакты».",
+    "Заявка на подгонку, ремонт или примерку. Смените статус, чтобы подтвердить её или отказать, — клиенту автоматически придёт письмо. Чтобы назначить время, перенести запись или записать клиента снова, нажмите «Назначить время», «Перенести на другое время» или «Записать снова» в меню внизу. Заявке на забор (🚗) время назначает кнопка «🚗 Назначить забор»: она закрывает в дневнике время поездки, а время вне часов дневника вписывается там же, в «Время вне часов дневника». Вписывать время руками в «Подтверждено на» стоит, только если онлайн-запись выключена и это примерка. Контакты хранятся в зашифрованном виде — чтобы их прочитать, нажмите «Показать контакты».",
   fields: [
     defineField({
       name: "displayName",
@@ -142,7 +173,7 @@ export const atelierBooking = defineType({
       readOnly: true,
       hidden: ({ document }) => !document?.collection,
       description:
-        "Клиент попросил забрать вещь и привезти обратно. Сайт хранит только район, полный индекс и когда клиенту удобно — в письме вам (и в заметках, кнопка «Показать контакты»). Время назначьте кнопкой «🚗 Назначить забор» в меню внизу: выберите день, время и сколько займёт поездка — это время закроется в дневнике, а клиенту уйдёт письмо «Your collection is arranged» с окном и приглашением в календарь. Адрес спросите в переписке. Цена — по условиям ниже, их видел клиент.",
+        "Клиент попросил забрать вещь и привезти обратно. Сайт хранит только район, полный индекс и когда клиенту удобно — в письме вам (и в заметках, кнопка «Показать контакты»). Время назначьте кнопкой «🚗 Назначить забор» в меню внизу: выберите день, время и сколько займёт поездка — это время закроется в дневнике, а клиенту уйдёт письмо «Your collection is arranged» с окном и приглашением в календарь. Время вне часов дневника впишите в том же окне, в «Время вне часов дневника». Адрес спросите в переписке. Цена — по условиям ниже, их видел клиент.",
       fields: [
         defineField({ name: "district", title: "Район (индекс)", type: "string" }),
         defineField({ name: "zone", title: "Зона", type: "string" }),
@@ -169,17 +200,14 @@ export const atelierBooking = defineType({
       name: "status",
       title: "Статус",
       type: "string",
-      // Confirming it again would put two people on one time, and email this
-      // one a time somebody else now holds. "Book again" takes a free one.
-      // The same goes for any booking with a time that gave it back: since a
-      // collection holds a whole trip, the time may be gone without anyone
-      // taking this booking's id, so only the button, which asks the diary,
-      // may give it back.
-      readOnly: ({ document }) =>
-        Boolean(document?.releasedAt) ||
-        (Boolean(document?.slotStart) && ["declined", "cancelled"].includes(String(document?.status))),
+      // Its time went to another customer: confirming it again would put two
+      // people on one time. "Book again" takes a free one.
+      readOnly: ({ document }) => Boolean(document?.releasedAt),
+      // Any other booking that gave its time back may still be finished, but
+      // not take its time back by its status — see statusTakesTimeBack
+      validation: (rule) => rule.custom(statusTakesTimeBack),
       description:
-        "Отменённую запись со временем вернуть можно только кнопкой «Записать снова» (у забора — «🚗 Назначить забор снова»): она проверит, что время всё ещё свободно. Если статус поменяли по ошибке и ещё не опубликовали, нажмите «Отменить изменения».",
+        "Отменённую запись со временем вернуть в «Новая» или «Подтверждена» можно только кнопкой «Записать снова» (у забора — «🚗 Назначить забор снова»): она проверит, что время всё ещё свободно. «Выполнена» поставить можно — например, если клиент отменил, а потом всё-таки пришёл. Если статус поменяли по ошибке и ещё не опубликовали, нажмите «Отменить изменения».",
       options: {
         list: STATUS_OPTIONS,
         layout: "radio",
@@ -195,7 +223,7 @@ export const atelierBooking = defineType({
       // moved with the action, which holds the new time first.
       readOnly: ({ document }) => Boolean(document?.slotStart),
       description:
-        "Только для заявки, своими словами — например, «Tuesday 3 March, 2pm». Это попадёт в письмо клиенту, поэтому пишите по-английски. Лучше нажмите «Назначить время» в меню внизу (у забора — «🚗 Назначить забор»): кнопка закрепит время в дневнике записей и отправит подтверждение с приглашением в календарь. В подтверждении примерки также сказано, что вы пришлёте адрес и объясните, как найти дверь, — так что после подтверждения пришлите их. Вписывать время сюда вручную стоит, только когда кнопкой нельзя: забор вне часов дневника — например, «Monday 5 October, 7:30pm» — или онлайн-запись выключена. В дневнике такое время не закроется.",
+        "Только для заявки, своими словами — например, «Tuesday 3 March, 2pm». Это попадёт в письмо клиенту, поэтому пишите по-английски. Лучше нажмите «Назначить время» в меню внизу (у забора — «🚗 Назначить забор»): кнопка закрепит время в дневнике записей и отправит подтверждение с приглашением в календарь. В подтверждении примерки также сказано, что вы пришлёте адрес и объясните, как найти дверь, — так что после подтверждения пришлите их. Вписывать время сюда вручную стоит, только когда кнопкой нельзя — онлайн-запись выключена. Забор вне часов дневника — например, «Monday 5 October, 7:30pm» — назначьте кнопкой «🚗 Назначить забор», в «Время вне часов дневника»: она сама напишет клиенту и освободит в дневнике прежнее время забора. Вписанное здесь время в дневнике не закроется.",
     }),
     defineField({
       name: "replyNote",

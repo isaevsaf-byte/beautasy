@@ -15,7 +15,9 @@ import {
   type DiaryWrite,
 } from "./diary";
 import { TAKEN_QUERY, heldStarts } from "./schedule";
-import { PENDING_QUERY } from "./bookingEmails";
+import { PENDING_QUERY, bookingEmailHtml, bookingEmailSubject, bookingInvite, notifiableFromDiary } from "./bookingEmails";
+import { carryOut, planCollection, planOutside } from "./collectionTime";
+import { timeLabel, type SlotDay } from "./slots";
 
 /**
  * The diary is exercised against a store that behaves the way Sanity was
@@ -727,4 +729,290 @@ test("a booking holds its slots only while it holds its time", () => {
   assert.deepEqual(heldBy({ slotStart: "2026-10-06T14:00", status: "new" }, 30), ["2026-10-06T14:00"]);
   assert.deepEqual(heldBy({ slotStart: "2026-10-06T14:00", slotEnd: "2026-10-06T15:00", status: "cancelled" }, 30), []);
   assert.deepEqual(heldBy({ status: "confirmed" }, 30), []);
+});
+
+test("a lost answer while booking again in place, with somebody else's booking now at the id, is 'taken', never 'moved'", async () => {
+  const store = new MemoryStore();
+  store.seed(
+    booking("2026-10-06T14:00", {
+      status: "cancelled",
+      notifiedStatus: "cancelled",
+      confirmedFor: "Tuesday 6 October at 2:00pm",
+      createdAt: "2026-10-01T09:00:00.000Z",
+      nameSealed: "v1.anna",
+    })
+  );
+  const from = (await store.read("slot-2026-10-06-1400"))!;
+  // Bea books 2pm on the site in that very window: claimSlot moves Anna aside
+  // and puts Bea at the id, with the same status and the same words. Sanity
+  // refuses Kristina's guarded change, and the answer is lost on the way back.
+  store.beforeWrite = (n) => {
+    if (n === 1) {
+      store.seed(
+        booking("2026-10-06T14:00", {
+          displayName: "Bea",
+          notifiedStatus: "confirmed",
+          confirmedFor: "Tuesday 6 October at 2:00pm",
+          createdAt: "2026-10-03T11:59:59.000Z",
+          nameSealed: "v1.bea",
+        })
+      );
+      throw lostAnswer();
+    }
+  };
+  assert.equal(
+    await reholdBooking(store, { from, slot: "2026-10-06T14:00", now: NOW }),
+    "taken",
+    "Anna would be emailed 'you're booked in' for a time Bea holds"
+  );
+  assert.equal(store.docs.get("slot-2026-10-06-1400")?.displayName, "Bea");
+});
+
+test("a lost answer on a booking with nothing to tell it by is never read as its own change landing", async () => {
+  const store = new MemoryStore();
+  store.seed(booking("2026-10-06T14:00", { status: "cancelled", confirmedFor: "Tuesday 6 October at 2:00pm" }));
+  const from = (await store.read("slot-2026-10-06-1400"))!;
+  store.beforeWrite = (n) => {
+    if (n === 1) {
+      // Born on the site the way every picked time is: confirmed, and marked as told
+      store.seed(
+        booking("2026-10-06T14:00", { displayName: "Bea", confirmedFor: "Tuesday 6 October at 2:00pm", notifiedStatus: "confirmed" })
+      );
+      throw lostAnswer();
+    }
+  };
+  // Every field Kristina's change sets is on Bea's booking too, but one: the
+  // request's own kristinaNotifiedAt. Without it, nothing is promised.
+  assert.notEqual(await reholdBooking(store, { from, slot: "2026-10-06T14:00", now: NOW }), "moved");
+});
+
+test("booking again in place drops an open draft, which would publish the old status back over it", async () => {
+  const store = new MemoryStore();
+  store.seed(booking("2026-10-06T14:00", { status: "cancelled", slotEnd: "2026-10-06T15:00", collection: COLLECTION }));
+  store.seed({ _id: "drafts.slot-2026-10-06-1400", _type: "atelierBooking", status: "cancelled", slotEnd: "2026-10-06T15:00" });
+  const from = (await store.read("slot-2026-10-06-1400"))!;
+  assert.equal(await reholdBooking(store, { from, slot: "2026-10-06T14:00", now: NOW, end: "2026-10-06T15:00" }), "moved");
+  assert.equal(store.docs.has("drafts.slot-2026-10-06-1400"), false, "publishing the draft would cancel it again after the email");
+});
+
+test("booked again at the very time the customer still thinks they have, nothing is said to have moved", () => {
+  // Cancelled by mistake, and the cancellation not emailed yet
+  const from = booking("2026-10-06T14:00", {
+    status: "cancelled",
+    notifiedStatus: "confirmed",
+    slotEnd: "2026-10-06T15:00",
+    collection: COLLECTION,
+  });
+  const { mark, unset } = reheldMark(from, "2026-10-06T14:00", NOW, "2026-10-06T15:00");
+  assert.equal(mark.movedFrom, undefined, "'your collection has moved … (it was <the same time>)'");
+  assert.ok(unset.includes("movedFrom"));
+});
+
+test("a booking held again is no longer a record of a time somebody else took", async () => {
+  const from = booking("2026-10-06T14:00", { status: "cancelled", releasedAt: NOW });
+  assert.ok(reheldMark(from, "2026-10-06T14:00", NOW).unset.includes("releasedAt"));
+
+  const store = new MemoryStore();
+  store.seed(from);
+  const read = (await store.read("slot-2026-10-06-1400"))!;
+  assert.equal(await reholdBooking(store, { from: read, slot: "2026-10-06T14:00", now: NOW }), "moved");
+  assert.equal(store.docs.get("slot-2026-10-06-1400")?.releasedAt, undefined, "its status would stay locked");
+});
+
+/* ─── A collection's time, carried out as the Studio's route does ─── */
+
+function tuesday(free: string[]): SlotDay[] {
+  return [
+    {
+      date: "2026-10-06",
+      label: "Tuesday 6 October",
+      slots: free.map((t) => ({ start: `2026-10-06T${t}`, label: timeLabel(t) })),
+    },
+  ];
+}
+
+const CREATED = { createdAt: "2026-09-20T09:00:00.000Z" };
+
+test("a collection taking longer from its own start is stored, and emailed, with the whole new trip", async () => {
+  const store = new MemoryStore();
+  store.seed(
+    booking("2026-10-06T14:00", {
+      ...SEALED,
+      ...CREATED,
+      notifiedStatus: "confirmed",
+      slotEnd: "2026-10-06T15:00",
+      confirmedFor: "Tuesday 6 October, between 2:00pm and 3:00pm",
+      collection: COLLECTION,
+    })
+  );
+  const from = (await store.read("slot-2026-10-06-1400"))!;
+  const plan = planCollection({
+    from,
+    slot: "2026-10-06T14:00",
+    minutes: 90,
+    // 2pm and 2:30 are its own, so the diary does not offer them
+    days: tuesday(["13:00", "15:00", "16:00"]),
+    slotMinutes: 30,
+    now: NOW,
+    nowMs: Date.parse(NOW),
+  });
+  assert.ok(plan.ok && plan.inPlace, "a longer trip from the same start was refused");
+  if (!plan.ok) return;
+
+  const { moved, to } = await carryOut(store, { from, plan, now: NOW });
+  assert.equal(moved, "moved");
+  const stored = store.docs.get("slot-2026-10-06-1400")!;
+  assert.equal(stored.slotEnd, "2026-10-06T15:30", "the diary holds only the old trip, and a fitting can be booked into the rest");
+  assert.equal(stored.confirmedFor, "Tuesday 6 October, between 2:00pm and 3:30pm");
+  assert.equal(stored.movedFrom, "Tuesday 6 October, between 2:00pm and 3:00pm");
+  // What the customer is emailed is what the diary holds
+  assert.equal(to.slotEnd, stored.slotEnd);
+  assert.equal(to.confirmedFor, stored.confirmedFor);
+  assert.ok(bookingInvite(notifiableFromDiary(to, 30)), "the email lost the window's calendar invite");
+});
+
+test("a collection moved to a new start holds the new trip under the new start's id, and lets go of the old", async () => {
+  const store = new MemoryStore();
+  store.seed(
+    booking("2026-10-06T14:00", {
+      ...SEALED,
+      ...CREATED,
+      notifiedStatus: "confirmed",
+      slotEnd: "2026-10-06T15:00",
+      confirmedFor: "Tuesday 6 October, between 2:00pm and 3:00pm",
+      collection: COLLECTION,
+    })
+  );
+  const from = (await store.read("slot-2026-10-06-1400"))!;
+  const plan = planCollection({
+    from,
+    slot: "2026-10-06T15:00",
+    minutes: 60,
+    days: tuesday(["13:00", "15:00", "15:30", "16:00"]),
+    slotMinutes: 30,
+    now: NOW,
+    nowMs: Date.parse(NOW),
+  });
+  assert.ok(plan.ok && !plan.inPlace);
+  if (!plan.ok) return;
+
+  const { moved, to } = await carryOut(store, { from, plan, now: NOW });
+  assert.equal(moved, "moved");
+  assert.equal(store.docs.has("slot-2026-10-06-1400"), false, "the old trip is still held");
+  const stored = store.docs.get("slot-2026-10-06-1500")!;
+  assert.equal(stored.slotEnd, "2026-10-06T16:00");
+  assert.equal(stored.confirmedFor, "Tuesday 6 October, between 3:00pm and 4:00pm");
+  assert.equal(to._id, stored._id);
+  assert.ok(bookingInvite(notifiableFromDiary(to, 30)));
+});
+
+/* ─── A collection outside the diary's hours ─── */
+
+const SEVEN_THIRTY = "Tuesday 6 October, 7:30pm";
+
+test("a request given an out-of-hours time is changed where it is, and holds nothing in the diary", async () => {
+  const store = new MemoryStore();
+  store.seed({
+    _id: "req-anna",
+    _type: "atelierBooking",
+    status: "new",
+    service: "Curtains",
+    displayName: "Anna",
+    collection: COLLECTION,
+    replyNote: "Could you have the hooks off?",
+    ...SEALED,
+    ...CREATED,
+  });
+  store.seed({ _id: "drafts.req-anna", _type: "atelierBooking", status: "new" });
+  const from = (await store.read("req-anna"))!;
+
+  const plan = planOutside({ from, told: SEVEN_THIRTY, now: NOW, freshId: "collection-fresh" });
+  assert.ok(plan.ok && plan.inPlace);
+  if (!plan.ok) return;
+  const { moved, to } = await carryOut(store, { from, plan, now: NOW });
+  assert.equal(moved, "moved");
+
+  const stored = store.docs.get("req-anna")!;
+  assert.equal(stored.status, "confirmed");
+  assert.equal(stored.notifiedStatus, "confirmed", "the claim on the email is not taken, so the morning job sends it twice");
+  assert.equal(stored.confirmedFor, SEVEN_THIRTY);
+  assert.equal(stored.kristinaNotifiedAt, NOW);
+  assert.equal(stored.slotStart, undefined);
+  assert.equal(stored.movedFrom, undefined, "a first time is not a move");
+  assert.equal(stored.replyNote, "Could you have the hooks off?", "a note waiting for the first reply goes with it");
+  assert.equal(store.docs.has("collection-fresh"), false, "a request with no time has nothing to move off");
+  assert.equal(store.docs.has("drafts.req-anna"), false);
+
+  const email = notifiableFromDiary(to, 30);
+  assert.equal(bookingInvite(email), null, "an invite for a time the diary does not know");
+  assert.match(bookingEmailHtml(email, "confirmed"), /we'll collect your curtains on <strong>Tuesday 6 October, 7:30pm<\/strong>/);
+  assert.match(bookingEmailHtml(email, "confirmed"), /Could you have the hooks off\?/);
+});
+
+test("a timed collection given an out-of-hours time lets go of its slot, so its trip is free for customers again", async () => {
+  const store = new MemoryStore();
+  store.seed(
+    booking("2026-10-06T14:00", {
+      ...SEALED,
+      ...CREATED,
+      notifiedStatus: "confirmed",
+      slotEnd: "2026-10-06T15:00",
+      confirmedFor: "Tuesday 6 October, between 2:00pm and 3:00pm",
+      replyNote: "See you at two!",
+      collection: COLLECTION,
+    })
+  );
+  const from = (await store.read("slot-2026-10-06-1400"))!;
+
+  const plan = planOutside({ from, told: SEVEN_THIRTY, now: NOW, freshId: "collection-fresh" });
+  assert.ok(plan.ok && !plan.inPlace);
+  if (!plan.ok) return;
+  const { moved, to } = await carryOut(store, { from, plan, now: NOW });
+  assert.equal(moved, "moved");
+
+  assert.equal(store.docs.has("slot-2026-10-06-1400"), false, "the slot's id still holds a booking with no time");
+  const stored = store.docs.get("collection-fresh")!;
+  assert.equal(stored.slotStart, undefined);
+  assert.equal(stored.slotEnd, undefined, "a span with no start");
+  assert.equal(stored.confirmedFor, SEVEN_THIRTY);
+  assert.equal(stored.status, "confirmed");
+  assert.equal(stored.movedFrom, "Tuesday 6 October, between 2:00pm and 3:00pm");
+  assert.equal(stored.replyNote, undefined, "a note about the old time does not travel");
+  assert.equal(stored.nameSealed, SEALED.nameSealed);
+  assert.deepEqual(stored.collection, COLLECTION);
+
+  // The diary holds nothing of the trip any more, and a customer can take 2pm
+  const taken = await (await evaluate(parse(TAKEN_QUERY), { dataset: [...store.docs.values()] })).get();
+  assert.deepEqual(heldStarts(taken, 30), []);
+  assert.equal(await claimSlot(store, booking("2026-10-06T14:00", { displayName: "Olga" }), NOW), "claimed");
+
+  const email = notifiableFromDiary(to, 30);
+  assert.equal(bookingInvite(email), null);
+  assert.equal(bookingEmailSubject(email, "confirmed"), "Your Beautasy collection has moved 💜");
+  assert.match(
+    bookingEmailHtml(email, "confirmed"),
+    /we'll now collect your alterations on <strong>Tuesday 6 October, 7:30pm<\/strong> \(it was Tuesday 6 October, between 2:00pm and 3:00pm\)/
+  );
+});
+
+test("an out-of-hours time whose answer was lost is looked at before anything is said", async () => {
+  const landed = new MemoryStore();
+  landed.seed({ _id: "req-anna", _type: "atelierBooking", status: "new", collection: COLLECTION, ...CREATED });
+  const from = (await landed.read("req-anna"))!;
+  landed.afterWrite = () => {
+    throw lostAnswer();
+  };
+  const plan = planOutside({ from, told: SEVEN_THIRTY, now: NOW, freshId: "collection-fresh" });
+  assert.ok(plan.ok);
+  if (!plan.ok) return;
+  assert.equal((await carryOut(landed, { from, plan, now: NOW })).moved, "moved");
+
+  const lost = new MemoryStore();
+  lost.seed({ _id: "req-anna", _type: "atelierBooking", status: "new", collection: COLLECTION, ...CREATED });
+  const before = (await lost.read("req-anna"))!;
+  lost.beforeWrite = () => {
+    throw lostAnswer();
+  };
+  assert.equal((await carryOut(lost, { from: before, plan, now: NOW })).moved, "failed");
+  assert.equal(lost.docs.get("req-anna")?.status, "new");
 });

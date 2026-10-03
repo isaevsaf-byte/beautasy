@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { DocumentActionComponent, DocumentActionProps } from "sanity";
 import { useRouter } from "sanity/router";
 import { canMove, heldBy, releasesItsTime } from "@/lib/diary";
 import { COLLECTION_TRIP_MINUTES, DEFAULT_TRIP_MINUTES } from "@/lib/collection";
-import { spanEnd, spansOffered, type SlotDay } from "@/lib/slots";
+import { OUTSIDE_MAX, outsideWords } from "@/lib/collectionTime";
+import { instantOf, spanEnd, spansOffered, type SlotDay } from "@/lib/slots";
 import { askDiary, useDiaryToken, useFreeTimes } from "./diaryClient";
 import {
   SlotPicker,
@@ -24,6 +25,10 @@ import {
  * stretch from the diary, so nobody books a fitting while she is away, and
  * emails the customer the window with a calendar invite. The customer only
  * said when they are usually in (it is in her email and in the notes).
+ *
+ * A time outside the hours for fittings — "I work till 7" — is typed in below
+ * the picker («Время вне часов дневника»): it is emailed as written, holds
+ * nothing in the diary, and frees whatever trip the collection held.
  *
  * Disabled while the request has unpublished changes, as the other diary
  * buttons are: the time is given to the published request.
@@ -56,6 +61,45 @@ export function stillFits(days: SlotDay[], slot: string | null): string | null {
   return slot && days.some((day) => day.slots.some((s) => s.start === slot)) ? slot : null;
 }
 
+/**
+ * The starts the picker offers for a trip of `minutes`, as of `nowMs`: every
+ * slot of the trip free, the collection's own slots counting as its own, and
+ * nothing that has already begun. The free times were read when the dialog
+ * asked for them, and a time can pass while it stands open.
+ */
+export function pickerDays(
+  times: SlotDay[],
+  minutes: number,
+  slotMinutes: number,
+  own: string[],
+  nowMs: number
+): SlotDay[] {
+  return spansOffered(times, minutes, slotMinutes, own, nowMs)
+    .map((day) => ({ ...day, slots: day.slots.filter((slot) => instantOf(slot.start).getTime() > nowMs) }))
+    .filter((day) => day.slots.length > 0);
+}
+
+/**
+ * The clock, for the button's click. A plain function because the compiler's
+ * purity rule cannot tell a click handler from rendering, and a click is
+ * exactly when the time has to be read again.
+ */
+function clock(): number {
+  return Date.now();
+}
+
+const inputStyle: CSSProperties = {
+  font: "inherit",
+  fontSize: 14,
+  padding: "8px 10px",
+  borderRadius: 6,
+  border: "1px solid rgba(128,128,128,0.4)",
+  background: "transparent",
+  color: "inherit",
+  width: "100%",
+  boxSizing: "border-box",
+};
+
 /** What the dialog says about where the request stands now. */
 function standing(doc: CollectionDoc): string | null {
   if (doc.slotStart && releasesItsTime(doc.status)) {
@@ -66,7 +110,7 @@ function standing(doc: CollectionDoc): string | null {
     return `Сейчас: ${now}. Выберите новое время — старое освободится, как только новое будет закреплено.`;
   }
   if (doc.status === "confirmed" && doc.confirmedFor) {
-    return `Пока договорились так: «${doc.confirmedFor}», но в дневнике это время не закрыто. Выберите его здесь, чтобы закрыть.`;
+    return `Сейчас: «${doc.confirmedFor}» — в дневнике это время не закрыто. Если оно в часах для примерок, выберите его здесь, чтобы закрыть.`;
   }
   return null;
 }
@@ -85,6 +129,17 @@ function doneMessage(data: Record<string, unknown>): string {
   return `✓ Забор назначен: ${when}. Это время в дневнике закрыто — на примерку в ателье никто не запишется.\n\n${told}\n\nАдрес клиента спросите в переписке.`;
 }
 
+/** The same, for a time outside the diary's hours: nothing closed in the diary, perhaps something freed. */
+export function outsideDoneMessage(data: Record<string, unknown>): string {
+  const told = data.emailed
+    ? "Клиенту ушло письмо с этим временем."
+    : data.hadEmail
+    ? "Письмо сейчас не отправилось — сайт отправит его утром."
+    : "В этой заявке нет эл. почты, поэтому сообщите клиенту время сами.";
+  const freed = data.freed ? " Время, которое забор держал раньше, в дневнике освободилось." : "";
+  return `✓ Забор назначен: «${String(data.label ?? "")}». Это время вне часов дневника, поэтому в дневнике оно не закрыто.${freed}\n\n${told}\n\nАдрес клиента спросите в переписке.`;
+}
+
 function CollectDialog({ id, doc, onClose }: { id: string; doc: CollectionDoc; onClose: () => void }) {
   const token = useDiaryToken();
   const router = useRouter();
@@ -94,8 +149,13 @@ function CollectDialog({ id, doc, onClose }: { id: string; doc: CollectionDoc; o
   const [slot, setSlot] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // When the dialog opened: its own slots that have passed are no longer starts
-  const [openedAt] = useState(() => Date.now());
+  const [told, setTold] = useState("");
+  const [outsideError, setOutsideError] = useState<string | null>(null);
+  // The picker's clock: when the diary was last read, or when she last pressed
+  // the button, whichever is later. A time that passes while the dialog stands
+  // open — most often the collection's own start — is then no longer offered.
+  const [triedAt, setTriedAt] = useState(0);
+  const nowMs = Math.max(times.state === "ready" ? times.readAt : 0, triedAt);
 
   // The request is replaced by its timed copy, and the Studio takes the
   // dialog down with the old one — often before the answer arrives
@@ -115,15 +175,22 @@ function CollectDialog({ id, doc, onClose }: { id: string; doc: CollectionDoc; o
     [doc.slotStart, doc.slotEnd, doc.status, slotMinutes]
   );
   const days = useMemo(
-    () => (times.state === "ready" ? spansOffered(times.days, minutes, slotMinutes, own, openedAt) : []),
-    [times, minutes, slotMinutes, own, openedAt]
+    () => (times.state === "ready" ? pickerDays(times.days, minutes, slotMinutes, own, nowMs) : []),
+    [times, minutes, slotMinutes, own, nowMs]
   );
 
   // A longer trip may no longer fit after the chosen start: then nothing is chosen
   const chosen = stillFits(days, slot);
 
   async function collect() {
-    if (!chosen || busy) return;
+    if (!chosen || busy || times.state !== "ready") return;
+    const at = clock();
+    setTriedAt(at);
+    if (!stillFits(pickerDays(times.days, minutes, slotMinutes, own, at), chosen)) {
+      setSlot(null);
+      setError("Это время уже прошло — выберите другое.");
+      return;
+    }
     setBusy(true);
     setError(null);
     const reply = await askDiary(token, { action: "collect", id, slot: chosen, minutes });
@@ -146,6 +213,33 @@ function CollectDialog({ id, doc, onClose }: { id: string; doc: CollectionDoc; o
       setSlot(null);
       setAttempt((n) => n + 1);
     }
+  }
+
+  const outside = outsideWords(told);
+  // Said only once she has typed something: an empty field is not a mistake
+  const outsideProblem = told.trim() && !outside.ok ? outside.error : null;
+  const holdsTrip = own.length > 0;
+
+  async function collectOutside() {
+    if (!outside.ok || busy) return;
+    setBusy(true);
+    setOutsideError(null);
+    const reply = await askDiary(token, { action: "collectOutside", id, told: outside.told });
+
+    if (reply.ok) {
+      onClose();
+      router.navigateIntent("edit", { id: String(reply.data.id), type: "atelierBooking" });
+      window.alert(outsideDoneMessage(reply.data));
+      return;
+    }
+
+    const message = String(reply.data.error ?? "Не удалось назначить забор.");
+    if (!shown.current) {
+      window.alert(message);
+      return;
+    }
+    setBusy(false);
+    setOutsideError(message);
   }
 
   const note = standing(doc);
@@ -188,14 +282,14 @@ function CollectDialog({ id, doc, onClose }: { id: string; doc: CollectionDoc; o
       {times.state === "ready" && !times.enabled && (
         <p style={{ fontSize: 14, margin: 0 }}>
           Онлайн-запись выключена в разделе «Часы для примерок», поэтому в дневнике нечего закрывать. Впишите время
-          забора в «Подтверждено на» по-английски и поставьте статус «Подтверждена».
+          забора ниже, в «Время вне часов дневника».
         </p>
       )}
       {times.state === "ready" && times.enabled && (
         <>
           <p style={{ fontSize: 13, margin: 0, opacity: 0.75, lineHeight: 1.5 }}>
             Здесь только часы для примерок, и только время, когда в дневнике нет записей на всю поездку. Забор в другое
-            время: впишите его по-английски в «Подтверждено на» и поставьте «Подтверждена» — в дневнике оно не закроется.
+            время — ниже, в «Время вне часов дневника».
           </p>
           <SlotPicker
             days={days}
@@ -221,6 +315,43 @@ function CollectDialog({ id, doc, onClose }: { id: string; doc: CollectionDoc; o
         </button>
       </div>
       )}
+      <div
+        role="group"
+        aria-label="Время вне часов дневника"
+        style={{ display: "grid", gap: 8, borderTop: "1px solid rgba(128,128,128,0.25)", paddingTop: 14 }}
+      >
+        <label htmlFor="collect-outside" style={{ fontSize: 13, fontWeight: 600 }}>
+          Время вне часов дневника
+        </label>
+        <input
+          id="collect-outside"
+          style={inputStyle}
+          value={told}
+          maxLength={OUTSIDE_MAX}
+          placeholder="Tuesday 6 October, 7:30pm"
+          onChange={(e) => setTold(e.target.value)}
+        />
+        <span style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.5 }}>
+          По-английски, как прочитает клиент, — например, «Tuesday 6 October, 7:30pm». Клиенту уйдёт письмо с этим
+          временем, без приглашения в календарь. В дневнике оно не закроется
+          {holdsTrip ? ", а время, которое забор держит сейчас, освободится." : "."}
+        </span>
+        {(outsideProblem || outsideError) && (
+          <p role="alert" style={{ fontSize: 14, margin: 0, color: "#c0392b" }}>
+            {outsideError ?? outsideProblem}
+          </p>
+        )}
+        <div>
+          <button
+            type="button"
+            style={primaryButton(outside.ok && !busy)}
+            disabled={!outside.ok || busy}
+            onClick={collectOutside}
+          >
+            {busy ? "Сохраняем…" : "Назначить забор на это время"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
