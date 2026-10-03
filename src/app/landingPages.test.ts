@@ -8,7 +8,7 @@ import { ImageConfigContext } from "next/dist/shared/lib/image-config-context.sh
 import { imageConfigDefault, type ImageConfigComplete } from "next/dist/shared/lib/image-config";
 import nextConfig from "../../next.config";
 import { sanityClient } from "../lib/sanity";
-import { LOCAL_SERVICES } from "../lib/localServices";
+import { CAMPAIGN_HOOK, LOCAL_SERVICES } from "../lib/localServices";
 import { lowestPrice } from "../lib/siteCopy";
 import { BUSINESS, BY_APPOINTMENT } from "../lib/business";
 import { bookBarShown } from "../components/StickyBookBar";
@@ -183,7 +183,10 @@ test("/alterations has a WhatsApp button beside 'Choose a time'", async (t) => {
 
 /* ─── NAV-3: no page invites anyone to drop in ─── */
 
-const WALK_IN = /drop by|drop in|drop-in|drop it off|walk[- ]?ins?\b|no appointment|pop in|pop by|without an appointment/i;
+// "Bring it in" too: with no address on the page it can only mean turning up.
+// "Can't bring it in?" stays — it is /atelier offering Collect & return.
+const WALK_IN =
+  /drop by|drop in|drop-in|drop it off|(?<!can't )bring (?:it|them) (?:in|and)\b|walk[- ]?ins?\b|no appointment|pop in|pop by|without an appointment/i;
 
 test("no landing page, and nothing they tell Google, invites a walk-in", async (t) => {
   stubSanity(t, { photo: true });
@@ -196,6 +199,8 @@ test("no landing page, and nothing they tell Google, invites a walk-in", async (
       assert.doesNotMatch(text, WALK_IN, `${s.slug}: "${text}"`);
     }
   }
+  // The campaign's promise is on every service page, /alterations and /work
+  assert.doesNotMatch(`${CAMPAIGN_HOOK.title} ${CAMPAIGN_HOOK.body}`, WALK_IN);
 });
 
 test("instead they say a visit is by appointment, with the address sent before it", async (t) => {

@@ -80,7 +80,7 @@ export interface LocalService {
  */
 export const CAMPAIGN_HOOK = {
   title: "Bring the thing you never wear",
-  body: "Not sure it can be saved? Bring it in for a free ten-minute look. If it can't be rescued you'll be told straight away, and it costs you nothing to find out.",
+  body: "Not sure it can be saved? Choose a time for a free ten-minute look, or send Kristina a photo first. If it can't be rescued you'll be told straight away, and it costs you nothing to find out.",
 };
 
 /** The seasonal banner, only while its season is actually on. */
@@ -270,7 +270,7 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
       {
         q: "My dress is too small — can it be let out?",
-        a: "Sometimes. It depends on how much seam allowance the maker left inside. Bring it in and we'll look together before you buy another one.",
+        a: "Sometimes. It depends on how much seam allowance the maker left inside. Choose a time and we'll look together before you buy another one.",
       },
     ],
     related: ["wedding-dress-southampton", "zip-replacement-southampton"],
@@ -388,7 +388,7 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
       {
         q: "Do you fix moth holes and tears?",
-        a: "Small tears and seam splits from £12. Moth holes in knitwear depend on the yarn — bring it and we'll look.",
+        a: "Small tears and seam splits from £12. Moth holes in knitwear depend on the yarn — send Kristina a photo or choose a time and we'll look.",
       },
     ],
     related: ["jeans-and-trousers-southampton", "curtains-and-home-southampton"],
