@@ -1,230 +1,49 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Gift, Crown, ChevronRight, Heart, Package } from "lucide-react";
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { Menu, X, Heart, Package, User, CalendarCheck, MessageCircle } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Cart, { CartDrawer } from "@/components/Cart";
 import SearchOverlay from "@/components/SearchOverlay";
 import { useIsClient } from "@/lib/useIsClient";
 import { useWishlist } from "@/store/useWishlist";
 import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { clerkEnabled } from "@/lib/clerk";
-import { giftsHref, stockedLinks, type Shelves } from "@/lib/shelves";
+import { whatsappLink } from "@/lib/business";
+import { isCurrentPage } from "@/lib/currentPage";
 
 
 /* ------------------------------------------------------------------ */
-/*  Mega-menu data                                                     */
+/*  The menu                                                           */
 /* ------------------------------------------------------------------ */
 
-type MegaMenuColumn = {
-  heading: string;
-  links: { label: string; href: string; highlight?: boolean }[];
-};
+type NavLink = { label: string; href: string; side: "left" | "right" };
 
-type MegaMenuData = {
-  columns: MegaMenuColumn[];
-  featured?: { label: string; href: string; description: string; icon: React.ReactNode };
-};
-
-const shopMenu: MegaMenuData = {
-  columns: [
-    {
-      heading: "Collection",
-      links: [
-        { label: "All Collection", href: "/shop" },
-        { label: "New Arrivals", href: "/shop?sort=new" },
-        { label: "Gift Boxes", href: "/gift-boxes" },
-        { label: "Gift Cards", href: "/gift-cards" },
-      ],
-    },
-    {
-      heading: "Lingerie",
-      links: [
-        { label: "Bras", href: "/shop/lingerie?category=bras" },
-        { label: "Knickers", href: "/shop/lingerie?category=knickers" },
-        { label: "Belts", href: "/shop/lingerie?category=belts" },
-        { label: "Garters", href: "/shop/lingerie?category=garters" },
-        { label: "Sleeping Masks", href: "/shop/lingerie?category=sleeping-masks" },
-        { label: "Sets", href: "/shop/lingerie?category=sets" },
-      ],
-    },
-    {
-      heading: "Accessories & Bags",
-      links: [
-        { label: "Hair Accessories", href: "/shop/accessories?category=hair-accessories" },
-        { label: "Pouches", href: "/shop/accessories?category=pouches" },
-        { label: "Organisers", href: "/shop/accessories?category=organisers" },
-      ],
-    },
-    {
-      heading: "Home Decor",
-      links: [
-        { label: "Cushion Cover", href: "/shop/home?category=cushion-cover" },
-        { label: "Table Runner", href: "/shop/home?category=table-runner" },
-        { label: "Placemats", href: "/shop/home?category=placemats" },
-        { label: "Napkins", href: "/shop/home?category=napkins" },
-      ],
-    },
-  ],
-};
-
-const miniMenu: MegaMenuData = {
-  columns: [
-    {
-      heading: "Mini Beautasy",
-      links: [
-        { label: "Kids' Underwear", href: "/shop/kids?category=underwear" },
-        { label: "Pyjamas", href: "/shop/kids?category=pyjamas" },
-        { label: "Blankets", href: "/shop/kids?category=blankets" },
-        { label: "Muslin Cloths & Bibs", href: "/shop/kids?category=muslin-cloths" },
-        { label: "Kids' Accessories", href: "/shop/kids?category=accessories" },
-      ],
-    },
-  ],
-};
-
-const megaMenus: Record<string, MegaMenuData> = {
-  Shop: shopMenu,
-  Mini: miniMenu,
-};
-
-/** `from`: the width a link waits for in the desktop bar; the mobile menu lists every link */
-type NavLink = { label: string; href: string; side: "left" | "right"; from?: "lg" | "xl" };
-
+/**
+ * Six links, the atelier's first: it is what brings people in and pays.
+ *
+ * The phone menu used to open on 17 items, eleven of them shop shelves, with
+ * "Gift Cards" twice, a "Mini" nobody could decode, and no way to book, read
+ * the reviews or message Kristina. The shop's sections are chips on /shop
+ * itself; the menu only has to get a person there.
+ *
+ * "Alterations & Prices" goes to /atelier, where the booking form is. The
+ * /alterations overview stays as it is — which of the two Google should rank
+ * waits on Search Console, not on the menu.
+ */
 const navLinks: NavLink[] = [
-  { label: "Shop", href: "/shop", side: "left" },
-  { label: "Mini", href: "/shop/kids", side: "left" },
-  // Where it goes is decided by what there is — see giftsHref
-  { label: "Gifts", href: "/gift-cards", side: "left" },
-  { label: "Atelier", href: "/atelier", side: "left" },
-  // Six links plus the centred wordmark collide on a tablet-width header, so
-  // these wait for a wide screen; the mobile menu always lists them.
-  { label: "Alterations", href: "/alterations", side: "right", from: "lg" },
-  { label: "Our Work", href: "/work", side: "right", from: "xl" },
+  { label: "Alterations & Prices", href: "/atelier", side: "left" },
+  { label: "Our Work", href: "/work", side: "left" },
+  { label: "Reviews", href: "/reviews", side: "left" },
+  { label: "Shop", href: "/shop", side: "right" },
+  { label: "Gift Cards", href: "/gift-cards", side: "right" },
   { label: "Contact", href: "/contact", side: "right" },
 ];
 
-/**
- * On a phone the atelier comes first: it is what brings people in and pays,
- * and a list that opens on four shop sections buries it.
- */
-const MOBILE_ORDER = ["Atelier", "Alterations", "Our Work", "Shop", "Mini", "Gifts", "Contact"];
-
-/** The mega menus as far as the shop can fill them: empty sections left out, empty columns too. */
-function stockedMenus(shelves: Shelves | null): Record<string, MegaMenuData> {
-  const menus: Record<string, MegaMenuData> = {};
-  for (const [label, menu] of Object.entries(megaMenus)) {
-    const columns = menu.columns
-      .map((column) => ({ ...column, links: stockedLinks(column.links, shelves) }))
-      .filter((column) => column.links.length > 0);
-    if (columns.length > 0) menus[label] = { ...menu, columns };
-  }
-  return menus;
-}
-
-/** The top links as far as the shop can fill them. "Gifts" always leads somewhere. */
-function stockedNav(shelves: Shelves | null): NavLink[] {
-  return navLinks.flatMap((link) =>
-    link.label === "Gifts" ? [{ ...link, href: giftsHref(shelves) }] : stockedLinks([link], shelves)
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Mega Menu component                                                */
-/* ------------------------------------------------------------------ */
-
-function MegaMenu({ data }: { data: MegaMenuData }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      className="absolute top-full left-0 right-0 z-40 border-b border-lavender-soft/40"
-    >
-      {/* Subtle top accent line */}
-      <div className="h-px bg-gradient-to-r from-transparent via-lavender to-transparent" />
-
-      <div className="bg-[#FDFBF7]/95 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="grid grid-cols-4 gap-8">
-            {/* Columns */}
-            {data.columns.map((col) => (
-              <div key={col.heading}>
-                <h3 className="font-serif text-xs tracking-[0.25em] uppercase text-charcoal/40 mb-4">
-                  {col.heading}
-                </h3>
-                <ul className="space-y-2.5">
-                  {col.links.map((link) => (
-                    <li key={link.label}>
-                      <Link
-                        href={link.href}
-                        className={
-                          link.highlight
-                            ? "group flex items-center gap-2 text-sm text-charcoal font-medium transition-colors duration-200"
-                            : "text-sm text-charcoal/60 hover:text-charcoal transition-colors duration-200"
-                        }
-                      >
-                        {link.highlight && (
-                          <Crown
-                            size={14}
-                            className="text-lavender shrink-0"
-                          />
-                        )}
-                        <span
-                          className={
-                            link.highlight
-                              ? "bg-gradient-to-r from-[#9B7FD4] to-[#C4A8FF] bg-clip-text text-transparent group-hover:from-charcoal group-hover:to-charcoal transition-all duration-300"
-                              : ""
-                          }
-                        >
-                          {link.label}
-                        </span>
-                        {link.highlight && (
-                          <ChevronRight
-                            size={12}
-                            className="text-lavender opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200"
-                          />
-                        )}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-
-            {/* Featured card */}
-            {data.featured && (
-              <Link href={data.featured.href} className="group">
-                <div className="rounded-2xl bg-lavender-bg/60 border border-lavender-soft/40 p-5 h-full flex flex-col justify-between hover:bg-lavender-bg transition-colors duration-300">
-                  <div>
-                    <div className="w-9 h-9 rounded-full bg-lavender/30 flex items-center justify-center text-charcoal/60 mb-3">
-                      {data.featured.icon}
-                    </div>
-                    <h4 className="font-serif text-base text-charcoal mb-1.5">
-                      {data.featured.label}
-                    </h4>
-                    <p className="text-xs text-charcoal/50 leading-relaxed">
-                      {data.featured.description}
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center gap-1 mt-4 text-xs tracking-wide uppercase text-charcoal/40 group-hover:text-charcoal/70 transition-colors duration-200">
-                    Explore
-                    <ChevronRight
-                      size={12}
-                      className="group-hover:translate-x-0.5 transition-transform duration-200"
-                    />
-                  </span>
-                </div>
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+/** Where the menu's WhatsApp button opens the chat, with the first line typed */
+const WHATSAPP_HELLO = "Hi Kristina! I'd love to ask about an alteration.";
 
 /* ------------------------------------------------------------------ */
 /*  Header                                                             */
@@ -247,29 +66,17 @@ interface AnnouncementBarData {
 export default function Header({
   freeShippingThreshold: propThreshold,
   announcementBar: propBar,
-  shelves: propShelves,
 }: {
   freeShippingThreshold?: number;
   announcementBar?: AnnouncementBarData | null;
-  /** Which sections of the shop have anything in them — see @/lib/shelves */
-  shelves?: Shelves | null;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeMega, setActiveMega] = useState<string | null>(null);
   const hydrated = useIsClient();
-  const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathname = usePathname();
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const wishlistCount = useWishlist((s) => s.items.length);
   // Announcement bar — fetched client-side when not passed from server
   const [bar, setBar] = useState<AnnouncementBarData | null>(propBar ?? null);
-  // Unknown until read: the menu shows every link meanwhile, as it always did
-  const [shelves, setShelves] = useState<Shelves | null>(propShelves ?? null);
-  const menus = useMemo(() => stockedMenus(shelves), [shelves]);
-  const nav = useMemo(() => stockedNav(shelves), [shelves]);
-  const mobileNav = useMemo(
-    () => [...nav].sort((a, b) => MOBILE_ORDER.indexOf(a.label) - MOBILE_ORDER.indexOf(b.label)),
-    [nav]
-  );
-
 
   // Fetch announcement bar from /api/site-settings when not provided as prop.
   // Uses sessionStorage so the bar data persists across client-side navigations.
@@ -285,10 +92,10 @@ export default function Header({
         const cached = sessionStorage.getItem("beautasy-site-settings");
         if (cached) {
           const s = JSON.parse(cached);
-          // A visit that started before shelves were served has none cached: read again
+          // A visit that started before shelves were served has none cached:
+          // read again, because the Footer takes its shelves from this copy
           if (s?.announcementBar !== undefined && s?.shelves !== undefined) {
             setBar(s.announcementBar);
-            setShelves(s.shelves);
             return;
           }
         }
@@ -301,7 +108,6 @@ export default function Header({
       .then((r) => r.json())
       .then((data) => {
         if (data?.announcementBar !== undefined) setBar(data.announcementBar);
-        if (data?.shelves !== undefined) setShelves(data.shelves);
         // The Footer also caches the full settings object — reuse it
         try { sessionStorage.setItem("beautasy-site-settings", JSON.stringify(data ?? {})); } catch { /* ok */ }
       })
@@ -311,28 +117,28 @@ export default function Header({
     return () => { cancelled = true; };
   }, [propBar]);
 
-  const openMega = useCallback((label: string) => {
-    if (closeTimeout.current) clearTimeout(closeTimeout.current);
-    setActiveMega(label);
-  }, []);
-
-  const scheduleMegaClose = useCallback(() => {
-    closeTimeout.current = setTimeout(() => setActiveMega(null), 150);
-  }, []);
-
-  const cancelMegaClose = useCallback(() => {
-    if (closeTimeout.current) clearTimeout(closeTimeout.current);
-  }, []);
+  // Escape closes the phone menu and puts focus back on the button that
+  // opened it, so a keyboard or switch user is not left somewhere hidden
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMobileOpen(false);
+      toggleRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
 
   const activeBar = hydrated && bar?.enabled && bar.text ? bar : null;
+  const current = (href: string) => (isCurrentPage(href, pathname) ? "page" : undefined);
 
   return (
-    <motion.header
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+    // A plain header, not one that fades in: it was sent from the server at
+    // opacity 0 and stayed invisible until every script had loaded — four
+    // seconds and more on a phone, on every page.
+    <header
       className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-[#FDFBF7]/90 border-b border-[#E6E6FA]/40"
-      onMouseLeave={scheduleMegaClose}
     >
       {/* ── Announcement bar — lives inside the fixed header so it never
            bleeds through the header's glass background as a ghost ── */}
@@ -351,22 +157,27 @@ export default function Header({
       {/* ── Main nav row ──
            Three columns rather than an absolutely-centred wordmark: the logo
            sits in the middle while both sides have room, and a wide side nav
-           pushes it over instead of printing through it (which is what
-           happened with six links on a tablet-width screen). */}
+           pushes it over instead of printing through it. */}
       {/* On a phone the row is the menu button, the logo and three icons, and
           at the desktop sizes they came to 399px: on a 375px iPhone the cart
           sat on the very edge, and at 320px (a small iPhone with Display Zoom
           on) it was pushed off the screen entirely, where nobody could tap it.
           The logo and the gaps now shrink with the screen instead. */}
-      <div className="max-w-6xl mx-auto px-4 min-[360px]:px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4">
+      {/* Six links and the wordmark need a laptop's width, so a tablet gets
+          the phone's menu rather than a row that collides with itself. */}
+      <div className="max-w-6xl mx-auto px-4 min-[360px]:px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 lg:gap-4">
         {/* Mobile menu button, with search beside it: two icons on each side
             of the logo keep it in the middle of a phone screen, where one on
             the left and three on the right pushed it well off centre. */}
-        <div className="md:hidden justify-self-start flex items-center gap-2">
+        <div className="lg:hidden justify-self-start flex items-center gap-2">
           <button
+            ref={toggleRef}
+            type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
             className="text-charcoal p-1"
-            aria-label="Toggle menu"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav"
           >
             {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
@@ -374,56 +185,34 @@ export default function Header({
         </div>
 
         {/* Nav left (desktop) */}
-        <nav className="hidden md:flex justify-self-start items-center gap-6">
-          {nav.filter((link) => link.side === "left").map((link) => {
-            const hasMega = link.label in menus;
-            return (
-              <div
-                key={link.label}
-                onMouseEnter={() => hasMega && openMega(link.label)}
-                onMouseLeave={scheduleMegaClose}
-                className="relative"
-              >
-                <Link
-                  href={link.href}
-                  className={`text-sm tracking-widest uppercase whitespace-nowrap transition-colors duration-300 ${
-                    activeMega === link.label
-                      ? "text-charcoal"
-                      : "text-charcoal/70 hover:text-charcoal"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-                {/* Active indicator dot */}
-                {activeMega === link.label && (
-                  <motion.span
-                    layoutId="megaDot"
-                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-lavender"
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                )}
-              </div>
-            );
-          })}
+        <nav aria-label="Atelier" className="hidden lg:flex justify-self-start items-center gap-5 xl:gap-6">
+          {navLinks.filter((link) => link.side === "left").map((link) => (
+            <Link
+              key={link.label}
+              href={link.href}
+              aria-current={current(link.href)}
+              className="text-[13px] xl:text-sm tracking-wider xl:tracking-widest uppercase whitespace-nowrap transition-colors duration-300 text-charcoal/70 hover:text-charcoal aria-[current=page]:text-charcoal"
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
         {/* Logo center */}
-        <Link href="/" className="justify-self-center whitespace-nowrap">
-          <span className="block font-serif text-lg tracking-[0.22em] min-[360px]:text-xl min-[360px]:tracking-[0.25em] min-[400px]:text-2xl min-[400px]:tracking-[0.3em] md:text-3xl text-charcoal">
+        <Link href="/" className="justify-self-center whitespace-nowrap" aria-current={pathname === "/" ? "page" : undefined}>
+          <span className="block font-serif text-lg tracking-[0.22em] min-[360px]:text-xl min-[360px]:tracking-[0.25em] min-[400px]:text-2xl min-[400px]:tracking-[0.3em] md:text-3xl lg:text-2xl xl:text-3xl text-charcoal">
             BEAUTASY
           </span>
         </Link>
 
         {/* Nav right (desktop) */}
-        <nav className="hidden md:flex justify-self-end items-center gap-6">
-          {nav.filter((link) => link.side === "right").map((link) => (
+        <nav aria-label="Shop and contact" className="hidden lg:flex justify-self-end items-center gap-5 xl:gap-6">
+          {navLinks.filter((link) => link.side === "right").map((link) => (
             <Link
               key={link.label}
               href={link.href}
-              onMouseEnter={() => setActiveMega(null)}
-              className={`text-sm tracking-widest uppercase whitespace-nowrap text-charcoal/70 hover:text-charcoal transition-colors duration-300 ${
-                link.from === "lg" ? "hidden lg:inline" : link.from === "xl" ? "hidden xl:inline" : ""
-              }`}
+              aria-current={current(link.href)}
+              className="text-[13px] xl:text-sm tracking-wider xl:tracking-widest uppercase whitespace-nowrap text-charcoal/70 hover:text-charcoal aria-[current=page]:text-charcoal transition-colors duration-300"
             >
               {link.label}
             </Link>
@@ -446,8 +235,12 @@ export default function Header({
               </SignedIn>
               <SignedOut>
                 <SignInButton mode="modal">
-                  <button className="text-sm tracking-widest uppercase whitespace-nowrap text-charcoal/70 hover:text-charcoal transition-colors duration-300">
-                    Sign In
+                  <button
+                    type="button"
+                    aria-label="Sign in"
+                    className="p-1 text-charcoal/70 hover:text-charcoal transition-colors duration-300"
+                  >
+                    <User size={20} />
                   </button>
                 </SignInButton>
               </SignedOut>
@@ -474,7 +267,7 @@ export default function Header({
         </nav>
 
         {/* Cart + Wishlist for mobile */}
-        <div className="md:hidden justify-self-end flex items-center gap-2">
+        <div className="lg:hidden justify-self-end flex items-center gap-2">
           <Link
             href="/wishlist"
             className="relative p-1 text-charcoal/70 hover:text-charcoal transition-colors"
@@ -495,102 +288,84 @@ export default function Header({
         </div>
       </div>
 
-      {/* Desktop Mega Menu */}
-      <AnimatePresence>
-        {activeMega && menus[activeMega] && (
-          <div onMouseEnter={cancelMegaClose} onMouseLeave={scheduleMegaClose}>
-            <MegaMenu data={menus[activeMega]} />
-          </div>
-        )}
-      </AnimatePresence>
-
       {/* Mobile nav */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.nav
+            id="mobile-nav"
+            aria-label="Menu"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-cream border-t border-lavender-soft/40 px-6 pb-6 overflow-hidden"
+            className="lg:hidden bg-cream border-t border-lavender-soft/40 px-6 pb-6 overflow-hidden"
           >
-            {mobileNav.map((link) => {
-              const mega = menus[link.label];
-              return (
-                <div key={link.label}>
-                  <Link
-                    href={link.href}
-                    onClick={() => setMobileOpen(false)}
-                    className="block py-3 text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                  {/* Mobile sub-links for mega menu items */}
-                  {mega && (
-                    <div className="pl-4 pb-2 space-y-1.5">
-                      {mega.columns.flatMap((col) =>
-                        col.links.map((sub) => (
-                          <Link
-                            key={sub.label}
-                            href={sub.href}
-                            onClick={() => setMobileOpen(false)}
-                            className={
-                              sub.highlight
-                                ? "flex items-center gap-1.5 py-1 text-xs tracking-wide text-[#9B7FD4] font-medium"
-                                : "block py-1 text-xs tracking-wide text-charcoal/50 hover:text-charcoal/80 transition-colors"
-                            }
-                          >
-                            {sub.highlight && <Crown size={11} />}
-                            {sub.label}
-                          </Link>
-                        ))
-                      )}
-                      {mega.featured && (
-                        <Link
-                          href={mega.featured.href}
-                          onClick={() => setMobileOpen(false)}
-                          className="flex items-center gap-1.5 py-1 text-xs tracking-wide text-charcoal/50 hover:text-charcoal/80 transition-colors"
-                        >
-                          <Gift size={11} />
-                          {mega.featured.label}
-                        </Link>
-                      )}
+            <div className="max-w-xl mx-auto">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  aria-current={current(link.href)}
+                  onClick={() => setMobileOpen(false)}
+                  className="block py-3 text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal aria-[current=page]:text-charcoal aria-[current=page]:font-medium transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ))}
+              {clerkEnabled && (
+                <div className="border-t border-lavender-soft/40 mt-3 pt-3">
+                  <SignedIn>
+                    <Link
+                      href="/orders"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2 py-3 text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors"
+                    >
+                      <Package size={14} />
+                      My Orders
+                    </Link>
+                    <div className="py-2">
+                      <UserButton
+                        afterSignOutUrl="/"
+                        appearance={{ variables: { colorPrimary: "#DCD0FF" } }}
+                      />
                     </div>
-                  )}
+                  </SignedIn>
+                  <SignedOut>
+                    <SignInButton mode="modal">
+                      <button className="block w-full text-left py-3 text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors">
+                        Sign In
+                      </button>
+                    </SignInButton>
+                  </SignedOut>
                 </div>
-              );
-            })}
-            {clerkEnabled && (
-              <div className="border-t border-lavender-soft/40 mt-3 pt-3">
-                <SignedIn>
-                  <Link
-                    href="/orders"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 py-3 text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors"
-                  >
-                    <Package size={14} />
-                    My Orders
-                  </Link>
-                  <div className="py-2">
-                    <UserButton
-                      afterSignOutUrl="/"
-                      appearance={{ variables: { colorPrimary: "#DCD0FF" } }}
-                    />
-                  </div>
-                </SignedIn>
-                <SignedOut>
-                  <SignInButton mode="modal">
-                    <button className="block w-full text-left py-3 text-sm tracking-widest uppercase text-charcoal/70 hover:text-charcoal transition-colors">
-                      Sign In
-                    </button>
-                  </SignInButton>
-                </SignedOut>
+              )}
+              {/* The two things most people open the menu to do, as buttons
+                  a thumb can't miss */}
+              <div className="mt-5 grid gap-3">
+                <Link
+                  href="/atelier#book"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex w-full items-center justify-center gap-2 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors"
+                >
+                  <CalendarCheck size={16} aria-hidden="true" />
+                  Choose a time
+                </Link>
+                <a
+                  href={whatsappLink(WHATSAPP_HELLO)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex w-full items-center justify-center gap-2 py-3.5 border border-[#075E54]/40 text-[#075E54] rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#075E54]/5 transition-colors"
+                >
+                  <MessageCircle size={16} aria-hidden="true" />
+                  WhatsApp Kristina
+                </a>
               </div>
-            )}
+            </div>
           </motion.nav>
         )}
       </AnimatePresence>
       {/* Single cart drawer for the whole page — both bag buttons open this one */}
       <CartDrawer freeShippingThreshold={propThreshold} />
-    </motion.header>
+    </header>
   );
 }

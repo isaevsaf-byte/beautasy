@@ -1,10 +1,11 @@
 "use client";
 
-import { Globe, MapPin, Package, Heart } from "lucide-react";
+import { CalendarCheck, Clock, Heart, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import NewsletterSignup from "@/components/NewsletterSignup";
 import { stockedLinks, type Shelves } from "@/lib/shelves";
+import { BUSINESS, whatsappLink } from "@/lib/business";
 
 /* ── Types ── */
 export interface FooterSettings {
@@ -30,16 +31,36 @@ export interface FooterSettings {
   shelves?: Shelves | null;
 }
 
+/** The atelier first, as in the menu; "Kids" where it said "Mini", which nobody could decode */
 const navLinks = [
-  { label: "Shop", href: "/shop" },
-  { label: "Mini", href: "/shop/kids" },
-  { label: "Gift Boxes", href: "/gift-boxes" },
   { label: "Atelier", href: "/atelier" },
   { label: "Alterations", href: "/alterations" },
   { label: "Our Work", href: "/work" },
   { label: "Reviews", href: "/reviews" },
+  { label: "Shop", href: "/shop" },
+  { label: "Kids", href: "/shop/kids" },
+  { label: "Gift Boxes", href: "/gift-boxes" },
   { label: "Contact", href: "/contact" },
 ];
+
+/**
+ * What the footer prints before the shop's settings arrive, and what a page
+ * without JavaScript keeps. The same numbers as the DEFAULT_* constants in
+ * @/lib/siteSettings, which this client file cannot import — that module
+ * brings the Sanity client with it. A test holds the two in step: the footer
+ * said "UK: £3.00" for months after the real rate went to £3.50.
+ */
+const FALLBACK_UK_RATE = 350;
+const FALLBACK_INT_RATE = 1200;
+const FALLBACK_FREE_THRESHOLD = 5000;
+
+/** Pounds as a price list prints them: £3.50, £12 */
+function poundsLabel(pence: number): string {
+  return pence % 100 === 0 ? `£${pence / 100}` : `£${(pence / 100).toFixed(2)}`;
+}
+
+/** The first line of the chat, typed for them */
+const WHATSAPP_HELLO = "Hi Kristina! I'd love to ask about an alteration.";
 
 const legalLinks = [
   { label: "About Us", href: "/pages/about-us" },
@@ -150,9 +171,9 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
   const social = settings?.socialLinks ?? {};
   const icons = settings?.paymentIcons ?? DEFAULT_ICONS as NonNullable<FooterSettings["paymentIcons"]>;
   const shipping = settings?.shipping;
-  const ukLabel = shipping?.ukRate != null ? `£${(shipping.ukRate / 100).toFixed(2)}` : "£3.00";
-  const intLabel = shipping?.internationalRate != null ? `£${(shipping.internationalRate / 100).toFixed(2)}` : "£12.00";
-  const threshold = shipping?.freeShippingThreshold ?? 5000;
+  const ukLabel = poundsLabel(shipping?.ukRate ?? FALLBACK_UK_RATE);
+  const intLabel = poundsLabel(shipping?.internationalRate ?? FALLBACK_INT_RATE);
+  const threshold = shipping?.freeShippingThreshold ?? FALLBACK_FREE_THRESHOLD;
 
   const hasSocial = social.instagram || social.tiktok || social.pinterest;
   const hasPaymentIcons = Object.values(icons).some(Boolean);
@@ -169,10 +190,14 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           {/* Brand */}
           <div className="md:col-span-1">
-            <h4 className="font-serif text-2xl tracking-[0.2em] mb-4">BEAUTASY</h4>
+            {/* The wordmark, not a heading: as an h4 it came before every
+                other heading in the footer, and on most pages straight after
+                an h2, which a screen reader announces as a skipped level */}
+            <p className="font-serif text-2xl tracking-[0.2em] mb-4">BEAUTASY</p>
             <p className="text-sm text-charcoal-light leading-relaxed max-w-xs mb-4">
-              Handmade lingerie, kids&apos; clothing, and accessories crafted with love in
-              Southampton, UK.
+              Alterations and repairs by appointment in Southampton, and a small shop
+              of handmade lingerie, kids&apos; pieces and accessories from the same
+              workroom.
             </p>
             {/* Social Links */}
             {hasSocial && (
@@ -222,9 +247,9 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
 
           {/* Quick Links */}
           <div>
-            <h5 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
+            <h2 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
               Quick Links
-            </h5>
+            </h2>
             <ul className="space-y-3">
               {stockedLinks(navLinks, settings?.shelves).map((link) => (
                 <li key={link.label}>
@@ -239,38 +264,68 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
             </ul>
           </div>
 
-          {/* Delivery */}
+          {/* The atelier: how to reach Kristina, and when. Every page used to
+              end on "Worldwide Shipping" with no phone number, no WhatsApp and
+              no hours, for a business whose money comes from people nearby
+              asking about a hem. */}
           <div>
-            <h5 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
-              Delivery
-            </h5>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Globe size={16} className="text-lavender flex-shrink-0" />
-                <p className="text-sm text-charcoal-light">Worldwide Shipping</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <MapPin size={16} className="text-lavender flex-shrink-0" />
-                <p className="text-sm text-charcoal-light">
-                  UK: {ukLabel} · International: {intLabel}
-                </p>
-              </div>
-              {threshold > 0 && (
-                <div className="flex items-center gap-3">
-                  <Package size={16} className="text-lavender flex-shrink-0" />
-                  <p className="text-sm text-charcoal-light">
-                    Free UK delivery over £{(threshold / 100).toFixed(0)}
-                  </p>
-                </div>
-              )}
-            </div>
+            <h2 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
+              Atelier
+            </h2>
+            <ul className="space-y-3 text-sm text-charcoal-light">
+              <li>
+                <a href={BUSINESS.telephoneHref} className="inline-flex items-center gap-3 hover:text-charcoal transition-colors">
+                  <Phone size={16} aria-hidden="true" className="text-lavender flex-shrink-0" />
+                  {BUSINESS.telephone}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={whatsappLink(WHATSAPP_HELLO)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 hover:text-charcoal transition-colors"
+                >
+                  <MessageCircle size={16} aria-hidden="true" className="text-lavender flex-shrink-0" />
+                  WhatsApp Kristina
+                </a>
+              </li>
+              <li>
+                <a href={`mailto:${BUSINESS.email}`} className="inline-flex items-center gap-3 hover:text-charcoal transition-colors break-all">
+                  <Mail size={16} aria-hidden="true" className="text-lavender flex-shrink-0" />
+                  {BUSINESS.email}
+                </a>
+              </li>
+              <li className="flex items-start gap-3">
+                <Clock size={16} aria-hidden="true" className="text-lavender flex-shrink-0 mt-0.5" />
+                {/* One block of days per line, as Google Maps shows them */}
+                <span>
+                  {BUSINESS.hours.label.split(" · ").map((days) => (
+                    <span key={days} className="block">{days}</span>
+                  ))}
+                </span>
+              </li>
+              <li className="flex items-center gap-3">
+                <MapPin size={16} aria-hidden="true" className="text-lavender flex-shrink-0" />
+                Southampton · by appointment
+              </li>
+              <li>
+                <Link
+                  href="/atelier#book"
+                  className="inline-flex items-center gap-3 font-medium text-charcoal underline underline-offset-4 decoration-charcoal/30 hover:decoration-charcoal transition-colors"
+                >
+                  <CalendarCheck size={16} aria-hidden="true" className="text-lavender flex-shrink-0" />
+                  Choose a time
+                </Link>
+              </li>
+            </ul>
           </div>
 
           {/* Legal */}
           <div>
-            <h5 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
+            <h2 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
               Information
-            </h5>
+            </h2>
             <ul className="space-y-3">
               {legalLinks.map((link) => (
                 <li key={link.label}>
@@ -283,6 +338,11 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
                 </li>
               ))}
             </ul>
+            {/* The shop's delivery, in one line: it is the smaller business */}
+            <p className="mt-6 text-xs text-charcoal-light leading-relaxed">
+              Shop delivery: UK {ukLabel} · international {intLabel}
+              {threshold > 0 && <> · free in the UK over {poundsLabel(threshold)}</>}
+            </p>
           </div>
         </div>
 

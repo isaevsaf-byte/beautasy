@@ -121,7 +121,9 @@ test("every shop-section link on the site is one the shelves can check", () => {
     for (const [, href] of source.matchAll(/href:\s*"((?:\/shop\/|\/gift-boxes)[^"]*)"/g)) found.push(href);
   }
   const sections = found.filter((href) => !/^\/shop\/collections?\b/.test(href));
-  assert.ok(sections.length >= 30, `expected the menu, footer and service links, found ${sections.length}`);
+  // The header lists no sections since its menu went down to six links; it
+  // stays in the list above so a section link added to it is checked too
+  assert.ok(sections.length >= 20, `expected the footer, home page and service links, found ${sections.length}`);
   const unchecked = sections.filter((href) => placeLink(href, EMPTY) !== null);
   assert.deepEqual(unchecked, [], "these would lead to an empty shelf without anyone noticing");
 });

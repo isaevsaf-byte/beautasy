@@ -143,6 +143,9 @@ export async function collectionSettings({ fresh = false }: { fresh?: boolean } 
 }
 
 /* ── Defaults ── */
-export const DEFAULT_UK_RATE = 300;           // £3.00
+// The UK rate the Studio holds (£3.50), used only if Sanity cannot be read —
+// it said £3.00, so a failed read undercharged and the footer printed a price
+// the checkout never asked. The Footer keeps a copy; a test holds them level.
+export const DEFAULT_UK_RATE = 350;           // £3.50
 export const DEFAULT_INT_RATE = 1200;         // £12.00
 export const DEFAULT_FREE_THRESHOLD = 5000;   // £50.00

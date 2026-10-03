@@ -168,7 +168,9 @@ export default function Image() {
               color: CHARCOAL,
             }}
           >
-            Handmade lingerie &amp; accessories
+            {/* The atelier first: it is what a forwarded link to the home
+                page is most often about (see @/lib/siteCopy) */}
+            Alterations, repairs &amp; handmade lingerie
           </div>
         </div>
 

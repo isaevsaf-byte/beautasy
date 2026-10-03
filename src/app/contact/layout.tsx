@@ -7,11 +7,13 @@ const siteUrl = SITE_URL;
 export const metadata: Metadata = {
   title: "Contact Beautasy — Get in Touch",
   description:
-    "Reach out via Email, WhatsApp, or Telegram. Book an atelier appointment or discuss a custom order. Southampton, UK.",
+    "Call, WhatsApp or email Kristina at the Beautasy atelier in Southampton: book a fitting, send a photo for a price, or ask about a custom piece.",
+  // One address however the page was reached (?utm_source=…), as /atelier has
+  alternates: { canonical: `${siteUrl}/contact` },
   openGraph: {
     title: "Contact Beautasy — Get in Touch",
     description:
-      "Reach out via Email, WhatsApp, or Telegram. Southampton, UK.",
+      "Call, WhatsApp or email Kristina at the Beautasy atelier in Southampton.",
     url: `${siteUrl}/contact`,
     siteName: "Beautasy",
     locale: "en_GB",
@@ -27,7 +29,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Contact Beautasy — Get in Touch",
     description:
-      "Reach out via Email, WhatsApp, or Telegram. Southampton, UK.",
+      "Call, WhatsApp or email Kristina at the Beautasy atelier in Southampton.",
     // No images: with the key absent Next copies the Open Graph ones here.
   },
 };

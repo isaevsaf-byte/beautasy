@@ -9,7 +9,8 @@ import Footer from "@/components/Footer";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { placeLink } from "@/lib/shelves";
 import { useShelves } from "@/lib/useShelves";
-import { Scissors, Heart, Sparkles, MapPin } from "lucide-react";
+import { BUSINESS, whatsappLink } from "@/lib/business";
+import { Scissors, Heart, Sparkles, MapPin, Clock, Tag, MessageCircle } from "lucide-react";
 
 /* ─────────────── Data ─────────────── */
 
@@ -75,9 +76,21 @@ const services = [
    HERO
    ═════════════════════════════════════════════════════ */
 
-function Hero() {
+/** The first line of the chat, typed for them: the photo is what they came to send */
+const WHATSAPP_PHOTO = "Hi Kristina, here's a photo of something that needs altering:";
+
+/**
+ * The atelier first. The money comes from alterations, and the page used to
+ * open as a lingerie shop: "Shop Collection" filled, booking outlined, the
+ * shelves before the services, and no price, phone or hours anywhere on it.
+ * A person who came about a hem now sees what it costs, when Kristina works
+ * and the two ways to start, before anything else; the shop is a line below.
+ */
+function Hero({ priceFrom }: { priceFrom?: string | null }) {
   return (
-    <section className="relative min-h-[100dvh] flex items-center pt-20">
+    // pt-28, as every other page's <main>: at pt-20 the first line sat under
+    // the fixed header whenever the announcement bar was showing
+    <section className="relative min-h-[100dvh] flex items-center pt-28 pb-12">
       <div className="max-w-6xl mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
         {/* Text — first on a phone, and painted as it is rather than faded
             in: at opacity 0 the heading and both buttons waited for every
@@ -93,7 +106,7 @@ function Hero() {
             custom={0}
             className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-6"
           >
-            Handmade in Southampton
+            Made to feel, not just wear.
           </motion.p>
 
           <motion.h1
@@ -101,41 +114,83 @@ function Hero() {
             custom={1}
             className="font-serif text-4xl sm:text-5xl lg:text-6xl leading-tight mb-6"
           >
-            Made to feel,
+            Alterations &amp; repairs
             <br />
-            <span className="italic text-lavender">not just wear.</span>
+            <span className="italic text-lavender-ink">in Southampton</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             custom={2}
-            className="text-lg text-charcoal-light max-w-md mx-auto lg:mx-0 mb-10 leading-relaxed"
+            className="text-lg text-charcoal-light max-w-md mx-auto lg:mx-0 mb-6 leading-relaxed"
           >
-            Handmade lingerie &amp; accessories, and alterations for the clothes you already love, from our atelier in Southampton.
+            Hems, zips, wedding and prom dresses, curtains — altered by hand in Kristina&apos;s
+            Southampton workroom. Book a fitting, or send a photo first.
           </motion.p>
+
+          {/* The three facts a person deciding where to take a hem wants:
+              what it costs, when, and where. Hours from @/lib/business, the
+              price from the service pages' own lists (see ./page.tsx). */}
+          <motion.ul
+            variants={fadeUp}
+            custom={3}
+            className="space-y-2 text-sm text-charcoal mb-10 max-w-md mx-auto lg:mx-0 text-left"
+          >
+            {priceFrom && (
+              <li className="flex items-start gap-3">
+                <Tag size={16} aria-hidden="true" className="text-lavender-ink shrink-0 mt-0.5" />
+                <span>Alterations from {priceFrom} · a fixed price before any work starts</span>
+              </li>
+            )}
+            <li className="flex items-start gap-3">
+              <Clock size={16} aria-hidden="true" className="text-lavender-ink shrink-0 mt-0.5" />
+              <span>{BUSINESS.hours.label}</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <MapPin size={16} aria-hidden="true" className="text-lavender-ink shrink-0 mt-0.5" />
+              <span>Southampton · by appointment</span>
+            </li>
+          </motion.ul>
 
           <motion.div
             variants={fadeUp}
-            custom={3}
-            className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start"
+            custom={4}
+            className="flex flex-col sm:flex-row sm:flex-wrap items-center gap-4 justify-center lg:justify-start"
           >
+            {/* Each button on one line from a small tablet up, and the pair
+                wraps rather than squeezing beside the logo on a laptop. On a
+                320px phone the long one may take two lines rather than run
+                off the screen. */}
             <Link
-              href="/shop"
-              className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+              href="/atelier#book"
+              className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium sm:whitespace-nowrap hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
             >
-              Shop Collection
+              Choose a time
               <ArrowRight
                 size={16}
                 className="group-hover:translate-x-1 transition-transform"
               />
             </Link>
-            <Link
-              href="/atelier#book"
-              className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+            <a
+              href={whatsappLink(WHATSAPP_PHOTO)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm text-center tracking-wider uppercase font-medium sm:whitespace-nowrap hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
             >
-              Book Alterations
-            </Link>
+              <MessageCircle size={16} aria-hidden="true" className="shrink-0" />
+              Send a photo on WhatsApp
+            </a>
           </motion.div>
+
+          <motion.p variants={fadeUp} custom={5} className="mt-8 text-sm text-charcoal-light">
+            Or{" "}
+            <Link
+              href="/shop"
+              className="text-charcoal underline underline-offset-4 decoration-charcoal/30 hover:decoration-charcoal transition-colors"
+            >
+              shop handmade lingerie &amp; gifts
+            </Link>
+          </motion.p>
         </motion.div>
 
         {/* Logo Image */}
@@ -203,13 +258,13 @@ function CategoryGrid() {
           >
             Our Collections
           </motion.p>
-          <motion.h3
+          <motion.h2
             variants={fadeUp}
             custom={1}
             className="font-serif text-3xl sm:text-4xl"
           >
             Browse the Shelves
-          </motion.h3>
+          </motion.h2>
         </motion.div>
 
         {/* Grid */}
@@ -241,14 +296,14 @@ function CategoryGrid() {
                   {/* Overlay on hover */}
                   <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
                 </div>
-                <h4 className="font-serif text-lg mb-1">
+                <h3 className="font-serif text-lg mb-1">
                   {cat.title}
                   {cat.subtitle && (
                     <span className="text-sm font-sans text-charcoal-light ml-2">
                       ({cat.subtitle})
                     </span>
                   )}
-                </h4>
+                </h3>
                 <p className="text-sm text-charcoal-light">{cat.description}</p>
               </Link>
             </motion.div>
@@ -294,7 +349,7 @@ function AtelierSection() {
             >
               The Atelier
             </motion.p>
-            <motion.h3
+            <motion.h2
               variants={fadeUp}
               custom={1}
               className="font-serif text-3xl sm:text-4xl mb-6"
@@ -302,7 +357,7 @@ function AtelierSection() {
               Local Services
               <br />
               in Southampton
-            </motion.h3>
+            </motion.h2>
             <motion.p
               variants={fadeUp}
               custom={2}
@@ -325,7 +380,7 @@ function AtelierSection() {
                     <service.icon size={18} className="text-charcoal" />
                   </div>
                   <div>
-                    <h5 className="font-medium mb-1">{service.title}</h5>
+                    <h3 className="font-medium mb-1">{service.title}</h3>
                     <p className="text-sm text-charcoal-light leading-relaxed">
                       {service.description}
                     </p>
@@ -391,21 +446,25 @@ function AtelierSection() {
 /**
  * `recentWork` is the row of the newest pieces from Our Work, and `reviews`
  * the newest kind words from /reviews — both read on the server by ./page.tsx
- * and passed in whole.
+ * and passed in whole. `priceFrom` is the cheapest alteration, "£8", from the
+ * service pages' price lists.
  */
 export default function Home({
   recentWork,
   reviews,
+  priceFrom,
 }: {
   recentWork?: React.ReactNode;
   reviews?: React.ReactNode;
+  priceFrom?: string | null;
 }) {
   return (
     <>
       <Header />
-      <main>
-        <Hero />
-        <CategoryGrid />
+      <main id="main">
+        <Hero priceFrom={priceFrom} />
+        {/* The atelier, its work and what people said about it, then the
+            shop: the order the money comes in */}
         <AtelierSection />
         {recentWork && (
           <section className="py-24 md:py-28">
@@ -418,6 +477,7 @@ export default function Home({
             <div className="max-w-6xl mx-auto px-6">{reviews}</div>
           </section>
         )}
+        <CategoryGrid />
       </main>
       <Footer />
     </>

@@ -10,6 +10,8 @@ import { REFERRAL_COOKIE_DAYS, pounds } from "@/lib/friendsLink";
 import { isPartnerSlug, partnerWhatsappText } from "@/lib/partners";
 import { BUSINESS, whatsappLink } from "@/lib/business";
 import RememberReferral from "../../r/[code]/RememberReferral";
+import { SITE_URL } from "@/lib/site";
+import { ATELIER_CARD_IMAGES } from "@/lib/socialCard";
 
 /**
  * Where a partner's card lands: /p/the-hair-lounge.
@@ -29,13 +31,45 @@ export const dynamic = "force-dynamic";
 /** Asked by the page and by its metadata: one look in the database per view, not two. */
 const partnerFor = cache(async (slug: string) => (isPartnerSlug(slug) ? findPartnerBySlug(slug).catch(() => null) : null));
 
+/**
+ * The card a salon's link shows in a chat: the salon's name when the link is
+ * live, the atelier's offer, and this page's own address. It used to inherit
+ * the home page's lingerie card and address, so a salon's client saw
+ * "Handmade Lingerie & Accessories" and Facebook could treat the link as the
+ * home page, where no £5 and no partner credit are remembered.
+ */
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const partner = await partnerFor(slug);
+  const [settings, partner] = await Promise.all([referralSettings(), partnerFor(slug)]);
+  const live = settings.enabled && !!partner && partner.active !== false;
+  const atelierOff = pounds(settings.friendAtelierDiscount);
+  const shareTitle = live && partner
+    ? `${partner.partner.name} recommends Beautasy Atelier`
+    : "Beautasy Atelier — alterations & repairs in Southampton";
+  const shareDescription = live
+    ? `${atelierOff} off your first alteration: hems, zips, wedding and prom dresses, curtains — by appointment in Southampton.`
+    : "Alterations and repairs by appointment in Southampton.";
   return {
     title: partner ? `${partner.partner.name} recommends Beautasy Atelier` : "A recommendation | Beautasy",
-    description: "Alterations and repairs by appointment in Southampton, with £5 off your first alteration.",
+    description: live
+      ? `Alterations and repairs by appointment in Southampton, with ${atelierOff} off your first alteration.`
+      : "Alterations and repairs by appointment in Southampton.",
     robots: { index: false, follow: true },
+    openGraph: {
+      title: shareTitle,
+      description: shareDescription,
+      url: `${SITE_URL}/p/${encodeURIComponent(slug)}`,
+      siteName: "Beautasy",
+      locale: "en_GB",
+      type: "website",
+      images: ATELIER_CARD_IMAGES,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: shareTitle,
+      description: shareDescription,
+      // No images: with the key absent Next copies the Open Graph ones here.
+    },
   };
 }
 

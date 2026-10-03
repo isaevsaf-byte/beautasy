@@ -3,24 +3,32 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, Loader2 } from "lucide-react";
+import { Search, X, Loader2, Scissors, CalendarCheck, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useIsClient } from "@/lib/useIsClient";
 import { trackSearch } from "@/lib/analytics";
+import { whatsappLink } from "@/lib/business";
 /* eslint-disable @next/next/no-img-element */
 
+/** A product or gift box from the shop, or one of the atelier's services (see @/lib/serviceSearch) */
 interface SearchResult {
   _id: string;
+  kind?: "service" | "product";
   name: string;
   href: string;
-  price: number;
+  /** Pence, for a product */
+  price?: number;
+  /** "from £8", for a service: as its page prints it */
+  priceLabel?: string | null;
   label: string;
-  image: string | null;
+  image?: string | null;
 }
 
 /**
  * Site search. The shop had none, so anyone arriving from an ad for a specific
- * piece had to guess which category it lived in.
+ * piece had to guess which category it lived in. It now answers the atelier's
+ * words too — hem, zip, wedding — and those come first, because that is what
+ * most people searching here are after.
  */
 export default function SearchOverlay({ className = "" }: { className?: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -99,7 +107,7 @@ export default function SearchOverlay({ className = "" }: { className?: string }
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Search the shop"
+            aria-label="Search Beautasy"
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
@@ -114,8 +122,8 @@ export default function SearchOverlay({ className = "" }: { className?: string }
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search for a bralette, gift box, scrunchie…"
-                  aria-label="Search products"
+                  placeholder="hem, zip, wedding dress, scrunchie…"
+                  aria-label="Search alterations and the shop"
                   className="flex-1 min-w-0 bg-transparent text-lg text-charcoal placeholder:text-charcoal-light/60 focus:outline-none"
                 />
                 {loading && <Loader2 size={16} className="animate-spin text-lavender shrink-0" />}
@@ -139,14 +147,16 @@ export default function SearchOverlay({ className = "" }: { className?: string }
                           onClick={close}
                           className="flex items-center gap-4 py-3 group"
                         >
-                          <div className="w-12 h-15 rounded-lg overflow-hidden bg-lavender-bg shrink-0">
-                            {item.image && (
+                          <div className="w-12 h-15 rounded-lg overflow-hidden bg-lavender-bg shrink-0 flex items-center justify-center">
+                            {item.kind === "service" ? (
+                              <Scissors size={18} aria-hidden="true" className="text-charcoal" />
+                            ) : item.image ? (
                               <img
                                 src={item.image}
                                 alt={item.name}
                                 className="w-12 h-[60px] object-cover"
                               />
-                            )}
+                            ) : null}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-serif text-base truncate group-hover:text-charcoal/70 transition-colors">
@@ -154,29 +164,51 @@ export default function SearchOverlay({ className = "" }: { className?: string }
                             </p>
                             <p className="text-xs text-charcoal-light">{item.label}</p>
                           </div>
-                          <p className="text-sm font-medium shrink-0">
-                            £{(item.price / 100).toFixed(2)}
-                          </p>
+                          {item.priceLabel ? (
+                            <p className="text-sm font-medium shrink-0 whitespace-nowrap">{item.priceLabel}</p>
+                          ) : typeof item.price === "number" ? (
+                            <p className="text-sm font-medium shrink-0">
+                              £{(item.price / 100).toFixed(2)}
+                            </p>
+                          ) : null}
                         </Link>
                       </li>
                     ))}
                   </ul>
                 ) : searched && !loading ? (
                   <div className="py-8 text-center">
-                    <p className="text-charcoal-light text-sm mb-3">
+                    <p className="text-charcoal-light text-sm mb-1">
                       Nothing matched &ldquo;{query.trim()}&rdquo;.
                     </p>
-                    <Link
-                      href="/contact"
-                      onClick={close}
-                      className="text-sm text-charcoal underline underline-offset-2 hover:text-lavender transition-colors"
-                    >
-                      Ask us for a custom piece
-                    </Link>
+                    {/* Most searches that find nothing are for a job, not a
+                        product: the two ways to get one started */}
+                    <p className="text-charcoal-light text-sm mb-5">
+                      Kristina can usually tell from a photo what it needs.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <Link
+                        href="/atelier#book"
+                        onClick={close}
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm font-medium hover:bg-[#CFC0F0] transition-colors"
+                      >
+                        <CalendarCheck size={16} aria-hidden="true" />
+                        Choose a time
+                      </Link>
+                      <a
+                        href={whatsappLink("Hi Kristina, here's a photo of something that needs altering:")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={close}
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-charcoal/20 text-charcoal rounded-full text-sm font-medium hover:border-lavender hover:bg-lavender/10 transition-colors"
+                      >
+                        <MessageCircle size={16} aria-hidden="true" />
+                        Send a photo on WhatsApp
+                      </a>
+                    </div>
                   </div>
                 ) : (
                   <p className="py-6 text-xs text-charcoal-light">
-                    Type at least two letters — search covers products, collections and gift boxes.
+                    Type at least two letters — search covers alterations, the shop and gift boxes.
                   </p>
                 )}
               </div>

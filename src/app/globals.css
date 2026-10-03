@@ -7,6 +7,11 @@
   --color-charcoal: #4A4A4A;
   --color-charcoal-light: #6B6B6B;
   --color-lavender: #DCD0FF;
+  /* Lavender for words. The brand lavender is a background colour: as text on
+     cream it measures 1.4:1, and the accents set in it ("not just wear.")
+     were close to invisible. This one is 5.4:1 on cream and 5:1 on
+     lavender-bg, enough for small text. */
+  --color-lavender-ink: #6E5BA8;
   --color-lavender-soft: #E6E6FA;
   --color-lavender-bg: #F5F0FF;
   --font-serif: var(--font-playfair), "Playfair Display", Georgia, serif;
@@ -28,6 +33,40 @@ body {
 ::selection {
   background-color: var(--color-lavender);
   color: var(--color-charcoal);
+}
+
+/* text-lavender on words reads as the darker lavender, everywhere at once.
+   The class is on headline accents and small labels across two dozen files;
+   on its own, every one of them failed contrast. Icons keep the light brand
+   lavender — they are drawn as <svg>, and an icon beside a word is decoration,
+   not something to read. Outside any @layer on purpose: an unlayered rule
+   beats Tailwind's utilities layer however specific they are. */
+.text-lavender:not(svg) {
+  color: var(--color-lavender-ink);
+}
+
+/* A phone zooms the page in when a field under 16px is tapped, and iOS never
+   zooms back out: the booking form's 14px fields left the client pinching out
+   to find the time slots and the button. So every field a person types into
+   is 16px on a phone. Unlayered, for the reason above — inside @layer base
+   the fields' own text-sm would still win. :where() keeps it at zero
+   specificity, so the Studio's and Clerk's own field styles are left alone.
+   Search is left out: its field is already larger. Pinch-zoom itself stays
+   allowed — the viewport has no maximum-scale, and must not get one. */
+@media (max-width: 639.98px) {
+  :where(
+    input:not([type="checkbox"], [type="radio"], [type="search"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"], [type="hidden"]),
+    select,
+    textarea
+  ) {
+    font-size: 16px;
+  }
+}
+
+/* The skip link moves focus to the page's <main>; that is a jump, not a
+   control, so it needs no ring of its own */
+main:focus {
+  outline: none;
 }
 
 /* The gallery viewer's pictures settle in rather than snap (see components/work) */

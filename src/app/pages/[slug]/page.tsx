@@ -5,6 +5,8 @@ import { sanityClient, urlFor } from "@/lib/sanity";
 import { PortableText } from "@portabletext/react";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
+import { SITE_URL } from "@/lib/site";
+import { summaryFromBlocks } from "@/lib/pageSummary";
 
 export const revalidate = 300;
 
@@ -44,7 +46,10 @@ export async function generateMetadata({
   if (!page) return { title: "Page Not Found | Beautasy" };
   return {
     title: `${page.title} | Beautasy`,
-    description: `${page.title} — Beautasy`,
+    // What the page says, not its title again — see @/lib/pageSummary
+    description: summaryFromBlocks(page.body) ?? `${page.title} — Beautasy`,
+    // One address however the page was reached (?utm_source=…)
+    alternates: { canonical: `${SITE_URL}/pages/${slug}` },
   };
 }
 
@@ -80,7 +85,7 @@ export default async function LegalPage({
   return (
     <>
       <HeaderWrapper />
-      <main className="pt-28 pb-24 max-w-3xl mx-auto px-6">
+      <main id="main" className="pt-28 pb-24 max-w-3xl mx-auto px-6">
         {/* Title */}
         <h1 className="font-serif text-3xl sm:text-4xl mb-4">{page.title}</h1>
 
@@ -115,9 +120,11 @@ export default async function LegalPage({
           </div>
         )}
 
-        {/* Body content */}
+        {/* Body content. Links are the darker lavender and underlined: the
+            brand lavender as text is 1.4:1 on cream, and without the line a
+            link in a privacy policy could only be found by its colour. */}
         {page.body && (
-          <div className="prose prose-stone max-w-none prose-headings:font-serif prose-headings:text-charcoal prose-h2:text-2xl prose-h3:text-xl prose-p:text-charcoal-light prose-p:leading-relaxed prose-strong:text-charcoal prose-a:text-lavender prose-a:no-underline hover:prose-a:underline prose-li:text-charcoal-light prose-li:leading-relaxed">
+          <div className="prose prose-stone max-w-none prose-headings:font-serif prose-headings:text-charcoal prose-h2:text-2xl prose-h3:text-xl prose-p:text-charcoal-light prose-p:leading-relaxed prose-strong:text-charcoal prose-a:text-lavender-ink prose-a:underline prose-a:underline-offset-2 hover:prose-a:text-charcoal prose-li:text-charcoal-light prose-li:leading-relaxed">
             <PortableText
               value={page.body}
               components={{
