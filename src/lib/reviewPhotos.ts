@@ -74,8 +74,9 @@ export async function photosFromThisLink(
 /**
  * How many abandoned photos one morning deletes. The daily job has sixty
  * seconds for everything, and each delete is a request of its own, so the
- * number is kept small; anything left over is still there tomorrow. One link
- * can upload twelve at most, so this is more than a normal day ever leaves.
+ * number is kept small; anything left over is still there tomorrow. A link
+ * can upload eight per piece it covers at most (see the upload route), and
+ * most abandon none, so this is more than a normal day ever leaves.
  */
 export const SWEEP_PER_RUN = 20;
 

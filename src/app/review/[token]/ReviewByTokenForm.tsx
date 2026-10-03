@@ -4,10 +4,21 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Camera, X, CheckCircle2 } from "lucide-react";
 import StarRating from "@/components/StarRating";
+import { uploadOnce } from "@/lib/uploadOnce";
 
 /* eslint-disable @next/next/no-img-element */
 
 const MAX_PHOTOS = 4;
+
+/** The longest comment /api/reviews/by-token takes. */
+const MAX_COMMENT = 1000;
+
+/** A photo picked for the review, and its asset id once it has been uploaded. */
+interface PickedPhoto {
+  file: File;
+  preview: string;
+  assetId?: string;
+}
 
 /**
  * Review form for a customer arriving from a review-request email.
@@ -29,7 +40,7 @@ export default function ReviewByTokenForm({
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [userName, setUserName] = useState(defaultName ?? "");
-  const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([]);
+  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,16 +68,24 @@ export default function ReviewByTokenForm({
     setError(null);
 
     try {
-      const imageAssetIds: string[] = [];
-      for (const { file } of photos) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("token", token);
-        const res = await fetch("/api/reviews/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Could not upload that photo");
-        imageAssetIds.push(data.assetId);
-      }
+      // A photo already uploaded on an earlier try keeps its id and is not
+      // sent again: each upload counts against this piece's daily allowance
+      const imageAssetIds = await uploadOnce(
+        photos,
+        (photo) => photo.assetId,
+        async ({ file }) => {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("token", token);
+          formData.append("productId", productId);
+          const res = await fetch("/api/reviews/upload", { method: "POST", body: formData });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Could not upload that photo");
+          return data.assetId as string;
+        },
+        (photo, assetId) =>
+          setPhotos((prev) => prev.map((p) => (p.preview === photo.preview ? { ...p, assetId } : p)))
+      );
 
       const res = await fetch("/api/reviews/by-token", {
         method: "POST",
@@ -114,6 +133,7 @@ export default function ReviewByTokenForm({
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         rows={4}
+        maxLength={MAX_COMMENT}
         placeholder={`How does the ${productName} feel to wear?`}
         className="w-full p-4 rounded-xl border border-lavender-soft/40 bg-white/70 text-sm text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:ring-2 focus:ring-lavender/40 mb-3"
       />
