@@ -247,6 +247,10 @@ test("the schedule has the bank-holiday switch, off unless Kristina turns it on,
   assert.equal(field.type, "boolean");
   assert.equal(field.initialValue, false, "a new schedule would open bank holidays");
   assert.match(field.description ?? "", /25 и 26 декабря закрыты в любом случае/);
+  // Boxing Day moves too, and in 2026 it is the one that does: the 26th is a
+  // Saturday, so Monday the 28th is shut while the switch is off
+  assert.match(field.description ?? "", /Новый год, Рождество и День подарков/);
+  assert.match(field.description ?? "", /в 2026 году это понедельник, 28 декабря/);
   assert.doesNotMatch(field.description ?? "", /[A-Za-z]{4,}/, "the description slipped into English");
 });
 
