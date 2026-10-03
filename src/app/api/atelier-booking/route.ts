@@ -486,7 +486,9 @@ export async function POST(req: NextRequest) {
             _id: slotDocumentId(slot),
             slotStart: slot,
             // The second slot of a bride's fitting is held through this, the
-            // way a collection holds its trip (see TAKEN_QUERY in @/lib/schedule)
+            // way a collection holds its trip (see TAKEN_QUERY in @/lib/schedule).
+            // Accepted race, as for a collection: only the first slot's id is
+            // guarded, so a booking of the second slot in the same second slips past.
             ...(slotEnd ? { slotEnd } : {}),
             // A moment, not a window: she is expected at the start
             confirmedFor: slotLabel(slot),

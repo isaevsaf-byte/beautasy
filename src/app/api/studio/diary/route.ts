@@ -301,8 +301,8 @@ export async function POST(req: NextRequest) {
       return answer(400, "Это заявка на забор — время для неё назначает кнопка «🚗 Назначить забор» в меню внизу.");
     }
     // The booking that holds this very time: moving it onto itself would hand
-    // its own time back. One that gave it back is booked again in place — the
-    // diary above has just said the time is free, which a status set back by
+    // its own time back. One that gave it back is booked again in place — once
+    // the diary below has said the time is free, which a status set back by
     // hand never asked (a collection may hold that time without its id).
     const sameSlot = from._id === slotDocumentId(slot);
     if (sameSlot && !releasesItsTime(from.status)) return answer(400, "Запись уже стоит на это время.");
