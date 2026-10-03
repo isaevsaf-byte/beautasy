@@ -36,6 +36,11 @@ export interface LocalService {
   slug: string;
   /** The one keyword this page is for, as a person would say it */
   h1: string;
+  /**
+   * At most 60 characters with "Beautasy" in them, the job first and the name
+   * last: Google cuts a longer title off, and the part it cut was the name.
+   * A price in it must be one the page's own list carries.
+   */
   metaTitle: string;
   metaDescription: string;
   /** Small label above the heading */
@@ -91,7 +96,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     slug: "wedding-dress-southampton",
     reviewTopics: ["alterations"],
     h1: "Wedding Dress Alterations in Southampton",
-    metaTitle: "Wedding Dress Alterations Southampton | Bridal Fitting — Beautasy",
+    metaTitle: "Wedding Dress Alterations Southampton | Beautasy Atelier",
     metaDescription:
       "Wedding dress alterations in Southampton by an experienced seamstress. Taking in, hemming, bustles, straps and cups — three fittings, from £150. Book a bridal fitting.",
     eyebrow: "Bridal",
@@ -153,7 +158,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     slug: "school-uniform-southampton",
     reviewTopics: ["alterations", "repairs"],
     h1: "School Uniform Alterations & Hemming in Southampton",
-    metaTitle: "School Uniform Alterations Southampton | Hemming from £8 — Beautasy",
+    metaTitle: "School Uniform Alterations Southampton | From £8 — Beautasy",
     metaDescription:
       "School trousers, skirts and blazers hemmed and taken in, in Southampton. From £8 per item, bundle price for five. Turned around in 3–5 days.",
     eyebrow: "Back to school",
@@ -337,7 +342,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     slug: "zip-replacement-southampton",
     reviewTopics: ["repairs"],
     h1: "Zip Replacement & Repairs in Southampton",
-    metaTitle: "Zip Replacement Southampton | Coats, Dresses, Boots — Beautasy",
+    metaTitle: "Zip Replacement Southampton | Coats & Dresses — Beautasy",
     metaDescription:
       "Broken zip replaced on coats, dresses, jeans and bags in Southampton. From £14, most jobs back within a week. Bring the thing you've stopped wearing.",
     eyebrow: "Repairs",
@@ -396,7 +401,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     slug: "curtains-and-home-southampton",
     reviewTopics: ["home"],
     h1: "Curtain Alterations & Home Textiles in Southampton",
-    metaTitle: "Curtain Alterations Southampton | Hemming & Cushions — Beautasy",
+    metaTitle: "Curtain Hemming & Alterations Southampton | Beautasy",
     metaDescription:
       "Curtains shortened and re-headed, cushion covers and roman blinds made to measure in Southampton. From £20 per panel. Measuring advice included.",
     eyebrow: "Home",

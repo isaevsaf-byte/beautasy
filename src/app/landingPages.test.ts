@@ -12,9 +12,10 @@ import { LOCAL_SERVICES } from "../lib/localServices";
 import { lowestPrice } from "../lib/siteCopy";
 import { BUSINESS, BY_APPOINTMENT } from "../lib/business";
 import { bookBarShown } from "../components/StickyBookBar";
-import ServicePage from "./alterations/[slug]/page";
-import AlterationsHub from "./alterations/page";
+import ServicePage, { generateMetadata as serviceMetadata } from "./alterations/[slug]/page";
+import AlterationsHub, { metadata as hubMetadata } from "./alterations/page";
 import AtelierPage from "./atelier/page";
+import { metadata as atelierMetadata } from "./atelier/layout";
 import HomePage from "./page";
 
 /**
@@ -253,5 +254,31 @@ test("'seamstress' is in the words a visitor reads on /atelier and /alterations"
   stubSanity(t, { photo: false });
   for (const page of [AtelierPage(), AlterationsHub()]) {
     assert.match(visible(await html(page)), /\bseamstress\b/);
+  }
+});
+
+/* ─── SEO-2: titles Google shows whole ─── */
+
+test("each service page's title is at most 60 characters, the job first and Beautasy last", async () => {
+  for (const s of LOCAL_SERVICES) {
+    const title = s.metaTitle;
+    assert.ok(title.length <= 60, `${s.slug}: ${title.length} characters — "${title}"`);
+    assert.match(title, /(— |\| )Beautasy( Atelier)?$/, `${s.slug}: the name last`);
+    assert.ok(title.indexOf("Southampton") > -1 && title.indexOf("Southampton") < title.indexOf("Beautasy"), s.slug);
+    for (const [price] of title.matchAll(/£\d+(?:\.\d\d)?/g)) {
+      assert.ok(s.prices.some((line) => line.price.includes(price)), `${s.slug}: ${price} is not on the page's price list`);
+    }
+    const meta = await serviceMetadata({ params: Promise.resolve({ slug: s.slug }) });
+    assert.equal(meta.title, title);
+  }
+});
+
+test("/atelier's and /alterations' titles fit in 60 characters, the atelier's work before its name", () => {
+  for (const [name, title] of [["/atelier", atelierMetadata.title], ["/alterations", hubMetadata.title]] as const) {
+    assert.equal(typeof title, "string", name);
+    const text = title as string;
+    assert.ok(text.length <= 60, `${name}: ${text.length} characters — "${text}"`);
+    assert.match(text, /^(Clothing )?Alterations\b/, `${name}: the work first`);
+    assert.match(text, /\| Beautasy Atelier$/, `${name}: the name last`);
   }
 });
