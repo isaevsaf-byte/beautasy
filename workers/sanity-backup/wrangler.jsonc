@@ -1,0 +1,45 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  // The nightly copy of the Sanity dataset, kept in a private R2 bucket.
+  //
+  // Sanity's free plan has no backups of its own, and before this there was
+  // no copy of the dataset anywhere. Not in GitHub: the repository is public,
+  // and anyone signed in can download a workflow's artifacts. R2 buckets are
+  // private unless someone switches public access on — never do that for
+  // this one. How to switch it on and how to restore: README.md.
+  "name": "beautasy-sanity-backup",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "account_id": "ce4444b01bb0a7e25e5779637a08eccf",
+
+  // Nothing to serve: this Worker is only ever woken by the schedule, so it
+  // gets no public workers.dev address for strangers to poke.
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // UTC, like every Cloudflare cron: 02:17 is 03:17 in British summer time
+  // and 02:17 in winter — both well after the diary closes. Off the hour, when
+  // everyone else's jobs run.
+  "triggers": {
+    "crons": ["17 2 * * *"]
+  },
+
+  "vars": {
+    "SANITY_PROJECT_ID": "5uun6fw6",
+    "SANITY_DATASET": "production"
+  },
+  // SANITY_READ_TOKEN is a secret, set with `wrangler secret put
+  // SANITY_READ_TOKEN`: a Viewer token made for this Worker alone, so it can
+  // be revoked without touching the site. Never in this file.
+
+  "r2_buckets": [
+    {
+      "binding": "BACKUPS",
+      "bucket_name": "beautasy-backups"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}
