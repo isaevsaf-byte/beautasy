@@ -95,7 +95,7 @@ export default async function WorkPage() {
 
       <HeaderWrapper />
 
-      <main className="pt-24 pb-24">
+      <main id="main" className="pt-24 pb-24">
         {/* ──── Hero ──── */}
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 -z-10" aria-hidden="true">

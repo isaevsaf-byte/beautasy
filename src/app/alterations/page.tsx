@@ -79,7 +79,7 @@ export default function AlterationsHub() {
 
       <HeaderWrapper />
 
-      <main className="pt-24 pb-24">
+      <main id="main" className="pt-24 pb-24">
         <section className="max-w-4xl mx-auto px-6">
           <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-5">
             Alterations · Southampton

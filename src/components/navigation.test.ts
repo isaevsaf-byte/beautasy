@@ -65,8 +65,22 @@ test("a keyboard can skip the menu on every page", () => {
   const layout = read("src/app/layout.tsx");
   // First in <body>, before anything else that takes focus
   assert.match(layout, /<body[\s\S]*?>\s*<SkipLink \/>\s*\{content\}/);
-  for (const page of ["src/app/HomeContent.tsx", "src/app/contact/page.tsx", "src/app/not-found.tsx", "src/app/pages/[slug]/page.tsx"]) {
+  for (const page of [
+    "src/app/HomeContent.tsx",
+    "src/app/contact/page.tsx",
+    "src/app/not-found.tsx",
+    "src/app/pages/[slug]/page.tsx",
+    "src/app/atelier/AtelierContent.tsx",
+    "src/app/shop/ShopContent.tsx",
+    "src/app/alterations/page.tsx",
+    "src/app/alterations/[slug]/page.tsx",
+    "src/app/work/page.tsx",
+    "src/app/reviews/page.tsx",
+    "src/app/refer/page.tsx",
+    "src/app/gift-cards/page.tsx",
+  ]) {
     assert.match(read(page), /<main id="main"/, page);
+    assert.equal(read(page).match(/<main\s/g)?.length, 1, `${page}: one <main>, so #main has one place to land`);
   }
 });
 

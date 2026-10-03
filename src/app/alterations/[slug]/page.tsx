@@ -185,7 +185,7 @@ export default async function LocalServicePage({
 
       <HeaderWrapper />
 
-      <main className="pt-24 pb-24">
+      <main id="main" className="pt-24 pb-24">
         {/* ──── Breadcrumb ──── */}
         <nav aria-label="Breadcrumb" className="max-w-4xl mx-auto px-6 mb-8">
           <ol className="flex flex-wrap items-center gap-2 text-xs text-charcoal-light">

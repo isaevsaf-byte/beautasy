@@ -40,7 +40,7 @@ export default function GiftCardsPage() {
   return (
     <>
       <HeaderWrapper />
-      <main className="pt-28">
+      <main id="main" className="pt-28">
         <section className="py-16 md:py-24">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-14">

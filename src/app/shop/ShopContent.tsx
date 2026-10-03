@@ -270,7 +270,7 @@ export default function ShopContent({
 
   return (
     <>
-      <main className="pt-28">
+      <main id="main" className="pt-28">
         {/* Page Hero */}
         {/* initial={false}, here and on the grid below: painted as it is, not
             faded in from opacity 0. Faded, the heading and the products waited

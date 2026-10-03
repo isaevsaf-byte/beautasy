@@ -96,7 +96,7 @@ export default async function ReviewsPage() {
   return (
     <>
       <HeaderWrapper />
-      <main className="pt-28">
+      <main id="main" className="pt-28">
         {/* ──── The opening: what people say, and where ──── */}
         <section className="relative overflow-hidden pt-16 pb-12 md:pt-20">
           <div
