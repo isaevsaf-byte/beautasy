@@ -5,15 +5,17 @@ import GiftCardPurchase from "./GiftCardPurchase";
 import { SITE_URL } from "@/lib/site";
 import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
 
+const SHARE_TITLE = "Beautasy Gift Cards";
+const SHARE_DESCRIPTION = "Give handmade. Arrives by email, spendable across several orders, valid for a year.";
+
 export const metadata: Metadata = {
   title: "Gift Cards | Beautasy",
   description:
     "Give handmade. A Beautasy gift card arrives by email, keeps its remaining balance for next time, and is valid for a year.",
   alternates: { canonical: `${SITE_URL}/gift-cards` },
   openGraph: {
-    title: "Beautasy Gift Cards",
-    description:
-      "Give handmade. Arrives by email, spendable across several orders, valid for a year.",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
     url: `${SITE_URL}/gift-cards`,
     siteName: "Beautasy",
     locale: "en_GB",
@@ -23,6 +25,14 @@ export const metadata: Metadata = {
     // openGraph block here replaces the root's rather than adding to it.
     // See src/lib/socialCard.ts.
     images: SOCIAL_CARD_IMAGES,
+  },
+  // Its own words for X too, or the root's twitter block is inherited whole
+  // and the link previews as the home page
+  twitter: {
+    card: "summary_large_image",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+    // No images: with the key absent Next copies the Open Graph ones here.
   },
 };
 

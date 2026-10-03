@@ -62,8 +62,9 @@ export const SOCIAL_CARD_IMAGES = [
 
 /**
  * The atelier's own picture — scissors, thread and the gold logo — for the
- * links that sell an alteration rather than the shop: a friend's /r/ link and
- * a salon's /p/ card. The size is the file's real one (socialPreview.test.ts
+ * links that sell an alteration rather than the shop: a friend's /r/ link, a
+ * salon's /p/ card, /refer that hands out the /r/ links, and /reviews, which
+ * is nearly all about the atelier's work. The size is the file's real one (socialPreview.test.ts
  * measures it); it is not the 1.91:1 a chat app crops to, which is Kristina's
  * artwork to redraw, see src/app/atelier/layout.tsx.
  */

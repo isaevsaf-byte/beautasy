@@ -422,6 +422,43 @@ test("a friend's link and a salon's card preview as the atelier, at their own ad
   assert.match(readFileSync(join(APP_DIR, "p/[slug]/page.tsx"), "utf8"), /\$\{partner\.partner\.name\} recommends Beautasy Atelier/);
 });
 
+/**
+ * Three more pages that are shared more than searched for: /reviews goes to
+ * clients after a finished job, /refer is where the friends' links come from,
+ * and a gift card is sent to somebody. Each sets its own openGraph, and each
+ * needs its own twitter block as well — without one, the root's is inherited
+ * whole and X previews the link with the home page's title. /reviews and
+ * /refer are about the atelier, so they show the atelier's picture, as /r/
+ * does. The two whose metadata is a constant are imported and read as Next
+ * will read them; /reviews builds its own per request, so it is read as source.
+ */
+test("/reviews, /refer and /gift-cards preview with their own words everywhere, and the atelier where it belongs", async () => {
+  const { metadata: refer } = await import("./refer/page");
+  const { metadata: giftCards } = await import("./gift-cards/page");
+  for (const [where, meta, images] of [["refer", refer, ATELIER_CARD_IMAGES], ["gift-cards", giftCards, SOCIAL_CARD_IMAGES]] as const) {
+    const og = meta.openGraph as { title?: string; description?: string; images?: unknown };
+    const twitter = meta.twitter as { card?: string; title?: string; description?: string; images?: unknown };
+    assert.deepEqual(og.images, images, `${where}: its picture`);
+    assert.ok(twitter, `${where} has a twitter block of its own`);
+    assert.equal(twitter.card, "summary_large_image", where);
+    assert.equal(twitter.title, og.title, `${where}: the same title on X as in WhatsApp`);
+    assert.equal(twitter.description, og.description, where);
+    assert.notEqual(twitter.title, SITE_TITLE, `${where}: not the home page's`);
+    assert.equal("images" in twitter, false, `${where}: no images key, so Next copies the Open Graph ones`);
+  }
+
+  const reviews = stripComments(readFileSync(join(APP_DIR, "reviews", "page.tsx"), "utf8"));
+  const [og] = blocksFor(reviews, "openGraph");
+  const [twitter] = blocksFor(reviews, "twitter");
+  assert.match(og, /images: ATELIER_CARD_IMAGES/);
+  assert.match(og, /title: shareTitle,/);
+  assert.ok(twitter, "/reviews has a twitter block of its own");
+  assert.match(twitter, /card: "summary_large_image"/);
+  assert.match(twitter, /title: shareTitle,/);
+  assert.match(twitter, /description,/);
+  assert.doesNotMatch(twitter, /\bimages\b/);
+});
+
 test("the atelier card is the size its file really is", () => {
   const [card] = ATELIER_CARD_IMAGES;
   const file = publicFileIn(card.url);

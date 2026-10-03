@@ -6,7 +6,7 @@ import StarRating from "@/components/StarRating";
 import { googleReviewUrl, nextdoorPageUrl } from "@/lib/siteSettings";
 import { BUSINESS } from "@/lib/business";
 import { SITE_URL } from "@/lib/site";
-import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
+import { ATELIER_CARD_IMAGES } from "@/lib/socialCard";
 import { featuredReview, nextdoorRecommendUrl, reviewSummary } from "@/lib/siteReviews";
 import { readReviews } from "@/lib/getReviews";
 import { ReviewSourceMark } from "@/components/reviews/ReviewCard";
@@ -38,6 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const reviews = await readReviews();
   const description =
     "What clients say about Kristina's alterations, curtains and handmade pieces in Southampton, and a place to leave your own review.";
+  const shareTitle = "Reviews — Beautasy Atelier, Southampton";
   return {
     title: "Reviews | Beautasy Atelier, Southampton",
     description,
@@ -45,14 +46,25 @@ export async function generateMetadata(): Promise<Metadata> {
     // Until the first review is approved this page is a form and a link, which
     // is nothing worth showing in search
     robots: reviews.length ? undefined : { index: false, follow: true },
+    // This link is sent to clients after a finished job (beautasy.co.uk/review),
+    // and nearly every review is about the atelier: so the atelier's picture,
+    // as a friend's /r/ link has, rather than the shop's card
     openGraph: {
-      title: "Reviews — Beautasy Atelier, Southampton",
+      title: shareTitle,
       description,
       url: PAGE_URL,
       siteName: "Beautasy",
       locale: "en_GB",
       type: "website",
-      images: SOCIAL_CARD_IMAGES,
+      images: ATELIER_CARD_IMAGES,
+    },
+    // Its own words here too: without this block the root's twitter one is
+    // inherited whole, and X previews the link as the home page
+    twitter: {
+      card: "summary_large_image",
+      title: shareTitle,
+      description,
+      // No images: with the key absent Next copies the Open Graph ones here.
     },
   };
 }

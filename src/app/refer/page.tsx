@@ -5,7 +5,7 @@ import FooterWrapper from "@/components/FooterWrapper";
 import { referralSettings } from "@/lib/referrals";
 import { pounds } from "@/lib/friendsLink";
 import { SITE_URL } from "@/lib/site";
-import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
+import { ATELIER_CARD_IMAGES } from "@/lib/socialCard";
 import ReferForm from "./ReferForm";
 
 /**
@@ -18,24 +18,34 @@ import ReferForm from "./ReferForm";
 
 export const revalidate = 300;
 
+const SHARE_TITLE = "Give £5, get £5 — Beautasy Friends";
+const SHARE_DESCRIPTION =
+  "Friends get £5 off their first order or first alteration. You get £5 of Beautasy credit every time one of them buys or books.";
+
 export const metadata: Metadata = {
   title: "Give £5, get £5 | Beautasy Friends",
   description:
     "Share your Beautasy link. Friends get £5 off their first order or first alteration; you get £5 of credit to spend in the shop or at the Southampton atelier.",
   alternates: { canonical: `${SITE_URL}/refer` },
   openGraph: {
-    title: "Give £5, get £5 — Beautasy Friends",
-    description:
-      "Friends get £5 off their first order or first alteration. You get £5 of Beautasy credit every time one of them buys or books.",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
     url: `${SITE_URL}/refer`,
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
-    // This page exists to be pasted into a chat, and until now it was pasted
-    // with no picture at all: declaring an openGraph block of our own drops
-    // the root's images instead of adding to them, so the generated card never
-    // reached here. See src/lib/socialCard.ts.
-    images: SOCIAL_CARD_IMAGES,
+    // This page exists to be pasted into a chat. It names its picture because
+    // an openGraph block of its own drops the root's (see src/lib/socialCard.ts),
+    // and it names the atelier's: the friends' links it hands out preview as
+    // the atelier (/r/), and a page about them should look the same.
+    images: ATELIER_CARD_IMAGES,
+  },
+  // Its own words for X too, or the root's twitter block is inherited whole
+  twitter: {
+    card: "summary_large_image",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+    // No images: with the key absent Next copies the Open Graph ones here.
   },
 };
 
