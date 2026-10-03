@@ -12,6 +12,11 @@ import { sendEmail } from "@/lib/sendEmail";
  */
 
 const FROM_EMAIL = "Beautasy <orders@beautasy.co.uk>";
+/**
+ * Where a reply goes. orders@ is an address that sends; "is it in a size 12?"
+ * answered to it went nowhere Kristina reads.
+ */
+const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 
 interface PendingAlert {
   _id: string;
@@ -90,6 +95,7 @@ export async function runStockAlerts(): Promise<{ checked: number; sent: number 
         sendEmail({
         from: FROM_EMAIL,
         to: email,
+        replyTo: KRISTINA_EMAIL,
         subject: `Back in stock: ${product.name}${alert.size ? ` (${alert.size})` : ""} 💜`,
         html: `
           <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:32px;">
