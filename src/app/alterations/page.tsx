@@ -196,7 +196,7 @@ export default async function AlterationsHub() {
           </ul>
         </section>
 
-        <MeetKristina content={kristina} className="max-w-4xl mx-auto px-6 mt-20" />
+        <MeetKristina content={kristina} narrow className="max-w-4xl mx-auto px-6 mt-20" />
 
         <section className="max-w-4xl mx-auto px-6 mt-16">
           <div className="bg-lavender-bg rounded-3xl p-7 sm:p-10">

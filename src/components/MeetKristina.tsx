@@ -7,6 +7,26 @@ import type { MeetKristinaContent, ShownPortrait } from "@/lib/meetKristina";
 /** The first line of the chat, typed for them: a photo is what she needs to give a price */
 const WHATSAPP_HELLO = "Hi Kristina, here's a photo of something I'd like altered:";
 
+/** The column the block sits in: max-w-6xl on the home page and /atelier, max-w-4xl elsewhere */
+const COLUMN = { wide: 1152, narrow: 896 } as const;
+
+/**
+ * How wide each photo is drawn, for the browser to fetch a picture that size
+ * rather than the largest. On a laptop: the column less its px-6, halved
+ * across gap-14 — and with two photos, that half shared 3:2 across sm:gap-4.
+ * Below the column's width the photos shrink with the screen; below md the
+ * single portrait is the screen less its margins, up to max-w-sm (384px).
+ */
+export function portraitSizes(column: number): { single: string; portrait: string; atWork: string } {
+  const half = (column - 48 - 56) / 2;
+  const pair = half - 16;
+  return {
+    single: `(min-width: ${column}px) ${Math.round(half)}px, (min-width: 768px) 46vw, (min-width: 432px) 384px, 92vw`,
+    portrait: `(min-width: ${column}px) ${Math.round(pair * 0.6)}px, (min-width: 768px) 28vw, 58vw`,
+    atWork: `(min-width: ${column}px) ${Math.round(pair * 0.4)}px, (min-width: 768px) 19vw, 38vw`,
+  };
+}
+
 function Portrait({ photo, sizes }: { photo: ShownPortrait; sizes: string }) {
   return (
     <Image
@@ -32,19 +52,23 @@ function Portrait({ photo, sizes }: { photo: ShownPortrait; sizes: string }) {
  *
  * `bookHref` is where "Choose a time" goes: the atelier's form by default, the
  * form further down the same page on a service page, where it already knows
- * which job it is for.
+ * which job it is for. `narrow` is for the max-w-4xl column of /alterations
+ * and the service pages, where the photos are drawn smaller.
  */
 export default function MeetKristina({
   content,
   bookHref = "/atelier#book",
+  narrow = false,
   className = "",
 }: {
   content: MeetKristinaContent | null;
   bookHref?: string;
+  narrow?: boolean;
   className?: string;
 }) {
   if (!content) return null;
   const { photo, atWork, paragraphs } = content;
+  const sizes = portraitSizes(narrow ? COLUMN.narrow : COLUMN.wide);
   return (
     <section aria-labelledby="meet-kristina" className={className}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14 items-center">
@@ -53,15 +77,15 @@ export default function MeetKristina({
           // photo at work a step lower, so the two read as a pair
           <div className="grid grid-cols-5 gap-3 sm:gap-4 items-end">
             <div className="col-span-3">
-              <Portrait photo={photo} sizes="(min-width: 1152px) 330px, (min-width: 768px) 28vw, 58vw" />
+              <Portrait photo={photo} sizes={sizes.portrait} />
             </div>
             <div className="col-span-2 mb-8">
-              <Portrait photo={atWork} sizes="(min-width: 1152px) 220px, (min-width: 768px) 19vw, 38vw" />
+              <Portrait photo={atWork} sizes={sizes.atWork} />
             </div>
           </div>
         ) : (
           <div className="w-full max-w-sm mx-auto md:max-w-none">
-            <Portrait photo={photo} sizes="(min-width: 1152px) 540px, (min-width: 768px) 46vw, (min-width: 416px) 384px, 92vw" />
+            <Portrait photo={photo} sizes={sizes.single} />
           </div>
         )}
 

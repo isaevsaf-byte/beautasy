@@ -370,7 +370,7 @@ export default async function LocalServicePage({
 
         {/* ──── Meet Kristina ──── */}
         {/* Who they will meet, just before they choose a time with her */}
-        <MeetKristina content={kristina} bookHref="#book" className="max-w-4xl mx-auto px-6 mt-20" />
+        <MeetKristina content={kristina} bookHref="#book" narrow className="max-w-4xl mx-auto px-6 mt-20" />
 
         {/* ──── Booking ──── */}
         <section id="book" className="max-w-4xl mx-auto px-6 mt-20 scroll-mt-24">

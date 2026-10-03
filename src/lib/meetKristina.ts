@@ -40,8 +40,8 @@ const FALLBACK_ALT = {
 /**
  * Both photos are shown in the same upright shape, so they read as a pair and
  * the page keeps its place while they load. Kristina's focus point decides
- * what stays inside it. 1080 wide is the largest the page draws one (540px on
- * a laptop) at twice the pixels, which is what a laptop screen has.
+ * what stays inside it. 1080 wide covers the largest the page draws one (524px
+ * on a laptop) at twice the pixels, which is what a laptop screen has.
  */
 export const PORTRAIT = { width: 1080, height: 1350 } as const;
 

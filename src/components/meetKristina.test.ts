@@ -211,6 +211,26 @@ test("her own words, the photo at work beside the portrait, and the form on the 
   assert.match(html, /<a[^>]*href="#book"[^>]*>\s*Choose a time/);
 });
 
+test("in the narrower column of /alterations and the service pages the photos are fetched narrower too", () => {
+  const sizesOf = (html: string) => [...html.matchAll(/<img[^>]*sizes="([^"]+)"/g)].map(([, sizes]) => sizes);
+  const pair = { ...shown(), atWork: { ...shown().photo, alt: "Kristina at her sewing machine" } };
+
+  // max-w-6xl (home, /atelier): 1152 less px-6 and gap-14, halved — the pair shares it 3:2 after sm:gap-4
+  assert.deepEqual(sizesOf(render(createElement(MeetKristina, { content: shown() }))).map((s) => s.split(",")[0]), ["(min-width: 1152px) 524px"]);
+  assert.deepEqual(
+    sizesOf(render(createElement(MeetKristina, { content: pair }))).map((s) => s.split(",")[0]),
+    ["(min-width: 1152px) 305px", "(min-width: 1152px) 203px"]
+  );
+  // max-w-4xl: a laptop draws the portrait about 396px wide, not 540
+  assert.deepEqual(sizesOf(render(createElement(MeetKristina, { content: shown(), narrow: true }))).map((s) => s.split(",")[0]), ["(min-width: 896px) 396px"]);
+  assert.deepEqual(
+    sizesOf(render(createElement(MeetKristina, { content: pair, narrow: true }))).map((s) => s.split(",")[0]),
+    ["(min-width: 896px) 228px", "(min-width: 896px) 152px"]
+  );
+  // On a phone the single photo stops at max-w-sm, 384px, once the screen has room for it and px-6
+  assert.match(sizesOf(render(createElement(MeetKristina, { content: shown(), narrow: true })))[0], /\(min-width: 432px\) 384px, 92vw$/);
+});
+
 /* ─── The Studio ─── */
 
 type Field = {

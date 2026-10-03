@@ -76,6 +76,22 @@ test("Meet Kristina is on the home page, /atelier, /alterations and every servic
   }
 });
 
+test("each page asks for her photo at the width its column really draws it", async (t) => {
+  stubSanity(t, { photo: true });
+  // Tailwind's max-w-4xl and max-w-6xl; px-6 inside, and gap-14 between the photo and the words
+  const COLUMN = { "4xl": 896, "6xl": 1152 } as const;
+  for (const [name, page] of pages()) {
+    const out = await html(page);
+    const open = /<section aria-labelledby="meet-kristina"[^>]*>/.exec(out);
+    assert.ok(open, name);
+    const column = [...out.slice(0, open.index + open[0].length).matchAll(/max-w-(4xl|6xl)/g)].pop()?.[1] as keyof typeof COLUMN;
+    assert.ok(column, `${name}: the block sits in a column`);
+    const drawn = (COLUMN[column] - 48 - 56) / 2;
+    const sizes = /<img alt="Kristina smiling in her workroom"[^>]*sizes="([^"]+)"/.exec(out)?.[1] ?? "";
+    assert.ok(sizes.startsWith(`(min-width: ${COLUMN[column]}px) ${drawn}px,`), `${name}: "${sizes}" in a ${column} column`);
+  }
+});
+
 test("…and nowhere at all before there is one", async (t) => {
   stubSanity(t, { photo: false });
   for (const [name, page] of pages()) {
