@@ -110,3 +110,16 @@ test("what the form sends is built by bookingBody, with the hidden field's value
   assert.doesNotMatch(source, /requestKey\.current = /, "a new key on a retry would make it somebody else's request");
 });
 
+test("a message about what to fix is never hidden behind 'we couldn't hear back'", () => {
+  const submit = source.slice(source.indexOf("async function handleSubmit("), source.indexOf("setStatus(\"loading\");"));
+  const cleared = submit.indexOf("setUnanswered(false);");
+  assert.ok(cleared > 0, "a send that failed once hides every message after it");
+  assert.ok(cleared < submit.indexOf("setError("), "cleared only after 'Please choose a time.' has been hidden");
+  // Choosing again — a service, a time, a fitting or a collection — starts over too
+  const chooseService = source.slice(source.indexOf("function chooseService("), source.indexOf("async function handleSubmit("));
+  assert.match(chooseService, /setUnanswered\(false\);/);
+  assert.match(source, /setPicked\(s\.start\);\s*setError\(null\);\s*setUnanswered\(false\);/);
+  assert.match(source, /setMode\(option\.value\);\s*setError\(null\);\s*setUnanswered\(false\);/);
+  assert.match(source, /setMode\("fitting"\);\s*setError\(null\);\s*setUnanswered\(false\);/);
+});
+

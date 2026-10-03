@@ -194,12 +194,16 @@ export default function AtelierBookingForm({
 
   function chooseService(next: string) {
     setService(next);
+    setUnanswered(false);
     // A start that fitted one slot may not fit two: let it go rather than send it
     if (days) setPicked((current) => startForService(days, next, slotMinutes, current));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Whatever is said next replaces "we couldn't hear back" — a time to
+    // choose included, which that block used to hide
+    setUnanswered(false);
     if (collecting) {
       // The server decides again; this only saves a round trip for the obvious
       if (!zone) {
@@ -215,7 +219,6 @@ export default function AtelierBookingForm({
 
     setStatus("loading");
     setError(null);
-    setUnanswered(false);
     requestKey.current ??= newRequestKey();
     try {
       const reply = await sendBooking(
@@ -350,6 +353,7 @@ export default function AtelierBookingForm({
                   onClick={() => {
                     setMode(option.value);
                     setError(null);
+                    setUnanswered(false);
                     if (status === "error") setStatus("idle");
                   }}
                   aria-pressed={active}
@@ -421,6 +425,7 @@ export default function AtelierBookingForm({
                     onClick={() => {
                       setMode("fitting");
                       setError(null);
+                      setUnanswered(false);
                       if (status === "error") setStatus("idle");
                     }}
                     className="underline underline-offset-2"
@@ -487,6 +492,7 @@ export default function AtelierBookingForm({
                     onClick={() => {
                       setPicked(s.start);
                       setError(null);
+                      setUnanswered(false);
                       if (status === "error") setStatus("idle");
                     }}
                     aria-pressed={active}
