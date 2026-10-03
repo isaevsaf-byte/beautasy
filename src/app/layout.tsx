@@ -5,6 +5,7 @@ import Script from "next/script";
 import CookieConsent from "@/components/CookieConsent";
 import MetaPixel from "@/components/MetaPixel";
 import SiteAnalytics from "@/components/SiteAnalytics";
+import SkipLink from "@/components/SkipLink";
 import { CONSENT_KEY } from "@/lib/consent";
 import { clerkEnabled } from "@/lib/clerk";
 import "./globals.css";
@@ -12,6 +13,7 @@ import { SITE_URL } from "@/lib/site";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { BUSINESS } from "@/lib/business";
 import { domainVerificationTags } from "@/lib/domainVerification";
+import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/siteCopy";
 
 /**
  * The brand as one schema.org entity, on every page. The atelier's
@@ -42,21 +44,26 @@ const inter = Inter({
   display: "swap",
 });
 
+/**
+ * What every page says about the site unless it says something of its own.
+ * The words are in @/lib/siteCopy: the atelier first, because it is what pays.
+ *
+ * No `icons` key: the favicon and the home-screen icon are the files
+ * ./icon.png and ./apple-icon.png, which Next links with a hash so browsers
+ * may keep them. Naming a file here would silently override both — the
+ * 138 KB picture it used to name was downloaded again on every first visit.
+ */
 export const metadata: Metadata = {
-  title: "BEAUTASY — Handmade Lingerie & Accessories | Southampton",
-  icons: {
-    icon: "/beautasy-icon.png",
-    shortcut: "/beautasy-icon.png",
-    apple: "/beautasy-icon.png",
-  },
-  description:
-    "Handmade lingerie, kids' clothing, and accessories tailored with love in Southampton, UK. Made to feel, not just wear.",
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   metadataBase: new URL(SITE_URL),
   openGraph: {
-    title: "BEAUTASY — Handmade Lingerie & Accessories | Southampton",
-    description:
-      "Handmade lingerie, kids' clothing, and accessories tailored with love in Southampton, UK. Made to feel, not just wear.",
-    url: SITE_URL,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    // No url here. Every page without an openGraph block of its own inherits
+    // this one, and with the home page's address in it a friend's link, a
+    // salon's card and the privacy policy all told Facebook they were the
+    // home page. The home page names its own address (./page.tsx).
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
@@ -79,9 +86,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "BEAUTASY — Handmade Lingerie & Accessories | Southampton",
-    description:
-      "Handmade lingerie, kids' clothing, and accessories tailored with love in Southampton, UK. Made to feel, not just wear.",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     // Also no images key: Next copies the Open Graph ones onto the Twitter
     // card whenever it is absent, so the generated picture is used here too.
     // Naming a file here would silently opt back out of that.
@@ -158,6 +164,7 @@ export default function RootLayout({
       <body
         className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7] text-[#4A4A4A]`}
       >
+        <SkipLink />
         {content}
         <MetaPixel />
         <CookieConsent />

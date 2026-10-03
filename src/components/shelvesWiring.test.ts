@@ -12,25 +12,38 @@ import { join } from "node:path";
 
 const read = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
 
-test("the header's menus and links are the stocked ones, on every page", () => {
+test("the header lists no shop sections, so no menu can lead to an empty shelf", () => {
+  // The menu used to carry 22 shop links and filter them by the shelves. It
+  // now has six, none of them a section — the sections are chips on /shop —
+  // so the header no longer waits on the shelves at all. A section link put
+  // back into it would need the shelves again.
   const header = read("src/components/Header.tsx");
-  assert.match(header, /links: stockedLinks\(column\.links, shelves\)/);
-  assert.match(header, /link\.label === "Gifts" \? \[\{ \.\.\.link, href: giftsHref\(shelves\) \}\]/);
-  assert.match(header, /const menus = useMemo\(\(\) => stockedMenus\(shelves\), \[shelves\]\);/);
-  assert.doesNotMatch(header, /megaMenus\[(activeMega|link\.label)\]/, "the unfiltered menus must not be rendered");
-  assert.doesNotMatch(header, /navLinks\.(slice|map)\(/, "the unfiltered links must not be rendered");
-  // Pages rendered in the browser read them with the site settings
-  assert.match(header, /if \(data\?\.shelves !== undefined\) setShelves\(data\.shelves\);/);
-  // Server-rendered pages hand them over
-  assert.match(read("src/components/HeaderWrapper.tsx"), /shelves=\{shelves\}/);
+  assert.doesNotMatch(header, /href: "\/shop\/[a-z]/, "a shop section in the menu has to ask the shelves first");
+  assert.doesNotMatch(header, /href: "\/gift-boxes"/, "the gift boxes are a shelf too");
+  assert.doesNotMatch(read("src/components/HeaderWrapper.tsx"), /getShelves/);
+  // The footer still reads the shelves from the settings the header caches
+  assert.match(header, /s\?\.announcementBar !== undefined && s\?\.shelves !== undefined/);
   assert.match(read("src/app/api/site-settings/route.ts"), /NextResponse\.json\(\{ \.\.\.settings, shelves \}\)/);
 });
 
-test("on a phone the atelier is at the top of the menu", () => {
+test("the menu opens on the atelier, the same six links at every width", () => {
   const header = read("src/components/Header.tsx");
-  // Our Work sells the atelier too, so it sits with it
-  assert.match(header, /const MOBILE_ORDER = \["Atelier", "Alterations", "Our Work", "Shop"/);
-  assert.match(header, /\{mobileNav\.map\(\(link\) => \{/);
+  const links = [...header.matchAll(/\{ label: "([^"]+)", href: "([^"]+)", side: "(left|right)" \}/g)].map(
+    ([, label, href]) => `${label} ${href}`,
+  );
+  assert.deepEqual(links, [
+    "Alterations & Prices /atelier",
+    "Our Work /work",
+    "Reviews /reviews",
+    "Shop /shop",
+    "Gift Cards /gift-cards",
+    "Contact /contact",
+  ]);
+  assert.match(header, /\{navLinks\.map\(\(link\) => \(/, "the phone menu lists them all, in this order");
+  // The two things most people open the menu to do, at its foot
+  const phoneMenu = header.slice(header.indexOf('id="mobile-nav"'));
+  assert.match(phoneMenu, /href="\/atelier#book"[\s\S]*Choose a time/);
+  assert.match(phoneMenu, /href=\{whatsappLink\(WHATSAPP_HELLO\)\}[\s\S]*WhatsApp Kristina/);
 });
 
 test("the footer, the shop, the home page and the service pages leave empty shelves out", () => {
@@ -72,6 +85,8 @@ test("each page has one address for Google, and private pages none", () => {
   assert.doesNotMatch(read("src/app/layout.tsx"), /canonical/, "in the root layout every page would inherit the home page's address");
   assert.match(read("src/app/atelier/layout.tsx"), /alternates: \{ canonical: `\$\{siteUrl\}\/atelier` \}/);
   assert.match(read("src/app/shop/page.tsx"), /alternates: \{ canonical: `\$\{siteUrl\}\/shop` \}/);
+  assert.match(read("src/app/contact/layout.tsx"), /alternates: \{ canonical: `\$\{siteUrl\}\/contact` \}/);
+  assert.match(read("src/app/pages/[slug]/page.tsx"), /alternates: \{ canonical: `\$\{SITE_URL\}\/pages\/\$\{slug\}` \}/);
   for (const page of ["wishlist", "success"]) {
     assert.match(read(`src/app/${page}/layout.tsx`), /robots: \{ index: false, follow: true \}/, page);
   }

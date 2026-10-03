@@ -7,6 +7,8 @@ import { findReferrerByCode, referralSettings } from "@/lib/referrals";
 import { REFERRAL_COOKIE_DAYS, normaliseReferralCode, pounds } from "@/lib/friendsLink";
 import RememberReferral from "./RememberReferral";
 import { BUSINESS } from "@/lib/business";
+import { SITE_URL } from "@/lib/site";
+import { ATELIER_CARD_IMAGES } from "@/lib/socialCard";
 
 /**
  * Where a friend's link lands: /r/ANNA-K7P2.
@@ -19,12 +21,45 @@ import { BUSINESS } from "@/lib/business";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "A gift from a friend | Beautasy",
-  description:
-    "A friend has sent you money off your first Beautasy order or your first alteration at the Southampton atelier.",
-  robots: { index: false, follow: true },
-};
+/**
+ * What the link shows when it is pasted into a chat. It used to inherit the
+ * home page's lingerie card and the home page's address as og:url, so
+ * WhatsApp previewed a friend's £5 as "Handmade Lingerie & Accessories" and
+ * Facebook could fold the link into the home page — where no discount is
+ * remembered. Now it carries its own address and says what it is for: the
+ * atelier, which is what most friends are sent for.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
+  const { code } = await params;
+  const settings = await referralSettings();
+  const shareTitle = settings.enabled
+    ? `${pounds(settings.friendAtelierDiscount)} off your first alteration — Beautasy Atelier`
+    : "Beautasy Atelier — alterations & repairs in Southampton";
+  const shareDescription = settings.enabled
+    ? "A friend has sent you money off your first alteration at Beautasy's Southampton atelier, or off your first order from the handmade shop."
+    : "Alterations and repairs by appointment in Southampton, and a small shop of handmade lingerie.";
+  return {
+    title: "A gift from a friend | Beautasy",
+    description:
+      "A friend has sent you money off your first Beautasy order or your first alteration at the Southampton atelier.",
+    robots: { index: false, follow: true },
+    openGraph: {
+      title: shareTitle,
+      description: shareDescription,
+      url: `${SITE_URL}/r/${encodeURIComponent(code)}`,
+      siteName: "Beautasy",
+      locale: "en_GB",
+      type: "website",
+      images: ATELIER_CARD_IMAGES,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: shareTitle,
+      description: shareDescription,
+      // No images: with the key absent Next copies the Open Graph ones here.
+    },
+  };
+}
 
 export default async function FriendLandingPage({
   params,

@@ -18,9 +18,10 @@ const read = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
 
 test("the menu, the mobile menu and the footer lead to /work", () => {
   const header = read("src/components/Header.tsx");
-  assert.match(header, /\{ label: "Our Work", href: "\/work", side: "right", from: "xl" \}/);
-  assert.match(header, /link\.from === "xl" \? "hidden xl:inline"/);
-  assert.match(header, /const MOBILE_ORDER = \[[^\]]*"Our Work"/);
+  // One list for both menus, shown whole at every width that has a desktop bar
+  assert.match(header, /\{ label: "Our Work", href: "\/work", side: "left" \}/);
+  assert.match(header, /\{navLinks\.map\(\(link\) => \(/, "the phone menu lists every link");
+  assert.doesNotMatch(header, /hidden xl:inline|hidden lg:inline/, "no desktop link waits for a wider screen");
   assert.match(read("src/components/Footer.tsx"), /\{ label: "Our Work", href: "\/work" \}/);
 });
 

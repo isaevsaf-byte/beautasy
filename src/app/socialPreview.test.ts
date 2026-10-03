@@ -1,11 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 
 import ogImage, { alt, contentType, size } from "./opengraph-image";
 import { domainVerificationTags } from "../lib/domainVerification";
-import { SOCIAL_CARD_IMAGES, SOCIAL_CARD_URL } from "../lib/socialCard";
+import { ATELIER_CARD_IMAGES, SOCIAL_CARD_IMAGES, SOCIAL_CARD_URL } from "../lib/socialCard";
+import { SITE_DESCRIPTION, SITE_TITLE, lowestPrice } from "../lib/siteCopy";
 
 /**
  * What a shared link looks like, and who is allowed to claim this domain.
@@ -322,8 +323,7 @@ test("the root layout offers no picture of its own to crop", () => {
 
   // openGraph and twitter must both stay silent about images here: that
   // silence is what hands the job to opengraph-image.tsx, which sits in this
-  // same segment. `icons` is a different key and still points at the square
-  // icon, because a favicon wants one.
+  // same segment.
   for (const key of ["openGraph", "twitter"]) {
     const blocks = blocksFor(source, key);
     assert.equal(blocks.length, 1, `expected exactly one ${key} block in the root layout`);
@@ -334,7 +334,101 @@ test("the root layout offers no picture of its own to crop", () => {
     );
   }
 
-  assert.match(source, /icons\s*:/, "the favicon should still be declared");
+  // The favicon is a file beside this layout now (see the next test). An
+  // `icons` key here would override it with whatever it names — which was a
+  // 138 KB picture, fetched again on every first visit.
+  assert.doesNotMatch(source, /\bicons\s*:/, "the favicon comes from src/app/icon.png, not from metadata");
+});
+
+test("the favicon and the home-screen icon are small square PNGs", () => {
+  // Next links these two files itself, with a hash, so browsers may keep them
+  for (const [name, side] of [["icon.png", 64], ["apple-icon.png", 180]] as const) {
+    const file = join(APP_DIR, name);
+    const real = measure(file);
+    assert.equal(real.format, "png", `${name} must really be a PNG`);
+    assert.deepEqual({ width: real.width, height: real.height }, { width: side, height: side }, `${name} is square, ${side}px`);
+    // The old icon was 138,569 bytes for a 16px tab
+    assert.ok(statSync(file).size < 20_000, `${name} is ${statSync(file).size} bytes; it is drawn a few dozen pixels wide`);
+  }
+  // A second icon file would be linked as well, and browsers pick between them
+  for (const other of ["icon.svg", "icon.ico", "favicon.ico", "icon.jpg", "apple-icon.jpg"]) {
+    assert.ok(!existsSync(join(APP_DIR, other)), `src/app/${other} would be served beside icon.png`);
+  }
+});
+
+/* ─── Atelier first, and every link at its own address ─── */
+
+test("the site introduces itself as the atelier first, in lengths Google shows whole", () => {
+  assert.ok(SITE_TITLE.length <= 60, `the title is ${SITE_TITLE.length} characters`);
+  assert.ok(SITE_DESCRIPTION.length <= 160, `the description is ${SITE_DESCRIPTION.length} characters`);
+  assert.ok(
+    SITE_TITLE.indexOf("Alterations") > -1 && SITE_TITLE.indexOf("Alterations") < SITE_TITLE.indexOf("Lingerie"),
+    "alterations come before the shop in the title",
+  );
+  assert.match(SITE_DESCRIPTION, /^Alterations and repairs/);
+  // The price is the service pages' own, not a number typed twice
+  assert.equal(lowestPrice(), "£8");
+  assert.ok(SITE_DESCRIPTION.includes(`from ${lowestPrice()}`));
+
+  const layout = stripComments(readFileSync(join(APP_DIR, "layout.tsx"), "utf8"));
+  assert.doesNotMatch(layout, /Handmade Lingerie & Accessories/, "the old shop-first title");
+  assert.equal(layout.match(/title: SITE_TITLE/g)?.length, 3, "page, Open Graph and Twitter titles");
+  assert.equal(layout.match(/description: SITE_DESCRIPTION/g)?.length, 3);
+
+  assert.match(alt, /^Beautasy — alterations, repairs/);
+  const card = readFileSync(join(APP_DIR, "opengraph-image.tsx"), "utf8");
+  assert.match(card, /Alterations, repairs &amp; handmade lingerie/);
+});
+
+test("the cheapest price is read from the price lines however they are written", () => {
+  assert.equal(lowestPrice([{ name: "a", price: "from £12" }, { name: "b", price: "£15.50" }]), "£12");
+  assert.equal(lowestPrice([{ name: "a", price: "£15.50" }, { name: "b", price: "from £20" }]), "£15.50");
+  assert.equal(lowestPrice([{ name: "a", price: "ask" }]), null);
+});
+
+test("no page but the home page tells a chat app it is the home page", () => {
+  // A friend's /r/ link and a salon's /p/ card inherited og:url = the home
+  // page from the root layout, and Facebook treats og:url as the real
+  // address: shared, they could open the home page, where no £5 is kept.
+  const bareHome = /\burl\s*:\s*(SITE_URL|siteUrl|base|`\$\{(SITE_URL|siteUrl)\}\/?`)\s*[,}]/;
+  const root = blocksFor(stripComments(readFileSync(join(APP_DIR, "layout.tsx"), "utf8")), "openGraph")[0];
+  assert.doesNotMatch(root, /\burl\s*:/, "the root layout's og:url would be inherited by every page without its own");
+
+  for (const file of routeFilesDeclaringOpenGraph()) {
+    const where = relative(APP_DIR, file);
+    for (const block of blocksFor(stripComments(readFileSync(file, "utf8")), "openGraph")) {
+      if (where === "page.tsx") {
+        assert.match(block, bareHome, "the home page names its own address");
+        continue;
+      }
+      assert.doesNotMatch(block, bareHome, `${where} gives the home page's address as its own`);
+    }
+  }
+});
+
+test("a friend's link and a salon's card preview as the atelier, at their own address", () => {
+  for (const [route, path] of [["r/[code]/page.tsx", "/r/"], ["p/[slug]/page.tsx", "/p/"]] as const) {
+    const source = stripComments(readFileSync(join(APP_DIR, route), "utf8"));
+    const [og] = blocksFor(source, "openGraph");
+    assert.ok(og, `${route} has an openGraph block of its own`);
+    assert.ok(og.includes(`url: \`\${SITE_URL}${path}`), `${route} names its own address`);
+    assert.match(og, /images: ATELIER_CARD_IMAGES/);
+    const [twitter] = blocksFor(source, "twitter");
+    assert.match(twitter, /title: shareTitle/);
+    // Still personal pages: kept out of search
+    assert.match(source, /robots: \{ index: false, follow: true \}/);
+  }
+  assert.match(readFileSync(join(APP_DIR, "r/[code]/page.tsx"), "utf8"), /off your first alteration — Beautasy Atelier/);
+  assert.match(readFileSync(join(APP_DIR, "p/[slug]/page.tsx"), "utf8"), /\$\{partner\.partner\.name\} recommends Beautasy Atelier/);
+});
+
+test("the atelier card is the size its file really is", () => {
+  const [card] = ATELIER_CARD_IMAGES;
+  const file = publicFileIn(card.url);
+  assert.ok(file, "the atelier card names a file in public/");
+  const real = measure(file);
+  assert.equal(real.format, "jpeg");
+  assert.deepEqual({ width: card.width, height: card.height }, { width: real.width, height: real.height });
 });
 
 test("every other route that sets openGraph still names a picture", () => {
@@ -395,6 +489,10 @@ test("every picture the site serves is the format its name claims", () => {
       const file = publicFileIn(match[1]);
       if (file) named.add(file);
     }
+  }
+  for (const card of ATELIER_CARD_IMAGES) {
+    const file = publicFileIn(card.url);
+    if (file) named.add(file);
   }
 
   assert.ok(named.size > 0, "no local images were found to check");

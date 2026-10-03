@@ -15,12 +15,16 @@ export const revalidate = 3600; // regenerate every hour
 // every regeneration teaches crawlers to ignore the date for the whole site.
 const STATIC_PAGES_CHANGED = new Date("2026-09-03");
 
+/** /pages/<slug> addresses that next.config.ts redirects: /pages/contact-us is /contact */
+const REDIRECTED_LEGAL_PAGES = new Set(["contact-us"]);
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static routes
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: base, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "weekly", priority: 1 },
     { url: `${base}/shop`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "daily", priority: 0.9 },
-    { url: `${base}/shop/collections`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "weekly", priority: 0.85 },
+    // /shop/collections is left out: nothing on the site links to it, and the
+    // collections themselves are listed below
     { url: `${base}/shop/lingerie`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "daily", priority: 0.85 },
     { url: `${base}/shop/kids`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "daily", priority: 0.85 },
     { url: `${base}/shop/accessories`, lastModified: STATIC_PAGES_CHANGED, changeFrequency: "daily", priority: 0.85 },
@@ -88,7 +92,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         "updatedAt": _updatedAt
       }`
     );
-    legalRoutes = pages.map((p) => ({
+    // Pages next.config.ts sends elsewhere are not pages: listing a redirect
+    // has Google crawl a hop for nothing. The Studio document stays.
+    legalRoutes = pages.filter((p) => !REDIRECTED_LEGAL_PAGES.has(p.slug)).map((p) => ({
       url: `${base}/pages/${p.slug}`,
       lastModified: new Date(p.updatedAt),
       changeFrequency: "monthly" as const,

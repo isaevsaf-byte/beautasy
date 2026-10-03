@@ -18,8 +18,10 @@ import { CAMPAIGN_HOOK } from "@/lib/localServices";
 export const revalidate = 300;
 
 const TITLE = "Made & Mended — Our Work | Beautasy Atelier, Southampton";
+// Kept to 155 characters, where Google trims a description: at 203 the
+// before-and-after photos — the reason to click — were the part cut off
 const DESCRIPTION =
-  "Curtains taken up to skim the floor, a nursery quilt pieced square by square, scrunchies by the pile: real work from Beautasy's Southampton workroom, with before-and-after photos and films of the making.";
+  "Curtains taken up to skim the floor, a nursery quilt pieced square by square: real work from Beautasy's Southampton workroom, with before-and-after photos.";
 const PAGE_URL = `${SITE_URL}/work`;
 
 export async function generateMetadata(): Promise<Metadata> {

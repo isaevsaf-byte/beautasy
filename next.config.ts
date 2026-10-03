@@ -37,16 +37,28 @@ const securityHeaders = [
   },
 ];
 
+/** The Sanity project whose pictures the site shows — the same default as src/lib/sanity.ts */
+const SANITY_PROJECT_ID =
+  process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || process.env.SANITY_PROJECT_ID || "5uun6fw6";
+
 const nextConfig: NextConfig = {
   images: {
+    // Which pictures /_next/image will fetch and resize. With a whole host
+    // allowed, anyone could have the site resize any project's images on
+    // cdn.sanity.io at our expense; now only this project's.
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "placehold.co",
+        hostname: "cdn.sanity.io",
+        pathname: `/images/${SANITY_PROJECT_ID}/**`,
       },
+      // The shop's stand-in for a product with no photo yet (ShopContent,
+      // the category and collection pages draw 400x500 ones). No product is
+      // without a photo today; the shape is pinned so nothing else is fetched.
       {
         protocol: "https",
-        hostname: "cdn.sanity.io",
+        hostname: "placehold.co",
+        pathname: "/400x500/**",
       },
     ],
   },
@@ -72,6 +84,20 @@ const nextConfig: NextConfig = {
         destination: "https://www.beautasy.co.uk/:path",
         permanent: true,
       },
+      // Addresses that once meant something and now lead nowhere, sent on for
+      // good (308) so a bookmark, an old search result or a link in a chat
+      // still arrives somewhere useful. After the vercel.app rule, so that
+      // address is moved to the real one first, in one hop.
+      //
+      // /mini was a kids' page of placeholder pictures for pieces that were
+      // never stocked; the kids' shelf is the real one.
+      { source: "/mini", destination: "/shop/kids", permanent: true },
+      // A thin contact page with an old email address on it
+      { source: "/pages/contact-us", destination: "/contact", permanent: true },
+      // The Shopify shop's addresses, which still turn up in old links
+      { source: "/products/:slug", destination: "/shop/:slug", permanent: true },
+      { source: "/collections/:path*", destination: "/shop", permanent: true },
+      { source: "/cart", destination: "/shop", permanent: true },
     ];
   },
 };

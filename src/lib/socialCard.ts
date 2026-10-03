@@ -25,8 +25,9 @@ import { SITE_URL } from "@/lib/site";
  * another.
  */
 
+/** The atelier first, as the card itself now reads (see @/lib/siteCopy) */
 export const SOCIAL_CARD_ALT =
-  "Beautasy — handmade lingerie and accessories, Southampton";
+  "Beautasy — alterations, repairs and handmade lingerie, Southampton";
 
 /**
  * The size the card is drawn at, and the size messaging apps crop from.
@@ -56,5 +57,21 @@ export const SOCIAL_CARD_IMAGES = [
     width: SOCIAL_CARD_SIZE.width,
     height: SOCIAL_CARD_SIZE.height,
     alt: SOCIAL_CARD_ALT,
+  },
+];
+
+/**
+ * The atelier's own picture — scissors, thread and the gold logo — for the
+ * links that sell an alteration rather than the shop: a friend's /r/ link and
+ * a salon's /p/ card. The size is the file's real one (socialPreview.test.ts
+ * measures it); it is not the 1.91:1 a chat app crops to, which is Kristina's
+ * artwork to redraw, see src/app/atelier/layout.tsx.
+ */
+export const ATELIER_CARD_IMAGES = [
+  {
+    url: `${SITE_URL}/beautasy-atelier-og.jpg`,
+    width: 1200,
+    height: 1028,
+    alt: "Beautasy Atelier — alterations and repairs in Southampton",
   },
 ];

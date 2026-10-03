@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sanityClient, urlFor } from "@/lib/sanity";
+import { searchServices } from "@/lib/serviceSearch";
 
 // Results change only when the catalogue does; a short cache keeps typing snappy
 export const revalidate = 60;
@@ -52,6 +53,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ results: [], query: raw });
   }
 
+  // The atelier first: it is what most people searching here came for, and
+  // its answers need no dataset, so they arrive even when Sanity does not
+  const services = searchServices(raw);
+
   // GROQ `match` treats * as a wildcard; append one so partial words hit
   const q = `${raw.replace(/[*"]/g, "")}*`;
 
@@ -62,8 +67,10 @@ export async function GET(req: NextRequest) {
     }>(SEARCH_QUERY, { q, limit: MAX_RESULTS });
 
     const results = [
+      ...services,
       ...products.map((p) => ({
         _id: p._id,
+        kind: "product" as const,
         name: p.name,
         href: `/shop/${p.slug}`,
         price: p.price,
@@ -72,6 +79,7 @@ export async function GET(req: NextRequest) {
       })),
       ...giftBoxes.map((g) => ({
         _id: g._id,
+        kind: "product" as const,
         name: g.name,
         href: `/gift-boxes/${g.slug}`,
         price: g.price,
@@ -83,6 +91,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ results, query: raw });
   } catch (error) {
     console.error("Search failed:", error);
+    // The shop could not be searched; the atelier's answers still stand
+    if (services.length > 0) return NextResponse.json({ results: services, query: raw });
     return NextResponse.json({ error: "Search is unavailable" }, { status: 500 });
   }
 }
