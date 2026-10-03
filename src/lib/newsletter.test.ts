@@ -2,7 +2,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { signatureMatches, unsubscribeUrl, unsubscribePageHtml, welcomeEmailHtml } from "./newsletter";
+import { signatureMatches, unsubscribeHeaders, unsubscribeUrl, unsubscribePageHtml, welcomeEmailHtml } from "./newsletter";
 
 before(() => {
   process.env.DATA_SECRET = "test-secret-for-the-suite";
@@ -61,4 +61,25 @@ test("a back-in-stock email can be answered", () => {
   const source = readFileSync(join(process.cwd(), "src", "lib", "stockAlerts.ts"), "utf8");
   assert.match(source, /replyTo: KRISTINA_EMAIL,/);
   assert.match(source, /const KRISTINA_EMAIL = "hello@beautasy\.co\.uk";/);
+});
+
+test("the welcome email's headers carry the way out, so a mail app can offer it as a button", () => {
+  const headers = unsubscribeHeaders("subscriber-abc123", "https://www.beautasy.co.uk");
+  assert.equal(headers["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click");
+  const [https, mailto, ...rest] = headers["List-Unsubscribe"].split(", ");
+  assert.deepEqual(rest, []);
+  assert.equal(mailto, "<mailto:hello@beautasy.co.uk?subject=unsubscribe>");
+
+  // The https one is the subscriber's own signed link, the one the footer has
+  assert.match(https, /^<https:\/\/www\.beautasy\.co\.uk\/api\/newsletter\/unsubscribe\?id=.+>$/);
+  const url = new URL(https.slice(1, -1));
+  assert.equal(url.toString(), unsubscribeUrl("subscriber-abc123", "https://www.beautasy.co.uk"));
+  assert.equal(signatureMatches(url.searchParams.get("id"), url.searchParams.get("sig")), true);
+
+  // One click is a POST to that link, which is the request that unsubscribes
+  const route = readFileSync(join(process.cwd(), "src", "app", "api", "newsletter", "unsubscribe", "route.ts"), "utf8");
+  assert.match(route.slice(route.indexOf("export async function POST")), /unsubscribed: true/);
+
+  const signup = readFileSync(join(process.cwd(), "src", "app", "api", "newsletter", "route.ts"), "utf8");
+  assert.match(signup, /headers: unsubscribeHeaders\(subscriber\._id\),/);
 });

@@ -12,8 +12,8 @@ export const dynamic = "force-dynamic";
  * unsubscribes. Mail scanners — Outlook's Safe Links, work filters — open
  * every link in an email to check it, and a link that unsubscribed on GET
  * would quietly take people off the list who never asked. A POST is also what
- * a mail app sends for one-click unsubscribe, so the same address will serve
- * that too once the emails carry a List-Unsubscribe header.
+ * a mail app sends for one-click unsubscribe, and the welcome email's
+ * List-Unsubscribe header names this same address (see unsubscribeHeaders).
  *
  * The signature is the whole of the check (see @/lib/newsletter): without it
  * an id alone does nothing.

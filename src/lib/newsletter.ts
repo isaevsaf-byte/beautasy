@@ -36,6 +36,31 @@ export function unsubscribeUrl(subscriberId: string, base: string = SITE_URL): s
   return `${base}/api/newsletter/unsubscribe?id=${encodeURIComponent(subscriberId)}&sig=${unsubscribeSignature(subscriberId)}`;
 }
 
+/** Where a subscriber who unsubscribes by email instead of the link writes to. */
+export const UNSUBSCRIBE_MAILTO = "mailto:hello@beautasy.co.uk?subject=unsubscribe";
+
+/**
+ * The headers that put the way out next to the sender's name.
+ *
+ * Gmail and Apple Mail show their own "Unsubscribe" when an email carries
+ * List-Unsubscribe. That is an easier way out than "Report spam", and every
+ * spam report counts against all mail from beautasy.co.uk — order
+ * confirmations and Kristina's booking replies included.
+ *
+ * Two ways, as the standard allows: the signed link — the very one in the
+ * footer — and an email to hello@. With List-Unsubscribe-Post, a mail app
+ * unsubscribes in one click by POSTing to the link, which is exactly what the
+ * unsubscribe route's POST does; a GET only asks, so a mail scanner opening
+ * the link still changes nothing. The mailto: way lands in Kristina's inbox
+ * and is done by hand.
+ */
+export function unsubscribeHeaders(subscriberId: string, base: string = SITE_URL): Record<string, string> {
+  return {
+    "List-Unsubscribe": `<${unsubscribeUrl(subscriberId, base)}>, <${UNSUBSCRIBE_MAILTO}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
+
 export function welcomeEmailHtml(code: string | null, unsubscribeLink: string): string {
   return `
 <!DOCTYPE html>

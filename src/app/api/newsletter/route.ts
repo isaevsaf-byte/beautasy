@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { createWelcomeCode } from "@/lib/discounts";
-import { unsubscribeUrl, welcomeEmailHtml } from "@/lib/newsletter";
+import { unsubscribeHeaders, unsubscribeUrl, welcomeEmailHtml } from "@/lib/newsletter";
 import { emailFingerprint, maskEmail, sealOptional } from "@/lib/pii";
 import { secretsConfigured } from "@/lib/secrets";
 import { sendEmail } from "@/lib/sendEmail";
@@ -76,8 +76,10 @@ export async function POST(req: NextRequest) {
           subject: code
             ? "Welcome to Beautasy — here's 10% off 💜"
             : "Welcome to Beautasy 💜",
-          // Every email to a subscriber carries their own way out
+          // Every email to a subscriber carries their own way out: in the
+          // footer, and in the headers, where a mail app offers it as a button
           html: welcomeEmailHtml(code, unsubscribeUrl(subscriber._id)),
+          headers: unsubscribeHeaders(subscriber._id),
         });
       } catch (err) {
         // Subscriber is saved; the email can be resent by hand — and now the

@@ -51,6 +51,13 @@ export interface EmailMessage {
    * the SDK puts it into the request body as it is, and the API reads base64.
    */
   attachments?: { filename: string; content: string; contentType?: string }[];
+  /**
+   * Extra mail headers, passed to Resend as they are — today only the
+   * newsletter's List-Unsubscribe pair, which lets a mail app show its own
+   * "Unsubscribe" button beside the sender's name. Plain strings, so this
+   * cannot throw either.
+   */
+  headers?: Record<string, string>;
 }
 
 /** The single call to Resend — a seam, so a test can answer in either real shape. */

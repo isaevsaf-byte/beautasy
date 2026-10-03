@@ -83,6 +83,35 @@ test("a refusal with no message at all still says no", () => {
   assert.equal(refusedTheEmail({ data: null, error: {} }), "Resend would not take the email");
 });
 
+test("extra headers reach Resend's request as they were given", async () => {
+  // Through the real SDK, with only the network stood in for: what matters is
+  // what leaves this process, not what the message object looked like.
+  const realFetch = globalThis.fetch;
+  const hadKey = process.env.RESEND_API_KEY;
+  const sent: { url: string; body: Record<string, unknown> }[] = [];
+  process.env.RESEND_API_KEY = "re_test_not_a_real_key";
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    sent.push({ url: String(url), body: JSON.parse(String(init?.body)) });
+    return new Response(JSON.stringify({ id: "5bd4e0f2" }), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    const headers = {
+      "List-Unsubscribe": "<https://www.beautasy.co.uk/api/newsletter/unsubscribe?id=s1&sig=abc>, <mailto:hello@beautasy.co.uk?subject=unsubscribe>",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    };
+    await sendEmail({ from: "Beautasy <orders@beautasy.co.uk>", to: "anna@example.com", subject: "Welcome", html: "<p>Hi</p>", headers });
+    await sendEmail({ from: "Beautasy <orders@beautasy.co.uk>", to: "anna@example.com", subject: "Your order", html: "<p>Hi</p>" });
+    assert.equal(sent.length, 2);
+    assert.match(sent[0].url, /^https:\/\/api\.resend\.com\/emails/);
+    assert.deepEqual(sent[0].body.headers, headers);
+    assert.equal(sent[1].body.headers, undefined, "an email without them sends none");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (hadKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = hadKey;
+  }
+});
+
 /* ─── The guard that stops this coming back ─── */
 
 /**
