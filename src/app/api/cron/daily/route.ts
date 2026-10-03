@@ -8,6 +8,7 @@ import { draftPostsForNewProducts } from "@/lib/socialQueue";
 import { runHealthWatchdog } from "@/lib/siteHealth";
 import { sendMonthlyLedgerExport } from "@/lib/ledgerExport";
 import { settleReferredBookings } from "@/lib/referralSettle";
+import { sweepAbandonedReviewPhotos } from "@/lib/reviewPhotos";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -23,7 +24,7 @@ export const maxDuration = 60;
  * is why one of the jobs is the watchman: it is the only one that speaks up on
  * its own, and only when something is wrong.
  *
- * All nine start together, so the order of the list below is only the order
+ * All ten start together, so the order of the list below is only the order
  * the results are read back in. Nothing here waits for anything else, and no
  * job may assume it runs before or after another. That rule is why sending
  * approved posts is no longer one of them: the watchman's answer depended on
@@ -96,6 +97,10 @@ export async function GET(req: NextRequest) {
     // A recommended client's work marked done: the friend or the salon who
     // sent her is credited, email or no email. Once each — see @/lib/referralSettle.
     settleReferredBookings(),
+    // Review photos uploaded with a link and never put in a review, a day on.
+    // Only those: anything without the upload's mark is Kristina's own media
+    // from the Studio. A few a morning — see @/lib/reviewPhotos.
+    sweepAbandonedReviewPhotos(),
   ]);
 
   const [
@@ -108,6 +113,7 @@ export async function GET(req: NextRequest) {
     health,
     ledgerExport,
     referrals,
+    reviewPhotos,
   ] = results.map((r) => (r.status === "fulfilled" ? r.value : { error: String(r.reason) }));
 
   for (const result of results) {
@@ -124,5 +130,6 @@ export async function GET(req: NextRequest) {
     health,
     ledgerExport,
     referrals,
+    reviewPhotos,
   });
 }

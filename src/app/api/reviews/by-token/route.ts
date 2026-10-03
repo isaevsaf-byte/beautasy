@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { findOrderByReviewToken, orderContainsProduct } from "@/lib/reviewToken";
+import { photosFromThisLink } from "@/lib/reviewPhotos";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Only photos uploaded with this link. An asset id is no secret — the
+    // dataset is public — so without this a review could carry another
+    // customer's photo, or one of Kristina's own, as this buyer's. A photo
+    // uploaded more than a day before the review was sent may also have been
+    // cleared away by the morning job, which is the other reason to say no.
+    const photoIds: string[] = [...new Set<string>(imageAssetIds ?? [])];
+    if (!(await photosFromThisLink(photoIds, order._id))) {
+      return NextResponse.json(
+        { error: "One of your photos has expired or didn't come from this link. Please add your photos again." },
+        { status: 400 }
+      );
+    }
+
     const displayName =
       (typeof userName === "string" && userName.trim().slice(0, 40)) ||
       order.displayName ||
@@ -88,7 +102,7 @@ export async function POST(req: NextRequest) {
       verifiedPurchase: true,
       // Still moderated before it appears, same as account reviews
       approved: false,
-      images: (imageAssetIds || []).map((assetId: string) => ({
+      images: photoIds.map((assetId) => ({
         _type: "image",
         _key: assetId,
         asset: { _type: "reference", _ref: assetId },

@@ -48,5 +48,5 @@ test("the daily job runs it, alongside the rest and not before them", () => {
   // Eighth in the list and eighth read back: the destructuring is positional
   const jobs = settled.match(/^\s{4}(\w+)\(/gm)?.map((line) => line.trim().replace("(", "")) ?? [];
   assert.equal(jobs.indexOf("sendMonthlyLedgerExport"), 7);
-  assert.match(CRON, /health,\n\s+ledgerExport,\n\s+referrals,\n\s+\] = results\.map/, "its answer is read back in its own place");
+  assert.match(CRON, /health,\n\s+ledgerExport,\n\s+referrals,\n[\s\w,]*\] = results\.map/, "its answer is read back in its own place");
 });

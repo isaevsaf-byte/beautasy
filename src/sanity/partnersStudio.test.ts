@@ -109,7 +109,7 @@ test("finished work credits whoever sent the client every morning and on the Stu
   const settled = CRON.slice(CRON.indexOf("Promise.allSettled(["), CRON.indexOf("]);", CRON.indexOf("Promise.allSettled([")));
   assert.match(settled, /settleReferredBookings\(\),/);
   assert.equal((CRON.match(/settleReferredBookings\(/g) ?? []).length, 1, "called once, inside allSettled");
-  assert.match(CRON, /ledgerExport,\n\s+referrals,\n\s+\] = results\.map/, "read back in its own place");
+  assert.match(CRON, /ledgerExport,\n\s+referrals,\n[\s\w,]*\] = results\.map/, "read back in its own place");
   assert.match(NOTIFY, /const referrals = await settleReferredBookings\(10\)\.catch/);
   assert.ok(NOTIFY.indexOf("settleReferredBookings(10)") > NOTIFY.indexOf("sendPendingBookingEmails(10)"), "after the thank-you emails");
 });

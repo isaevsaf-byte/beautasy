@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanityWriteClient } from "@/lib/sanity";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { findOrderByReviewToken } from "@/lib/reviewToken";
-import { fingerprint } from "@/lib/secrets";
+import { REVIEW_UPLOAD_SOURCE, reviewUploadMark } from "@/lib/reviewPhotos";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +18,6 @@ export const UPLOADS_PER_ORDER = 12;
 
 /** The same allowance per day in memory: the cheap first stop before Sanity is asked anything. */
 export const UPLOADS_PER_ORDER_PER_DAY = 8;
-
-/** What the asset is marked with, so a later clean-up and the review can tell these from Kristina's own media. */
-export const REVIEW_UPLOAD_SOURCE = "review-upload";
 
 export interface SniffedImage {
   contentType: "image/jpeg" | "image/png" | "image/webp" | "image/heic";
@@ -54,15 +51,6 @@ export function sniffImage(bytes: Uint8Array): SniffedImage | null {
     return { contentType: "image/heic", extension: "heic" };
   }
   return null;
-}
-
-/**
- * The mark one order's uploads share. A keyed fingerprint rather than the
- * order's id: asset documents are readable by anyone (the dataset is public),
- * and a photo should not lead a stranger to the order it came with.
- */
-function uploadMarkFor(orderId: string): string {
-  return fingerprint(`${REVIEW_UPLOAD_SOURCE}:${orderId}`);
 }
 
 /**
@@ -128,7 +116,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const mark = uploadMarkFor(order._id);
+    // The same mark the review is checked against, and the morning clean-up
+    // finds abandoned photos by (see @/lib/reviewPhotos)
+    const mark = reviewUploadMark(order._id);
     const already = await sanityWriteClient.fetch<number>(
       `count(*[_type == "sanity.imageAsset" && source.name == $source && source.id == $mark])`,
       { source: REVIEW_UPLOAD_SOURCE, mark }
