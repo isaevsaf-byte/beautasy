@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package, Sparkles } from "lucide-react";
@@ -18,6 +18,7 @@ import {
   readReferralCookie,
   writeReferralCookie,
 } from "@/lib/friendsLink";
+import { friendDiscountApplies, looksLikeWelcomeCode, welcomeCodeNote } from "@/lib/bagCodes";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -88,7 +89,10 @@ export function CartDrawer({
     minBasket: number;
   } | null>(null);
   const [friendEmail, setFriendEmail] = useState("");
+  const friendEmailRef = useRef<HTMLInputElement | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
+  // Not an error: where a newsletter welcome code goes instead (@/lib/bagCodes)
+  const [codeNote, setCodeNote] = useState<string | null>(null);
   const [checkingCode, setCheckingCode] = useState(false);
   // Where the parcel is going. Preselected from the shopper's country, but
   // theirs to change — a UK customer might be sending a gift abroad.
@@ -197,6 +201,13 @@ export function CartDrawer({
     return () => window.removeEventListener("keydown", handleKey);
   }, [isOpen, closeCart]);
 
+  // Whether the friend's (or salon's) £5 is on this basket. One answer for the
+  // banner, the email box, the email check and what checkout is sent: under
+  // the minimum the box is not shown, so the email must not be asked for, and
+  // the order goes through at full price with the code left out. The cookie
+  // stays, so the discount comes back if the basket grows.
+  const friendApplies = friendDiscountApplies(friend, totalPrice());
+
   async function handleCheckout() {
     setIsLoading(true);
     setError(null);
@@ -227,8 +238,9 @@ export function CartDrawer({
 
     // The friend discount is checked against an email — "first order", "not
     // your own link" — so the server needs it before Stripe does
-    if (friend && !EMAIL_RE.test(friendEmail.trim())) {
+    if (friend && friendApplies && !EMAIL_RE.test(friendEmail.trim())) {
       setError(`Add the email you'll check out with, so we can apply ${friend.firstName ? `${friend.firstName}'s` : "the friend"} discount.`);
+      friendEmailRef.current?.focus();
       setIsLoading(false);
       return;
     }
@@ -252,7 +264,7 @@ export function CartDrawer({
           items,
           region,
           ...(giftCard ? { giftCardCode: giftCard.code } : {}),
-          ...(friend ? { referralCode: friend.code, email: friendEmail.trim() } : {}),
+          ...(friend && friendApplies ? { referralCode: friend.code, email: friendEmail.trim() } : {}),
         }),
       });
 
@@ -497,9 +509,11 @@ export function CartDrawer({
                 </div>
 
                 {/* Friend discount — from the cookie a friend's link left, or a typed code */}
-                {friend && (() => {
+                {/* With the shop discount switched off (£0) there is nothing to
+                    say, rather than "Add £0 more for £0 off" */}
+                {friend && friend.discount > 0 && (() => {
                   const short = Math.max(0, friend.minBasket - totalPrice());
-                  const applies = friend.discount > 0 && short === 0;
+                  const applies = friendApplies;
                   return (
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2 text-xs bg-lavender-bg/60 border border-lavender-soft/40 rounded-lg px-3 py-2">
@@ -532,6 +546,7 @@ export function CartDrawer({
                       {applies && (
                         <div>
                           <input
+                            ref={friendEmailRef}
                             type="email"
                             value={friendEmail}
                             onChange={(e) => setFriendEmail(e.target.value)}
@@ -555,7 +570,7 @@ export function CartDrawer({
                     <div className="flex items-center justify-between gap-2 text-xs bg-lavender-bg/60 border border-lavender-soft/40 rounded-lg px-3 py-2 mb-2">
                       <span className="text-charcoal">
                         Gift card <strong>{giftCard.code}</strong> — £
-                        {(Math.min(giftCard.balance, Math.max(0, totalPrice() - (friend?.discount ?? 0))) / 100).toFixed(2)} off
+                        {(Math.min(giftCard.balance, Math.max(0, totalPrice() - (friend && friendApplies ? friend.discount : 0))) / 100).toFixed(2)} off
                       </span>
                       <button
                         onClick={() => {
@@ -574,10 +589,23 @@ export function CartDrawer({
                         e.preventDefault();
                         setCheckingCode(true);
                         setCodeError(null);
+                        setCodeNote(null);
                         const typed = codeInput.trim();
                         try {
-                          // A friend code has a shape of its own; everything else is tried as a gift card
-                          if (looksLikeReferralCode(typed)) {
+                          // A newsletter welcome code is good, just not here:
+                          // it goes in on Stripe's payment page, so say where
+                          // rather than send it to the gift card lookup, which
+                          // answered "That code isn't valid". A friend code has
+                          // a shape of its own; everything else is tried as a
+                          // gift card.
+                          if (looksLikeWelcomeCode(typed)) {
+                            setCodeNote(
+                              welcomeCodeNote(typed.toUpperCase(), {
+                                friendDiscount: friendApplies,
+                                giftCard: !!giftCard,
+                              })
+                            );
+                          } else if (looksLikeReferralCode(typed)) {
                             if (friend) {
                               setCodeError("One friend code per order — remove the current one first");
                             } else {
@@ -634,6 +662,11 @@ export function CartDrawer({
                     </form>
                   )}
                   {codeError && <p className="text-[11px] text-red-500 mt-1">{codeError}</p>}
+                  {codeNote && (
+                    <p role="status" className="text-[11px] text-charcoal mt-1 leading-relaxed">
+                      {codeNote}
+                    </p>
+                  )}
                 </div>
 
                 {/* Total */}

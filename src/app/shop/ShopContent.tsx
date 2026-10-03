@@ -5,6 +5,9 @@ import { motion } from "framer-motion";
 import { ArrowRight, Search } from "lucide-react";
 import Link from "next/link";
 import { placeLink, shelvesFrom, stockedLinks } from "@/lib/shelves";
+import { availability } from "@/lib/availability";
+import { cardAction } from "@/lib/shopCard";
+import { THUMB, sizedImageUrl } from "@/lib/shopImages";
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 import AddToCartButton from "@/components/AddToCartButton";
@@ -23,6 +26,10 @@ interface Product {
   availableSizes: string[];
   /** Ready-made pieces on the shelf; 0 means made to order, not unavailable */
   stock?: number;
+  /** Kristina's making time ("3-5"), so a card can say how long made to order takes */
+  productionTime?: string | null;
+  /** How many colours it comes in; a piece with a colour to choose is sent to its page */
+  colorCount?: number | null;
   collection?: { name: string; slug: string } | null;
 }
 
@@ -232,8 +239,9 @@ export default function ShopContent({
   const displayedProducts = products
     .filter((p) => (activeSubcategory ? p.subcategory === activeSubcategory : true))
     .filter((p) => (activeSize ? (p.availableSizes ?? []).includes(activeSize) : true))
-    // "Ready to ship" means pieces already sewn; everything else is made to order
-    .filter((p) => (readyOnly ? (p.stock ?? 0) > 0 : true))
+    // "Ready to ship" means pieces already sewn; everything else is made to
+    // order. The same helper writes each card's availability line.
+    .filter((p) => (readyOnly ? availability(p).kind !== "made-to-order" : true))
     .sort((a, b) => {
       if (activeSort === "price-asc") return a.price - b.price;
       if (activeSort === "price-desc") return b.price - a.price;
@@ -264,10 +272,14 @@ export default function ShopContent({
     <>
       <main className="pt-28">
         {/* Page Hero */}
+        {/* initial={false}, here and on the grid below: painted as it is, not
+            faded in from opacity 0. Faded, the heading and the products waited
+            for every script — on a throttled phone /shop showed a blank top
+            for 14–19 seconds. The children inherit it, as on the home page. */}
         <section className="py-16 md:py-24">
           <div className="max-w-6xl mx-auto px-6">
             <motion.div
-              initial="hidden"
+              initial={false}
               animate="visible"
               variants={stagger}
               className="text-center mb-16"
@@ -434,7 +446,7 @@ export default function ShopContent({
         <section className={`py-24 md:py-32 ${activeCategory || isCollection ? "" : "bg-lavender-bg"}`} id="products">
           <div className="max-w-6xl mx-auto px-6">
             <motion.div
-              initial="hidden"
+              initial={false}
               animate="visible"
               variants={stagger}
               className="text-center mb-16"
@@ -499,6 +511,10 @@ export default function ShopContent({
                   </div>
                 </div>
 
+                {/* These filters are links, so the chosen one is marked with
+                    aria-current like the sort pills. aria-pressed belongs to
+                    toggle buttons; on a link, screen readers announce a
+                    "toggle button" that then navigates away. */}
                 {(sizeOptions.length > 0 || readyOnly) && (
                   <div className="flex flex-wrap items-center gap-2">
                     {sizeOptions.length > 0 && (
@@ -513,7 +529,7 @@ export default function ShopContent({
                               key={size}
                               href={buildHref({ size: active ? undefined : size })}
                               scroll={false}
-                              aria-pressed={active}
+                              aria-current={active ? "true" : undefined}
                               className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
                                 active
                                   ? "bg-lavender text-charcoal"
@@ -529,7 +545,7 @@ export default function ShopContent({
                     <Link
                       href={buildHref({ ready: readyOnly ? undefined : "1" })}
                       scroll={false}
-                      aria-pressed={readyOnly}
+                      aria-current={readyOnly ? "true" : undefined}
                       className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
                         readyOnly
                           ? "bg-lavender text-charcoal"
@@ -554,7 +570,7 @@ export default function ShopContent({
 
             {displayedProducts.length > 0 ? (
               <motion.div
-                initial="hidden"
+                initial={false}
                 animate="visible"
                 variants={stagger}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
@@ -617,6 +633,8 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
       : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"];
 
   const activeImage = availableImages[activeImageIndex] ?? availableImages[0];
+  // Straight into the bag only when there is nothing to choose (@/lib/shopCard)
+  const action = cardAction(product);
 
   return (
     <>
@@ -695,9 +713,16 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
                 }`}
                 aria-label={`Show image ${i + 1} for ${product.name}`}
               >
+                {/* A 160px copy, not the 800px photo, and only once it is
+                    near the screen — lazy also keeps React from turning it
+                    into an early download in <head> (see @/lib/shopImages) */}
                 <img
-                  src={image}
+                  src={sizedImageUrl(image, THUMB)}
                   alt={`${product.name} thumbnail ${i + 1}`}
+                  width={56}
+                  height={56}
+                  loading="lazy"
+                  decoding="async"
                   className="absolute inset-0 w-full h-full object-cover"
                 />
               </button>
@@ -711,21 +736,22 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         <p className="text-charcoal-light text-sm mb-1">
           £{(product.price / 100).toFixed(2)}
         </p>
-        <p className="text-[11px] text-charcoal-light/80 mb-4">
-          {(product.stock ?? 0) > 0 ? "Ready to ship" : "Made to order"}
-        </p>
+        {/* The same words the product page uses (@/lib/availability). Full
+            charcoal-light, not 80% of it: at 11px the faded grey was about
+            3.2:1 on the lavender shelf, under the 4.5:1 small text needs. */}
+        <p className="text-[11px] text-charcoal-light mb-4">{availability(product).label}</p>
 
-        {product.availableSizes && product.availableSizes.length > 0 ? (
-          /* Product has sizes → send customer to PDP to choose */
+        {action.kind === "page" ? (
+          /* A size or colour to choose → the product page asks for it */
           <Link
             href={`/shop/${product.slug}`}
             className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
           >
-            Choose Size
+            {action.label}
             <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         ) : (
-          /* No sizes (accessories, home etc.) → add directly */
+          /* Nothing to choose → add directly */
           <AddToCartButton
             id={product._id}
             name={product.name}
