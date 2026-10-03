@@ -130,6 +130,25 @@ export default function Header({
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileOpen]);
 
+  // While the phone menu is open the page behind it stays still, so a swipe
+  // moves the menu and not the page under it. The menu is hidden from lg up:
+  // if the screen grows that wide (a tablet turned on its side) the menu
+  // closes, rather than leave a page that looks normal but will not scroll.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const before = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const wide = window.matchMedia("(min-width: 64rem)");
+    const onWide = () => {
+      if (wide.matches) setMobileOpen(false);
+    };
+    wide.addEventListener("change", onWide);
+    return () => {
+      wide.removeEventListener("change", onWide);
+      document.body.style.overflow = before;
+    };
+  }, [mobileOpen]);
+
   const activeBar = hydrated && bar?.enabled && bar.text ? bar : null;
   const current = (href: string) => (isCurrentPage(href, pathname) ? "page" : undefined);
 
@@ -137,8 +156,11 @@ export default function Header({
     // A plain header, not one that fades in: it was sent from the server at
     // opacity 0 and stayed invisible until every script had loaded — four
     // seconds and more on a phone, on every page.
+    // A column no taller than the screen: the open phone menu is the part
+    // that gives way and scrolls, so its last buttons can always be reached
+    // (on a phone on its side they were below the screen, out of reach).
     <header
-      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-[#FDFBF7]/90 border-b border-[#E6E6FA]/40"
+      className="fixed top-0 left-0 right-0 z-50 flex flex-col max-h-dvh backdrop-blur-md bg-[#FDFBF7]/90 border-b border-[#E6E6FA]/40"
     >
       {/* ── Announcement bar — lives inside the fixed header so it never
            bleeds through the header's glass background as a ghost ── */}
@@ -165,7 +187,9 @@ export default function Header({
           The logo and the gaps now shrink with the screen instead. */}
       {/* Six links and the wordmark need a laptop's width, so a tablet gets
           the phone's menu rather than a row that collides with itself. */}
-      <div className="max-w-6xl mx-auto px-4 min-[360px]:px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 lg:gap-4">
+      {/* w-full because the header is a flex column, where mx-auto alone
+          would shrink the row to its content and bunch it in the middle. */}
+      <div className="w-full max-w-6xl mx-auto px-4 min-[360px]:px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 lg:gap-4">
         {/* Mobile menu button, with search beside it: two icons on each side
             of the logo keep it in the middle of a phone screen, where one on
             the left and three on the right pushed it well off centre. */}
@@ -288,7 +312,10 @@ export default function Header({
         </div>
       </div>
 
-      {/* Mobile nav */}
+      {/* Mobile nav. The animated box clips while it opens and is allowed to
+          be shorter than its contents (min-h-0); the list inside it is what
+          scrolls, and overscroll-contain keeps a swipe that reaches its end
+          from carrying on into the page. */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.nav
@@ -297,9 +324,9 @@ export default function Header({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden bg-cream border-t border-lavender-soft/40 px-6 pb-6 overflow-hidden"
+            className="lg:hidden flex min-h-0 flex-col bg-cream border-t border-lavender-soft/40 px-6 overflow-hidden"
           >
-            <div className="max-w-xl mx-auto">
+            <div className="w-full max-w-xl mx-auto min-h-0 overflow-y-auto overscroll-contain pb-6">
               {navLinks.map((link) => (
                 <Link
                   key={link.label}

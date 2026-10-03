@@ -12,6 +12,11 @@
      were close to invisible. This one is 5.4:1 on cream and 5:1 on
      lavender-bg, enough for small text. */
   --color-lavender-ink: #6E5BA8;
+  /* The brand lavender again, for words on a dark surface (the Our Work
+     viewer). There it is the light one that reads, 11.7:1, and the ink that
+     text-lavender is repainted as falls to 3:1. Under its own name so the
+     words rule below leaves it alone. */
+  --color-lavender-on-dark: #DCD0FF;
   --color-lavender-soft: #E6E6FA;
   --color-lavender-bg: #F5F0FF;
   --font-serif: var(--font-playfair), "Playfair Display", Georgia, serif;

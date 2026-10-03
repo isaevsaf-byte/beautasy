@@ -46,6 +46,60 @@ test("Escape closes the phone menu and gives focus back to its button", () => {
   assert.match(effect, /removeEventListener\("keydown", onKey\)/, "the listener goes when the menu closes");
 });
 
+/** A class attribute as a set of class names */
+const classSet = (value: string | undefined) => new Set((value ?? "").split(/\s+/).filter(Boolean));
+/** The classes of the first element whose className comes after `anchor` */
+const classesAfter = (source: string, anchor: string) => {
+  const from = source.indexOf(anchor);
+  assert.ok(from >= 0, `${anchor} is in the source`);
+  return classSet(source.slice(from).match(/className="([^"]*)"/)?.[1]);
+};
+
+test("the open phone menu scrolls inside the screen, so its last buttons can be reached on a landscape phone", () => {
+  // At 844x340 (an iPhone on its side) the open menu was 557px tall inside a
+  // fixed header with nothing to scroll: "Choose a time" and "WhatsApp
+  // Kristina" sat below the bottom of the screen, and a swipe only moved the
+  // page behind them. The header is now never taller than the screen, and
+  // the menu's own list scrolls inside what is left under the top row.
+  const html = renderToStaticMarkup(createElement(Header));
+  const header = classSet(html.match(/<header\b[^>]*class="([^"]*)"/)?.[1]);
+  for (const name of ["fixed", "flex", "flex-col", "max-h-dvh"]) assert.ok(header.has(name), `the header has ${name}`);
+  // In a flex column an element with mx-auto shrinks to its content, and the
+  // logo row would bunch up in the middle without a full width of its own
+  const row = classSet(html.match(/<div class="([^"]*grid-cols-\[1fr_auto_1fr\][^"]*)"/)?.[1]);
+  assert.ok(row.has("mx-auto") && row.has("w-full"), "the logo row keeps its width");
+
+  const source = read("src/components/Header.tsx");
+  const menu = source.slice(source.indexOf('id="mobile-nav"'), source.indexOf("</motion.nav>"));
+  // The animated box clips while it opens and may shrink below its content...
+  const nav = classesAfter(menu, 'id="mobile-nav"');
+  for (const name of ["flex", "flex-col", "min-h-0", "overflow-hidden"]) assert.ok(nav.has(name), `the menu has ${name}`);
+  // ...and the list inside it is what scrolls, without dragging the page along
+  const list = classesAfter(menu, "<div");
+  for (const name of ["min-h-0", "overflow-y-auto", "overscroll-contain", "w-full"]) {
+    assert.ok(list.has(name), `the menu's list has ${name}`);
+  }
+  assert.ok(!list.has("overflow-hidden"), "the list itself is not clipped");
+  // The two buttons are inside the part that scrolls
+  const listBody = menu.slice(menu.indexOf("<div"));
+  assert.match(listBody, /Choose a time[\s\S]*WhatsApp Kristina/);
+});
+
+test("while the phone menu is open the page behind it stays still, and a screen that grows past the phone layout closes it", () => {
+  const source = read("src/components/Header.tsx");
+  const start = source.indexOf("const before = document.body.style.overflow;");
+  assert.ok(start >= 0, "the menu remembers how the page scrolled before it opened");
+  const effect = source.slice(source.lastIndexOf("useEffect(", start), source.indexOf("}, [mobileOpen]);", start));
+  assert.match(effect, /if \(!mobileOpen\) return;/, "only while the menu is open");
+  assert.match(effect, /document\.body\.style\.overflow = "hidden";/);
+  assert.match(effect, /document\.body\.style\.overflow = before;/, "and puts it back as it was, not blank");
+  // The menu is hidden from lg up: a tablet turned on its side must not be
+  // left with a closed-looking page that won't scroll
+  assert.match(effect, /window\.matchMedia\("\(min-width: 64rem\)"\)/);
+  assert.match(effect, /setMobileOpen\(false\)/);
+  assert.match(effect, /removeEventListener\("change", /, "the listener goes when the menu closes");
+});
+
 test("the menu marks the page you are on", () => {
   assert.equal(isCurrentPage("/shop", "/shop"), true);
   assert.equal(isCurrentPage("/shop", "/shop/ikat-pouch"), true, "a piece is inside the shop");
