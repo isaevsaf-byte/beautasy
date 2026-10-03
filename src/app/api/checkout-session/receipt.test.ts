@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type Stripe from "stripe";
 import { receiptOf, receiptIsFresh, RECEIPT_WINDOW_MS } from "./route";
+import { paymentSettled } from "@/lib/orderLines";
 
 /**
  * The thank-you page's data is fetched by session id, and the session id is
@@ -52,8 +53,55 @@ test("the receipt carries the order and nothing about who placed it", () => {
   assert.equal(receipt.shippingTotal, 350);
   assert.equal(receipt.reference, "E5F6G7H8");
   assert.deepEqual(receipt.items, [
-    { id: "p1", slug: "cloud-scrunchie", name: "The \"Cloud\" Mulberry Silk Scrunchie", quantity: 1, amountTotal: 1200 },
+    { id: "p1", slug: "cloud-scrunchie", name: "The \"Cloud\" Mulberry Silk Scrunchie", quantity: 1, amountSubtotal: 1200, amountTotal: 1200 },
   ]);
+  assert.equal(receipt.kind, "order");
+});
+
+/**
+ * A gift card is emailed, not sewn or posted, and the page must not promise
+ * three to five days in the atelier for it. And an order a gift card paid
+ * for in full still has a summary to show.
+ */
+test("a gift card's receipt says it is a gift card, and still gives away nobody", () => {
+  const giftCard = {
+    amount_total: 5000,
+    total_details: { amount_shipping: 0, amount_discount: 0, amount_tax: 0 },
+    metadata: { gift_card: "true", gift_card_amount: "5000", gift_card_recipient: "nina@example.com", gift_card_message: "Love you" },
+    line_items: {
+      object: "list",
+      has_more: false,
+      url: "",
+      data: [{ id: "li_g", description: "Beautasy Gift Card — £50.00", quantity: 1, amount_subtotal: 5000, amount_total: 5000, price: { product: { metadata: { gift_card: "true" } } } }],
+    },
+  } as unknown as Stripe.Checkout.Session;
+  const receipt = receiptOf({ sessionId: "cs_live_gift0001", session: giftCard, friendsCode: null, friendsOffer: null });
+  assert.equal(receipt.kind, "giftCard");
+  const said = JSON.stringify(receipt);
+  assert.equal(said.includes("nina@example.com"), false, "the recipient is nobody else's business");
+  assert.equal(said.includes("Love you"), false);
+});
+
+test("an order a gift card paid for in full is settled, and shows what it was", () => {
+  assert.equal(paymentSettled("paid"), true);
+  assert.equal(paymentSettled("no_payment_required"), true, "Stripe's word for a total of nothing to pay");
+  assert.equal(paymentSettled("unpaid"), false);
+  assert.equal(paymentSettled(undefined), false);
+
+  const covered = {
+    amount_total: 0,
+    total_details: { amount_shipping: 0, amount_discount: 4200, amount_tax: 0 },
+    line_items: {
+      object: "list",
+      has_more: false,
+      url: "",
+      data: [{ id: "li_1", description: "Silk Slip", quantity: 1, amount_subtotal: 4200, amount_total: 0, price: { product: { metadata: { product_id: "p1" } } } }],
+    },
+  } as unknown as Stripe.Checkout.Session;
+  const receipt = receiptOf({ sessionId: "cs_live_paid0by0card", session: covered, friendsCode: null, friendsOffer: null });
+  assert.equal(receipt.items[0].amountSubtotal, 4200, "the piece at its price, not at £0.00");
+  assert.equal(receipt.discountTotal, 4200, "and the card's part as its own line");
+  assert.equal(receipt.total, 0);
 });
 
 test("the thank-you page can read its order for a day, and not after", () => {

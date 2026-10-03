@@ -11,6 +11,7 @@ import {
   expiryFromNow,
   deductFromCard,
   releaseCard,
+  deactivateCardForSession,
 } from "@/lib/giftCards";
 import { deliverGiftCard, emailGiftCardPurchase } from "@/lib/giftCardEmails";
 import { getSiteSettings, DEFAULT_INT_RATE } from "@/lib/siteSettings";
@@ -32,6 +33,21 @@ import {
   type OrderedLine,
   type StockDoc,
 } from "@/lib/stock";
+import {
+  giftCardDetails,
+  isAlreadyExists,
+  lineDetail,
+  mayRemind,
+  recoveryLinkOf,
+  type GiftCardPurchase,
+} from "@/lib/orderLines";
+import {
+  alertReason,
+  giftCardNotChargedAlert,
+  giftCardNotIssuedAlert,
+  orderNotSavedAlert,
+  sendPaymentAlert,
+} from "@/lib/paymentAlerts";
 
 export const dynamic = "force-dynamic";
 
@@ -81,15 +97,35 @@ function formatAddress(shipping: ShippingDetails | null | undefined): string {
     .join("\n");
 }
 
+/** The address on one line, unescaped — for an alert, which escapes it itself. */
+function plainAddress(shipping: ShippingDetails | null | undefined): string | undefined {
+  if (!shipping?.address) return undefined;
+  const a = shipping.address;
+  return [shipping.name, a.line1, a.line2, a.city, a.state, a.postal_code, a.country].filter(Boolean).join(", ");
+}
+
 /* ─── Format line items ─── */
+
+/**
+ * The lines as Kristina reads them: each piece, and under it whatever the
+ * customer typed for it — the measurements to cut to, the words for the gift
+ * card (see lineDetail). Plain text; the caller escapes it for its email.
+ *
+ * Only Kristina's emails use this. The measurements are the customer's own
+ * and are not repeated back in their confirmation.
+ */
+function itemLines(items: Stripe.LineItem[]): string[] {
+  return items.flatMap((item) => {
+    const qty = item.quantity ?? 1;
+    const price = item.amount_total ? `£${(item.amount_total / 100).toFixed(2)}` : "";
+    const line = `• ${item.description ?? "Item"} × ${qty}  ${price}`;
+    const detail = lineDetail(item);
+    return detail ? [line, `   ${detail}`] : [line];
+  });
+}
+
 function formatItems(items: Stripe.LineItem[]): string {
-  return items
-    .map((item) => {
-      const qty = item.quantity ?? 1;
-      const price = item.amount_total ? `£${(item.amount_total / 100).toFixed(2)}` : "";
-      return `• ${escapeHtml(item.description ?? item.price?.product)} × ${qty}  ${price}`;
-    })
-    .join("\n");
+  return itemLines(items).map(escapeHtml).join("\n");
 }
 
 /* ─── Customer confirmation email (HTML) ─── */
@@ -232,7 +268,7 @@ function adminEmailHtml(session: any, items: Stripe.LineItem[], internationalRat
       <div style="background:#f7f3ff;border-radius:12px;padding:20px 24px;">
         <p style="margin:0 0 8px;font-weight:bold;color:#2d2d2d;">Total: ${total}</p>
         <p style="margin:0;font-size:13px;color:#777;">
-          <a href="https://dashboard.stripe.com/payments/${session.payment_intent}" style="color:#9b7fd4;">View in Stripe →</a>
+          <a href="${session.payment_intent ? `https://dashboard.stripe.com/payments/${session.payment_intent}` : `https://dashboard.stripe.com/search?query=${session.id}`}" style="color:#9b7fd4;">View in Stripe →</a>
         </p>
       </div>
     </div>
@@ -308,7 +344,13 @@ async function decrementStock(items: Stripe.LineItem[]): Promise<void> {
 }
 
 /* ─── Abandoned cart ─── */
-function abandonedCartHtml(items: Stripe.LineItem[], total: number): string {
+function abandonedCartHtml(
+  items: Stripe.LineItem[],
+  total: number,
+  /** Stripe's link back into this same checkout, or the shop */
+  link: string,
+  giftCard: boolean
+): string {
   const rows = items
     .map((item) => {
       const qty = item.quantity ?? 1;
@@ -331,20 +373,23 @@ function abandonedCartHtml(items: Stripe.LineItem[], total: number): string {
     </div>
     <div style="padding:32px 40px;">
       <p style="color:#3d3d3d;line-height:1.7;margin-top:0;">
-        Your bag is waiting. Every piece is sewn to order in our Southampton atelier,
-        so nothing is mass produced — and popular fabrics do run out.
+        ${
+          giftCard
+            ? "Your gift card is one step away. It takes a minute to finish, and it's emailed the moment you do — or on the day you picked."
+            : "Your bag is waiting. Every piece is sewn to order in our Southampton atelier, so nothing is mass produced — and popular fabrics do run out."
+        }
       </p>
       <table style="width:100%;border-collapse:collapse;margin:22px 0;">${rows}</table>
       <p style="color:#3d3d3d;margin:0 0 22px;"><strong>Total: £${(total / 100).toFixed(2)}</strong></p>
       <p style="text-align:center;margin:0;">
-        <a href="${SITE_URL}/shop" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">Finish your order</a>
+        <a href="${escapeHtml(link)}" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">${giftCard ? "Finish your gift card" : "Finish your order"}</a>
       </p>
       <p style="color:#777;font-size:13px;line-height:1.7;margin:24px 0 0;">
-        Questions about sizing or fabric? Just reply — Kristina reads every message.
+        ${giftCard ? "Questions?" : "Questions about sizing or fabric?"} Just reply — Kristina reads every message.
       </p>
     </div>
     <div style="padding:20px 40px;border-top:1px solid #f0eaf8;text-align:center;">
-      <p style="margin:0;font-size:11px;color:#aaa;">You're getting this because you started an order at beautasy.co.uk. Reply "stop" and we won't send another.</p>
+      <p style="margin:0;font-size:11px;color:#aaa;">You're getting this because you started an order at beautasy.co.uk and said yes to hearing from us. Reply "stop" and we won't send another.</p>
     </div>
   </div>
 </body>
@@ -354,11 +399,19 @@ function abandonedCartHtml(items: Stripe.LineItem[], total: number): string {
 /**
  * Emails a reminder when a checkout expires unpaid.
  *
- * Stripe only knows the address if the shopper typed one before leaving, so
- * this fires for the people who got furthest — exactly the ones worth a nudge.
- * One document per session keeps it to a single reminder.
+ * Only to somebody who ticked "yes" to hearing from us at Stripe's checkout
+ * (see mayRemind): a reminder is marketing. Stripe agrees — without that yes,
+ * an expired session does not carry the shopper's email at all, which is why
+ * this never sent a single one before checkout started asking (see
+ * createCheckoutSession). Nothing is kept about anybody who said no.
+ *
+ * The button reopens the same checkout through Stripe's recovery link rather
+ * than the shop: the bag lives in one browser's storage, and an email opened
+ * on a phone would have found it empty. One document per session keeps it to
+ * a single reminder.
  */
 async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<void> {
+  if (!mayRemind(session)) return;
   const email = session.customer_details?.email;
   if (!email) return;
 
@@ -379,6 +432,8 @@ async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<vo
   if (items.length === 0) return;
 
   const total = session.amount_total ?? items.reduce((sum, i) => sum + (i.amount_total ?? 0), 0);
+  const giftCard = giftCardDetails(session, items) !== null;
+  const link = recoveryLinkOf(session, `${SITE_URL}${giftCard ? "/gift-cards" : "/shop"}`);
   let reminderSent = false;
 
   if (process.env.RESEND_API_KEY) {
@@ -387,8 +442,8 @@ async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<vo
         from: FROM_EMAIL,
         to: email,
         replyTo: KRISTINA_EMAIL,
-        subject: "Your Beautasy bag is still waiting 💜",
-        html: abandonedCartHtml(items, total),
+        subject: giftCard ? "Your Beautasy gift card is still waiting 💜" : "Your Beautasy bag is still waiting 💜",
+        html: abandonedCartHtml(items, total, link, giftCard),
       });
       reminderSent = true;
     } catch (err) {
@@ -433,13 +488,20 @@ async function handleAbandonedCart(session: Stripe.Checkout.Session): Promise<vo
  *
  * Scheduled cards are stored but not emailed — the daily job sends those on the
  * chosen morning, which is what makes a gift card work as an actual present.
+ *
+ * Safe to run twice for one payment, which is what lets the webhook ask Stripe
+ * to try again when it fails: the card is looked for first, and its id is the
+ * payment, so two deliveries in flight at once cannot both make one — Sanity
+ * refuses the second, and that refusal is read as "already issued". Nothing
+ * before the create moves money or sends anything; the emails after it never
+ * throw (see @/lib/giftCardEmails), and a card that exists but was never
+ * emailed is picked up by the daily job.
  */
-async function issueGiftCard(session: Stripe.Checkout.Session): Promise<void> {
-  const meta = session.metadata ?? {};
-  if (meta.gift_card !== "true") return;
-
-  const amount = Number(meta.gift_card_amount ?? session.amount_total ?? 0);
-  if (!Number.isFinite(amount) || amount <= 0) return;
+async function issueGiftCard(session: Stripe.Checkout.Session, purchase: GiftCardPurchase): Promise<void> {
+  const { amount, meta } = purchase;
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("The gift card's amount is missing from the payment");
+  }
 
   const existing = await sanityWriteClient.fetch<string | null>(
     `*[_type == "giftCard" && stripeSessionId == $id][0]._id`,
@@ -451,22 +513,30 @@ async function issueGiftCard(session: Stripe.Checkout.Session): Promise<void> {
   // Generated here and stored only keyed and sealed — the clear code exists
   // for the length of this function and then only in the recipient's inbox.
   const code = generateGiftCardCode();
-  const card = await sanityWriteClient.create({
-    _type: "giftCard",
-    ...codeFields(code),
-    initialAmount: amount,
-    balance: amount,
-    recipientHint: maskEmail(meta.gift_card_recipient),
-    recipientEmailSealed: sealOptional(meta.gift_card_recipient),
-    recipientNameSealed: sealOptional(meta.gift_card_recipient_name),
-    messageSealed: sealOptional(meta.gift_card_message),
-    purchaserEmailSealed: sealOptional(session.customer_details?.email),
-    deliverAt: deliverAt || undefined,
-    expiresAt: expiryFromNow(),
-    active: true,
-    stripeSessionId: session.id,
-    createdAt: new Date().toISOString(),
-  });
+  let card: { _id: string; codeHint?: string; expiresAt?: string };
+  try {
+    card = await sanityWriteClient.create({
+      _id: `giftCard-${session.id}`,
+      _type: "giftCard",
+      ...codeFields(code),
+      initialAmount: amount,
+      balance: amount,
+      recipientHint: maskEmail(meta.gift_card_recipient),
+      recipientEmailSealed: sealOptional(meta.gift_card_recipient),
+      recipientNameSealed: sealOptional(meta.gift_card_recipient_name),
+      messageSealed: sealOptional(meta.gift_card_message),
+      purchaserEmailSealed: sealOptional(session.customer_details?.email),
+      deliverAt: deliverAt || undefined,
+      expiresAt: expiryFromNow(),
+      active: true,
+      stripeSessionId: session.id,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    // The other delivery of this same event made it a moment ago
+    if (isAlreadyExists(err)) return;
+    throw err;
+  }
 
   const scheduledForLater = !!deliverAt && new Date(deliverAt).getTime() > Date.now();
   const deliverable = {
@@ -496,7 +566,13 @@ async function issueGiftCard(session: Stripe.Checkout.Session): Promise<void> {
   console.log("Gift card issued: …", card.codeHint, scheduledForLater ? "(scheduled)" : "(sent)");
 }
 
-/** Takes the spent amount off a gift card that paid for part of an order. */
+/**
+ * Takes the spent amount off a gift card that paid for part of an order.
+ *
+ * Runs once per payment and is not tried again — `dec` twice is the money off
+ * twice — so when it fails hello@ is told the card and the amount, to take
+ * off by hand. Never throws.
+ */
 async function spendGiftCard(session: Stripe.Checkout.Session): Promise<void> {
   const cardId = session.metadata?.gift_card_id;
   if (!cardId) return;
@@ -507,13 +583,48 @@ async function spendGiftCard(session: Stripe.Checkout.Session): Promise<void> {
     session.total_details?.amount_discount ?? 0,
     Number(session.metadata?.referral_discount ?? 0) || 0
   );
-  if (spent <= 0) {
-    await releaseCard(cardId, session.id);
+
+  try {
+    if (spent <= 0) {
+      await releaseCard(cardId, session.id);
+      return;
+    }
+    await deductFromCard(cardId, spent, session.id);
+  } catch (err) {
+    console.error("Failed to deduct gift card balance:", err);
+    if (spent > 0) {
+      await sendPaymentAlert(
+        giftCardNotChargedAlert({
+          sessionId: session.id,
+          paymentIntent: paymentIntentOf(session),
+          cardId,
+          amount: spent,
+          reason: alertReason(err),
+        })
+      );
+    }
     return;
   }
-
-  await deductFromCard(cardId, spent, session.id);
   console.log(`Gift card ${cardId} spent £${(spent / 100).toFixed(2)}`);
+}
+
+/** The payment's id, for a link into Stripe — absent when a gift card paid it all. */
+function paymentIntentOf(session: Stripe.Checkout.Session): string | null {
+  const pi = session.payment_intent;
+  return typeof pi === "string" ? pi : pi?.id ?? null;
+}
+
+/**
+ * Marks the abandoned cart a reminder reopened as recovered, so the Studio can
+ * tell a reminder that worked from one that did not. Best-effort: it is a
+ * number on a dashboard, not money.
+ */
+async function markCartRecovered(expiredSessionId: string): Promise<void> {
+  const cartId = await sanityWriteClient.fetch<string | null>(
+    `*[_type == "abandonedCart" && stripeSessionId == $id][0]._id`,
+    { id: expiredSessionId }
+  );
+  if (cartId) await sanityWriteClient.patch(cartId).set({ recovered: true }).commit();
 }
 
 /** An unpaid checkout that held a gift card lets go of it. */
@@ -582,23 +693,44 @@ export async function POST(req: NextRequest) {
     const customerName = shippingOf(session)?.name ?? session.customer_details?.name;
 
     // A gift card purchase is not a normal order — issue the card and stop
-    if (session.metadata?.gift_card === "true") {
+    const giftCard = giftCardDetails(session, items);
+    if (giftCard) {
       try {
-        await issueGiftCard(session);
+        await issueGiftCard(session, giftCard);
       } catch (err) {
         console.error("Failed to issue gift card:", err);
+        await sendPaymentAlert(
+          giftCardNotIssuedAlert({
+            sessionId: session.id,
+            paymentIntent: paymentIntentOf(session),
+            amount: giftCard.amount || (session.amount_total ?? 0),
+            buyerEmail: customerEmail,
+            recipient: giftCard.meta.gift_card_recipient,
+            recipientName: giftCard.meta.gift_card_recipient_name,
+            deliverAt: giftCard.meta.gift_card_deliver_at,
+            reason: alertReason(err),
+          })
+        );
+        // A 500 makes Stripe deliver this event again, for up to three days,
+        // and that is safe here and only here: issueGiftCard looks for the
+        // card before making one and makes it under the payment's own id, and
+        // nothing before that moves money or sends an email. So the next try
+        // either finds the card a lost reply had in fact made, or makes it —
+        // never a second card. It used to answer 200, and a card somebody had
+        // paid for was never issued and never mentioned to anyone.
+        return NextResponse.json({ error: "Gift card not issued yet" }, { status: 500 });
       }
       return NextResponse.json({ received: true, giftCard: true });
     }
 
-    // Deduct whatever a gift card paid towards this order
-    try {
-      await spendGiftCard(session);
-    } catch (err) {
-      console.error("Failed to deduct gift card balance:", err);
-    }
-
-    // Save the order to Sanity so signed-in customers can see it in "My Orders".
+    // The order is written before anything else is done for it — before the
+    // gift card is charged, the stock taken off or anybody emailed — because
+    // that order is what makes a failure here safe to hand back to Stripe.
+    // When the write fails, nothing has happened yet, so a 500 lets Stripe
+    // deliver the event again later and the whole handler runs once, properly,
+    // on the try that works. Charging the card first, as this used to, would
+    // have charged it again on every retry; so it used to answer 200, and a
+    // paid order lived only in two emails.
     const referrerId = session.metadata?.referrer_id || undefined;
     const referralDiscount = Number(session.metadata?.referral_discount ?? 0) || 0;
     try {
@@ -607,15 +739,9 @@ export async function POST(req: NextRequest) {
         // check above catches the ordinary retry; this catches the one it
         // cannot — two retries in flight at once, both reading "no order yet"
         // before either writes. Sanity refuses a second document with an id
-        // that exists, so what used to be two order records for one payment,
-        // each with its own set of status emails and its own review request,
-        // is now a write that fails and is logged.
-        //
-        // What it does not fix, named rather than left to be found: the rest
-        // of this handler still runs on that losing retry, so the stock is
-        // decremented twice and the confirmation goes out twice. Both are
-        // visible and both are mendable by hand; a duplicate order document is
-        // neither.
+        // that exists, and the delivery that loses stops right there (below),
+        // so the stock is taken off and the confirmation sent once, by the
+        // delivery that saved the order.
         _id: `order-${session.id}`,
         _type: "order",
         stripeSessionId: session.id,
@@ -646,6 +772,9 @@ export async function POST(req: NextRequest) {
             name: item.description ?? "Item",
             quantity: item.quantity ?? 1,
             amountTotal: item.amount_total ?? 0,
+            // The measurements or the gift card's words, sealed like every
+            // other thing a customer told us (see lineDetail)
+            detailSealed: sealOptional(lineDetail(item)),
           };
         }),
         total: session.amount_total ?? 0,
@@ -654,7 +783,40 @@ export async function POST(req: NextRequest) {
         createdAt: new Date().toISOString(),
       });
     } catch (err) {
+      if (isAlreadyExists(err)) {
+        // Another delivery of this same event saved it a moment ago and is
+        // doing the rest; doing it here too is the stock off twice
+        console.log("Order already saved by another delivery, skipping:", session.id);
+        return NextResponse.json({ received: true, duplicate: true });
+      }
       console.error("Failed to save order to Sanity:", err);
+      await sendPaymentAlert(
+        orderNotSavedAlert({
+          sessionId: session.id,
+          paymentIntent: paymentIntentOf(session),
+          total: session.amount_total ?? 0,
+          customerName,
+          customerEmail,
+          phone: session.customer_details?.phone,
+          address: plainAddress(shippingOf(session)),
+          items: itemLines(items),
+          reason: alertReason(err),
+        })
+      );
+      return NextResponse.json({ error: "Order not saved yet" }, { status: 500 });
+    }
+
+    // Deduct whatever a gift card paid towards this order. Once only, after
+    // the order exists — see spendGiftCard, which tells hello@ if it fails.
+    await spendGiftCard(session);
+
+    // A reminder brought them back: the cart it was about is now an order
+    if (session.recovered_from) {
+      try {
+        await markCartRecovered(session.recovered_from);
+      } catch (err) {
+        console.error("Could not mark an abandoned cart as recovered:", err);
+      }
     }
 
     // A friend's link brought this order: credit whoever shared it. The event
@@ -694,11 +856,11 @@ export async function POST(req: NextRequest) {
     // Send customer confirmation
     if (customerEmail) {
       try {
-        // Best-effort, and it has to be: Stripe's webhook is answered 200
-        // whatever happens here, so nothing comes back for a second go. The
-        // order itself is in Sanity, so a confirmation that was refused can be
-        // sent by hand — but only by somebody who knows it was, which before
-        // this was nobody.
+        // Best-effort, and it has to be: by now the order is saved and the
+        // card charged, so this webhook is answered 200 whatever happens here
+        // and nothing comes back for a second go. The order itself is in
+        // Sanity, so a confirmation that was refused can be sent by hand — but
+        // only by somebody who knows it was, which before this was nobody.
         await sendEmail({
           from: FROM_EMAIL,
           to: customerEmail,
@@ -738,6 +900,7 @@ export async function POST(req: NextRequest) {
     // session, and a charge only knows its payment intent, so ask Stripe for
     // the session once, for both.
     let sessionId: string | undefined;
+    let refundedSession: Stripe.Checkout.Session | undefined;
     try {
       const paymentIntent =
         typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
@@ -747,7 +910,8 @@ export async function POST(req: NextRequest) {
           payment_intent: paymentIntent,
           limit: 1,
         });
-        sessionId = sessions.data[0]?.id;
+        refundedSession = sessions.data[0];
+        sessionId = refundedSession?.id;
       }
     } catch (err) {
       console.error("Could not find the Checkout session for a refund:", err);
@@ -767,6 +931,17 @@ export async function POST(req: NextRequest) {
     // still bought something, so the reward stands.
     if (charge.amount_refunded < charge.amount) {
       return NextResponse.json({ received: true, partialRefund: true });
+    }
+
+    // A gift card whose money has all gone back stops being money. It used to
+    // stay spendable: bought, refunded in full, and then spent on a dress.
+    if (sessionId && refundedSession && giftCardDetails(refundedSession, [])) {
+      try {
+        const cardId = await deactivateCardForSession(sessionId);
+        console.log("Refund of gift card session", sessionId, "→", cardId ? `card ${cardId} switched off` : "no card found");
+      } catch (err) {
+        console.error("Failed to switch off a refunded gift card:", err);
+      }
     }
 
     if (sessionId) {

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { sanityClient, urlFor } from "@/lib/sanity";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import Footer from "@/components/Footer";
+import { SITE_URL } from "@/lib/site";
 
 export const revalidate = 60;
 
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
   title: "Collections | Beautasy",
   description:
     "Browse Beautasy's handmade collections — curated seasonal edits crafted with love in Southampton.",
+  alternates: { canonical: `${SITE_URL}/shop/collections` },
 };
 
 const ALL_COLLECTIONS_QUERY = `*[_type == "collection"] | order(_createdAt desc) {

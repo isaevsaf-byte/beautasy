@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripeInstance } from "@/lib/stripe";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { findSpendableCard, normaliseCode, sanitiseAmount, PRESET_AMOUNTS } from "@/lib/giftCards";
-import { SITE_URL } from "@/lib/site";
 import { secretsConfigured } from "@/lib/secrets";
+import { checkoutReturnBase, createCheckoutSession } from "@/lib/stripeCheckout";
 
 export const dynamic = "force-dynamic";
 
@@ -96,9 +96,20 @@ export async function POST(req: NextRequest) {
     }
 
     const stripe = getStripeInstance();
-    const origin = req.headers.get("origin") || SITE_URL;
+    // Never the request's Origin header — see checkoutReturnBase
+    const returnBase = checkoutReturnBase();
 
-    const session = await stripe.checkout.sessions.create({
+    // Everything the webhook needs to issue the card
+    const giftCard: Record<string, string> = {
+      gift_card: "true",
+      gift_card_amount: String(value),
+      gift_card_recipient: recipientEmail,
+      ...(recipientName ? { gift_card_recipient_name: String(recipientName).slice(0, 60) } : {}),
+      ...(message ? { gift_card_message: String(message).slice(0, MESSAGE_MAX) } : {}),
+      ...(deliverAtIso ? { gift_card_deliver_at: deliverAtIso } : {}),
+    };
+
+    const session = await createCheckoutSession(stripe, {
       mode: "payment",
       currency: "gbp",
       // A gift card is emailed, not posted — no address needed
@@ -112,23 +123,24 @@ export async function POST(req: NextRequest) {
               description: deliverAtIso
                 ? `Emailed to ${recipientEmail} on ${new Date(deliverAtIso).toLocaleDateString("en-GB")}`
                 : `Emailed to ${recipientEmail}`,
-              metadata: { gift_card: "true" },
+              // On the line as well as the session. A session reopened from an
+              // abandoned-cart link keeps its lines, and the card's details
+              // must not depend on whether Stripe copies the session's
+              // metadata too — without them a paid card would arrive as an
+              // "order" with nothing to post. See giftCardDetails in
+              // @/lib/orderLines.
+              metadata: giftCard,
             },
           },
           quantity: 1,
         },
       ],
-      metadata: {
-        gift_card: "true",
-        gift_card_amount: String(value),
-        gift_card_recipient: recipientEmail,
-        ...(recipientName ? { gift_card_recipient_name: String(recipientName).slice(0, 60) } : {}),
-        ...(message ? { gift_card_message: String(message).slice(0, MESSAGE_MAX) } : {}),
-        ...(deliverAtIso ? { gift_card_deliver_at: deliverAtIso } : {}),
-      },
-      success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/gift-cards?canceled=true`,
-    });
+      metadata: giftCard,
+      // kind=gift-card lets the thank-you page say the right thing before
+      // anything has loaded: nothing is sewn or posted for a gift card
+      success_url: `${returnBase}/success?session_id={CHECKOUT_SESSION_ID}&kind=gift-card`,
+      cancel_url: `${returnBase}/gift-cards?canceled=true`,
+    }, { recovery: true });
 
     if (!session.url) {
       return NextResponse.json({ error: "Could not start checkout" }, { status: 500 });

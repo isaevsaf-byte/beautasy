@@ -36,7 +36,9 @@ test("the previous holder of a gift card is expired before a new discount is min
 
 test("the card is held for the new session after it exists and before the customer gets its URL", () => {
   const body = postBody();
-  const createAt = body.indexOf("stripe.checkout.sessions.create(");
+  // The session is made through createCheckoutSession (@/lib/stripeCheckout),
+  // which adds the recovery and consent settings
+  const createAt = body.indexOf("createCheckoutSession(stripe, {");
   const reserveAt = body.indexOf("reserveCard(");
   const returnAt = body.indexOf("return NextResponse.json({ url: session.url })");
   assert.notEqual(reserveAt, -1, "checkout no longer reserves the card");

@@ -24,6 +24,20 @@ import {
 } from "@/lib/referrals";
 import { friendShopDiscount, shortOfMinBasket, verdictMessage } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
+import { clientIp } from "@/lib/rateLimit";
+import { checkoutWrongCodes } from "@/lib/codeAttempts";
+import {
+  PRICE_LOOKUP_QUERY,
+  checkoutReturnBase,
+  createCheckoutSession,
+  lookupIdOf,
+  resolveLine,
+  trustedImage,
+  type CheckoutItem,
+  type PriceLookupGiftBox,
+  type PriceLookupProduct,
+  type ResolvedLine,
+} from "@/lib/stripeCheckout";
 import type Stripe from "stripe";
 
 /**
@@ -51,83 +65,9 @@ async function expireHeldSession(
 
 export const dynamic = "force-dynamic";
 
-const GIFTBOX_ADDON_SUFFIX = "-giftbox";
-const MADE_TO_MEASURE_SUFFIX = "-madetomeasure";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Stripe shows a coupon's name at checkout and caps it at forty characters */
 const COUPON_NAME_MAX = 40;
-
-interface CheckoutItem {
-  id: string;
-  name: string;
-  price: number; // in pence — client-supplied, NEVER trusted; overwritten below
-  image: string;
-  size?: string;
-  color?: string;
-  giftMessage?: string;
-  slug?: string;
-  measurements?: string;
-  quantity: number;
-}
-
-interface PriceLookupProduct {
-  _id: string;
-  price: number;
-  sizePrices?: { size: string; price: number }[];
-  giftBoxAvailable?: boolean;
-  giftBoxPrice?: number;
-  madeToMeasureAvailable?: boolean;
-  madeToMeasurePrice?: number;
-}
-
-interface PriceLookupGiftBox {
-  _id: string;
-  price: number;
-}
-
-const PRICE_LOOKUP_QUERY = `{
-  "products": *[_type == "product" && _id in $ids]{ _id, price, sizePrices, giftBoxAvailable, giftBoxPrice, madeToMeasureAvailable, madeToMeasurePrice },
-  "giftBoxes": *[_type == "giftBox" && _id in $ids]{ _id, price }
-}`;
-
-/**
- * Resolves the authoritative price (in pence) for a cart line from Sanity.
- * Returns null when the line can't be priced (unknown id, gift box not
- * available, etc.) so the caller can reject the whole checkout.
- */
-function resolvePrice(
-  item: CheckoutItem,
-  products: Map<string, PriceLookupProduct>,
-  giftBoxes: Map<string, PriceLookupGiftBox>
-): number | null {
-  if (item.id.endsWith(MADE_TO_MEASURE_SUFFIX)) {
-    const baseId = item.id.slice(0, -MADE_TO_MEASURE_SUFFIX.length);
-    const product = products.get(baseId);
-    if (!product || !product.madeToMeasureAvailable || !product.madeToMeasurePrice) return null;
-    return product.madeToMeasurePrice;
-  }
-
-  if (item.id.endsWith(GIFTBOX_ADDON_SUFFIX)) {
-    const baseId = item.id.slice(0, -GIFTBOX_ADDON_SUFFIX.length);
-    const product = products.get(baseId);
-    if (!product || !product.giftBoxAvailable || !product.giftBoxPrice) return null;
-    return product.giftBoxPrice;
-  }
-
-  const product = products.get(item.id);
-  if (product) {
-    if (item.size) {
-      const sizePrice = product.sizePrices?.find((sp) => sp.size === item.size);
-      if (sizePrice) return sizePrice.price;
-    }
-    return product.price;
-  }
-
-  const giftBox = giftBoxes.get(item.id);
-  if (giftBox) return giftBox.price;
-
-  return null;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -179,22 +119,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Look up authoritative prices in Sanity — the client-supplied `price`
-    // is never trusted here, since it lives in editable localStorage and
-    // would otherwise let anyone pay whatever they choose at checkout.
-    const lookupIds = Array.from(
-      new Set(
-        items.map((item) => {
-          if (item.id.endsWith(GIFTBOX_ADDON_SUFFIX)) {
-            return item.id.slice(0, -GIFTBOX_ADDON_SUFFIX.length);
-          }
-          if (item.id.endsWith(MADE_TO_MEASURE_SUFFIX)) {
-            return item.id.slice(0, -MADE_TO_MEASURE_SUFFIX.length);
-          }
-          return item.id;
-        })
-      )
-    );
+    // Wrong codes are counted per address, and the count is checked before
+    // either code is looked up — see @/lib/codeAttempts
+    const ip = clientIp(req);
+    if (giftCardCode || referralCode) {
+      const guessing = checkoutWrongCodes.blocked(ip);
+      if (guessing.blocked) {
+        return NextResponse.json(
+          { error: "Too many codes that didn't work. Please try again later, or check out without one." },
+          { status: 429, headers: { "Retry-After": String(guessing.retryAfter) } }
+        );
+      }
+    }
+
+    // Look up authoritative prices and names in Sanity — neither the
+    // client-supplied `price` nor its `name` is trusted here, since both live in
+    // editable localStorage (see resolveLine in @/lib/stripeCheckout).
+    const lookupIds = Array.from(new Set(items.map((item) => lookupIdOf(item.id))));
 
     const { products: productList, giftBoxes: giftBoxList } = await sanityClient.fetch<{
       products: PriceLookupProduct[];
@@ -204,16 +145,16 @@ export async function POST(req: NextRequest) {
     const products = new Map(productList.map((p) => [p._id, p]));
     const giftBoxes = new Map(giftBoxList.map((g) => [g._id, g]));
 
-    const pricedItems: (CheckoutItem & { verifiedPrice: number })[] = [];
+    const pricedItems: (CheckoutItem & { verified: ResolvedLine })[] = [];
     for (const item of items) {
-      const verifiedPrice = resolvePrice(item, products, giftBoxes);
-      if (verifiedPrice == null || verifiedPrice < 1) {
+      const verified = resolveLine(item, products, giftBoxes);
+      if (verified == null || verified.price < 1) {
         return NextResponse.json(
           { error: `"${item.name}" is no longer available. Please remove it and try again.` },
           { status: 400 }
         );
       }
-      pricedItems.push({ ...item, verifiedPrice });
+      pricedItems.push({ ...item, verified });
     }
 
     // Early check: make sure STRIPE_SECRET_KEY is configured
@@ -225,7 +166,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const origin = req.headers.get("origin") || "http://localhost:3000";
+    // Never the request's Origin header — see checkoutReturnBase
+    const returnBase = checkoutReturnBase();
     // Falls back to the shopper's own country when the bag didn't say
     const geoCountry = req.headers.get("x-vercel-ip-country");
     const region = requestedRegion ?? (geoCountry === "GB" ? "uk" : undefined);
@@ -247,7 +189,7 @@ export async function POST(req: NextRequest) {
     const freeThreshold =
       siteSettings.shipping?.freeShippingThreshold ?? DEFAULT_FREE_THRESHOLD;
     const subtotal = pricedItems.reduce(
-      (sum, item) => sum + item.verifiedPrice * item.quantity,
+      (sum, item) => sum + item.verified.price * item.quantity,
       0
     );
     const qualifiesForFreeUkDelivery = freeThreshold > 0 && subtotal >= freeThreshold;
@@ -276,6 +218,7 @@ export async function POST(req: NextRequest) {
       const settings = await referralSettings();
       const referrer = await findReferrerByCode(referralCode);
       if (!referrer) {
+        checkoutWrongCodes.miss(ip);
         return NextResponse.json({ error: "That friend code isn't valid.", referralInvalid: true }, { status: 400 });
       }
       const verdict = await judgeFriendFor({ referrer, friendEmail: referralEmail, kind: "order", settings });
@@ -302,6 +245,7 @@ export async function POST(req: NextRequest) {
     if (giftCardCode) {
       card = await findSpendableCard(giftCardCode);
       if (!card) {
+        checkoutWrongCodes.miss(ip);
         return NextResponse.json(
           { error: "That gift card code isn't valid. Check it and try again." },
           { status: 400 }
@@ -359,7 +303,10 @@ export async function POST(req: NextRequest) {
         : {}),
     };
 
-    const session = await stripe.checkout.sessions.create({
+    // Abandoned-cart recovery and marketing consent ride along where Stripe
+    // allows them; a session with a discount gets no recovery link — see
+    // createCheckoutSession for why, and for what happens if Stripe says no
+    const session = await createCheckoutSession(stripe, {
       mode: "payment",
       currency: "gbp",
       // Stripe allows either a pre-applied discount or a promo code field, not both
@@ -439,11 +386,13 @@ export async function POST(req: NextRequest) {
       ...(userId ? { client_reference_id: userId } : {}),
       ...(Object.keys(sessionMetadata).length > 0 ? { metadata: sessionMetadata } : {}),
       line_items: pricedItems.map((item) => {
-        // Build a descriptive product name including size and colour
-        let productName = item.name;
+        // A descriptive product name including size and colour — all three as
+        // Sanity has them, never as the bag says (see resolveLine)
+        const { name, size, color } = item.verified;
+        let productName = name;
         const metaParts: string[] = [];
-        if (item.size) metaParts.push(`Size: ${item.size}`);
-        if (item.color) metaParts.push(`Colour: ${item.color}`);
+        if (size) metaParts.push(`Size: ${size}`);
+        if (color) metaParts.push(`Colour: ${color}`);
         if (metaParts.length > 0) {
           productName += ` — ${metaParts.join(", ")}`;
         }
@@ -456,22 +405,13 @@ export async function POST(req: NextRequest) {
           ? `📐 Measurements: ${item.measurements}`
           : undefined;
 
-        // Only include images that are valid absolute HTTPS URLs
-        const images: string[] = [];
-        if (
-          item.image &&
-          typeof item.image === "string" &&
-          item.image.startsWith("https://")
-        ) {
-          // Stripe limits image URLs to 2000 chars
-          if (item.image.length <= 2000) {
-            images.push(item.image);
-          }
-        }
+        // Only this shop's own photographs — see trustedImage
+        const image = trustedImage(item.image);
+        const images: string[] = image ? [image] : [];
 
         const metadata: Record<string, string> = { product_id: item.id };
-        if (item.size) metadata.size = item.size;
-        if (item.color) metadata.color = item.color;
+        if (size) metadata.size = size;
+        if (color) metadata.color = color;
         if (item.giftMessage) metadata.gift_message = item.giftMessage;
         if (item.measurements) metadata.measurements = item.measurements;
         if (item.slug) metadata.slug = item.slug;
@@ -485,14 +425,14 @@ export async function POST(req: NextRequest) {
               ...(images.length > 0 ? { images } : {}),
               metadata,
             },
-            unit_amount: item.verifiedPrice,
+            unit_amount: item.verified.price,
           },
           quantity: item.quantity,
         };
       }),
-      success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/?canceled=true`,
-    });
+      success_url: `${returnBase}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${returnBase}/?canceled=true`,
+    }, { recovery: !discount });
 
     if (!session.url) {
       return NextResponse.json(

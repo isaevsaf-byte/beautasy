@@ -12,7 +12,7 @@ import { getSiteSettings, DEFAULT_UK_RATE } from "@/lib/siteSettings";
 import { SITE_SETTINGS } from "@/lib/siteSettingsDocument";
 import { getShelves } from "@/lib/getShelves";
 import { placeLink } from "@/lib/shelves";
-import { productDescription } from "@/lib/productMeta";
+import { plainText, productDescription } from "@/lib/productMeta";
 import { PRODUCT_REVIEWS_QUERY } from "@/lib/siteReviews";
 
 /* ─── Safe image URL builder (won't crash on incomplete data) ─── */
@@ -222,6 +222,14 @@ export async function generateStaticParams() {
 // these pages static, but that made Next prerender the Suspense skeleton instead
 // of the product grid — the catalogue was invisible to search engines. Category
 // pages are worth far more indexed than statically cached.
+//
+// Only category pages have filters, so only they read them. Reading
+// searchParams anywhere in a render makes that page dynamic, and it used to
+// be read at the top, for everything: all sixteen product pages were rendered
+// afresh on every visit (`private, no-store`, a cache MISS each time) with
+// `revalidate = 60` above doing nothing. Read inside the category branch, a
+// product page is built once and refreshed in the background every minute,
+// and the category pages are as they were.
 export default async function ShopParamPage({
   params,
   searchParams,
@@ -230,12 +238,12 @@ export default async function ShopParamPage({
   searchParams: Promise<{ category?: string; sort?: string; size?: string; ready?: string }>;
 }) {
   const { param } = await params;
-  const filters = await searchParams;
   const key = param.toLowerCase();
 
   /* ── Category route ── */
   const sanityCategory = categoryMap[key];
   if (sanityCategory) {
+    const filters = await searchParams;
     let products: {
       _id: string;
       name: string;
@@ -249,9 +257,13 @@ export default async function ShopParamPage({
     }[] = [];
 
     try {
-      const sanityProducts = await sanityClient.fetch(CATEGORY_PRODUCTS_QUERY, {
-        cat: sanityCategory,
-      });
+      // Rendered per visit for its filters, so the catalogue itself is
+      // cached for a minute rather than fetched each time
+      const sanityProducts = await sanityClient.fetch(
+        CATEGORY_PRODUCTS_QUERY,
+        { cat: sanityCategory },
+        { next: { revalidate: 60 } }
+      );
 
       if (sanityProducts && sanityProducts.length > 0) {
         products = sanityProducts.map(
@@ -406,7 +418,10 @@ export default async function ShopParamPage({
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
-    description: `Handmade ${product.category?.toLowerCase() || "product"} from Beautasy, crafted in Southampton, UK.`,
+    // Kristina's own description of the piece, as plain text. It was one
+    // template for every product — "Handmade lingerie from Beautasy…" — which
+    // tells a search engine nothing about this piece in particular.
+    description: plainText(product.description) || productDescription(product),
     image: resolvedImages,
     brand: { "@type": "Brand", name: "Beautasy" },
     sku: product._id,
