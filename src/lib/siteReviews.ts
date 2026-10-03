@@ -198,17 +198,20 @@ export const PUBLISHED_REVIEWS_QUERY = `*[
  * How a buyer's photo is shown: a copy Sanity's image pipeline has made, never
  * the file as it was uploaded.
  *
- * The upload takes HEIC now, which is what an iPhone saves, and only Safari
- * can show one. And an original straight off a phone can carry where it was
- * taken in its EXIF — for a photo of a piece on, that is usually her home.
- * Asking for a size and a format makes Sanity decode the photo and encode a
- * new one, JPEG or whatever smaller format the browser takes, without the
- * camera's metadata. Square and small, because the review shows it as a
- * 64-pixel thumbnail; 256 covers a phone's screen density with room to spare.
+ * Since 3 October 2026 the upload stores a fresh JPEG with no metadata in
+ * place of the file the customer sent (see @/lib/cleanPhoto), because the
+ * stored file is public at its own address and an original straight off a
+ * phone can carry where it was taken — for a photo of a piece on, usually her
+ * home. Photos uploaded before that are still originals, and some were HEIC,
+ * which only Safari can show. Asking for a size and a format makes Sanity
+ * decode the photo and encode a new one, JPEG or whatever smaller format the
+ * browser takes, without the camera's metadata, so those older ones are shown
+ * safely too. Square and small, because the review shows it as a 64-pixel
+ * thumbnail; 256 covers a phone's screen density with room to spare.
  *
- * What this does not do, said plainly: the original is still in the asset
- * store at its own address, which the public dataset can be asked for. The
- * page just never links to it.
+ * 🚨 What this does not do, said plainly: an older original is still in the
+ * asset store at its own address, which the public dataset can be asked for.
+ * The page just never links to it.
  */
 export const REVIEW_PHOTO_PARAMS = "?w=256&h=256&fit=crop&auto=format&fm=jpg";
 

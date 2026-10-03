@@ -1,23 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sanityWriteClient } from "@/lib/sanity";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
-import { findOrderByReviewToken } from "@/lib/reviewToken";
+import { findOrderByReviewToken, orderContainsProduct, type TokenOrder } from "@/lib/reviewToken";
 import { REVIEW_UPLOAD_SOURCE, reviewUploadMark } from "@/lib/reviewPhotos";
+import { cleanReviewPhoto, UnreadablePhoto } from "@/lib/cleanPhoto";
 
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB
 
 /**
- * How many photos one review link may upload, ever. The form takes four; the
- * rest is room for a customer whose first try failed halfway and who tries
- * again. Counted in Sanity, so it holds across every server instance, where
- * the in-memory limit below is only per instance.
+ * How many photos each piece on a review link may have uploaded, ever. One
+ * link opens a form for every piece in the order, and each form takes four;
+ * the rest is room for a photo whose upload failed and was sent again.
+ *
+ * The cap used to be twelve per link, whatever was in the order, and a
+ * customer who added three photos to each of three pieces had the last one
+ * refused. Now a link's allowance is this many times the pieces it covers
+ * (photoAllowance). Counted in Sanity, so it holds across every server
+ * instance, where the in-memory limit below is only per instance.
  */
-export const UPLOADS_PER_ORDER = 12;
+export const UPLOADS_PER_PIECE = 8;
 
-/** The same allowance per day in memory: the cheap first stop before Sanity is asked anything. */
-export const UPLOADS_PER_ORDER_PER_DAY = 8;
+/**
+ * Per piece per day, in memory: the cheap first stop before Sanity is asked
+ * anything. Four photos and two to spare. A form no longer sends a photo
+ * again once it has its asset id, so a review sent twice — say its comment
+ * was too long the first time — does not spend this twice.
+ */
+export const UPLOADS_PER_PIECE_PER_DAY = 6;
+
+/** How many photos a link may have uploaded in all: UPLOADS_PER_PIECE for each piece it covers. */
+export function photoAllowance(order: TokenOrder): number {
+  const pieces = new Set((order.items ?? []).map((item) => item.productId).filter(Boolean));
+  return UPLOADS_PER_PIECE * Math.max(1, pieces.size);
+}
 
 export interface SniffedImage {
   contentType: "image/jpeg" | "image/png" | "image/webp" | "image/heic";
@@ -35,6 +52,10 @@ function ascii(bytes: Uint8Array, from: number, to: number): string {
  * What the file really is, read from its first bytes — never from the name
  * or the type the browser sent, both of which are whatever the sender typed.
  * A JPEG, PNG, WebP or HEIC photo, or null for anything else.
+ *
+ * Only the first gate: whatever passes is decoded and drawn again as a JPEG
+ * before it is stored (see @/lib/cleanPhoto). HEIC is told apart here so its
+ * refusal can say what to send instead.
  */
 export function sniffImage(bytes: Uint8Array): SniffedImage | null {
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
@@ -59,7 +80,10 @@ export function sniffImage(bytes: Uint8Array): SniffedImage | null {
  * Only with a review-request link's token. It also used to take any signed-in
  * account, and anyone can make one — so anyone could fill the asset store,
  * because photos are uploaded before the review they belong to is checked.
- * The form that calls this always sends the token.
+ * The form that calls this always sends the token, and the piece the photo
+ * is for.
+ *
+ * 🚨 Never stores the file as it came: see @/lib/cleanPhoto for why.
  */
 export async function POST(req: NextRequest) {
   // Before anything is asked of Sanity: a flood of made-up tokens costs a lookup each
@@ -78,8 +102,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "This review link is not valid." }, { status: 401 });
   }
 
-  // Keyed by the order alone: a new address on a phone network does not buy more
-  const limited = rateLimit(`review-upload:order:${order._id}`, UPLOADS_PER_ORDER_PER_DAY, 24 * 60 * 60 * 1000);
+  // Each piece on the page has its own form and its own photos. A form from
+  // before the piece was sent along has no productId: a reload fixes that.
+  const productId = formData.get("productId");
+  if (typeof productId !== "string" || !productId) {
+    return NextResponse.json(
+      { error: "Please reload this page and add your photos again." },
+      { status: 400 }
+    );
+  }
+  if (!orderContainsProduct(order, productId)) {
+    return NextResponse.json({ error: "That piece isn't part of this order." }, { status: 400 });
+  }
+
+  // Keyed by the order and the piece, not by address: a new address on a
+  // phone network does not buy more
+  const limited = rateLimit(
+    `review-upload:order:${order._id}:${productId}`,
+    UPLOADS_PER_PIECE_PER_DAY,
+    24 * 60 * 60 * 1000
+  );
   if (!limited.ok) {
     return NextResponse.json(
       { error: "Too many uploads. Please try again later." },
@@ -110,7 +152,23 @@ export async function POST(req: NextRequest) {
   const image = sniffImage(buffer);
   if (!image) {
     return NextResponse.json(
-      { error: "Only JPEG, PNG, WEBP or HEIC photos are allowed" },
+      { error: "Only JPEG, PNG or WebP photos can be added." },
+      { status: 400 }
+    );
+  }
+
+  let photo: Buffer;
+  try {
+    photo = await cleanReviewPhoto(buffer);
+  } catch (error) {
+    if (!(error instanceof UnreadablePhoto)) throw error;
+    return NextResponse.json(
+      {
+        error:
+          image.contentType === "image/heic"
+            ? "This photo is in Apple's HEIC format, which we can't read yet. Please add it as a JPEG or PNG instead."
+            : "We couldn't read that photo. Please try another one, saved as a JPEG or PNG.",
+      },
       { status: 400 }
     );
   }
@@ -123,18 +181,19 @@ export async function POST(req: NextRequest) {
       `count(*[_type == "sanity.imageAsset" && source.name == $source && source.id == $mark])`,
       { source: REVIEW_UPLOAD_SOURCE, mark }
     );
-    if (already >= UPLOADS_PER_ORDER) {
+    if (already >= photoAllowance(order)) {
       return NextResponse.json(
         { error: "That's all the photos this review link can add." },
         { status: 429 }
       );
     }
 
-    const asset = await sanityWriteClient.assets.upload("image", buffer, {
-      // Our own name and type: the customer's file name ("Jane at home.jpg")
-      // would sit in a public document, and their type is only a claim
-      filename: `review-photo.${image.extension}`,
-      contentType: image.contentType,
+    // The clean copy, never `buffer`: the original may say where she lives
+    const asset = await sanityWriteClient.assets.upload("image", photo, {
+      // Our own name: the customer's file name ("Jane at home.jpg") would sit
+      // in a public document. Always a JPEG, because that is what was made.
+      filename: "review-photo.jpg",
+      contentType: "image/jpeg",
       source: { name: REVIEW_UPLOAD_SOURCE, id: mark },
     });
     return NextResponse.json({ assetId: asset._id }, { status: 201 });

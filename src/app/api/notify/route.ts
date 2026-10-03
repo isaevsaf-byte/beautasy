@@ -42,7 +42,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = (await req.json().catch(() => ({}))) as { token?: unknown } | null;
+  // A Studio tab opened before 3 October 2026 still runs the old button, which
+  // posts with no body at all, reads any JSON answer as a list of what was
+  // sent, and so would tell Kristina "nothing to send, the customer already
+  // knows" when nothing was sent. Plain text instead: the old button cannot
+  // read it as JSON and falls back to its honest "could not reach the site,
+  // the email goes tonight", which is true. Reloading the Studio fixes it.
+  const raw = await req.text().catch(() => "");
+  if (!raw.trim()) {
+    return new NextResponse("Обновите страницу Studio и нажмите кнопку ещё раз.", {
+      status: 401,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  let body: { token?: unknown } | null = null;
+  try {
+    body = JSON.parse(raw) as { token?: unknown } | null;
+  } catch {
+    // Not JSON: no token, so the answer below
+  }
   const token = typeof body?.token === "string" ? body.token : "";
   if (!(await isProjectMember(token))) {
     return NextResponse.json(

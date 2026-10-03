@@ -29,10 +29,12 @@ test("everywhere else the tags still run", () => {
 });
 
 /**
- * 🚨 The Studio's login token sits in this site's localStorage and opens the
- * whole dataset. The components cannot be rendered under plain node (they read
- * the router), so this reads them: Google's and Meta's scripts are each
- * behind the path check, which is the only thing keeping them off the Studio.
+ * The Studio shows customers' contact details and the takings, and Google's
+ * and Meta's scripts have no business on its pages. The components cannot be
+ * rendered under plain node (they read the router), so this reads them: the
+ * scripts are each behind the path check, which is the only thing keeping
+ * them off the Studio's pages. (What it cannot do is keep the Studio's login
+ * token from them; see the next test but one.)
  */
 test("Google's tag and the Meta Pixel are rendered only where third-party tags are allowed", () => {
   const site = read("src", "components", "SiteAnalytics.tsx");
@@ -48,6 +50,31 @@ test("Google's tag and the Meta Pixel are rendered only where third-party tags a
   assert.match(pixel, /const allowed = consented && thirdPartyTagsAllowed\(pathname\);/);
   assert.match(pixel, /if \(!allowed\) return null;/);
   assert.ok(pixel.indexOf("if (!allowed) return null;") < pixel.indexOf("connect.facebook.net"));
+});
+
+/**
+ * 🚨 Said plainly, because the earlier comments said otherwise: keeping the
+ * tags off /studio does not keep the Studio's login token out of their reach.
+ * The Studio keeps the token in localStorage, which belongs to the whole of
+ * www.beautasy.co.uk rather than to a path, and gtag.js loads on every other
+ * page. A reader who believed the comments would think the token was safe
+ * from a rogue third-party script and stop looking; it is not, until the
+ * Studio has an origin of its own.
+ */
+test("nothing claims the path check keeps the Studio's token away from Google's or Meta's scripts", () => {
+  const sources = {
+    analytics: read("src", "lib", "analytics.ts"),
+    siteAnalytics: read("src", "components", "SiteAnalytics.tsx"),
+    metaPixel: read("src", "components", "MetaPixel.tsx"),
+  };
+  for (const [name, source] of Object.entries(sources)) {
+    const flat = source.replace(/\s*\n\s*\*\s*/g, " ");
+    assert.doesNotMatch(flat, /(on the same page|on the page) can read it|could read it like any script on the page/, `${name} says the token is only readable on the Studio's own page`);
+    assert.match(flat, /every page of www\.beautasy\.co\.uk/, `${name} says whose localStorage it is`);
+  }
+  const flat = sources.analytics.replace(/\s*\n\s*\*\s*/g, " ");
+  assert.match(flat, /does NOT do: keep the Studio's login token out of their reach/);
+  assert.match(flat, /an origin of its own/, "and names the way out");
 });
 
 test("gtag.js waits for the page instead of competing with it, and consent stays as it was", () => {

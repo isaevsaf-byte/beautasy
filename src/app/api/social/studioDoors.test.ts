@@ -75,6 +75,38 @@ test("a page on this site with no Studio session is turned away before anything 
   }
 });
 
+/**
+ * A Studio tab opened before the session was required still runs the old
+ * "Написать клиенту сейчас" button. It posts with no body, and reads any JSON
+ * that comes back as the count of emails sent, so a JSON refusal showed
+ * Kristina "nothing to send, the customer already knows" while nothing went.
+ * That call is answered in plain text, which the old button cannot parse, so
+ * it says its true fallback instead: the email goes tonight. The old button's
+ * own reading of the answer (from main's src/sanity/notifyAction.ts) runs here.
+ */
+test("an old Studio tab's button is not told 'nothing to send' when nothing was sent", async () => {
+  const sanity = pretendSanity("editor");
+  try {
+    const res = await notify(
+      new NextRequest(`${SITE}/api/notify`, { method: "POST", headers: { host: "www.beautasy.co.uk", origin: SITE } })
+    );
+    assert.equal(res.status, 401);
+    assert.deepEqual(sanity.asked, [], "nothing was sent and nobody was asked");
+
+    let shown: string;
+    try {
+      const data = await res.json();
+      const sent = (data?.bookings?.sent ?? 0) + (data?.orders?.sent ?? 0);
+      shown = sent > 0 ? "Отправлено. Клиент в курсе." : "Отправлять было нечего — клиенту уже написали об этом статусе.";
+    } catch {
+      shown = "Не удалось связаться с сайтом. Письмо отправится само ночью.";
+    }
+    assert.equal(shown, "Не удалось связаться с сайтом. Письмо отправится само ночью.");
+  } finally {
+    sanity.restore();
+  }
+});
+
 test("a robot's token is turned away, though Sanity knows it", async () => {
   for (const [path, handler, body] of POSTS) {
     const sanity = pretendSanity("robot");
