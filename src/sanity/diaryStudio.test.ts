@@ -9,7 +9,7 @@ import { atelierBooking } from "./schemaTypes/atelierBooking";
 import { atelierSchedule } from "./schemaTypes/atelierSchedule";
 import { SlotPicker, shortDay, slotInRussian } from "./SlotPicker";
 import { SERVICE_TITLES, bookedInRussian } from "./ManualBookingPane";
-import { ATELIER_SERVICES } from "@/lib/atelierServices";
+import { ATELIER_SERVICES, LEGACY_SERVICES } from "@/lib/atelierServices";
 import type { SlotDay } from "@/lib/slots";
 
 /**
@@ -68,7 +68,8 @@ test("a time reads as the atelier's clock says it, in summer and in winter", () 
 });
 
 test("every service the site offers has a Russian name in Book by hand", () => {
-  for (const service of ATELIER_SERVICES) {
+  // The old "not sure" too: bookings made before the rename still carry it
+  for (const service of [...ATELIER_SERVICES, ...LEGACY_SERVICES]) {
     assert.ok(
       SERVICE_TITLES[service],
       `"${service}" has no Russian title in SERVICE_TITLES (ManualBookingPane.tsx), so Kristina would pick it in English.`

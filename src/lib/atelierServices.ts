@@ -11,8 +11,15 @@ export const ATELIER_SERVICES = [
   "Repairs",
   "Custom Sewing",
   "Home Textiles",
-  "Other / Not Sure",
+  "Not sure — free 10-minute look",
 ];
+
+/**
+ * Names the form used to offer and no longer does. A page left open in a tab
+ * since then still sends them, and bookings already in the Studio carry them,
+ * so the booking route keeps accepting them.
+ */
+export const LEGACY_SERVICES = ["Other / Not Sure"];
 
 /**
  * The services that take two slots in the diary. The owner's decision:

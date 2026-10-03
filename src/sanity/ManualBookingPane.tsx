@@ -32,6 +32,8 @@ export const SERVICE_TITLES: Record<string, string> = {
   Repairs: "Ремонт одежды",
   "Custom Sewing": "Индивидуальный пошив",
   "Home Textiles": "Шторы и домашний текстиль",
+  "Not sure — free 10-minute look": "Пока не знаю — бесплатный осмотр 10 минут",
+  // Older bookings, and pages left open from before, still carry the old name
   "Other / Not Sure": "Другое / пока не знаю",
 };
 

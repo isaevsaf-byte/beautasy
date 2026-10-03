@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   ATELIER_SERVICES,
   BRIDAL_SERVICES,
+  LEGACY_SERVICES,
   slotsFor,
   startForService,
   startsFor,
@@ -18,7 +19,7 @@ import type { SlotDay } from "./slots";
 test("a bride takes two slots, and nobody else does", () => {
   assert.equal(slotsFor("Bridal fitting"), 2);
   assert.equal(slotsFor("Wedding Dress Alterations"), 2);
-  for (const service of ["Alterations", "Repairs", "Custom Sewing", "Home Textiles", "Other / Not Sure"]) {
+  for (const service of ["Alterations", "Repairs", "Custom Sewing", "Home Textiles", "Not sure — free 10-minute look"]) {
     assert.equal(slotsFor(service), 1, `${service} took two slots`);
   }
   assert.equal(slotsFor("Prom and Evening Dress Alterations"), 1, "a prom dress is one slot");
@@ -40,8 +41,11 @@ test("the wedding page's bookings take two slots, the prom page's one", () => {
   assert.deepEqual(bridal, ["wedding-dress-southampton"]);
 });
 
-test("the form offers a bridal fitting", () => {
+test("the form offers a bridal fitting and a free ten-minute look, and the old 'not sure' is kept for older pages", () => {
   assert.ok(ATELIER_SERVICES.includes("Bridal fitting"));
+  assert.ok(ATELIER_SERVICES.includes("Not sure — free 10-minute look"));
+  assert.ok(!ATELIER_SERVICES.includes("Other / Not Sure"), "the old wording is still on the form");
+  assert.ok(LEGACY_SERVICES.includes("Other / Not Sure"), "a page open since before the rename would be refused");
 });
 
 /** Tuesday: 2:00pm and 2:30pm free in a row, 3:30pm free on its own (4:00pm taken). */
