@@ -25,7 +25,7 @@ const ROUTE = readFileSync(
 );
 
 test("a chosen slot is checked against the diary before anything is written", () => {
-  const check = ROUTE.indexOf("slotIsOffered(");
+  const check = ROUTE.indexOf("spanIsOffered(");
   const write = ROUTE.indexOf("sanityWriteClient.create(");
   assert.notEqual(check, -1, "the route no longer checks the slot is on offer");
   assert.notEqual(write, -1, "the route no longer writes the booking");

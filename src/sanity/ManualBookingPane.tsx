@@ -1,9 +1,9 @@
-import { useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "sanity/router";
-import { ATELIER_SERVICES } from "@/lib/atelierServices";
+import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
 import { askDiary, useDiaryToken, useFreeTimes } from "./diaryClient";
 import { askPartners, errorOf as partnerErrorOf, usePartnerOptions } from "./partnersClient";
-import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./SlotPicker";
+import { SlotPicker, primaryButton, secondaryButton, slotInRussian, spanInRussian } from "./SlotPicker";
 
 /**
  * "Записать вручную" (Book by hand) — for someone who got in touch on
@@ -14,6 +14,10 @@ import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./Slo
  * the booking through the same claim the site uses (see @/lib/diary), so the
  * time is closed online the moment it is saved. The notice customers must
  * give does not apply: Kristina has just agreed the time with the person.
+ *
+ * A bridal fitting holds two slots in a row (see slotsFor), so with it chosen
+ * the picker offers only starts where both are free, and a start chosen
+ * before that no longer fits is let go.
  */
 
 /**
@@ -24,6 +28,7 @@ import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./Slo
  */
 export const SERVICE_TITLES: Record<string, string> = {
   Alterations: "Подгонка по фигуре",
+  "Bridal fitting": "Свадебная примерка (два слота)",
   Repairs: "Ремонт одежды",
   "Custom Sewing": "Индивидуальный пошив",
   "Home Textiles": "Шторы и домашний текстиль",
@@ -43,6 +48,12 @@ const inputStyle: CSSProperties = {
 };
 
 const labelStyle: CSSProperties = { display: "grid", gap: 4, fontSize: 13 };
+
+/** What the done screen calls the time booked: the span for a bride, the start for anyone else. */
+export function bookedInRussian(data: Record<string, unknown>): string {
+  if (typeof data.slot !== "string") return String(data.label);
+  return typeof data.end === "string" ? spanInRussian(data.slot, data.end) : slotInRussian(data.slot);
+}
 
 interface Booked {
   id: string;
@@ -72,13 +83,25 @@ export function ManualBookingPane() {
   const [error, setError] = useState<string | null>(null);
   const [booked, setBooked] = useState<Booked | null>(null);
 
-  const ready = Boolean(slot) && name.trim().length >= 2 && !busy;
+  const slotMinutes = times.state === "ready" ? times.slotMinutes : 30;
+  const days = useMemo(
+    () => (times.state === "ready" ? startsFor(times.days, service, slotMinutes) : []),
+    [times, service, slotMinutes]
+  );
+  const twoSlots = slotsFor(service) > 1;
+  const chosen = times.state === "ready" ? startForService(times.days, service, slotMinutes, slot) : null;
+  const ready = Boolean(chosen) && name.trim().length >= 2 && !busy;
+
+  function chooseService(next: string) {
+    setService(next);
+    if (times.state === "ready") setSlot((current) => startForService(times.days, next, slotMinutes, current));
+  }
 
   async function book() {
     if (!ready) return;
     setBusy(true);
     setError(null);
-    const reply = await askDiary(token, { action: "book", slot, name, phone, email, service, notes });
+    const reply = await askDiary(token, { action: "book", slot: chosen, name, phone, email, service, notes });
     if (!reply.ok) {
       setBusy(false);
       setError(String(reply.data.error ?? "Не удалось записать."));
@@ -108,7 +131,7 @@ export function ManualBookingPane() {
       partnerNote,
       // The time the diary says it booked, in Kristina's words; the English
       // label beside it is kept for anything older that only sends that.
-      label: typeof reply.data.slot === "string" ? slotInRussian(reply.data.slot) : String(reply.data.label),
+      label: bookedInRussian(reply.data),
       emailed: Boolean(reply.data.emailed),
       withEmail: email.trim().length > 0,
     });
@@ -187,8 +210,20 @@ export function ManualBookingPane() {
                   не может и защищать нечего. Включите её, чтобы записи попадали в дневник.
                 </p>
               )}
+              {times.state === "ready" && times.enabled && twoSlots && (
+                <p style={{ fontSize: 13, margin: 0, opacity: 0.75 }}>
+                  Свадебная примерка занимает два слота подряд — здесь только время, где свободны оба.
+                </p>
+              )}
               {times.state === "ready" && times.enabled && (
-                <SlotPicker days={times.days} value={slot} onChange={setSlot} />
+                <SlotPicker
+                  days={days}
+                  value={chosen}
+                  onChange={setSlot}
+                  {...(twoSlots
+                    ? { emptyText: "На ближайшие недели нет двух свободных слотов подряд. Проверьте часы в разделе «Часы для примерок»." }
+                    : {})}
+                />
               )}
             </section>
 
@@ -214,7 +249,7 @@ export function ManualBookingPane() {
               </label>
               <label style={labelStyle}>
                 Услуга
-                <select id="manual-service" style={inputStyle} value={service} onChange={(e) => setService(e.target.value)}>
+                <select id="manual-service" style={inputStyle} value={service} onChange={(e) => chooseService(e.target.value)}>
                   {ATELIER_SERVICES.map((option) => (
                     <option key={option} value={option}>
                       {SERVICE_TITLES[option] ?? option}
@@ -257,7 +292,7 @@ export function ManualBookingPane() {
 
             <div>
               <button type="button" style={primaryButton(ready)} disabled={!ready} onClick={book}>
-                {busy ? "Записываем…" : slot ? `Записать на ${slotInRussian(slot)}` : "Выберите время выше"}
+                {busy ? "Записываем…" : chosen ? `Записать на ${slotInRussian(chosen)}` : "Выберите время выше"}
               </button>
             </div>
           </>

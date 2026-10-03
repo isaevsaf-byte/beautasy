@@ -4,12 +4,15 @@ import { evaluate, parse } from "groq-js";
 import {
   canMove,
   claimSlot,
+  fittingEnd,
+  fittingMinutes,
   heldBy,
   moveBooking,
   movedCopy,
   reheldDoc,
   reheldMark,
   reholdBooking,
+  startsToMoveTo,
   type DiaryDoc,
   type DiaryStore,
   type DiaryWrite,
@@ -1015,4 +1018,94 @@ test("an out-of-hours time whose answer was lost is looked at before anything is
   };
   assert.equal((await carryOut(lost, { from: before, plan, now: NOW })).moved, "failed");
   assert.equal(lost.docs.get("req-anna")?.status, "new");
+});
+
+/* ─── A bride's two slots ─── */
+
+/** Tuesday 6 October, half-hour slots, as the diary offers them with a bride at 2:00pm–3:00pm. */
+const AROUND_THE_BRIDE: SlotDay[] = [
+  {
+    date: "2026-10-06",
+    label: "Tuesday 6 October",
+    slots: ["13:00", "13:30", "15:00", "16:30"].map((time) => ({ start: `2026-10-06T${time}`, label: timeLabel(time) })),
+  },
+];
+const BEFORE_TUESDAY = Date.parse("2026-10-05T09:00:00Z");
+const startsIn = (days: SlotDay[]) => days.flatMap((day) => day.slots.map((slot) => slot.start));
+
+const bride = (fields: Partial<DiaryDoc> = {}) =>
+  booking("2026-10-06T14:00", {
+    service: "Bridal fitting",
+    slotEnd: "2026-10-06T15:00",
+    confirmedFor: "Tuesday 6 October at 2:00pm",
+    notifiedStatus: "confirmed",
+    createdAt: "2026-10-01T09:00:00.000Z",
+    ...fields,
+  });
+
+test("a fitting keeps its own length; a request with no time yet takes its service's", () => {
+  assert.equal(fittingMinutes(bride(), 30), 60);
+  assert.equal(fittingMinutes(booking("2026-10-06T14:00"), 30), 30);
+  // An older wedding booking made with one slot keeps its one slot
+  assert.equal(fittingMinutes(booking("2026-10-06T14:00", { service: "Wedding Dress Alterations" }), 30), 30);
+  assert.equal(fittingMinutes({ service: "Wedding Dress Alterations" }, 30), 60);
+  assert.equal(fittingMinutes({ service: "Alterations" }, 30), 30);
+  assert.equal(fittingEnd("2026-10-06T14:00", 60, 30), "2026-10-06T15:00");
+  assert.equal(fittingEnd("2026-10-06T14:00", 30, 30), undefined, "a single slot keeps no end");
+});
+
+test("a bride moves only where her whole hour is free, her own slots counting as hers", () => {
+  // 1:30pm runs into her own 2:00pm, which is hers; 2:30pm runs into 3:00pm,
+  // which is free; 3:00pm runs into 3:30pm, which somebody holds
+  assert.deepEqual(startsIn(startsToMoveTo(AROUND_THE_BRIDE, bride(), 30, BEFORE_TUESDAY)), [
+    "2026-10-06T13:00",
+    "2026-10-06T13:30",
+    "2026-10-06T14:30",
+  ]);
+  // A fitting of one slot is offered every free time, as before, and never its own
+  assert.deepEqual(
+    startsIn(startsToMoveTo(AROUND_THE_BRIDE, booking("2026-10-06T14:00", { slotEnd: undefined }), 30, BEFORE_TUESDAY)),
+    ["2026-10-06T13:00", "2026-10-06T13:30", "2026-10-06T15:00", "2026-10-06T16:30"]
+  );
+});
+
+test("a bride booked again after cancelling needs her hour free again, since she held none of it", () => {
+  const cancelled = bride({ status: "cancelled", notifiedStatus: "cancelled" });
+  // Her 2:00pm–3:00pm is back in the diary once she let it go
+  const freed: SlotDay[] = [
+    {
+      date: "2026-10-06",
+      label: "Tuesday 6 October",
+      slots: ["13:30", "14:00", "14:30", "15:00"].map((time) => ({ start: `2026-10-06T${time}`, label: timeLabel(time) })),
+    },
+  ];
+  assert.deepEqual(startsIn(startsToMoveTo(freed, cancelled, 30, BEFORE_TUESDAY)), [
+    "2026-10-06T13:30",
+    "2026-10-06T14:00",
+    "2026-10-06T14:30",
+  ]);
+});
+
+test("a bride is told the moment she is expected, never a window, wherever she is moved", () => {
+  const moved = movedCopy(bride(), "2026-10-06T14:30", NOW, "2026-10-06T15:30");
+  assert.equal(moved._id, "slot-2026-10-06-1430");
+  assert.equal(moved.slotEnd, "2026-10-06T15:30", "her second slot was left behind");
+  assert.equal(moved.confirmedFor, "Tuesday 6 October at 2:30pm");
+  assert.equal(moved.movedFrom, "Tuesday 6 October at 2:00pm", "'it was Tuesday 6 October, between 2:00pm and 3:00pm'");
+
+  const again = reheldDoc(bride({ status: "cancelled", notifiedStatus: "cancelled" }), "2026-10-06T14:00", NOW, "2026-10-06T15:00");
+  assert.equal(again.slotEnd, "2026-10-06T15:00");
+  assert.equal(again.confirmedFor, "Tuesday 6 October at 2:00pm");
+  assert.equal(again.status, "confirmed");
+});
+
+test("moving a bride takes her new hour first and frees the old one whole", async () => {
+  const store = new MemoryStore();
+  store.seed(bride());
+  const from = (await store.read("slot-2026-10-06-1400"))!;
+  const to = movedCopy(from, "2026-10-06T14:30", NOW, fittingEnd("2026-10-06T14:30", fittingMinutes(from, 30), 30));
+  assert.equal(await moveBooking(store, { from, to, now: NOW }), "moved");
+  assert.equal(store.docs.has("slot-2026-10-06-1400"), false);
+  const held = [...store.docs.values()].map((doc) => ({ start: doc.slotStart!, end: doc.slotEnd }));
+  assert.deepEqual(heldStarts(held, 30), ["2026-10-06T14:30", "2026-10-06T15:00"]);
 });

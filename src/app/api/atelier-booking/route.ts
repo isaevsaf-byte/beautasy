@@ -14,8 +14,9 @@ import {
 import { verdictMessage } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { getAvailableSlots } from "@/lib/schedule";
-import { slotIsOffered, slotLabel, slotDocumentId } from "@/lib/slots";
-import { claimSlot, sanityDiaryStore } from "@/lib/diary";
+import { spanIsOffered, spanLabel, slotLabel, slotDocumentId } from "@/lib/slots";
+import { claimSlot, fittingEnd, sanityDiaryStore } from "@/lib/diary";
+import { slotsFor } from "@/lib/atelierServices";
 import {
   bookingEmailHtml,
   bookingInvite,
@@ -309,6 +310,8 @@ export async function POST(req: NextRequest) {
     // is exactly how two people end up at the door at the same time.
     /** The diary's slot length, so the calendar invite is as long as the fitting */
     let slotMinutes: number | undefined;
+    /** Where the fitting ends when it holds more than one slot — a bride's two (see slotsFor) */
+    let slotEnd: string | undefined;
     if (slot) {
       // Read strictly: a diary that cannot be read used to look empty, and
       // every customer was told their time had gone while the database was
@@ -317,7 +320,11 @@ export async function POST(req: NextRequest) {
       try {
         const { days, schedule } = await getAvailableSlots({ fresh: true, strict: true });
         slotMinutes = schedule.slotMinutes;
-        offered = slotIsOffered(days, slot);
+        // How long it is comes from the service, never from the form: a bride
+        // takes two slots in a row, everyone else one, and both have to be free
+        const minutes = slotsFor(service) * schedule.slotMinutes;
+        offered = spanIsOffered(days, slot, minutes, schedule.slotMinutes);
+        slotEnd = fittingEnd(slot, minutes, schedule.slotMinutes);
       } catch (err) {
         console.error("Could not read the diary to take a booking:", err);
         return NextResponse.json(
@@ -388,6 +395,10 @@ export async function POST(req: NextRequest) {
             ...person,
             _id: slotDocumentId(slot),
             slotStart: slot,
+            // The second slot of a bride's fitting is held through this, the
+            // way a collection holds its trip (see TAKEN_QUERY in @/lib/schedule)
+            ...(slotEnd ? { slotEnd } : {}),
+            // A moment, not a window: she is expected at the start
             confirmedFor: slotLabel(slot),
             status: "confirmed",
             // A picked time is marked as told at birth, and that mark is a claim
@@ -436,6 +447,9 @@ export async function POST(req: NextRequest) {
       console.error("DATA_SECRET is not set — a booking cannot be stored without sealing the contact details");
     }
 
+    /** The whole time, for Kristina: a bride's two slots are both hers to keep free */
+    const askedFor = slot ? (slotEnd ? spanLabel(slot, slotEnd) : slotLabel(slot)) : undefined;
+
     // The request is already safe in the Studio, so a mail outage is not the
     // customer's problem. Each email is best-effort on its own: a failed
     // notification must not turn into an error the customer answers by
@@ -473,8 +487,8 @@ export async function POST(req: NextRequest) {
           <h1 style="font-size:22px;font-weight:400;">${escapeHtml(name)}</h1>
           <p style="color:#3d3d3d;line-height:1.8;">
             <strong>Service:</strong> ${escapeHtml(service)}<br/>
-            ${held && slot ? `<strong>Booked for:</strong> ${escapeHtml(slotLabel(slot))}<br/>` : ""}
-            ${!held && slot ? `<strong>Asked for:</strong> ${escapeHtml(slotLabel(slot))}<br/>` : ""}
+            ${held && askedFor ? `<strong>Booked for:</strong> ${escapeHtml(askedFor)}<br/>` : ""}
+            ${!held && askedFor ? `<strong>Asked for:</strong> ${escapeHtml(askedFor)}<br/>` : ""}
             ${!slot && preferredDate ? `<strong>Preferred date:</strong> ${escapeHtml(preferredDate)}<br/>` : ""}
             <strong>Email:</strong> ${escapeHtml(email)}<br/>
             ${phone ? `<strong>Phone:</strong> ${escapeHtml(phone)}<br/>` : ""}
@@ -488,7 +502,7 @@ export async function POST(req: NextRequest) {
           ${notes ? `<p style="color:#3d3d3d;line-height:1.7;"><strong>Notes:</strong><br/>${escapeHtml(notes)}</p>` : ""}
           ${
             slot && !held
-              ? `<p style="padding:12px 16px;background:#fde8e4;border-radius:10px;color:#7a2a1a;line-height:1.6;">⚠️ <strong>This time is not held.</strong> The site could not write it into the diary, so somebody else could still book ${escapeHtml(slotLabel(slot))}. ${saved ? "It is in the Studio as a request: open it and use <strong>Назначить время</strong> to hold the time — they get the confirmation, and everything on the request goes with it." : "It is not in the Studio either: confirm with them, then use <strong>Записать вручную</strong> in the Studio to hold the time."}</p>`
+              ? `<p style="padding:12px 16px;background:#fde8e4;border-radius:10px;color:#7a2a1a;line-height:1.6;">⚠️ <strong>This time is not held.</strong> The site could not write it into the diary, so somebody else could still book ${escapeHtml(askedFor ?? slotLabel(slot))}. ${saved ? "It is in the Studio as a request: open it and use <strong>Назначить время</strong> to hold the time — they get the confirmation, and everything on the request goes with it." : "It is not in the Studio either: confirm with them, then use <strong>Записать вручную</strong> in the Studio to hold the time."}</p>`
               : ""
           }
           ${replyToCustomerHtml({ name, phone, slot: held ? slot : undefined, service, collection: !!collection })}
@@ -511,6 +525,7 @@ export async function POST(req: NextRequest) {
             service,
             confirmedFor: slotLabel(slot),
             slotStart: slot,
+            slotEnd,
             slotMinutes,
             referredBy,
             referralDiscount: friend?.discount,

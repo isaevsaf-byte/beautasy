@@ -455,3 +455,21 @@ export function spanLabel(start: string, end: string): string {
   const endTime = end.split("T")[1] ?? time;
   return `${dayLabel(date)}, between ${timeLabel(time)} and ${timeLabel(endTime)}`;
 }
+
+/** How many minutes a span holds: 14:00 to 15:00 is 60. Null for anything that is not a span on one day. */
+export function spanMinutes(start: string, end: string | undefined | null): number | null {
+  if (!end) return null;
+  const [date, time] = start.split("T");
+  const [endDate, endTime] = end.split("T");
+  if (endDate !== date || !time || !endTime) return null;
+  const minutes = minutesOf(endTime) - minutesOf(time);
+  return minutes > 0 ? minutes : null;
+}
+
+/** "about an hour" — how long a visit takes, the way a person would say it. */
+export function durationLabel(minutes: number): string {
+  if (minutes === 60) return "about an hour";
+  if (minutes === 90) return "about an hour and a half";
+  if (minutes > 60 && minutes % 60 === 0) return `about ${minutes / 60} hours`;
+  return `about ${minutes} minutes`;
+}

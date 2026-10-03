@@ -278,3 +278,38 @@ test("a cancelled or declined booking is not a previous visit, so a friend's dis
   assert.equal(await count([visit("confirmed")]), 1);
   assert.equal(await count([visit("completed")]), 1);
 });
+
+/* ─── A bride's two slots ─── */
+
+const bride: NotifiableBooking = {
+  ...booked,
+  service: "Bridal fitting",
+  confirmedFor: "Tuesday 6 October at 10:00am",
+  slotEnd: "2026-10-06T11:00",
+};
+
+test("a bride's confirmation says she is expected at the start, and that it takes about an hour", () => {
+  const html = bookingEmailHtml(bride, "confirmed");
+  assert.match(html, /is confirmed for <strong>Tuesday 6 October at 10:00am<\/strong>\. It takes about an hour\./);
+  assert.doesNotMatch(html, /between/, "a fitting is a moment, not a window");
+  // A fitting of one slot says nothing about length, as it never has
+  assert.doesNotMatch(bookingEmailHtml(booked, "confirmed"), /It takes/);
+  // Moved, she is still told how long it takes
+  const moved = bookingEmailHtml({ ...bride, movedFrom: "Monday 5 October at 2:00pm" }, "confirmed");
+  assert.match(moved, /\(it was Monday 5 October at 2:00pm\)\. It takes about an hour\. If the old time/);
+  // Only a confirmation talks about the visit
+  assert.doesNotMatch(bookingEmailHtml(bride, "cancelled"), /It takes/);
+});
+
+test("a bride's calendar holds her whole hour", () => {
+  const event = fittingOf(bride);
+  assert.ok(event);
+  assert.equal(event.end.getTime() - event.start.getTime(), 60 * 60_000);
+  const invite = Buffer.from(bookingInvite(bride)!.content, "base64").toString("utf8");
+  // 10:00 and 11:00 in Southampton on 6 October are 09:00 and 10:00 UTC
+  assert.match(invite, /DTSTART:20261006T090000Z/);
+  assert.match(invite, /DTEND:20261006T100000Z/);
+  // One slot is as long as the diary's slot, as before
+  const single = fittingOf(booked)!;
+  assert.equal(single.end.getTime() - single.start.getTime(), 30 * 60_000);
+});

@@ -9,7 +9,7 @@ import type { ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { googleReviewUrl } from "@/lib/siteSettings";
 import { BUSINESS, whatsappLink } from "@/lib/business";
-import { DEFAULT_SCHEDULE, instantOf, slotDocumentId, slotLabel, spanLabel } from "@/lib/slots";
+import { DEFAULT_SCHEDULE, durationLabel, instantOf, slotDocumentId, slotLabel, spanLabel, spanMinutes } from "@/lib/slots";
 import { fittingEvent, googleCalendarLink, icsInvite, type CalendarEvent } from "@/lib/bookingCalendar";
 import type { EmailMessage } from "@/lib/sendEmail";
 
@@ -56,7 +56,7 @@ export interface NotifiableBooking {
   movedFrom?: string;
   replyNote?: string;
   createdAt?: string;
-  /** Where a booking holding more than one slot ends: a collection, timed from the diary */
+  /** Where a booking holding more than one slot ends: a collection's trip, or a bride's two slots */
   slotEnd?: string;
   /** Collect & return rather than a visit — see @/lib/collection */
   collection?: { district?: string; zone?: string; terms?: string };
@@ -88,7 +88,8 @@ export function fittingOf(booking: NotifiableBooking): CalendarEvent | null {
   const service = booking.service ?? "Fitting";
   return fittingEvent({
     slotStart: booking.slotStart,
-    minutes: booking.slotMinutes ?? DEFAULT_SCHEDULE.slotMinutes,
+    // A bride's fitting holds two slots, and her calendar holds both
+    minutes: spanMinutes(booking.slotStart, booking.slotEnd) ?? booking.slotMinutes ?? DEFAULT_SCHEDULE.slotMinutes,
     service,
     location: `${BUSINESS.atelierName}, ${BUSINESS.address.locality}`,
     description:
@@ -155,6 +156,17 @@ export function notifiableFromDiary(
     collection:
       doc.collection && typeof doc.collection === "object" ? (doc.collection as NotifiableBooking["collection"]) : undefined,
   };
+}
+
+/**
+ * How long a fitting takes, in the customer's words, when it holds more than
+ * one slot — "about an hour" for a bride. A fitting of one slot says nothing,
+ * as it always has: a ten-minute look and a pinning are both "a fitting".
+ */
+export function fittingLength(booking: Pick<NotifiableBooking, "slotStart" | "slotEnd" | "collection">): string | null {
+  if (booking.collection || !booking.slotStart) return null;
+  const minutes = spanMinutes(booking.slotStart, booking.slotEnd);
+  return minutes ? durationLabel(minutes) : null;
 }
 
 /** The same event as an .ics file on the confirmation, for Apple Calendar and Outlook. */
@@ -305,6 +317,9 @@ export function bookingEmailHtml(
   );
 
   const moved = status === "confirmed" && booking.movedFrom ? escapeHtml(booking.movedFrom) : null;
+  // " It takes about an hour." — said only of a fitting that holds more than one slot
+  const length = status === "confirmed" ? fittingLength(booking) : null;
+  const takes = length ? ` It takes ${length}.` : "";
 
   const heading =
     status === "confirmed"
@@ -327,8 +342,8 @@ export function bookingEmailHtml(
           ? `we'll now collect your ${service} on <strong>${when}</strong> (it was ${moved}). If the old time is in your calendar, you can delete it.`
           : `we'll collect your ${service}${when ? ` on <strong>${when}</strong>` : ""} and bring it back when it's done.`
         : moved
-        ? `your appointment for ${service} has moved to <strong>${when}</strong> (it was ${moved}). If the old time is in your calendar, you can delete it.`
-        : `your appointment for ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}.`
+        ? `your appointment for ${service} has moved to <strong>${when}</strong> (it was ${moved}).${takes} If the old time is in your calendar, you can delete it.`
+        : `your appointment for ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}.${takes}`
       : status === "completed"
       ? `thank you for trusting us with your ${service}. If it fits the way you hoped, a sentence about it${reviewUrl ? " on Google" : ""} helps the next person in Southampton find a small atelier — and means a great deal to the one pair of hands that did the work.`
       : status === "cancelled"

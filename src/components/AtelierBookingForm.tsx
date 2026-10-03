@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car } from "lucide-react";
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
-import { ATELIER_SERVICES } from "@/lib/atelierServices";
+import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
+import { durationLabel, slotIsOffered } from "@/lib/slots";
 import { WHEN_MAX, onItsWayTo, postcodeDistrict, type CollectionOffer } from "@/lib/collection";
 
 /**
@@ -42,6 +43,11 @@ interface SlotDay {
  * from the wedding page arrives in the Studio as "Wedding Dress Alterations"
  * rather than a generic "Alterations", so Kristina can see which page is
  * actually bringing work in without opening analytics.
+ *
+ * A bridal fitting holds two slots in a row (see slotsFor), so with one
+ * chosen the picker offers only starts where both are free, and a start that
+ * no longer fits once the service changes is let go. If no such start is free
+ * at all, the form asks for a preferred date instead, as it does with no diary.
  *
  * `collection` is the Collect & return offer as the Studio has it (see
  * @/lib/collection), handed down by the page; without it the form is exactly
@@ -110,8 +116,9 @@ export default function AtelierBookingForm({
 
   // The diary
   const [days, setDays] = useState<SlotDay[] | null>(null);
+  const [slotMinutes, setSlotMinutes] = useState(30);
   const [activeDate, setActiveDate] = useState<string | null>(null);
-  const [slot, setSlot] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
 
   const loadSlots = useCallback(async () => {
@@ -119,13 +126,12 @@ export default function AtelierBookingForm({
       const res = await fetch("/api/atelier/slots", { cache: "no-store" });
       const data = await res.json();
       const available: SlotDay[] = data?.bookable ? data.days ?? [] : [];
+      if (typeof data?.slotMinutes === "number" && data.slotMinutes > 0) setSlotMinutes(data.slotMinutes);
       setDays(available);
       setActiveDate((current) =>
         current && available.some((d) => d.date === current) ? current : available[0]?.date ?? null
       );
-      setSlot((current) =>
-        current && available.some((d) => d.slots.some((s) => s.start === current)) ? current : null
-      );
+      setPicked((current) => (current && slotIsOffered(available, current) ? current : null));
     } catch {
       // No diary is the same as no diary configured: ask for a date instead
       setDays([]);
@@ -136,8 +142,19 @@ export default function AtelierBookingForm({
     loadSlots();
   }, [loadSlots]);
 
-  const bookable = !!days && days.length > 0;
-  const day = days?.find((d) => d.date === activeDate) ?? null;
+  // The starts this service can take: a bride's need the next slot free too
+  const offered = useMemo(() => (days ? startsFor(days, service, slotMinutes) : null), [days, service, slotMinutes]);
+  const bookable = !!offered && offered.length > 0;
+  const day = offered?.find((d) => d.date === activeDate) ?? offered?.[0] ?? null;
+  const slot = days ? startForService(days, service, slotMinutes, picked) : null;
+  const visitMinutes = slotsFor(service) * slotMinutes;
+  const twoSlots = slotsFor(service) > 1;
+
+  function chooseService(next: string) {
+    setService(next);
+    // A start that fitted one slot may not fit two: let it go rather than send it
+    if (days) setPicked((current) => startForService(days, next, slotMinutes, current));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -179,7 +196,7 @@ export default function AtelierBookingForm({
       if (!res.ok) {
         if (data?.slotTaken) {
           // Somebody got there first — show the diary as it is now
-          setSlot(null);
+          setPicked(null);
           await loadSlots();
         }
         throw new Error(data.error || "Failed to send request");
@@ -215,6 +232,9 @@ export default function AtelierBookingForm({
           <>
             <p className="font-serif text-xl mb-2">You&apos;re booked in</p>
             <p className="text-sm text-charcoal mb-1 font-medium">{confirmedFor}</p>
+            {twoSlots && (
+              <p className="text-sm text-charcoal mb-1">Your fitting takes {durationLabel(visitMinutes)}.</p>
+            )}
             <p className="text-sm text-charcoal-light max-w-sm">
               A confirmation is on its way to your inbox. Reply to it if you need to move the time.
             </p>
@@ -360,9 +380,15 @@ export default function AtelierBookingForm({
             Choose a time
           </legend>
 
+          {twoSlots && (
+            <p className="text-xs text-charcoal-light mb-3">
+              A bridal fitting takes {durationLabel(visitMinutes)}, so these are the times with all of it free.
+            </p>
+          )}
+
           <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-2 -mx-1 px-1">
-            {days!.map((d) => {
-              const active = d.date === activeDate;
+            {offered!.map((d) => {
+              const active = d.date === day?.date;
               return (
                 <button
                   key={d.date}
@@ -390,7 +416,7 @@ export default function AtelierBookingForm({
                     key={s.start}
                     type="button"
                     onClick={() => {
-                      setSlot(s.start);
+                      setPicked(s.start);
                       setError(null);
                       if (status === "error") setStatus("idle");
                     }}
@@ -468,7 +494,7 @@ export default function AtelierBookingForm({
           id="booking-service"
           name="service"
           value={service}
-          onChange={(e) => setService(e.target.value)}
+          onChange={(e) => chooseService(e.target.value)}
           className={FIELD_CLASS}
         >
           {options.map((s) => (
