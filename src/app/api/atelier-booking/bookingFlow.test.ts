@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { sanityWriteClient } from "@/lib/sanity";
 import { emailFingerprint } from "@/lib/pii";
 import { instantOf, localDateOf, slotDocumentId } from "@/lib/slots";
-import { POST } from "./route";
+import { POST, priceFirstHtml } from "./route";
 
 /**
  * The booking route, run whole: a request goes in, and what comes out is read
@@ -319,4 +319,35 @@ test("a request with no time sent again within fifteen minutes is the same reque
   for (const doc of bookings()) doc.createdAt = new Date(Date.now() - 16 * 60_000).toISOString();
   assert.equal((await POST(request(body))).status, 201);
   assert.equal(bookings().length, 3);
+});
+
+/* ─── A price first ─── */
+
+/** Every wa.me link in some HTML, read the way a browser reads the attribute. */
+const whatsappTexts = (html: string) =>
+  [...html.matchAll(/href="(https:\/\/wa\.me\/[^"]+)"/g)].map((m) =>
+    new URL(m[1].replace(/&#39;/g, "'").replace(/&amp;/g, "&")).searchParams.get("text")
+  );
+
+test("a request is answered with a way to get a price first, and a booked time is not", async () => {
+  const day = openDiary();
+  assert.equal((await POST(request({ ...ANNA, service: "Repairs", preferredDate: "2026-11-02" }))).status, 201);
+  const received = emails.find((email) => email.to === ANNA.email)!;
+  assert.match(received.subject, /received your Beautasy atelier booking request/);
+  assert.match(received.html, /Want a price first\? <a href="https:\/\/wa\.me\/447729741116\?text=[^"]+"[^>]*>Send Kristina a photo on WhatsApp<\/a>\./);
+  assert.ok(
+    whatsappTexts(received.html).includes("Hi Kristina, it's Anna. I've just sent a booking request (Repairs). Here's a photo for a price: ")
+  );
+  assert.doesNotMatch(received.html, /free|£|pay/i, "nothing about what a fitting costs or how it is paid");
+
+  emails = [];
+  assert.equal((await POST(request({ ...ANNA, email: "bea@example.com", service: "Alterations", slot: `${day}T10:00` }))).status, 201);
+  const confirmed = emails.find((email) => email.to === "bea@example.com")!;
+  assert.doesNotMatch(confirmed.html, /Want a price first/, "a confirmed time is not a request");
+});
+
+test("whatever the customer typed stays text in that line", () => {
+  const html = priceFirstHtml(`<img src=x onerror=alert(1)> Smith`, "Repairs");
+  assert.doesNotMatch(html, /<img/);
+  assert.equal(whatsappTexts(html)[0], "Hi Kristina, it's <img. I've just sent a booking request (Repairs). Here's a photo for a price: ");
 });

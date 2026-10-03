@@ -38,6 +38,7 @@ import {
   type NotifiableBooking,
 } from "@/lib/bookingEmails";
 import { sendEmail } from "@/lib/sendEmail";
+import { whatsappLink } from "@/lib/business";
 import { judgeCollection, type CollectionRequest } from "@/lib/collection";
 import { collectionSettings } from "@/lib/siteSettings";
 
@@ -251,6 +252,20 @@ export function collectionReceivedHtml(
           <p style="color:#3d3d3d;line-height:1.8;">
             Collection &amp; return: <strong>${escapeHtml(collection.request.terms)}</strong>. The price of the work itself is confirmed before Kristina starts.
           </p>`;
+}
+
+/**
+ * The one line in a customer's "we've got your request" email that gets them
+ * a price before anything is booked: a photo on WhatsApp, with the first
+ * message already written. Nothing here about what a fitting costs or how it
+ * is paid — that is Kristina's to say.
+ */
+export function priceFirstHtml(name: string, service: string): string {
+  const first = firstNameOf(name);
+  const link = whatsappLink(
+    `Hi Kristina, it's ${first ?? "me"}. I've just sent a booking request (${service}). Here's a photo for a price: `
+  );
+  return `<p style="color:#3d3d3d;line-height:1.8;">Want a price first? <a href="${escapeHtml(link)}" style="color:#5e4b9a;font-weight:bold;">Send Kristina a photo on WhatsApp</a>.</p>`;
 }
 
 /**
@@ -642,6 +657,7 @@ export async function POST(req: NextRequest) {
             Kristina will confirm your time by email shortly — you'll get a message either way, so nothing is left hanging.
           </p>`
           }
+          ${priceFirstHtml(name, service)}
           ${
             friend
               ? `<p style="color:#3d3d3d;line-height:1.8;">Your <strong>${pounds(friend.discount)} off</strong> from ${escapeHtml(referredBy)} is noted — it comes off when you pay${collection ? "" : " at the atelier"}.</p>`
