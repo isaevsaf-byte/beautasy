@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package, Sparkles } from "lucide-react";
@@ -19,6 +19,7 @@ import {
   writeReferralCookie,
 } from "@/lib/friendsLink";
 import { friendDiscountApplies, looksLikeWelcomeCode, welcomeCodeNote } from "@/lib/bagCodes";
+import TermsNote from "@/components/TermsNote";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -97,6 +98,8 @@ export function CartDrawer({
   // Where the parcel is going. Preselected from the shopper's country, but
   // theirs to change — a UK customer might be sending a gift abroad.
   const [region, setRegion] = useState<"uk" | "international">("uk");
+  // The terms line under Checkout, which the button names as its description
+  const termsId = useId();
 
   const hydrated = useIsClient();
 
@@ -691,6 +694,7 @@ export function CartDrawer({
                 <button
                   onClick={handleCheckout}
                   disabled={isLoading}
+                  aria-describedby={termsId}
                   className="w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
@@ -703,6 +707,9 @@ export function CartDrawer({
                     (totalPrice() / 100).toFixed(2)
                   )}
                 </button>
+                {/* What paying agrees to, said before Stripe's page: the link
+                    closes the bag (every navigation does) and the bag is kept */}
+                <TermsNote id={termsId} doing="paying" className="text-center" />
 
                 {/* Clear cart */}
                 <button

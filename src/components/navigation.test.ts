@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import Header from "./Header";
 import Footer from "./Footer";
 import SkipLink from "./SkipLink";
+import { PRIVACY_HREF, TERMS_HREF } from "./TermsNote";
 import { isCurrentPage } from "../lib/currentPage";
 import { BUSINESS } from "../lib/business";
 import { DEFAULT_FREE_THRESHOLD, DEFAULT_INT_RATE, DEFAULT_UK_RATE } from "../lib/siteSettings";
@@ -177,4 +178,16 @@ test("the footer's delivery price before settings arrive is the real one", () =>
   );
   assert.match(set, /UK £3\.95 · international £15/);
   assert.match(set, /free in the UK over £60/);
+});
+
+test("the footer links the terms beside delivery and privacy, on every page", () => {
+  // The booking form, the bag and the gift card form all say "you agree to
+  // our Terms & Conditions": the page has to be reachable without them too
+  const html = renderToStaticMarkup(createElement(Footer));
+  const info = html.slice(html.indexOf(">Information</h2>"), html.indexOf("</ul>", html.indexOf(">Information</h2>")));
+  const hrefs = [...info.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2].replace(/&amp;/g, "&")]);
+  const at = (href: string) => hrefs.findIndex(([h]) => h === href);
+  assert.deepEqual(hrefs[at(TERMS_HREF)], [TERMS_HREF, "Terms & Conditions"]);
+  assert.equal(at(TERMS_HREF), at("/pages/delivery-and-returns") + 1, "after Delivery & Returns");
+  assert.equal(at(PRIVACY_HREF), at(TERMS_HREF) + 1, "before Privacy Policy");
 });

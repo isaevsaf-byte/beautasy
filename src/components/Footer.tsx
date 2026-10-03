@@ -4,6 +4,7 @@ import { CalendarCheck, Clock, Heart, Mail, MapPin, MessageCircle, Phone } from 
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import { PRIVACY_HREF, TERMS_HREF } from "@/components/TermsNote";
 import { reopenConsent } from "@/lib/consent";
 import { stockedLinks, type Shelves } from "@/lib/shelves";
 import { BUSINESS, whatsappLink } from "@/lib/business";
@@ -68,7 +69,10 @@ const legalLinks = [
   { label: "Gift Cards", href: "/gift-cards" },
   { label: "Give £5, get £5", href: "/refer" },
   { label: "Delivery & Returns", href: "/pages/delivery-and-returns" },
-  { label: "Privacy Policy", href: "/pages/privacy-policy" },
+  // The terms a booking or a payment says it agrees to (see TermsNote): a
+  // page those lines point at has to be findable from every page too
+  { label: "Terms & Conditions", href: TERMS_HREF },
+  { label: "Privacy Policy", href: PRIVACY_HREF },
   { label: "Contact", href: "/contact" },
 ];
 

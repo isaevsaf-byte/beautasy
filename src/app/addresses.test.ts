@@ -4,8 +4,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import nextConfig from "../../next.config";
 import robots from "./robots";
+import sitemap from "./sitemap";
 import { summaryFromBlocks, DESCRIPTION_LIMIT } from "../lib/pageSummary";
-import { sanityConfig } from "../lib/sanity";
+import { sanityClient, sanityConfig } from "../lib/sanity";
+import { SITE_URL } from "../lib/site";
+import { TERMS_HREF } from "../components/TermsNote";
 
 /**
  * Which addresses lead somewhere, which are sent on, and which search
@@ -45,6 +48,28 @@ test("the sitemap lists no address that is redirected or linked from nowhere", (
   assert.doesNotMatch(sitemap, /\/mini\b/);
   assert.match(sitemap, /const REDIRECTED_LEGAL_PAGES = new Set\(\["contact-us"\]\);/);
   assert.match(sitemap, /pages\.filter\(\(p\) => !REDIRECTED_LEGAL_PAGES\.has\(p\.slug\)\)/);
+});
+
+test("the terms page is in the sitemap as soon as the Studio has it, like every other Studio page", async (t) => {
+  // Studio pages are listed from Sanity, not by hand: publishing a page with
+  // the address "terms" is what puts /pages/terms in the sitemap. Sanity is
+  // made up here — the three legal pages and the old contact page, nothing else.
+  t.mock.method(sanityClient, "fetch", async (query: string) => {
+    if (query.includes('_type == "legalPage"')) {
+      return ["terms", "privacy-policy", "delivery-and-returns", "contact-us"].map((slug) => ({
+        slug,
+        updatedAt: "2026-10-03T09:00:00Z",
+      }));
+    }
+    return query.includes("defined(slug.current)") ? [] : null;
+  });
+  const urls = (await sitemap()).map((entry) => entry.url);
+  assert.equal(TERMS_HREF, "/pages/terms", "the address the footer and the buttons link");
+  for (const path of [TERMS_HREF, "/pages/privacy-policy", "/pages/delivery-and-returns"]) {
+    assert.ok(urls.includes(`${SITE_URL}${path}`), `${path} is missing`);
+  }
+  assert.ok(!urls.includes(`${SITE_URL}/pages/contact-us`), "a redirect is still left out");
+  assert.equal(urls.filter((url) => url === `${SITE_URL}${TERMS_HREF}`).length, 1, "listed once");
 });
 
 test("robots.txt closes the sign-in pages whole, trailing slash or not", () => {

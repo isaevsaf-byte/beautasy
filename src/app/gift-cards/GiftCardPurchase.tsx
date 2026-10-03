@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Gift } from "lucide-react";
 import { fadeUp, stagger } from "@/components/animations";
+import TermsNote from "@/components/TermsNote";
 
 const PRESETS = [2500, 5000, 10000];
 const MIN = 1000;
@@ -27,6 +28,8 @@ export default function GiftCardPurchase() {
   const [company, setCompany] = useState(""); // honeypot
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The terms line under the pay button, which the button names as its description
+  const termsId = useId();
 
   const customPence = Math.round(parseFloat(custom.replace(",", ".")) * 100);
   const chosenAmount = useCustom ? customPence : amount;
@@ -216,6 +219,7 @@ export default function GiftCardPurchase() {
         custom={2}
         type="submit"
         disabled={loading}
+        aria-describedby={termsId}
         className="w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {loading ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
@@ -223,6 +227,12 @@ export default function GiftCardPurchase() {
           ? `Buy gift card — £${(chosenAmount / 100).toFixed(2)}`
           : "Buy gift card"}
       </motion.button>
+
+      {/* What paying agrees to, said before Stripe's page. It rises with the
+          button (the same step of the fade), so it never shows up on its own. */}
+      <motion.div variants={fadeUp} custom={2} className="mt-3 text-center">
+        <TermsNote id={termsId} doing="paying" />
+      </motion.div>
 
       <motion.p
         variants={fadeUp}

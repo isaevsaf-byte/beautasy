@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car, MessageCircle } from "lucide-react";
+import TermsNote from "@/components/TermsNote";
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
@@ -116,6 +117,8 @@ export default function AtelierBookingForm({
   // This form's own key, made on the first send and sent with every retry —
   // see REQUEST_KEY_FIELD
   const requestKey = useRef<string | null>(null);
+  // The terms line under the button, which the button names as its description
+  const termsId = useId();
 
   // Collect & return
   const [mode, setMode] = useState<"fitting" | "collect">("fitting");
@@ -629,6 +632,7 @@ export default function AtelierBookingForm({
         <button
           type="submit"
           disabled={status === "loading"}
+          aria-describedby={termsId}
           className="inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 disabled:opacity-60"
         >
           {status === "loading" && <Loader2 size={16} className="animate-spin" />}
@@ -654,6 +658,11 @@ export default function AtelierBookingForm({
           )}
         </AnimatePresence>
       </div>
+
+      {/* What pressing the button agrees to, said before it is pressed: a
+          booking hands Kristina a name, an email, a phone number and, for a
+          collection, a home address */}
+      <TermsNote id={termsId} doing="booking" privacy className="sm:col-span-2 -mt-1" />
 
       {unanswered && <NoAnswer whatsapp={whatsappAboutBooking({ name, service, slot, collecting })} />}
     </form>

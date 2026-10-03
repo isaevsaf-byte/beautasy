@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import AtelierBookingForm, { NoAnswer } from "./AtelierBookingForm";
 import { FIELD_LIMITS, HONEYPOT_FIELD, NO_ANSWER } from "../lib/bookingForm";
 import { readBookingFields } from "../lib/bookingRequest";
+import { PRIVACY_HREF, TERMS_HREF } from "./TermsNote";
 
 /**
  * The booking form as it is first sent to the browser — before the diary is
@@ -128,4 +129,23 @@ test("the time sent is one the chosen service still fits, and the postcode stops
   assert.match(source, /const slot = days \? startForService\(days, service, slotMinutes, picked\) : null;/);
   // The postcode only shows in collect mode, which a first render never reaches
   assert.match(source, /name="postcode"[\s\S]{0,200}maxLength=\{FIELD_LIMITS\.postcode\}/);
+});
+
+test("under the booking button: what booking agrees to, both pages linked, and the button names the line", () => {
+  const button = html.match(/<button[^>]*type="submit"[^>]*>/)?.[0] ?? "";
+  assert.ok(button, "the submit button is rendered");
+  const id = button.match(/aria-describedby="([^"]+)"/)?.[1];
+  assert.ok(id, "a screen reader hears the terms with the button");
+
+  const start = html.indexOf(`<p id="${id}"`);
+  assert.ok(start > html.indexOf(button), "the line comes after the button");
+  const line = html.slice(start, html.indexOf("</p>", start) + 4);
+  const text = line.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
+  assert.equal(text, "By booking you agree to our Terms & Conditions and Privacy Policy.");
+  const hrefs = [...line.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(hrefs, [TERMS_HREF, PRIVACY_HREF]);
+  // Across both columns of the form, in the readable grey
+  const classes = line.match(/class="([^"]*)"/)?.[1].split(" ") ?? [];
+  assert.ok(classes.includes("sm:col-span-2"), classes.join(" "));
+  assert.ok(classes.includes("text-charcoal-light"), classes.join(" "));
 });
