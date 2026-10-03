@@ -50,6 +50,43 @@ test("text-lavender on words reads as lavender-ink, and icons and fills keep the
   assert.doesNotMatch(css, /@layer/);
 });
 
+/**
+ * The colour a word ends up in, from its class list: text-lavender is
+ * repainted as lavender-ink by the rule above, wherever it is; any other
+ * text-<token> or text-[#hex] is taken as written.
+ */
+function wordColour(classes: string): string | undefined {
+  let colour: string | undefined;
+  for (const name of classes.split(/\s+/)) {
+    const hex = name.match(/^text-\[(#[0-9A-Fa-f]{6})\]$/)?.[1];
+    if (hex) colour = hex;
+    else if (name === "text-lavender" && /\.text-lavender:not\(svg\)\s*\{\s*color:\s*var\(--color-lavender-ink\)/.test(css)) {
+      colour = token("lavender-ink");
+    } else {
+      const named = name.match(/^text-([a-z]+(?:-[a-z]+)*)$/)?.[1];
+      const value = named && css.match(new RegExp(`--color-${named}:\\s*(#[0-9A-Fa-f]{6});`))?.[1];
+      if (value) colour = value;
+    }
+  }
+  return colour;
+}
+
+test("the Our Work viewer's category label is readable on the viewer's dark panel", () => {
+  // The rule that makes text-lavender readable on cream made this label
+  // 3:1 on the viewer's near-black panel, where the light lavender was 11.7:1
+  const viewer = read("src/components/work/WorkViewer.tsx");
+  const panel = viewer.match(/role="dialog"[\s\S]*?className="[^"]*\bbg-\[(#[0-9A-Fa-f]{6})\]/)?.[1];
+  assert.ok(panel, "the viewer's panel colour");
+  const label = viewer.match(/<p className="([^"]*)">\{piece\.categoryLabel\}<\/p>/)?.[1];
+  assert.ok(label, "the category label");
+  const colour = wordColour(label);
+  assert.ok(colour, `the label has a text colour: ${label}`);
+  const ratio = contrast(colour, panel);
+  assert.ok(ratio >= 4.5, `the label is ${ratio.toFixed(2)}:1 on ${panel}`);
+  // The whole viewer is dark, so the repainted lavender has no place on its words
+  assert.doesNotMatch(viewer.replace(/\/\*[\s\S]*?\*\//g, ""), /(?<![\w:-])text-lavender(?![\w-])/);
+});
+
 test("on a phone every typed-in field is 16px, so iOS does not zoom the page in", () => {
   const block = css.slice(css.indexOf("@media (max-width: 639.98px)"));
   assert.ok(block.length < css.length, "the phone-width rule exists");

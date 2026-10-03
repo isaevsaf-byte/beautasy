@@ -316,7 +316,8 @@ export default function WorkViewer({
 
       {/* The story */}
       <aside className="flex-1 overflow-y-auto border-t border-white/10 px-6 py-6 sm:px-8 lg:h-full lg:w-[400px] lg:flex-none lg:border-t-0 lg:border-l lg:py-16">
-        <p className="mb-2 text-[11px] tracking-[0.25em] uppercase text-lavender">{piece.categoryLabel}</p>
+        {/* Not text-lavender: that is repainted dark for cream pages (globals.css) and is 3:1 here */}
+        <p className="mb-2 text-[11px] tracking-[0.25em] uppercase text-lavender-on-dark">{piece.categoryLabel}</p>
         <h2 id="work-viewer-title" className="mb-3 font-serif text-2xl leading-snug sm:text-3xl">
           {piece.title}
         </h2>
