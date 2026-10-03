@@ -1,4 +1,5 @@
 import { defineField, defineType, type ValidationContext } from "sanity";
+import { instantOf } from "@/lib/slots";
 
 // The Studio's words for each status. The values are what is stored, and what
 // the site and the emails read, so only the titles are ever translated. The
@@ -17,17 +18,24 @@ const STATUS_OPTIONS = [
  * cancelled, as published) may not: a collection holds a whole trip, so its
  * time may have gone without anyone taking its id, and flipping the status
  * would put two people on one time and email this one a time somebody else
- * holds. «Записать снова» asks the diary first. «Выполнена» holds nothing
- * ahead, and is what sends the thank-you and settles the friend's and the
- * salon's reward, so it is always allowed.
+ * holds. «Записать снова» asks the diary first. «Выполнена» is what sends
+ * the thank-you and settles the friend's and the salon's reward, so it is
+ * allowed once the visit's time has come; before then it would hold that
+ * time again just the same, unchecked.
  *
  * The published version is asked, not the draft: the draft already carries
  * the new status.
  */
-export async function statusTakesTimeBack(value: unknown, context: ValidationContext): Promise<string | true> {
-  if (value !== "new" && value !== "confirmed") return true;
+export async function statusTakesTimeBack(
+  value: unknown,
+  context: ValidationContext,
+  now: number = Date.now()
+): Promise<string | true> {
   const doc = context.document as { _id?: string; slotStart?: unknown } | undefined;
   if (!doc?._id || !doc.slotStart) return true;
+  const ahead = instantOf(String(doc.slotStart)).getTime() > now;
+  const holdsAgain = value === "new" || value === "confirmed" || (value === "completed" && ahead);
+  if (!holdsAgain) return true;
   let published: { status?: string } | null | undefined;
   try {
     published = await context
@@ -37,9 +45,10 @@ export async function statusTakesTimeBack(value: unknown, context: ValidationCon
     // Only this one flip waits on the answer; every other status publishes as usual
     return "Не удалось проверить, свободно ли ещё время этой записи. Проверьте интернет и попробуйте ещё раз.";
   }
-  return published && ["declined", "cancelled"].includes(String(published.status))
-    ? "Время уже освобождено — его мог занять другой клиент. Чтобы вернуть запись, нажмите «Записать снова» (или «🚗 Назначить забор снова»)."
-    : true;
+  if (!published || !["declined", "cancelled"].includes(String(published.status))) return true;
+  return value === "completed"
+    ? "Визит ещё впереди, а его время уже освобождено. «Выполнена» ставится после визита; если клиент всё-таки придёт, сначала нажмите «Записать снова»."
+    : "Время уже освобождено — его мог занять другой клиент. Чтобы вернуть запись, нажмите «Записать снова» (или «🚗 Назначить забор снова»).";
 }
 
 /** A status as the list preview names it. A value with no title shows as itself, never blank. */
@@ -207,7 +216,7 @@ export const atelierBooking = defineType({
       // not take its time back by its status — see statusTakesTimeBack
       validation: (rule) => rule.custom(statusTakesTimeBack),
       description:
-        "Отменённую запись со временем вернуть в «Новая» или «Подтверждена» можно только кнопкой «Записать снова» (у забора — «🚗 Назначить забор снова»): она проверит, что время всё ещё свободно. «Выполнена» поставить можно — например, если клиент отменил, а потом всё-таки пришёл. Если статус поменяли по ошибке и ещё не опубликовали, нажмите «Отменить изменения».",
+        "Отменённую запись со временем вернуть в «Новая» или «Подтверждена» можно только кнопкой «Записать снова» (у забора — «🚗 Назначить забор снова»): она проверит, что время всё ещё свободно. «Выполнена» поставить можно после времени визита — например, если клиент отменил, а потом всё-таки пришёл. Если статус поменяли по ошибке и ещё не опубликовали, нажмите «Отменить изменения».",
       options: {
         list: STATUS_OPTIONS,
         layout: "radio",

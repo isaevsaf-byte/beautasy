@@ -173,7 +173,8 @@ test("a booking that gave its time back can still be finished, or given back ano
   const draft = { _id: "drafts.slot-2026-10-06-1400", slotStart: "2026-10-06T14:00" };
   const cancelled = { _id: "slot-2026-10-06-1400", status: "cancelled" };
   // The customer cancelled, then came anyway: the thank-you and the friend's reward hang on this
-  assert.deepEqual((await statusSays("completed", draft, cancelled)).said, []);
+  const past = { _id: "drafts.slot-2020-01-07-1400", slotStart: "2020-01-07T14:00" };
+  assert.deepEqual((await statusSays("completed", past, cancelled)).said, []);
   assert.deepEqual((await statusSays("declined", draft, cancelled)).said, []);
   // A booking holding its time, or one with no time at all, is never asked about
   assert.deepEqual((await statusSays("confirmed", draft, { ...cancelled, status: "confirmed" })).said, []);
@@ -185,6 +186,15 @@ test("a booking that gave its time back can still be finished, or given back ano
   const offline = await statusSays("confirmed", draft, new Error("offline"));
   assert.equal(offline.said.length, 1);
   assert.match(offline.said[0], /^error: Не удалось проверить/);
+});
+
+test("a cancelled visit still ahead cannot be finished early — that would hold its time again unchecked", async () => {
+  const ahead = { _id: "drafts.slot-2099-01-06-1400", slotStart: "2099-01-06T14:00" };
+  const { said } = await statusSays("completed", ahead, { _id: "slot-2099-01-06-1400", status: "cancelled" });
+  assert.equal(said.length, 1);
+  assert.match(said[0], /^error: Визит ещё впереди, а его время уже освобождено/);
+  // Still holding its time: finishing it early takes nothing back
+  assert.deepEqual((await statusSays("completed", ahead, { _id: "slot-2099-01-06-1400", status: "confirmed" })).said, []);
 });
 
 test("a booking whose time went to another customer keeps its status locked", () => {
