@@ -43,8 +43,8 @@ interface BookingBody {
   notes?: string;
   /** A friend's link code, left on this device by /r/CODE */
   referralCode?: string;
-  /** Collect & return instead of a fitting: their postcode and the window that suits them */
-  collection?: { postcode?: string; window?: string };
+  /** Collect & return instead of a fitting: their postcode, and when they are usually in */
+  collection?: { postcode?: string; when?: string };
 }
 
 const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -169,20 +169,57 @@ export function replyToCustomerHtml(input: {
     return `<p style="padding:12px 16px;background:#fff6e0;border-radius:10px;color:#5c4400;line-height:1.6;">📍 <strong>Send ${escapeHtml(first)} the address</strong> and how to find the door. Their confirmation says you will, before the visit.<br/>${whatsapp}</p>`;
   }
   return input.collection
-    ? `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}<br/>🚗 Ask for their address and agree when Safar collects. Nobody comes to the door, so there is no address of ours to send.</p>`
+    ? `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}<br/>🚗 Give it a time in the Studio: open the request → «🚗 Назначить забор». The time is taken from your diary for the whole trip, and they are emailed it. Ask for their address — nobody comes to your door, so there is no address of yours to send.</p>`
     : `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}<br/>📍 When you confirm a time in the Studio, their email says you'll send the address before the visit.</p>`;
 }
 
 /**
- * The collection, in Kristina's email: everything Safar needs to plan the
+ * What a customer typed about when they're in goes first in their sealed notes,
+ * and their own notes after it: never one instead of the other.
+ */
+export function sealedNotesText(when: string | undefined, notes: string | undefined): string | undefined {
+  const own = notes?.trim() || undefined;
+  if (!when) return own;
+  return [`Best time to collect: ${when}`, own].filter(Boolean).join("\n\n");
+}
+
+/**
+ * The customer's acknowledgement of a collection request. Everything they
+ * typed is escaped: anyone can put someone else's address in the form, and
+ * this goes out from orders@beautasy.co.uk.
+ */
+export function collectionReceivedHtml(
+  service: string,
+  collection: { request: CollectionRequest; when?: string }
+): string {
+  return `<p style="color:#3d3d3d;line-height:1.8;">
+            We've received your request to collect your <strong>${escapeHtml(service.toLowerCase())}</strong>.
+            Kristina will email you the time she'll come and ask for your address. Nothing is collected until you've agreed it together.
+          </p>${
+            collection.when
+              ? `
+          <p style="color:#3d3d3d;line-height:1.8;">You told us: &ldquo;${escapeHtml(collection.when)}&rdquo;.</p>`
+              : ""
+          }
+          <p style="color:#3d3d3d;line-height:1.8;">
+            Collection &amp; return: <strong>${escapeHtml(collection.request.terms)}</strong>. The price of the work itself is confirmed before Kristina starts.
+          </p>`;
+}
+
+/**
+ * The collection, in Kristina's email: everything she needs to plan the
  * drive. The full postcode is here and nowhere else — the booking keeps only
  * the district (see @/lib/collection), and the street is agreed in a message.
  */
-export function collectionForKristinaHtml(collection: { request: CollectionRequest; postcode: string }): string {
-  const { request, postcode } = collection;
+export function collectionForKristinaHtml(collection: {
+  request: CollectionRequest;
+  postcode: string;
+  when?: string;
+}): string {
+  const { request, postcode, when } = collection;
   return `<p style="padding:12px 16px;background:#eaf2fb;border-radius:10px;color:#1f3a5c;line-height:1.7;">🚗 <strong>Collect &amp; return</strong><br/>
             Postcode: <strong>${escapeHtml(postcode)}</strong> · ${escapeHtml(request.zone)}<br/>
-            ${request.window ? `Best time: <strong>${escapeHtml(request.window)}</strong><br/>` : ""}
+            ${when ? `When they're usually in: <strong>${escapeHtml(when)}</strong><br/>` : ""}
             They were told: ${escapeHtml(request.terms)}. The work itself is priced as usual, before you start.</p>`;
 }
 
@@ -219,13 +256,13 @@ export async function POST(req: NextRequest) {
     // the customer the same answer while they typed, but a page left open all
     // day, or a request written by hand, must not book a drive to a district
     // nobody covers at a time nobody offered. See @/lib/collection.
-    let collection: { request: CollectionRequest; postcode: string } | null = null;
+    let collection: { request: CollectionRequest; postcode: string; when?: string } | null = null;
     if (wantsCollection) {
       const verdict = judgeCollection(await collectionSettings({ fresh: true }), body.collection);
       if (!verdict.ok) {
         return NextResponse.json({ error: verdict.error }, { status: 400 });
       }
-      collection = { request: verdict.request, postcode: verdict.postcode };
+      collection = { request: verdict.request, postcode: verdict.postcode, ...(verdict.when ? { when: verdict.when } : {}) };
     }
 
     // A friend's link: the discount is noted on the booking and taken off by
@@ -323,11 +360,12 @@ export async function POST(req: NextRequest) {
         nameSealed: sealOptional(name),
         emailSealed: sealOptional(email),
         phoneSealed: sealOptional(phone),
-        notesSealed: sealOptional(notes),
+        // When they're in is their own words, so it is sealed with the notes
+        notesSealed: sealOptional(sealedNotesText(collection?.when, notes)),
         // Keyed and one-way: what "first visit?" is asked of next time
         emailFingerprint: emailFingerprint(email),
         service,
-        // The district, the window and the terms they saw: never the street
+        // The district and the terms they saw: never the street
         ...(collection ? { collection: collection.request } : {}),
         ...(friend
           ? {
@@ -385,7 +423,7 @@ export async function POST(req: NextRequest) {
         try {
           const created = await sanityWriteClient.create({
             ...person,
-            preferredDate: slot ? slotLabel(slot) : collection ? undefined : preferredDate || undefined, // a collection's time is its window
+            preferredDate: slot ? slotLabel(slot) : collection ? undefined : preferredDate || undefined, // a collection's time comes from Kristina's diary
             status: "new",
           });
           saved = true;
@@ -498,15 +536,7 @@ export async function POST(req: NextRequest) {
           <h1 style="font-size:22px;font-weight:400;">Thanks, ${escapeHtml(name.split(" ")[0])}!</h1>
           ${
             collection
-              ? `<p style="color:#3d3d3d;line-height:1.8;">
-            We've received your request to collect your <strong>${escapeHtml(service.toLowerCase())}</strong>.
-            Kristina will message you to arrange the address and time${
-              collection.request.window ? ` (you said ${escapeHtml(collection.request.window)} suits you)` : ""
-            }. Nothing is collected until you've agreed it together.
-          </p>
-          <p style="color:#3d3d3d;line-height:1.8;">
-            Collection &amp; return: <strong>${escapeHtml(collection.request.terms)}</strong>. The price of the work itself is confirmed before Kristina starts.
-          </p>`
+              ? collectionReceivedHtml(service, collection)
               : `<p style="color:#3d3d3d;line-height:1.8;">
             We've received your request for <strong>${escapeHtml(service)}</strong>${
               slot ? ` on ${escapeHtml(slotLabel(slot))}` : preferredDate ? ` on ${escapeHtml(preferredDate)}` : ""
@@ -581,7 +611,7 @@ export async function POST(req: NextRequest) {
         emailed,
         ...(held && slot ? { confirmedFor: slotLabel(slot) } : {}),
         ...(collection
-          ? { collection: { terms: collection.request.terms, window: collection.request.window ?? null } }
+          ? { collection: { terms: collection.request.terms, when: collection.when ?? null } }
           : {}),
         ...(friend
           ? { referral: { applied: true, discount: friend.discount, referredBy } }

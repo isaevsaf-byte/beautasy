@@ -1,5 +1,5 @@
 import type { SanityClient } from "next-sanity";
-import { slotDocumentId, slotLabel } from "@/lib/slots";
+import { slotDocumentId, slotLabel, spanLabel, startsCovered } from "@/lib/slots";
 
 /**
  * The atelier's diary, as bookings hold it.
@@ -54,6 +54,17 @@ export function canMove(status: unknown): boolean {
   return (MOVABLE_STATUSES as readonly unknown[]).includes(status);
 }
 
+/**
+ * The slots a booking holds right now: none once it has given its time back,
+ * one for a fitting, every slot of the trip for a collection. Handed to the
+ * diary as free for this booking alone, so it can move without tripping over
+ * its own time.
+ */
+export function heldBy(booking: { slotStart?: string; slotEnd?: string; status?: string }, slotMinutes: number): string[] {
+  if (!booking.slotStart || releasesItsTime(booking.status)) return [];
+  return startsCovered(booking.slotStart, booking.slotEnd, slotMinutes);
+}
+
 function statusCodeOf(error: unknown): number | undefined {
   const said = error as { statusCode?: number; response?: { statusCode?: number } } | null;
   return said?.statusCode ?? said?.response?.statusCode;
@@ -84,6 +95,8 @@ export interface DiaryDoc {
   _rev?: string;
   status?: string;
   slotStart?: string;
+  /** Where a booking holding more than one slot ends — a collection: Kristina is out for all of it */
+  slotEnd?: string;
   confirmedFor?: string;
   [field: string]: unknown;
 }
@@ -93,7 +106,7 @@ export type DiaryWrite =
   | { create: DiaryDoc }
   | { replace: DiaryDoc }
   /** Fails the whole transaction unless the document is still at this revision */
-  | { guard: { id: string; rev: string; mark: Record<string, unknown> } }
+  | { guard: { id: string; rev: string; mark: Record<string, unknown>; unset?: string[] } }
   | { remove: string };
 
 /**
@@ -126,8 +139,11 @@ export function sanityDiaryStore(client: SanityClient): DiaryStore {
         if ("create" in write) tx.create(write.create);
         else if ("replace" in write) tx.createOrReplace(write.replace);
         else if ("guard" in write) {
-          const { id, rev, mark } = write.guard;
-          tx.patch(id, (patch) => patch.ifRevisionId(rev).set(mark));
+          const { id, rev, mark, unset } = write.guard;
+          tx.patch(id, (patch) => {
+            const guarded = patch.ifRevisionId(rev).set(mark);
+            return unset && unset.length > 0 ? guarded.unset(unset) : guarded;
+          });
         } else tx.delete(write.remove);
       }
       await tx.commit();
@@ -234,7 +250,7 @@ export async function claimSlot(store: DiaryStore, doc: DiaryDoc, now: string): 
 }
 
 /** The same words, give or take case, spaces and punctuation. */
-function sameWords(a: string, b: string): boolean {
+export function sameWords(a: string, b: string): boolean {
   const plain = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
   return plain(a) === plain(b);
 }
@@ -248,9 +264,18 @@ function sameWords(a: string, b: string): boolean {
 function toldTimeOf(from: DiaryDoc): string | undefined {
   // Told it is off — cancelled, or declined — they hold no time to move from
   if (releasesItsTime(from.status) && from.notifiedStatus === from.status) return undefined;
-  if (from.slotStart) return slotLabel(from.slotStart);
+  if (from.slotStart) return from.slotEnd ? spanLabel(from.slotStart, from.slotEnd) : slotLabel(from.slotStart);
   const typed = typeof from.confirmedFor === "string" ? from.confirmedFor.trim() : "";
   return typed && from.status === "confirmed" && from.notifiedStatus === "confirmed" ? typed : undefined;
+}
+
+/**
+ * Whether the note on a booking still waits for its first reply. A note
+ * written for an earlier reply went with that reply; one on a request with
+ * no answer and no time yet has gone nowhere, so it goes with this one.
+ */
+function noteWaits(from: DiaryDoc): boolean {
+  return from.status === "new" && !from.slotStart;
 }
 
 /**
@@ -260,27 +285,31 @@ function toldTimeOf(from: DiaryDoc): string | undefined {
  *
  * Kristina moves bookings herself, so she knows: `kristinaNotifiedAt` is now,
  * and the morning check does not chase her about her own change.
+ *
+ * `toEnd` is for a collection: it holds the diary until then, and the customer
+ * is told the window, "between 2:00pm and 3:00pm", rather than a moment.
  */
-export function movedCopy(from: DiaryDoc, toSlot: string, now: string): DiaryDoc {
+export function movedCopy(from: DiaryDoc, toSlot: string, now: string, toEnd?: string): DiaryDoc {
   // The marks of past moves do not travel, and neither does a note written for
-  // an earlier reply — it went with that reply. A note on a request still
-  // waiting for its first answer has not gone anywhere yet, so it goes with this one.
-  const noteWaits = from.status === "new" && !from.slotStart;
+  // an earlier reply (see noteWaits)
   const kept = without(from, [
     "releasedAt",
     "movedAt",
     "movedFrom",
     "notifiedStatus",
-    ...(noteWaits ? [] : ["replyNote"]),
+    // A span belongs to the time it was given with, never to the next one
+    "slotEnd",
+    ...(noteWaits(from) ? [] : ["replyNote"]),
   ]);
 
   const was = toldTimeOf(from);
-  const to = slotLabel(toSlot);
+  const to = toEnd ? spanLabel(toSlot, toEnd) : slotLabel(toSlot);
   return {
     ...kept,
     _id: slotDocumentId(toSlot),
     _type: from._type,
     slotStart: toSlot,
+    ...(toEnd ? { slotEnd: toEnd } : {}),
     confirmedFor: to,
     status: "confirmed",
     notifiedStatus: "confirmed",
@@ -363,4 +392,159 @@ export async function moveBooking(
     console.error(`Could not let go of ${from._id} after taking ${to._id}:`, error);
     return "failed";
   }
+}
+
+/** A change made in place: the fields set, and the fields taken off. */
+export interface InPlace {
+  mark: Record<string, unknown>;
+  unset: string[];
+}
+
+/**
+ * A booking given a time at its own slot, so nothing has to move: one that
+ * gave its time back and is booked again for the same time, or a collection
+ * whose trip got longer or shorter from the same start. It used to be enough
+ * to set the status back by hand, while a booking held a single slot. A
+ * collection holds the rest of its trip only through `slotEnd`, and a fitting
+ * may have been booked into it meanwhile, so the diary is asked first (by the
+ * caller) and the booking is changed in place, guarded by the revision read.
+ */
+export function reheldMark(
+  from: DiaryDoc,
+  slot: string,
+  now: string,
+  end?: string
+): InPlace {
+  const was = toldTimeOf(from);
+  const to = end ? spanLabel(slot, end) : slotLabel(slot);
+  const movedFrom = was && !sameWords(was, to) ? was : undefined;
+  return {
+    mark: {
+      status: "confirmed",
+      // A claim, as on a move: handed back if the email is refused
+      notifiedStatus: "confirmed",
+      slotStart: slot,
+      confirmedFor: to,
+      kristinaNotifiedAt: now,
+      ...(end ? { slotEnd: end } : {}),
+      ...(movedFrom ? { movedFrom } : {}),
+    },
+    // A note went with the reply it was written for; an old move or span does
+    // not belong to this time
+    unset: ["replyNote", "movedAt", "releasedAt", ...(end ? [] : ["slotEnd"]), ...(movedFrom ? [] : ["movedFrom"])],
+  };
+}
+
+/** The booking as it stands once `change` is written — what its email is written from. */
+export function withChange(from: DiaryDoc, change: InPlace): DiaryDoc {
+  const kept = Object.fromEntries(Object.entries(from).filter(([field]) => !change.unset.includes(field)));
+  return { ...kept, ...change.mark, _id: from._id, _type: from._type };
+}
+
+/** The booking as it stands after `reholdBooking` — what its email is written from. */
+export function reheldDoc(from: DiaryDoc, slot: string, now: string, end?: string): DiaryDoc {
+  return withChange(from, reheldMark(from, slot, now, end));
+}
+
+/**
+ * Change a booking in place, guarded by the revision read, and drop any open
+ * draft of it. "changed" when it was edited meanwhile.
+ *
+ * Every change made here carries this request's own `kristinaNotifiedAt` —
+ * now, to the millisecond — and that is how a lost answer is looked at. A
+ * slot's id is on offer the moment its booking lets go of the time, so the
+ * document found there may be somebody else's booking with the very same time
+ * on it: the same status, the same words. Only our own mark says the change
+ * landed, and a booking that is plainly not this one says the time has gone.
+ */
+export async function changeInPlace(store: DiaryStore, input: { from: DiaryDoc } & InPlace): Promise<Move> {
+  const { from, mark, unset } = input;
+  if (!from._rev) return "changed";
+  try {
+    await store.commit([
+      { guard: { id: from._id, rev: from._rev, mark, unset } },
+      // An open draft would publish the old status straight back over it
+      { remove: `drafts.${from._id}` },
+    ]);
+    return "moved";
+  } catch (error) {
+    if (isConflict(error)) return "changed";
+    if (wasTurnedAway(error)) {
+      console.error(`The database turned away changing ${from._id}:`, error);
+      return "failed";
+    }
+    let found: DiaryDoc | null;
+    try {
+      found = await store.read(from._id);
+    } catch (lookError) {
+      console.error(`Lost the answer changing ${from._id}, and could not look:`, error, lookError);
+      return "unsure";
+    }
+    if (found && isSameBooking(from, found) === false) {
+      console.error(`Lost the answer changing ${from._id}, and another booking holds it now:`, error);
+      return "taken";
+    }
+    const landed =
+      !!found &&
+      Object.entries(mark).every(([field, value]) => found[field] === value) &&
+      unset.every((field) => found[field] === undefined);
+    if (landed) return "moved";
+    console.error(`Could not change ${from._id}:`, error);
+    return found && found._rev !== from._rev ? "changed" : "failed";
+  }
+}
+
+/**
+ * Change a booking in place to the time in `reheldMark`. "changed" when it was
+ * edited meanwhile, "taken" when the time went to somebody else; a lost answer
+ * is looked at before anything is said (see changeInPlace).
+ */
+export async function reholdBooking(
+  store: DiaryStore,
+  input: { from: DiaryDoc; slot: string; now: string; end?: string }
+): Promise<Move> {
+  const { from, slot, now, end } = input;
+  return changeInPlace(store, { from, ...reheldMark(from, slot, now, end) });
+}
+
+/*
+ * A collection outside the diary's hours: "Can you come at 7:30pm? I work
+ * till 7." The picker offers only the hours for fittings, so Kristina types
+ * the time — in English, since the words go to the customer as they are —
+ * and it holds nothing in the diary. Such a booking never sits on a slot's
+ * id: a confirmed booking there with no time would turn away every customer
+ * who picked that slot, for good.
+ */
+
+/** The change that gives a booking an out-of-hours time in words, holding no slot. */
+export function outsideMark(from: DiaryDoc, told: string, now: string): InPlace {
+  const was = toldTimeOf(from);
+  const movedFrom = was && !sameWords(was, told) ? was : undefined;
+  return {
+    mark: {
+      status: "confirmed",
+      // A claim, as on a move: handed back if the email is refused
+      notifiedStatus: "confirmed",
+      confirmedFor: told,
+      kristinaNotifiedAt: now,
+      ...(movedFrom ? { movedFrom } : {}),
+    },
+    unset: [
+      "slotStart",
+      "slotEnd",
+      "movedAt",
+      "releasedAt",
+      ...(noteWaits(from) ? [] : ["replyNote"]),
+      ...(movedFrom ? [] : ["movedFrom"]),
+    ],
+  };
+}
+
+/**
+ * A timed booking given an out-of-hours time: a copy under `id`, an id of its
+ * own rather than a slot's, so that once moveBooking lets go of the old one
+ * the slot's id — and with it the whole trip — is free for customers again.
+ */
+export function outsideCopy(from: DiaryDoc, told: string, now: string, id: string): DiaryDoc {
+  return { ...without(withChange(from, outsideMark(from, told, now)), []), _id: id, _type: from._type };
 }

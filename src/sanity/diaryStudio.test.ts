@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { ConcreteRuleClass } from "sanity";
+import { atelierBooking } from "./schemaTypes/atelierBooking";
 import { SlotPicker, shortDay, slotInRussian } from "./SlotPicker";
 import { SERVICE_TITLES } from "./ManualBookingPane";
 import { ATELIER_SERVICES } from "@/lib/atelierServices";
@@ -85,7 +87,8 @@ test("only a member of the project reaches the diary, before anything is read or
 
 test("the Studio books from the fresh diary, strictly, without the customers' notice period", () => {
   assert.match(ROUTE, /getAvailableSlots\(\{ fresh: true, strict: true, leadTimeHours: 0 \}\)/);
-  assert.match(ROUTE, /if \(!slotIsOffered\(days, slot\)\)/);
+  // Every action but a collection's checks the bare slot; a collection checks its whole trip (planCollection)
+  assert.match(ROUTE, /if \(body\.action !== "collect" && !slotIsOffered\(days, slot\)\)/);
 });
 
 test("a booking made by hand goes through the same claim as one made on the site", () => {
@@ -96,7 +99,7 @@ test("a booking made by hand goes through the same claim as one made on the site
 
 test("a move takes the new time before letting go of the old one, and only for a live booking", () => {
   assert.match(ROUTE, /if \(!canMove\(from\.status\)\)/);
-  assert.match(ROUTE, /const moved = await moveBooking\(store, \{ from, to, now \}\);/);
+  assert.match(ROUTE, /: await moveBooking\(store, \{ from, to, now \}\);/);
   assert.match(ROUTE, /if \(moved === "failed"\) return answer\(500/);
 });
 
@@ -105,7 +108,7 @@ test("the move is not offered over unpublished changes, and it asks the diary ro
   assert.match(ACTION, /askDiary\(token, \{ action: "move", id, slot \}\)/);
   assert.match(
     CONFIG,
-    /return \[\s*\.\.\.prev,\s*moveBookingAction,\s*recordPaymentAction,\s*partnerAttributionAction,\s*notifyCustomerAction,\s*revealContactAction,\s*\];/
+    /return \[\s*\.\.\.prev,\s*moveBookingAction,\s*collectionTimeAction,\s*recordPaymentAction,\s*partnerAttributionAction,\s*notifyCustomerAction,\s*revealContactAction,\s*\];/
   );
   assert.match(STRUCTURE, /\.title\("Записать вручную"\)/);
 });
@@ -115,14 +118,98 @@ test("a booked time cannot be changed by typing — Confirmed For is read-only o
   assert.match(SCHEMA, /\{ title: "Клиент отменил — время освободится", value: "cancelled" \}/);
 });
 
-test("a booking whose time went to someone else cannot be confirmed again by its status — only booked again", () => {
-  assert.match(SCHEMA, /name: "status",[\s\S]*?readOnly: \(\{ document \}\) => Boolean\(document\?\.releasedAt\)/);
+interface StatusField {
+  readOnly: (context: { document?: Record<string, unknown> }) => boolean;
+  validation: (rule: never) => unknown;
+}
+const STATUS = (atelierBooking as unknown as { fields: (StatusField & { name: string })[] }).fields.find(
+  (f) => f.name === "status"
+)!;
+
+/**
+ * What the Studio says when Kristina publishes `value`, through Sanity's own
+ * rule engine — with `published` as the version Sanity holds, or an Error
+ * when it cannot be read.
+ */
+async function statusSays(
+  value: string,
+  document: Record<string, unknown>,
+  published: Record<string, unknown> | null | Error
+): Promise<{ said: string[]; asked: string[] }> {
+  const asked: string[] = [];
+  const context = {
+    i18n: { t: (key: string) => key },
+    path: ["status"],
+    document,
+    getClient: () => ({
+      async getDocument(id: string) {
+        asked.push(id);
+        if (published instanceof Error) throw published;
+        return published;
+      },
+    }),
+  } as never;
+  const rule = STATUS.validation(ConcreteRuleClass.string() as never);
+  const rules = (Array.isArray(rule) ? rule : [rule]) as {
+    validate: (value: unknown, context: never) => Promise<{ level: string; message: string }[]>;
+  }[];
+  const markers = (await Promise.all(rules.map((r) => r.validate(value, context)))).flat();
+  return { said: markers.map((marker) => `${marker.level}: ${marker.message}`), asked };
+}
+
+test("a booking that gave its time back cannot take it back by its status — only booked again", async () => {
+  const draft = { _id: "drafts.slot-2026-10-06-1400", slotStart: "2026-10-06T14:00" };
+  for (const gaveBack of ["declined", "cancelled"]) {
+    for (const value of ["new", "confirmed"]) {
+      const { said, asked } = await statusSays(value, { ...draft, status: value }, { _id: "slot-2026-10-06-1400", status: gaveBack });
+      assert.equal(said.length, 1, `${gaveBack} → ${value} went through: two people on one time`);
+      assert.match(said[0], /^error: Время уже освобождено — его мог занять другой клиент\. Чтобы вернуть запись, нажмите «Записать снова»/);
+      assert.deepEqual(asked, ["slot-2026-10-06-1400"], "the draft was asked, and it already carries the new status");
+    }
+  }
+});
+
+test("a booking that gave its time back can still be finished, or given back another way", async () => {
+  const draft = { _id: "drafts.slot-2026-10-06-1400", slotStart: "2026-10-06T14:00" };
+  const cancelled = { _id: "slot-2026-10-06-1400", status: "cancelled" };
+  // The customer cancelled, then came anyway: the thank-you and the friend's reward hang on this
+  const past = { _id: "drafts.slot-2020-01-07-1400", slotStart: "2020-01-07T14:00" };
+  assert.deepEqual((await statusSays("completed", past, cancelled)).said, []);
+  assert.deepEqual((await statusSays("declined", draft, cancelled)).said, []);
+  // A booking holding its time, or one with no time at all, is never asked about
+  assert.deepEqual((await statusSays("confirmed", draft, { ...cancelled, status: "confirmed" })).said, []);
+  const untimed = await statusSays("confirmed", { _id: "drafts.req1" }, cancelled);
+  assert.deepEqual(untimed, { said: [], asked: [] });
+  // Never published: there is nothing to take back
+  assert.deepEqual((await statusSays("confirmed", draft, null)).said, []);
+  // Unreadable: only this one flip waits, and it says why
+  const offline = await statusSays("confirmed", draft, new Error("offline"));
+  assert.equal(offline.said.length, 1);
+  assert.match(offline.said[0], /^error: Не удалось проверить/);
+});
+
+test("a cancelled visit still ahead cannot be finished early — that would hold its time again unchecked", async () => {
+  const ahead = { _id: "drafts.slot-2099-01-06-1400", slotStart: "2099-01-06T14:00" };
+  const { said } = await statusSays("completed", ahead, { _id: "slot-2099-01-06-1400", status: "cancelled" });
+  assert.equal(said.length, 1);
+  assert.match(said[0], /^error: Визит ещё впереди, а его время уже освобождено/);
+  // Still holding its time: finishing it early takes nothing back
+  assert.deepEqual((await statusSays("completed", ahead, { _id: "slot-2099-01-06-1400", status: "confirmed" })).said, []);
+});
+
+test("a booking whose time went to another customer keeps its status locked", () => {
+  assert.equal(STATUS.readOnly({ document: { releasedAt: "2026-10-01T09:00:00.000Z", status: "cancelled" } }), true);
+  // Gave its time back, nobody took it yet: open, so it can still be finished
+  assert.equal(STATUS.readOnly({ document: { slotStart: "2026-10-06T14:00", status: "cancelled" } }), false);
   assert.match(SCHEMA, /name: "releasedAt",[\s\S]*?hidden: \(\{ document \}\) => !document\?\.releasedAt/);
   assert.match(ACTION, /const label = again \? "Записать снова"/);
 });
 
 test("the booking that holds a time is not moved onto it, whatever its status", () => {
-  assert.match(ROUTE, /if \(from\._id === slotDocumentId\(slot\)\)/);
+  assert.match(ROUTE, /const sameSlot = from\._id === slotDocumentId\(slot\);/);
+  assert.match(ROUTE, /if \(sameSlot && !releasesItsTime\(from\.status\)\) return answer\(400, "Запись уже стоит на это время\."\);/);
+  // One that gave its time back is booked again in place, after the diary said the time is free
+  assert.match(ROUTE, /\? await reholdBooking\(store, \{ from, slot, now \}\)/);
   assert.doesNotMatch(ROUTE, /from\.slotStart === slot/, "a record the diary kept has the time but not the id");
 });
 

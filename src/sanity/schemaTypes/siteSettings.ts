@@ -250,7 +250,7 @@ export const siteSettings = defineType({
       title: "Забор и доставка",
       type: "object",
       description:
-        "Сафар забирает вещь у клиента и привозит обратно. В форме записи клиент выбирает «Collect & return», вводит индекс и сразу видит цену своей зоны. Суммы в пенсах: 800 = £8.",
+        "Кристина забирает вещь у клиента и привозит обратно. В форме записи клиент выбирает «Collect & return», вводит индекс и сразу видит цену своей зоны, а время забора Кристина назначает кнопкой «🚗 Назначить забор» в заявке — из дневника или, если клиенту удобно только вне часов для примерок, в «Время вне часов дневника». Суммы в пенсах: 800 = £8.",
       fields: [
         defineField({
           name: "enabled",
@@ -341,13 +341,15 @@ export const siteSettings = defineType({
             },
           ],
         }),
+        // Not read since 3 October 2026: Kristina drives and gives each
+        // collection its time from the diary. Kept, hidden, so the windows
+        // still saved here don't show up as an unknown field.
         defineField({
           name: "windows",
-          title: "Когда Сафар ездит",
+          title: "Окна забора (больше не используются)",
           type: "array",
           of: [{ type: "string" }],
-          description:
-            "По-английски, как увидит клиент: «Tuesday 6–8pm». Клиент выбирает одно. Пустой список — время не спрашиваем, договариваетесь в переписке.",
+          hidden: true,
         }),
         defineField({
           name: "note",

@@ -9,7 +9,7 @@ import type { ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { googleReviewUrl } from "@/lib/siteSettings";
 import { BUSINESS, whatsappLink } from "@/lib/business";
-import { DEFAULT_SCHEDULE, slotLabel } from "@/lib/slots";
+import { DEFAULT_SCHEDULE, instantOf, slotDocumentId, slotLabel, spanLabel } from "@/lib/slots";
 import { fittingEvent, googleCalendarLink, icsInvite, type CalendarEvent } from "@/lib/bookingCalendar";
 import type { EmailMessage } from "@/lib/sendEmail";
 
@@ -56,8 +56,10 @@ export interface NotifiableBooking {
   movedFrom?: string;
   replyNote?: string;
   createdAt?: string;
+  /** Where a booking holding more than one slot ends: a collection, timed from the diary */
+  slotEnd?: string;
   /** Collect & return rather than a visit — see @/lib/collection */
-  collection?: { district?: string; zone?: string; window?: string; terms?: string };
+  collection?: { district?: string; zone?: string; terms?: string };
   /** A friend sent them: who, and what to take off when they pay */
   referrer?: { _ref: string };
   referredBy?: string;
@@ -97,12 +99,70 @@ export function fittingOf(booking: NotifiableBooking): CalendarEvent | null {
   });
 }
 
+/**
+ * A collection as a calendar event: the window Kristina comes to their door,
+ * so they are in. Only a time she gave it from the diary has one — a
+ * collection confirmed by typing is for reading, like a fitting's. No location:
+ * it is their own door, and the atelier's would send them somewhere.
+ */
+export function collectionEventOf(booking: NotifiableBooking): CalendarEvent | null {
+  if (!booking.collection) return null;
+  if (!booking.slotStart || !SLOT_SHAPE.test(booking.slotStart)) return null;
+  if (!booking.slotEnd || !SLOT_SHAPE.test(booking.slotEnd)) return null;
+  const span = spanLabel(booking.slotStart, booking.slotEnd);
+  if (booking.confirmedFor && booking.confirmedFor !== span) return null;
+  const start = instantOf(booking.slotStart);
+  const end = instantOf(booking.slotEnd);
+  if (!(end.getTime() > start.getTime())) return null;
+  const piece = (booking.service ?? "piece").toLowerCase();
+  return {
+    uid: `${slotDocumentId(booking.slotStart)}@beautasy.co.uk`,
+    start,
+    end,
+    title: "Beautasy: Kristina collects your piece",
+    description:
+      `Kristina from ${BUSINESS.atelierName} collects your ${piece} from your door, ${span}. ` +
+      `Have it ready, pinned where you'd like it changed, or with one that fits you well as a guide. ` +
+      `To move it, reply to the confirmation email or WhatsApp ${BUSINESS.telephone}.`,
+    location: "",
+  };
+}
+
+/**
+ * A booking as the diary's Studio actions hold it, ready for its email: the
+ * collection (so it is never written up as a visit), its window, and the note
+ * Kristina left for the customer, which was dropped on the way before.
+ */
+export function notifiableFromDiary(
+  doc: { _id: string; [field: string]: unknown },
+  slotMinutes: number
+): NotifiableBooking {
+  const text = (value: unknown) => (typeof value === "string" ? value : undefined);
+  return {
+    _id: doc._id,
+    _rev: "",
+    status: "confirmed",
+    displayName: text(doc.displayName),
+    service: text(doc.service),
+    confirmedFor: text(doc.confirmedFor),
+    slotStart: text(doc.slotStart),
+    slotEnd: text(doc.slotEnd),
+    slotMinutes,
+    movedFrom: text(doc.movedFrom),
+    replyNote: text(doc.replyNote),
+    referredBy: text(doc.referredBy),
+    referralDiscount: typeof doc.referralDiscount === "number" ? doc.referralDiscount : undefined,
+    collection:
+      doc.collection && typeof doc.collection === "object" ? (doc.collection as NotifiableBooking["collection"]) : undefined,
+  };
+}
+
 /** The same event as an .ics file on the confirmation, for Apple Calendar and Outlook. */
 export function bookingInvite(booking: NotifiableBooking, now: Date = new Date()): EmailAttachment | null {
-  const fitting = fittingOf(booking);
+  const fitting = fittingOf(booking) ?? collectionEventOf(booking);
   if (!fitting) return null;
   return {
-    filename: "beautasy-fitting.ics",
+    filename: booking.collection ? "beautasy-collection.ics" : "beautasy-fitting.ics",
     content: Buffer.from(icsInvite(fitting, now), "utf8").toString("base64"),
     // Plain: METHOD:PUBLISH is inside the file, where calendars read it
     contentType: "text/calendar",
@@ -230,15 +290,14 @@ export function bookingEmailHtml(
   // is a label from the form, and "Anna, Your Alterations is confirmed" was
   // what the first line of every confirmation said
   const service = escapeHtml((booking.service ?? "fitting").toLowerCase());
-  // A collection confirmed without a day typed in still has the window the
-  // customer chose, which is better than no time at all
-  const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? booking.collection?.window ?? "");
+  const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
 
   const reviewUrl = reviewLink || undefined;
-  // Collect & return: nobody visits, so there is no fitting to put in a calendar
+  // Collect & return: nobody visits, so the calendar holds the window Kristina
+  // comes to their door, when she gave it one from the diary
   const collection = booking.collection ?? null;
   const visit = collection ? "collection" : "appointment";
-  const fitting = status === "confirmed" && !collection ? fittingOf(booking) : null;
+  const fitting = status === "confirmed" ? (collection ? collectionEventOf(booking) : fittingOf(booking)) : null;
   const whatsappKristina = whatsappLink(
     `Hi Kristina, it's ${booking.displayName ?? ""}, about my ${visit}${
       booking.confirmedFor ? ` on ${booking.confirmedFor}` : ""
@@ -250,7 +309,9 @@ export function bookingEmailHtml(
   const heading =
     status === "confirmed"
       ? collection
-        ? "Your collection is arranged"
+        ? moved
+          ? "Your collection has moved"
+          : "Your collection is arranged"
         : moved
         ? "Your fitting has moved"
         : "You're booked in"
@@ -262,14 +323,18 @@ export function bookingEmailHtml(
   const body =
     status === "confirmed"
       ? collection
-        ? `we'll collect your ${service}${when ? ` on <strong>${when}</strong>` : ""} and bring it back when it's done.`
+        ? moved
+          ? `we'll now collect your ${service} on <strong>${when}</strong> (it was ${moved}). If the old time is in your calendar, you can delete it.`
+          : `we'll collect your ${service}${when ? ` on <strong>${when}</strong>` : ""} and bring it back when it's done.`
         : moved
         ? `your appointment for ${service} has moved to <strong>${when}</strong> (it was ${moved}). If the old time is in your calendar, you can delete it.`
         : `your appointment for ${service} is confirmed${when ? ` for <strong>${when}</strong>` : ""}.`
       : status === "completed"
       ? `thank you for trusting us with your ${service}. If it fits the way you hoped, a sentence about it${reviewUrl ? " on Google" : ""} helps the next person in Southampton find a small atelier — and means a great deal to the one pair of hands that did the work.`
       : status === "cancelled"
-      ? `your ${visit}${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked. Whenever you're ready, choosing a new time takes a minute.`
+      ? collection
+        ? `your collection${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked. Whenever you're ready, ask for a new collection and Kristina will email you a time.`
+        : `your ${visit}${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked. Whenever you're ready, choosing a new time takes a minute.`
       : `we're so sorry — we can't take your ${service}${when ? ` on ${when}` : ""} after all.`;
   const button =
     status === "completed"
@@ -281,7 +346,7 @@ export function bookingEmailHtml(
         ? { href: googleCalendarLink(fitting), label: "Add to Google Calendar" }
         : { href: whatsappKristina, label: "WhatsApp Kristina" }
       : status === "cancelled"
-      ? { href: `${SITE_URL}/atelier#book`, label: "Book another time" }
+      ? { href: `${SITE_URL}/atelier#book`, label: collection ? "Ask for a collection" : "Book another time" }
       : { href: `${SITE_URL}/atelier#book`, label: "Ask for another time" };
 
   // Under the button on a confirmation: the invite for everyone not on Google,
@@ -348,7 +413,9 @@ export function bookingEmailSubject(
   status: NotifiableStatus
 ): string {
   if (status === "confirmed") {
-    if (booking.collection) return "Your Beautasy collection is arranged 💜";
+    if (booking.collection) {
+      return booking.movedFrom ? "Your Beautasy collection has moved 💜" : "Your Beautasy collection is arranged 💜";
+    }
     return booking.movedFrom
       ? "Your Beautasy atelier appointment has moved 💜"
       : "Your Beautasy atelier appointment is confirmed 💜";
@@ -376,7 +443,7 @@ export const PENDING_QUERY = `*[
   && (!defined(releasedAt) || status in ["declined", "cancelled"])
 ] | order(createdAt desc) [0...$limit] {
   _id, _rev, status, notifiedStatus, displayName, nameSealed, emailSealed,
-  service, preferredDate, confirmedFor, slotStart, movedFrom, replyNote, createdAt,
+  service, preferredDate, confirmedFor, slotStart, slotEnd, movedFrom, replyNote, createdAt,
   referrer, referredBy, referralDiscount, collection
 }`;
 

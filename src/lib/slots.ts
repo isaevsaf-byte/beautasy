@@ -247,3 +247,102 @@ export function generateSlots(options: {
 export function slotIsOffered(days: SlotDay[], start: string): boolean {
   return days.some((day) => day.slots.some((slot) => slot.start === start));
 }
+
+/* ─── Spans ─── */
+
+/*
+ * A fitting holds one slot. A collection holds more: Kristina drives to the
+ * customer's door and back, and nobody can be pinned in the atelier while she
+ * is out. So such a booking keeps where it ends as well as where it starts,
+ * and every slot in between counts as taken.
+ */
+
+/** "2026-10-06T14:00" and 90 minutes → "2026-10-06T15:30". Spans stay inside one day's hours. */
+export function addMinutesLocal(localMinute: string, minutes: number): string {
+  const [date, time] = localMinute.split("T");
+  return `${date}T${hhmmOf(minutesOf(time) + minutes)}`;
+}
+
+/**
+ * Every slot a booking holds: just its start, or each slot from its start up
+ * to its end — 14:00 to 15:00 in half-hour slots holds 14:00 and 14:30.
+ */
+export function startsCovered(start: string, end: string | undefined | null, slotMinutes: number): string[] {
+  if (!end || !(slotMinutes > 0)) return [start];
+  const [date, time] = start.split("T");
+  const [endDate, endTime] = end.split("T");
+  if (endDate !== date || !time || !endTime) return [start];
+  const covered: string[] = [];
+  for (let minute = minutesOf(time); minute < minutesOf(endTime); minute += slotMinutes) {
+    covered.push(`${date}T${hhmmOf(minute)}`);
+  }
+  return covered.length > 0 ? covered : [start];
+}
+
+/** Where a span of `minutes` from `start` ends, rounded up to whole slots: the diary has no half slots. */
+export function spanEnd(start: string, minutes: number, slotMinutes: number): string {
+  return addMinutesLocal(start, Math.max(1, Math.ceil(minutes / slotMinutes)) * slotMinutes);
+}
+
+/**
+ * The starts from which a span of `minutes` fits: every slot it would hold is
+ * free and on the same day.
+ *
+ * `alsoFree` are the slots the booking being changed holds itself (see heldBy
+ * in @/lib/diary). They count as free for it, and those still ahead of
+ * `nowMs` can be starts too, so a collection can move half an hour either way,
+ * or keep its start and take longer, without tripping over its own time.
+ *
+ * The diary leaves out a day with no free slot, and a collection that fills
+ * the rest of its day is exactly that — so its own days are put back, or it
+ * could never be shortened or shifted inside its own trip.
+ */
+export function spansOffered(
+  days: SlotDay[],
+  minutes: number,
+  slotMinutes: number,
+  alsoFree: string[] = [],
+  nowMs?: number
+): SlotDay[] {
+  const own = alsoFree.filter((start) => nowMs === undefined || instantOf(start).getTime() > nowMs);
+  const byDate = new Map(days.map((day) => [day.date, day]));
+  for (const start of own) {
+    const date = start.split("T")[0];
+    if (!byDate.has(date)) byDate.set(date, { date, label: dayLabel(date), slots: [] });
+  }
+  return [...byDate.values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((day) => {
+      const free = new Set([...day.slots.map((slot) => slot.start), ...alsoFree]);
+      const candidates = [
+        ...day.slots,
+        ...own
+          .filter((start) => start.startsWith(`${day.date}T`) && !day.slots.some((slot) => slot.start === start))
+          .map((start) => ({ start, label: timeLabel(start.split("T")[1]) })),
+      ].sort((a, b) => a.start.localeCompare(b.start));
+      const slots = candidates.filter((slot) =>
+        startsCovered(slot.start, spanEnd(slot.start, minutes, slotMinutes), slotMinutes).every((start) => free.has(start))
+      );
+      return { ...day, slots };
+    })
+    .filter((day) => day.slots.length > 0);
+}
+
+/** Whether a span sent back is one the diary can hold. */
+export function spanIsOffered(
+  days: SlotDay[],
+  start: string,
+  minutes: number,
+  slotMinutes: number,
+  alsoFree: string[] = [],
+  nowMs?: number
+): boolean {
+  return slotIsOffered(spansOffered(days, minutes, slotMinutes, alsoFree, nowMs), start);
+}
+
+/** "Tuesday 6 October, between 2:00pm and 3:00pm" — a collection is a window, not a moment. */
+export function spanLabel(start: string, end: string): string {
+  const [date, time] = start.split("T");
+  const endTime = end.split("T")[1] ?? time;
+  return `${dayLabel(date)}, between ${timeLabel(time)} and ${timeLabel(endTime)}`;
+}
