@@ -3,6 +3,7 @@ import { getStripeInstance } from "@/lib/stripe";
 import Stripe from "stripe";
 import { ownLinkFor, referralSettings } from "@/lib/referrals";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { giftCardDetails, paymentSettled } from "@/lib/orderLines";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,16 @@ export function receiptIsFresh(createdSeconds: number, now: number): boolean {
 
 export interface Receipt {
   paid: true;
+  /** A gift card is emailed, not sewn or posted, and the page says so */
+  kind: "order" | "giftCard";
   friendsCode: string | null;
   friendsOffer: { give: number; get: number } | null;
   reference: string;
   total: number;
   shippingTotal: number;
   discountTotal: number;
-  items: { id: string; slug?: string; name: string; quantity: number; amountTotal: number }[];
+  /** amountSubtotal is before any gift card or discount, amountTotal after it */
+  items: { id: string; slug?: string; name: string; quantity: number; amountSubtotal: number; amountTotal: number }[];
 }
 
 /**
@@ -48,7 +52,7 @@ export interface Receipt {
  */
 export function receiptOf(input: {
   sessionId: string;
-  session: Pick<Stripe.Checkout.Session, "amount_total" | "total_details" | "line_items">;
+  session: Pick<Stripe.Checkout.Session, "amount_total" | "total_details" | "line_items" | "metadata">;
   friendsCode: string | null;
   friendsOffer: { give: number; get: number } | null;
 }): Receipt {
@@ -57,6 +61,7 @@ export function receiptOf(input: {
 
   return {
     paid: true,
+    kind: giftCardDetails(session, lineItems) ? "giftCard" : "order",
     friendsCode: input.friendsCode,
     friendsOffer: input.friendsOffer,
     // Short, human-quotable reference — the full session id is unwieldy
@@ -76,6 +81,7 @@ export function receiptOf(input: {
         slug: meta?.slug,
         name: item.description ?? "Item",
         quantity: item.quantity ?? 1,
+        amountSubtotal: item.amount_subtotal ?? item.amount_total ?? 0,
         amountTotal: item.amount_total ?? 0,
       };
     }),
@@ -106,7 +112,7 @@ export async function GET(req: NextRequest) {
 
     // An old session gets the page's generic thank-you, and does not mint a
     // Friends link or report a purchase a second time
-    if (session.payment_status !== "paid" || !receiptIsFresh(session.created, Date.now())) {
+    if (!paymentSettled(session.payment_status) || !receiptIsFresh(session.created, Date.now())) {
       return NextResponse.json({ paid: false }, { status: 200 });
     }
 

@@ -58,8 +58,13 @@ export default async function OrdersPage() {
             <div className="flex flex-col items-center justify-center text-center py-20 bg-lavender-bg/40 rounded-2xl border border-lavender-soft/30">
               <Package size={40} className="text-lavender-soft mb-4" />
               <p className="font-serif text-lg mb-2">No orders yet</p>
-              <p className="text-sm text-charcoal-light mb-6">
+              <p className="text-sm text-charcoal-light mb-2">
                 When you place an order, it will show up here.
+              </p>
+              {/* Orders are linked to an account only when it was signed in
+                  at checkout, and most people check out as guests */}
+              <p className="text-sm text-charcoal-light mb-6">
+                Checked out as a guest? Your order details are in your confirmation email.
               </p>
               <Link
                 href="/shop"
