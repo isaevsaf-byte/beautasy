@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import ShopContent from "../../ShopContent";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
+import { SITE_URL } from "@/lib/site";
+import { collectionDescription } from "@/lib/collectionMeta";
 
 export const revalidate = 60;
 
@@ -64,7 +66,10 @@ export async function generateMetadata({
   if (!collection) return { title: "Collection Not Found | Beautasy" };
   return {
     title: `${collection.name}${collection.season ? ` — ${collection.season}` : ""} | Beautasy`,
-    description: `Shop the ${collection.name} collection${collection.season ? ` (${collection.season})` : ""} — handmade pieces crafted with love in Southampton.`,
+    description: collectionDescription(collection.name, collection.season),
+    // ?sort= and ?size= show the same collection in another order: one
+    // address for all of them, as on /shop and the category pages
+    alternates: { canonical: `${SITE_URL}/shop/collection/${slug}` },
   };
 }
 
@@ -77,11 +82,14 @@ export default async function CollectionPage({
   searchParams: Promise<{ category?: string; sort?: string; size?: string; ready?: string }>;
 }) {
   const { slug } = await params;
+  // Read on the server for the filters, so this page is rendered per visit
+  // (see the note in ../../[param]/page.tsx); the collection and its pieces
+  // are cached for a minute rather than fetched each time
   const filters = await searchParams;
 
   const [collection, sanityProducts] = await Promise.all([
-    sanityClient.fetch(COLLECTION_QUERY, { slug }).catch(() => null),
-    sanityClient.fetch(COLLECTION_PRODUCTS_QUERY, { slug }).catch(() => []),
+    sanityClient.fetch(COLLECTION_QUERY, { slug }, { next: { revalidate: 60 } }).catch(() => null),
+    sanityClient.fetch(COLLECTION_PRODUCTS_QUERY, { slug }, { next: { revalidate: 60 } }).catch(() => []),
   ]);
 
   if (!collection) notFound();
