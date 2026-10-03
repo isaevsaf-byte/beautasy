@@ -218,8 +218,10 @@ function customerEmailHtml(
 }
 
 /* ─── Kristina notification email (HTML) ─── */
+// Exported for its test: what she reads is what she sews to, so it is
+// rendered there rather than read off this file's source.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function adminEmailHtml(session: any, items: Stripe.LineItem[], internationalRate: number): string {
+export function adminEmailHtml(session: any, items: Stripe.LineItem[], internationalRate: number): string {
   const address = formatAddress(shippingOf(session));
   // The bag decides the region before Stripe, but a shopper can still pick the
   // wrong one. Flag a non-UK address that paid less than the international
