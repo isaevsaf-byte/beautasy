@@ -23,6 +23,7 @@ import {
   isAttributionConflict,
   listPartners,
   partnerContacts,
+  partnerTerms,
   readPartnerActivity,
   updatePartner,
   type PartnerRecord,
@@ -42,8 +43,9 @@ export const dynamic = "force-dynamic";
  *   { token, action: "forBooking", bookingId }         → who a booking is put down to
  *   { token, action: "attribute", bookingId, partnerId }→ put it down to a partner, or to nobody
  *
- * Why it is a route: a partner's email and phone are sealed, its clients'
- * payments are sealed in «Касса», and only the server has the key. The
+ * Why it is a route: a partner's owner, percentage, email and phone are
+ * sealed, its clients' payments are sealed in «Касса», and only the server
+ * has the key. The
  * Studio's session token is spent on asking Sanity whether the caller is a
  * member of the project — the same door as /api/studio/ledger — before
  * anything is read or written.
@@ -60,14 +62,16 @@ function answer(status: number, error: string) {
 
 const ID = /^[A-Za-z0-9._-]{1,128}$/;
 
+/** A partner for the Studio: its terms opened here, since the pane has no key to open them itself. */
 function summaryOf(doc: PartnerRecord): PartnerSummary {
+  const terms = partnerTerms(doc);
   return {
     id: doc._id,
     name: doc.partner.name,
     slug: doc.partner.slug,
     kind: doc.partner.kind,
-    commissionPercent: doc.partner.commissionPercent ?? 0,
-    ...(doc.partner.contactName ? { contactName: doc.partner.contactName } : {}),
+    commissionPercent: terms.commissionPercent,
+    ...(terms.contactName ? { contactName: terms.contactName } : {}),
     ...(doc.emailHint ? { emailHint: doc.emailHint } : {}),
     active: doc.active !== false,
     link: partnerLink(doc.partner.slug),
@@ -128,7 +132,7 @@ export async function POST(req: NextRequest) {
         thisMonth,
         partners: partners.map((p) => {
           const a = activity.get(p._id) ?? { bookings: [], orders: [], rewards: [] };
-          const statement = partnerStatement({ month, commissionPercent: p.partner.commissionPercent ?? 0, ...a });
+          const statement = partnerStatement({ month, commissionPercent: partnerTerms(p).commissionPercent, ...a });
           return { ...summaryOf(p), totals: statement.totals, allTime: statement.allTime };
         }),
       });
@@ -161,14 +165,19 @@ export async function POST(req: NextRequest) {
       if (!doc) return answer(404, "Этого партнёра больше нет.");
       const [activity, credit] = await Promise.all([readPartnerActivity([doc._id]), creditOf(doc)]);
       const a = activity.get(doc._id) ?? { bookings: [], orders: [], rewards: [] };
-      const statement = partnerStatement({ month, commissionPercent: doc.partner.commissionPercent ?? 0, ...a });
+      const terms = partnerTerms(doc);
+      const statement = partnerStatement({ month, commissionPercent: terms.commissionPercent, ...a });
       return NextResponse.json({
         month,
         thisMonth,
         partner: { ...summaryOf(doc), ...partnerContacts(doc) },
         statement,
         credit,
-        report: partnerReportText({ partner: doc.partner, statement, creditBalance: credit?.balance ?? null }),
+        report: partnerReportText({
+          partner: { name: doc.partner.name, slug: doc.partner.slug, ...terms },
+          statement,
+          creditBalance: credit?.balance ?? null,
+        }),
       });
     }
 

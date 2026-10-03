@@ -4,8 +4,9 @@ import type { PartnerSummary, PartnerStatement, PartnerTotals } from "@/lib/part
 /**
  * The Studio's line to «Партнёры»: /api/studio/partners, spoken with the
  * Studio's own session token (see diaryClient.ts for why that token). A
- * partner's email and phone are sealed and its clients' payments are in
- * «Касса», so the Studio reads and writes partners only through here.
+ * partner's owner, percentage, email and phone are sealed and its clients'
+ * payments are in «Касса», so the Studio reads and writes partners only
+ * through here — the dataset itself shows the Studio none of them.
  */
 
 export interface PartnersReply {

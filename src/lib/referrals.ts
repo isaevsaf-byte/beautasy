@@ -48,8 +48,34 @@ const KRISTINA_EMAIL = "hello@beautasy.co.uk";
 
 export type ReferrerSource = "order" | "booking" | "page" | "partner";
 
-/** A partner's business, as its link document keeps it — see @/lib/partners. */
-export type PartnerOnReferrer = PartnerInfo & { phoneSealed?: string };
+/**
+ * A partner's business, as its link document keeps it — see @/lib/partners.
+ * The name, link and kind are in the open; the owner's name, the percentage
+ * and the phone are sealed. `contactName` and `commissionPercent` in the open
+ * are only what a partner made before they were sealed may still carry: the
+ * next save in «Партнёры» seals them and takes the open copies off.
+ */
+export type PartnerOnReferrer = PartnerInfo & {
+  phoneSealed?: string;
+  contactNameSealed?: string;
+  commissionSealed?: string;
+  contactName?: string;
+  commissionPercent?: number;
+};
+
+/** The owner's first name, opened — server only, like everything sealed. */
+export function partnerContactName(partner: PartnerOnReferrer | undefined | null): string | undefined {
+  if (!partner) return undefined;
+  return open(partner.contactNameSealed) ?? partner.contactName ?? undefined;
+}
+
+/** The partner's percentage, opened; 0 when there is none or it cannot be read. */
+export function partnerCommission(partner: PartnerOnReferrer | undefined | null): number {
+  if (!partner) return 0;
+  const opened = open(partner.commissionSealed);
+  const value = opened !== null ? Number(opened) : partner.commissionPercent;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+}
 
 export interface Referrer {
   _id: string;
@@ -57,7 +83,6 @@ export interface Referrer {
   emailHint?: string;
   emailFingerprint: string;
   emailSealed?: string;
-  codeHint?: string;
   codeSealed?: string;
   active?: boolean;
   rewardsCount?: number;
@@ -68,7 +93,7 @@ export interface Referrer {
   partner?: PartnerOnReferrer;
 }
 
-export const REFERRER_FIELDS = `_id, displayName, emailHint, emailFingerprint, emailSealed, codeHint, codeSealed, active, rewardsCount, creditCard, lastRewardAt, source, partner`;
+export const REFERRER_FIELDS = `_id, displayName, emailHint, emailFingerprint, emailSealed, codeSealed, active, rewardsCount, creditCard, lastRewardAt, source, partner`;
 
 /** Links and credit are keyed and sealed, so neither can exist without the key. */
 export function referralsConfigured(): boolean {
@@ -119,6 +144,11 @@ export async function findReferrerById(id: string): Promise<Referrer | null> {
  *
  * Returns the code in the clear so it can go straight into an email or onto
  * the page; the document keeps only the fingerprint and a sealed copy.
+ *
+ * Not even its last four characters. A code is the person's name and four
+ * more, NAME-XXXX (@/lib/referralRules), and the name is in the open as
+ * `displayName` — so "codeHint", the last four, rebuilt a working link from
+ * the public dataset. The Studio tells two Annas apart by their email hint.
  */
 export async function ensureReferrer(input: {
   firstName?: string | null;
@@ -140,7 +170,6 @@ export async function ensureReferrer(input: {
     emailHint: maskEmail(email),
     emailFingerprint: fp,
     emailSealed: seal(email),
-    codeHint: code.slice(-4),
     codeFingerprint: fingerprint(code),
     codeSealed: seal(code),
     source: input.source,
@@ -655,7 +684,7 @@ async function emailReward(
           : `${friendName} came to the atelier — ${pounds(settings.referrerReward)} is yours 💜`,
       html: rewardEmailHtml({
         // A salon is greeted by its owner's name, not by the salon's
-        referrerName: referrer.partner?.contactName ?? referrer.displayName,
+        referrerName: partnerContactName(referrer.partner) ?? referrer.displayName,
         friendName,
         kind: input.kind,
         credit,
