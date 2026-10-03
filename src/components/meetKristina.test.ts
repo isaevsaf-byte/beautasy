@@ -260,3 +260,26 @@ test("a photo too small to stay sharp gets a warning, and a big one none", () =>
   assert.match(String(photoSizeProblem({ asset: { _ref: "image-abc-1080x1350-jpg" } })), /1080×1350.*1200/);
   assert.equal(photoSizeProblem(undefined), true, "nothing uploaded is not a size problem");
 });
+
+test("before she uploads, the Studio says how to send a photo without where it was taken — never to use the phone's original", () => {
+  const group = (siteSettings.fields as Field[]).find((f) => f.name === "meetKristina");
+  const fields = Object.fromEntries((group?.fields ?? []).map((f) => [f.name, f]));
+  for (const name of ["photo", "atWork"]) {
+    const description = fields[name].description ?? "";
+    // The original off the phone is the file that carries the home's address
+    assert.doesNotMatch(description, /оригинал/i, name);
+    assert.match(description, /«Поделиться» → «Параметры».*«Геопозиция»/, `${name}: how to leave the place out`);
+  }
+  assert.doesNotMatch(String(photoSizeProblem({ asset: { _ref: "image-abc-1080x1350-jpg" } })), /оригинал/i);
+});
+
+test("the Studio names the button Kristina will really find, and asks for no client in the photo at work", () => {
+  const group = (siteSettings.fields as Field[]).find((f) => f.name === "meetKristina");
+  const fields = Object.fromEntries((group?.fields ?? []).map((f) => [f.name, f]));
+  // The Russian Studio's tooltip on the crop button; the circle is only inside it
+  assert.match(fields.photo.description ?? "", /значок обрезки \(подсказка «Обрезать изображение»\).*кружок на лицо/);
+  assert.doesNotMatch(fields.photo.description ?? "", /значок с кружком/);
+  // Anyone else in it would be on nine public pages
+  assert.match(fields.atWork.description ?? "", /на манекене.*без клиентов в кадре/);
+  assert.doesNotMatch(fields.atWork.description ?? "", /на примерке/);
+});

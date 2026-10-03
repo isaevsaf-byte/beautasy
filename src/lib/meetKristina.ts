@@ -115,7 +115,7 @@ export function photoSizeProblem(value: unknown): string | true {
   const shorter = Math.min(size.width, size.height);
   return shorter >= MEET_KRISTINA_MIN_SIDE
     ? true
-    : `Фото маленькое: ${size.width}×${size.height}. Нужно не меньше ${MEET_KRISTINA_MIN_SIDE} пикселей по короткой стороне, иначе на телефоне оно будет мыльным. Возьмите оригинал с телефона, а не скриншот или фото из WhatsApp.`;
+    : `Фото маленькое: ${size.width}×${size.height}. Нужно не меньше ${MEET_KRISTINA_MIN_SIDE} пикселей по короткой стороне, иначе на телефоне оно будет мыльным. Нужен снимок в полном размере, а не скриншот или фото из WhatsApp.`;
 }
 
 function photoFrom(raw: unknown, fallbackAlt: string): MeetKristinaPhoto | null {

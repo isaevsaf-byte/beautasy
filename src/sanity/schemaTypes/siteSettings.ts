@@ -2,6 +2,7 @@ import { defineField, defineType } from "sanity";
 import { isNextdoorUrl } from "@/lib/siteReviews";
 import { collectionTerms, postcodeDistrict } from "@/lib/collection";
 import { penceRules } from "./product";
+import { portraitLocationRule } from "@/sanity/photoLocationRule";
 import { MEET_KRISTINA_DEFAULT_TEXT, MEET_KRISTINA_MIN_SIDE, MEET_KRISTINA_TEXT_MAX, photoSizeProblem } from "@/lib/meetKristina";
 
 /** Southampton clock hours, shown as 22:00 rather than 22. */
@@ -9,6 +10,14 @@ const HOURS = Array.from({ length: 24 }, (_, hour) => ({
   title: `${String(hour).padStart(2, "0")}:00`,
   value: hour,
 }));
+
+/**
+ * Said before Kristina uploads a photo of herself, not after: the file is
+ * public the moment it lands, and a phone photo taken at home carries the
+ * home's address. portraitLocationRule stops one that still does.
+ */
+const WITHOUT_LOCATION =
+  "Сначала уберите из фото место съёмки, иначе по файлу найдут ваш дом: на iPhone «Поделиться» → «Параметры» вверху → выключите «Геопозиция», затем AirDrop на компьютер или «Сохранить в Файлы» и загружайте эту копию. Или отдайте фото Сафару. Фото с местом съёмки Studio не опубликует.";
 
 export const siteSettings = defineType({
   name: "siteSettings",
@@ -418,7 +427,7 @@ export const siteSettings = defineType({
           title: "Главное фото: портрет",
           type: "image",
           options: { hotspot: true },
-          description: `Портрет при дневном свете: у окна, без вспышки, лицом к камере, можно с улыбкой. Не меньше ${MEET_KRISTINA_MIN_SIDE} пикселей по короткой стороне — оригинал с телефона подходит, скриншот и фото из WhatsApp нет. На сайте фото вертикальное: после загрузки нажмите на значок с кружком и поставьте кружок на лицо, тогда лицо не обрежется ни на телефоне, ни на компьютере.`,
+          description: `Портрет при дневном свете: у окна, без вспышки, лицом к камере, можно с улыбкой. Не меньше ${MEET_KRISTINA_MIN_SIDE} пикселей по короткой стороне — скриншот и фото из WhatsApp для этого слишком маленькие. ${WITHOUT_LOCATION} На сайте фото вертикальное: после загрузки нажмите на значок обрезки (подсказка «Обрезать изображение») и перетащите кружок на лицо — тогда лицо не обрежется ни на телефоне, ни на компьютере.`,
           fields: [
             defineField({
               name: "alt",
@@ -429,14 +438,16 @@ export const siteSettings = defineType({
               validation: (Rule) => Rule.required().max(160),
             }),
           ],
-          validation: (Rule) => Rule.custom(photoSizeProblem).warning(),
+          // Located: stopped, the home address must never be published. Small:
+          // only questioned, a slightly soft portrait is still better than none
+          validation: (Rule) => [Rule.custom(portraitLocationRule), Rule.custom(photoSizeProblem).warning()],
         }),
         defineField({
           name: "atWork",
           title: "Второе фото: за работой (по желанию)",
           type: "image",
           options: { hotspot: true },
-          description: `Вы за швейной машинкой или с булавками на примерке — руки и ткань крупно. Тоже не меньше ${MEET_KRISTINA_MIN_SIDE} пикселей по короткой стороне. Встаёт рядом с портретом; без портрета не показывается.`,
+          description: `Вы за швейной машинкой или с булавками на манекене — руки и ткань крупно, без клиентов в кадре. Тоже не меньше ${MEET_KRISTINA_MIN_SIDE} пикселей по короткой стороне. ${WITHOUT_LOCATION} Встаёт рядом с портретом; без портрета не показывается.`,
           fields: [
             defineField({
               name: "alt",
@@ -446,7 +457,9 @@ export const siteSettings = defineType({
               validation: (Rule) => Rule.required().max(160),
             }),
           ],
-          validation: (Rule) => Rule.custom(photoSizeProblem).warning(),
+          // Located: stopped, the home address must never be published. Small:
+          // only questioned, a slightly soft portrait is still better than none
+          validation: (Rule) => [Rule.custom(portraitLocationRule), Rule.custom(photoSizeProblem).warning()],
         }),
         defineField({
           name: "text",
