@@ -4,16 +4,19 @@ import { evaluate, parse } from "groq-js";
 import {
   FIELD_LIMITS,
   FUTURE_HOLDS_QUERY,
+  REPEAT_REQUEST_QUERY,
   acceptedService,
   filledHoneypot,
+  heldBySameCustomer,
   postcodeFits,
   readBookingFields,
+  sameAnswerAgain,
 } from "./bookingRequest";
 import { LOCAL_SERVICES } from "./localServices";
 
 /**
- * What the public booking route takes from anyone, and how many times one
- * address may hold. The route itself is run whole in
+ * What the public booking route takes from anyone, and how it tells the same
+ * customer asking twice from somebody new. The route itself is run whole in
  * src/app/api/atelier-booking/bookingFlow.test.ts.
  */
 
@@ -125,4 +128,76 @@ test("only booked times still ahead, still held and this customer's own are coun
   // Saturday 3 October, 10:00 in Southampton: this morning's 9:30 has gone
   assert.equal(await run(FUTURE_HOLDS_QUERY, dataset, { fingerprint: MINE, now: "2026-10-03T10:00" }), 2);
   assert.equal(await run(FUTURE_HOLDS_QUERY, dataset, { fingerprint: "fp-bea", now: "2026-10-03T10:00" }), 1);
+});
+
+const NOW = Date.parse("2026-10-03T10:00:00.000Z");
+const since = new Date(NOW - 15 * 60_000).toISOString();
+const request = (id: string, fields: Record<string, unknown>) => ({
+  _id: id,
+  _type: "atelierBooking",
+  emailFingerprint: MINE,
+  service: "Repairs",
+  status: "new",
+  createdAt: new Date(NOW - 5 * 60_000).toISOString(),
+  ...fields,
+});
+
+test("a request with no time is the same one again only from the same address, for the same service, within fifteen minutes", async () => {
+  const params = { fingerprint: MINE, service: "Repairs", since, collection: false, asked: null };
+  const found = (dataset: Record<string, unknown>[], over: Record<string, unknown> = {}) =>
+    run(REPEAT_REQUEST_QUERY, dataset, { ...params, ...over });
+
+  assert.equal((await found([request("r1", {})]))?._id, "r1");
+  assert.equal(await found([request("r1", { createdAt: new Date(NOW - 16 * 60_000).toISOString() })]), null, "older than the window");
+  assert.equal(await found([request("r1", { service: "Alterations" })]), null, "another service is another request");
+  assert.equal(await found([request("r1", { emailFingerprint: "fp-bea" })]), null);
+  assert.equal(await found([request("r1", { status: "declined" })]), null);
+  assert.equal(await found([request("r1", { slotStart: "2026-10-06T14:00" })]), null, "a booked time is matched by its slot instead");
+  assert.equal(await found([request("r1", { collection: { district: "SO17" } })]), null, "a fitting request is not a collection");
+  assert.equal((await found([request("r1", { collection: { district: "SO17" } })], { collection: true }))?._id, "r1");
+  assert.equal(await found([request("drafts.r1", {})]), null);
+  // The newest copy is the one answered from
+  const two = [request("r1", {}), request("r2", { createdAt: new Date(NOW - 60_000).toISOString() })];
+  assert.equal((await found(two))?._id, "r2");
+});
+
+test("a picked time the diary could not hold is the same request again only for that time", async () => {
+  const kept = request("r1", { preferredDate: "Tuesday 6 October at 2:00pm" });
+  const params = { fingerprint: MINE, service: "Repairs", since, collection: false };
+  assert.equal((await run(REPEAT_REQUEST_QUERY, [kept], { ...params, asked: "Tuesday 6 October at 2:00pm" }))?._id, "r1");
+  assert.equal(await run(REPEAT_REQUEST_QUERY, [kept], { ...params, asked: "Tuesday 6 October at 3:00pm" }), null);
+});
+
+test("the booking on a slot is this customer's own only while it holds the time", () => {
+  const held = holding("slot-2026-10-06-1400", { slotStart: "2026-10-06T14:00" });
+  assert.equal(heldBySameCustomer(held, MINE), true);
+  assert.equal(heldBySameCustomer(held, "fp-bea"), false, "somebody else's fitting");
+  assert.equal(heldBySameCustomer({ ...held, status: "cancelled" }, MINE), false, "a time given back is free to book again");
+  assert.equal(heldBySameCustomer({ ...held, _type: "order" }, MINE), false);
+  assert.equal(heldBySameCustomer(null, MINE), false);
+});
+
+test("the answer given again is the answer the first request got", () => {
+  assert.deepEqual(
+    sameAnswerAgain({
+      _id: "slot-2026-10-06-1400",
+      slotStart: "2026-10-06T14:00",
+      confirmedFor: "Tuesday 6 October at 2:00pm",
+      referralDiscount: 5,
+      referredBy: "Maria",
+    }),
+    {
+      ok: true,
+      emailed: true,
+      confirmedFor: "Tuesday 6 October at 2:00pm",
+      referral: { applied: true, discount: 5, referredBy: "Maria" },
+    }
+  );
+  // A request: "Request sent!", with no time it does not hold
+  assert.deepEqual(sameAnswerAgain({ _id: "r1", preferredDate: "Tuesday 6 October at 2:00pm" }), { ok: true, emailed: true });
+  assert.deepEqual(sameAnswerAgain({ _id: "r1", collection: { terms: "Free" } }), {
+    ok: true,
+    emailed: true,
+    collection: { terms: "Free", when: null },
+  });
 });

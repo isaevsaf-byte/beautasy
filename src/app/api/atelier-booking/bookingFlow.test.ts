@@ -268,3 +268,55 @@ test("a cancelled time, or one already past, does not count against the next boo
   assert.equal((await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T10:00` }))).status, 201);
   assert.equal((await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T11:00` }))).status, 201);
 });
+
+/* ─── The same request, sent again ─── */
+
+test("a booking sent again after its answer was lost gets the same answer, and no second booking or email", async () => {
+  const day = openDiary();
+  const first = await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T10:00` }));
+  assert.equal(first.status, 201);
+  const firstAnswer = await first.json();
+  assert.equal(emails.length, 2);
+
+  const again = await POST(request({ ...ANNA, email: " Anna@Example.com", service: "Alterations", slot: `${day}T10:00` }));
+  assert.equal(again.status, 201, "told their own time had just been taken");
+  const answer = await again.json();
+  assert.equal(answer.ok, true);
+  assert.equal(answer.confirmedFor, firstAnswer.confirmedFor);
+  assert.equal(bookings().length, 1);
+  assert.equal(emails.length, 2, "a second confirmation went out");
+
+  // Somebody else reaching for the same time is still told it has gone
+  const other = await POST(request({ ...ANNA, email: "bea@example.com", service: "Alterations", slot: `${day}T10:00` }));
+  assert.equal(other.status, 409);
+  assert.equal((await other.json()).slotTaken, true);
+});
+
+test("pressed twice at once, one booking is made and both presses hear it went through", async () => {
+  const day = openDiary();
+  const body = { ...ANNA, service: "Bridal fitting", slot: `${day}T14:00` };
+  const answers = await Promise.all([POST(request(body)), POST(request(body))]);
+  assert.deepEqual(answers.map((res) => res.status), [201, 201]);
+  assert.equal(bookings().length, 1);
+  assert.equal(emails.length, 2, "one email to Kristina and one confirmation");
+});
+
+test("a request with no time sent again within fifteen minutes is the same request; after that it is a new one", async () => {
+  openDiary();
+  const body = { ...ANNA, service: "Repairs", preferredDate: "2026-11-02" };
+  assert.equal((await POST(request(body))).status, 201);
+  const again = await POST(request(body));
+  assert.equal(again.status, 201);
+  assert.deepEqual(await again.json(), { ok: true, emailed: true });
+  assert.equal(bookings().length, 1);
+  assert.equal(emails.length, 2);
+
+  // Another service is another request
+  assert.equal((await POST(request({ ...body, service: "Alterations" }))).status, 201);
+  assert.equal(bookings().length, 2);
+
+  // Sixteen minutes on, the same words are a new request
+  for (const doc of bookings()) doc.createdAt = new Date(Date.now() - 16 * 60_000).toISOString();
+  assert.equal((await POST(request(body))).status, 201);
+  assert.equal(bookings().length, 3);
+});

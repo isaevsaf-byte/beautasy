@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car } from "lucide-react";
+import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car, MessageCircle } from "lucide-react";
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
 import { durationLabel, slotIsOffered } from "@/lib/slots";
-import { FIELD_LIMITS, HONEYPOT_FIELD } from "@/lib/bookingForm";
+import { FIELD_LIMITS, HONEYPOT_FIELD, NO_ANSWER, sendBooking, whatsappAboutBooking } from "@/lib/bookingForm";
 import { WHEN_MAX, onItsWayTo, postcodeDistrict, type CollectionOffer } from "@/lib/collection";
 
 /**
@@ -25,6 +25,31 @@ const FIELD_CLASS =
 interface Slot {
   start: string;
   label: string;
+}
+
+/**
+ * What a customer whose booking got no answer sees in place of the browser's
+ * "Load failed": what probably happened, that trying again is safe, and
+ * Kristina's WhatsApp one tap away with the booking already described.
+ */
+export function NoAnswer({ whatsapp }: { whatsapp: string }) {
+  return (
+    <div
+      role="alert"
+      className="sm:col-span-2 rounded-xl border border-lavender-soft/40 bg-lavender-bg/70 px-4 py-3 text-sm text-charcoal"
+    >
+      <p>{NO_ANSWER}</p>
+      <a
+        href={whatsapp}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-charcoal/20 bg-white text-xs tracking-wider uppercase font-medium hover:border-lavender transition-colors"
+      >
+        <MessageCircle size={14} aria-hidden="true" />
+        WhatsApp Kristina
+      </a>
+    </div>
+  );
 }
 interface SlotDay {
   date: string;
@@ -77,6 +102,8 @@ export default function AtelierBookingForm({
   const [trap, setTrap] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  // No answer came back at all: said in plain words, with WhatsApp beside it
+  const [unanswered, setUnanswered] = useState(false);
 
   // Collect & return
   const [mode, setMode] = useState<"fitting" | "collect">("fitting");
@@ -176,29 +203,40 @@ export default function AtelierBookingForm({
 
     setStatus("loading");
     setError(null);
+    setUnanswered(false);
     try {
-      const res = await fetch("/api/atelier-booking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          email,
-          phone,
-          service,
-          notes,
-          [HONEYPOT_FIELD]: trap,
-          ...(collecting
-            ? { collection: { postcode, ...(collectWhen.trim() ? { when: collectWhen } : {}) } }
-            : slot
-            ? { slot }
-            : { preferredDate }),
-          ...(friend ? { referralCode: friend.code } : {}),
-        }),
+      const reply = await sendBooking({
+        name,
+        email,
+        phone,
+        service,
+        notes,
+        [HONEYPOT_FIELD]: trap,
+        ...(collecting
+          ? { collection: { postcode, ...(collectWhen.trim() ? { when: collectWhen } : {}) } }
+          : slot
+          ? { slot }
+          : { preferredDate }),
+        ...(friend ? { referralCode: friend.code } : {}),
       });
-      const data = await res.json();
 
-      if (!res.ok) {
-        if (data?.slotTaken) {
+      // The connection dropped, or what came back was not the booking's answer.
+      // Trying again is safe: the same request sent twice is booked once.
+      if (!reply.reached) {
+        setUnanswered(true);
+        setStatus("error");
+        return;
+      }
+      const data = reply.data as {
+        error?: string;
+        slotTaken?: boolean;
+        confirmedFor?: string;
+        collection?: { terms: string; when: string | null };
+        referral?: { applied: true; discount: number; referredBy?: string } | { applied: false; reason?: string | null };
+      };
+
+      if (!reply.ok) {
+        if (data.slotTaken) {
           // Somebody got there first — show the diary as it is now
           setPicked(null);
           await loadSlots();
@@ -582,7 +620,7 @@ export default function AtelierBookingForm({
             : "Request Booking"}
         </button>
         <AnimatePresence>
-          {error && (
+          {error && !unanswered && (
             <motion.p
               role="alert"
               initial={{ opacity: 0 }}
@@ -595,6 +633,8 @@ export default function AtelierBookingForm({
           )}
         </AnimatePresence>
       </div>
+
+      {unanswered && <NoAnswer whatsapp={whatsappAboutBooking({ name, service, slot, collecting })} />}
     </form>
   );
 }

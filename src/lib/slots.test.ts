@@ -6,6 +6,7 @@ import {
   slotIsOffered,
   instantOf,
   localDateOf,
+  localMinuteOf,
   timeLabel,
   dayLabel,
   slotLabel,
@@ -388,4 +389,13 @@ test("Christmas Day and Boxing Day stay shut even when she works bank holidays; 
   assert.ok(!working.includes("2026-12-25"));
   assert.ok(!working.includes("2026-12-26"));
   assert.ok(working.includes("2026-12-28"));
+});
+
+test("this minute is written in Southampton's wall clock, the way a slot is, summer and winter", () => {
+  // Compared as text with slotStart, so the shape has to be exactly a slot's
+  assert.equal(localMinuteOf(new Date("2026-07-01T08:05:00Z")), "2026-07-01T09:05");
+  assert.equal(localMinuteOf(new Date("2026-12-01T23:30:00Z")), "2026-12-01T23:30");
+  // Half past eleven at night in UTC is already tomorrow in a British summer
+  assert.equal(localMinuteOf(new Date("2026-07-01T23:30:00Z")), "2026-07-02T00:30");
+  assert.equal(localMinuteOf(new Date("2026-07-01T23:00:00Z")), "2026-07-02T00:00", "midnight is 00, never 24");
 });

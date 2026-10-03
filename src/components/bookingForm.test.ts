@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createElement, type FC } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import AtelierBookingForm from "./AtelierBookingForm";
-import { FIELD_LIMITS, HONEYPOT_FIELD } from "../lib/bookingForm";
+import AtelierBookingForm, { NoAnswer } from "./AtelierBookingForm";
+import { FIELD_LIMITS, HONEYPOT_FIELD, NO_ANSWER } from "../lib/bookingForm";
 import { readBookingFields } from "../lib/bookingRequest";
 
 /**
@@ -51,4 +53,21 @@ test("the wedding page's form arrives with its own service chosen, and the route
   const wedding = renderToStaticMarkup(createElement(Form, { defaultService: "Wedding Dress Alterations" }));
   assert.match(wedding, /<option value="Wedding Dress Alterations" selected="">/);
   assert.ok(readBookingFields({ name: "Anna", email: "anna@example.com", service: "Wedding Dress Alterations" }).ok);
+});
+
+test("no answer at all is said plainly, with Kristina's WhatsApp one tap away", () => {
+  const link = "https://wa.me/447729741116?text=Hi%20Kristina";
+  const block = renderToStaticMarkup(createElement(NoAnswer, { whatsapp: link }));
+  assert.match(block, /role="alert"/);
+  assert.ok(block.includes(NO_ANSWER.replace(/'/g, "&#x27;")), "the line is not the one tested in src/lib/bookingForm.test.ts");
+  assert.match(block, /<a href="https:\/\/wa\.me\/447729741116\?text=Hi%20Kristina" target="_blank" rel="noopener noreferrer"/);
+  assert.match(block, /WhatsApp Kristina/);
+});
+
+test("the form shows that block, not the browser's words, when no answer comes back", () => {
+  const source = readFileSync(join(process.cwd(), "src", "components", "AtelierBookingForm.tsx"), "utf8");
+  assert.match(source, /const reply = await sendBooking\(/);
+  assert.match(source, /if \(!reply\.reached\) \{\s*setUnanswered\(true\);/);
+  assert.match(source, /\{unanswered && <NoAnswer whatsapp=\{whatsappAboutBooking\(\{ name, service, slot, collecting \}\)\} \/>\}/);
+  assert.doesNotMatch(source, /await fetch\("\/api\/atelier-booking"/, "the form posts around the helper that knows a dropped connection");
 });

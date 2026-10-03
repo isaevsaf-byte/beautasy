@@ -1,6 +1,6 @@
 import { ATELIER_SERVICES, LEGACY_SERVICES } from "@/lib/atelierServices";
 import { FIELD_LIMITS, HONEYPOT_FIELD } from "@/lib/bookingForm";
-import { HOLDING_STATUSES } from "@/lib/diary";
+import { HOLDING_STATUSES, releasesItsTime } from "@/lib/diary";
 import { LOCAL_SERVICES } from "@/lib/localServices";
 
 /**
@@ -147,3 +147,80 @@ export const FUTURE_HOLDS_QUERY = `count(*[
 
 export const TOO_MANY_HOLDS =
   "You already have two appointments booked with us. To add another, reply to one of your confirmation emails or message Kristina on WhatsApp.";
+
+/* ─── The same request, sent again ─── */
+
+/**
+ * How long a request with no time counts as the same one sent again. Long
+ * enough for a phone that lost signal in a shop doorway to try again, short
+ * enough that a second request on another day is its own.
+ */
+export const REPEAT_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * A request with no booked time from the same address, for the same service,
+ * in the last fifteen minutes — the same request, sent again because the
+ * answer to the first never arrived. `$asked` is the time a customer picked
+ * that the diary could not hold, kept as a request in its place (see the
+ * route): sent again, it is the same request, and nothing else is.
+ */
+export const REPEAT_REQUEST_QUERY = `*[
+  _type == "atelierBooking"
+  && !(_id in path("drafts.**"))
+  && emailFingerprint == $fingerprint
+  && service == $service
+  && createdAt > $since
+  && !defined(slotStart)
+  && status == "new"
+  && defined(collection) == $collection
+  && ($asked == null || preferredDate == $asked)
+] | order(createdAt desc)[0]`;
+
+/** A booking as the repeat check reads it back. */
+export interface EarlierBooking {
+  _id: string;
+  _type?: string;
+  status?: string;
+  slotStart?: string;
+  emailFingerprint?: string;
+  confirmedFor?: string;
+  preferredDate?: string;
+  collection?: { terms?: string } | null;
+  referredBy?: string;
+  referralDiscount?: number;
+}
+
+/**
+ * Whether the booking holding a slot is this customer's own — the same
+ * request sent again after its answer was lost, rather than somebody else's
+ * fitting. Only one still holding its time counts: a cancelled one is a time
+ * given back, and the diary hands it out again.
+ */
+export function heldBySameCustomer(holder: EarlierBooking | null | undefined, fingerprint: string): boolean {
+  return (
+    !!holder &&
+    holder._type === "atelierBooking" &&
+    typeof holder.slotStart === "string" &&
+    holder.emailFingerprint === fingerprint &&
+    !releasesItsTime(holder.status)
+  );
+}
+
+/**
+ * The answer the first request got, given again: the same "you're booked in"
+ * or "request sent", so a customer who pressed the button twice — or whose
+ * phone lost the first answer — sees one booking, gets one email, and is not
+ * told their own time has been taken.
+ */
+export function sameAnswerAgain(earlier: EarlierBooking): Record<string, unknown> {
+  const booked = typeof earlier.slotStart === "string" && typeof earlier.confirmedFor === "string";
+  return {
+    ok: true,
+    emailed: true,
+    ...(booked ? { confirmedFor: earlier.confirmedFor } : {}),
+    ...(earlier.collection ? { collection: { terms: earlier.collection.terms ?? "", when: null } } : {}),
+    ...(typeof earlier.referralDiscount === "number" && earlier.referralDiscount > 0
+      ? { referral: { applied: true, discount: earlier.referralDiscount, referredBy: earlier.referredBy } }
+      : {}),
+  };
+}
