@@ -68,6 +68,15 @@ export const BUSINESS = {
   atelierId: `${SITE_URL}/alterations#business`,
 } as const;
 
+/**
+ * How a visit works, in the one line every page uses for it. The atelier is in
+ * Kristina's home: nobody can drop in, and the address is not published — it
+ * goes to each customer once a time is agreed. Pages used to say "Drop by our
+ * atelier" and "No appointment needed for a repair", which sent people to a
+ * door they had no address for.
+ */
+export const BY_APPOINTMENT = "By appointment — Kristina sends the address before your visit";
+
 /** A WhatsApp link that opens with the message already typed. */
 export function whatsappLink(text: string): string {
   return `https://wa.me/${BUSINESS.whatsappNumber}?text=${encodeURIComponent(text)}`;

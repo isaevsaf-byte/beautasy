@@ -1,4 +1,5 @@
 import type { ReviewTopic } from "./siteReviews";
+import { BY_APPOINTMENT } from "./business";
 
 /**
  * The local landing pages under /alterations.
@@ -35,6 +36,11 @@ export interface LocalService {
   slug: string;
   /** The one keyword this page is for, as a person would say it */
   h1: string;
+  /**
+   * At most 60 characters with "Beautasy" in them, the job first and the name
+   * last: Google cuts a longer title off, and the part it cut was the name.
+   * A price in it must be one the page's own list carries.
+   */
   metaTitle: string;
   metaDescription: string;
   /** Small label above the heading */
@@ -74,7 +80,7 @@ export interface LocalService {
  */
 export const CAMPAIGN_HOOK = {
   title: "Bring the thing you never wear",
-  body: "Not sure it can be saved? Bring it in for a free ten-minute look. If it can't be rescued you'll be told straight away, and it costs you nothing to find out.",
+  body: "Not sure it can be saved? Choose a time for a free ten-minute look, or send Kristina a photo first. If it can't be rescued you'll be told straight away, and it costs you nothing to find out.",
 };
 
 /** The seasonal banner, only while its season is actually on. */
@@ -90,7 +96,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     slug: "wedding-dress-southampton",
     reviewTopics: ["alterations"],
     h1: "Wedding Dress Alterations in Southampton",
-    metaTitle: "Wedding Dress Alterations Southampton | Bridal Fitting — Beautasy",
+    metaTitle: "Wedding Dress Alterations Southampton | Beautasy Atelier",
     metaDescription:
       "Wedding dress alterations in Southampton by an experienced seamstress. Taking in, hemming, bustles, straps and cups — three fittings, from £150. Book a bridal fitting.",
     eyebrow: "Bridal",
@@ -152,7 +158,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     slug: "school-uniform-southampton",
     reviewTopics: ["alterations", "repairs"],
     h1: "School Uniform Alterations & Hemming in Southampton",
-    metaTitle: "School Uniform Alterations Southampton | Hemming from £8 — Beautasy",
+    metaTitle: "School Uniform Alterations Southampton | From £8 — Beautasy",
     metaDescription:
       "School trousers, skirts and blazers hemmed and taken in, in Southampton. From £8 per item, bundle price for five. Turned around in 3–5 days.",
     eyebrow: "Back to school",
@@ -176,8 +182,8 @@ export const LOCAL_SERVICES: LocalService[] = [
     turnaround: "3–5 days. Same week during term time.",
     steps: [
       {
-        title: "Drop it off",
-        text: "Bring the uniform with the child if you can, or with a pair of trousers that already fits well as a guide.",
+        title: "Choose a time",
+        text: `${BY_APPOINTMENT}. Bring the uniform with the child if you can, or a pair of trousers that already fits well as a guide.`,
       },
       {
         title: "Pinned and priced",
@@ -264,7 +270,7 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
       {
         q: "My dress is too small — can it be let out?",
-        a: "Sometimes. It depends on how much seam allowance the maker left inside. Bring it in and we'll look together before you buy another one.",
+        a: "Sometimes. It depends on how much seam allowance the maker left inside. Choose a time and we'll look together before you buy another one.",
       },
     ],
     related: ["wedding-dress-southampton", "zip-replacement-southampton"],
@@ -323,7 +329,7 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
       {
         q: "Do I need an appointment?",
-        a: "For small jobs you can drop in during opening hours. Booking a slot means you're seen straight away rather than waiting.",
+        a: `Yes. ${BY_APPOINTMENT}. Choose a time on this page and you're seen straight away, with no waiting.`,
       },
     ],
     related: ["school-uniform-southampton", "zip-replacement-southampton"],
@@ -336,7 +342,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     slug: "zip-replacement-southampton",
     reviewTopics: ["repairs"],
     h1: "Zip Replacement & Repairs in Southampton",
-    metaTitle: "Zip Replacement Southampton | Coats, Dresses, Boots — Beautasy",
+    metaTitle: "Zip Replacement Southampton | Coats & Dresses — Beautasy",
     metaDescription:
       "Broken zip replaced on coats, dresses, jeans and bags in Southampton. From £14, most jobs back within a week. Bring the thing you've stopped wearing.",
     eyebrow: "Repairs",
@@ -355,8 +361,8 @@ export const LOCAL_SERVICES: LocalService[] = [
     turnaround: "5–7 days. Coats a little longer.",
     steps: [
       {
-        title: "Bring it in",
-        text: "No appointment needed for a repair. It's quoted while you wait.",
+        title: "Choose a time",
+        text: `${BY_APPOINTMENT}. The repair is quoted while you're there.`,
       },
       {
         title: "Matched, not just replaced",
@@ -382,7 +388,7 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
       {
         q: "Do you fix moth holes and tears?",
-        a: "Small tears and seam splits from £12. Moth holes in knitwear depend on the yarn — bring it and we'll look.",
+        a: "Small tears and seam splits from £12. Moth holes in knitwear depend on the yarn — send Kristina a photo or choose a time and we'll look.",
       },
     ],
     related: ["jeans-and-trousers-southampton", "curtains-and-home-southampton"],
@@ -395,7 +401,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     slug: "curtains-and-home-southampton",
     reviewTopics: ["home"],
     h1: "Curtain Alterations & Home Textiles in Southampton",
-    metaTitle: "Curtain Alterations Southampton | Hemming & Cushions — Beautasy",
+    metaTitle: "Curtain Hemming & Alterations Southampton | Beautasy",
     metaDescription:
       "Curtains shortened and re-headed, cushion covers and roman blinds made to measure in Southampton. From £20 per panel. Measuring advice included.",
     eyebrow: "Home",

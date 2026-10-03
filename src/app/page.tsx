@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import HomeContent from "./HomeContent";
 import WorkStrip from "@/components/work/WorkStrip";
 import ReviewStrip from "@/components/reviews/ReviewStrip";
+import MeetKristina from "@/components/MeetKristina";
 import { getWork } from "@/lib/getWork";
 import { getReviews } from "@/lib/getReviews";
-import { nextdoorPageUrl } from "@/lib/siteSettings";
+import { meetKristina, nextdoorPageUrl } from "@/lib/siteSettings";
 import { showPiece } from "@/lib/workMedia";
 import { SITE_URL } from "@/lib/site";
 import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
@@ -37,7 +38,10 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
+  // Asked alongside the rest, not after it
+  const kristinaAsSet = meetKristina();
   const [work, reviews, nextdoorUrl] = await Promise.all([getWork(), getReviews(), nextdoorPageUrl()]);
+  const kristina = await kristinaAsSet;
   // The newest of everything: the shop's pieces are made in the same room
   const recent = work.pieces.slice(0, 4).map(showPiece);
   // The newest three, whether about a fitting, curtains or a piece from the shop
@@ -54,6 +58,7 @@ export default async function Home() {
       }
       reviews={kindWords.length > 0 ? <ReviewStrip reviews={kindWords} nextdoorUrl={nextdoorUrl} /> : null}
       priceFrom={priceFrom}
+      meetKristina={kristina ? <MeetKristina content={kristina} /> : null}
     />
   );
 }

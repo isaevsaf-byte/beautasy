@@ -1,5 +1,5 @@
-import { defineArrayMember, defineField, defineType, type ValidationContext } from "sanity";
-import { carriesLocation } from "@/lib/photoLocation";
+import { defineArrayMember, defineField, defineType } from "sanity";
+import { photoLocationRule } from "@/sanity/photoLocationRule";
 import { WORK_CATEGORY_OPTIONS, WORK_SERVICE_OPTIONS, WORK_SHELF_OPTIONS, workCategoryTitle } from "@/sanity/workLabels";
 
 /**
@@ -11,35 +11,6 @@ import { WORK_CATEGORY_OPTIONS, WORK_SERVICE_OPTIONS, WORK_SHELF_OPTIONS, workCa
  * before any check could turn it back.
  */
 const MAX_VIDEO_MB = 40;
-
-export const PHOTO_LOCATION_PROBLEM =
-  "В этом фото всё ещё записано место съёмки (GPS). Если снимали дома, это ваш домашний адрес, а исходный файл может скачать кто угодно. Уберите фото отсюда и положите его в папку Gallery для Сафара: импорт удалит место съёмки из файла. (И скажите Сафару, чтобы он удалил сам загруженный файл.)";
-
-/** Answers per uploaded file: a file never changes, so neither does its answer */
-const checked = new Map<string, Promise<boolean>>();
-
-/**
- * Turns back a gallery photo whose file says where it was taken — see
- * @/lib/photoLocation. Reads the first 256 KB of the original, where the
- * metadata sits. If the file can't be read the photo is let through: a check
- * that fails closed would stop Kristina publishing at all on a bad connection.
- */
-async function photoLocationRule(value: unknown, context: ValidationContext): Promise<string | true> {
-  const ref = (value as { asset?: { _ref?: string } } | undefined)?.asset?._ref;
-  if (!ref) return true;
-  let answer = checked.get(ref);
-  if (!answer) {
-    answer = (async () => {
-      const url = await context.getClient({ apiVersion: "2026-02-13" }).fetch<string | null>(`*[_id == $ref][0].url`, { ref });
-      if (!url) return false;
-      const response = await fetch(url, { headers: { Range: "bytes=0-262143" } });
-      if (!response.ok) return false;
-      return carriesLocation(new Uint8Array(await response.arrayBuffer()));
-    })().catch(() => false);
-    checked.set(ref, answer);
-  }
-  return (await answer) ? PHOTO_LOCATION_PROBLEM : true;
-}
 
 /**
  * What is wrong with an uploaded video, in words for Kristina — or null. Only

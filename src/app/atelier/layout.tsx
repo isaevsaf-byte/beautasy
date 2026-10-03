@@ -4,7 +4,9 @@ import { SITE_URL } from "@/lib/site";
 const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
-  title: "Beautasy Atelier | Clothing Alterations & Tailoring in Southampton",
+  // The work first and the name last, in the 60 characters Google shows
+  // whole: the old title ran to 66, and the part cut off was "Southampton"
+  title: "Alterations & Tailoring in Southampton | Beautasy Atelier",
   // One address for the page however it was reached — ?utm_source=google,
   // #book — so Google does not count the links as separate pages
   alternates: { canonical: `${siteUrl}/atelier` },
