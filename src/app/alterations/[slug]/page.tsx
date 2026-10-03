@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, Clock, MapPin, Phone, Mail, MessageCircle } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Phone, Mail, Tag } from "lucide-react";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
 import MeetKristina from "@/components/MeetKristina";
+import PriceFirst from "@/components/PriceFirst";
+import StickyBookBar from "@/components/StickyBookBar";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK, getLocalService, seasonalNote } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
 import { getShelves } from "@/lib/getShelves";
 import { stockedLinks } from "@/lib/shelves";
 import { jsonLdScript } from "@/lib/jsonLd";
-import { BUSINESS, openingHoursSpecification, postalAddress, whatsappLink } from "@/lib/business";
+import { BUSINESS, BY_APPOINTMENT, openingHoursSpecification, postalAddress, whatsappLink } from "@/lib/business";
 import WorkStrip from "@/components/work/WorkStrip";
 import ReviewStrip from "@/components/reviews/ReviewStrip";
 import { getWork } from "@/lib/getWork";
@@ -21,8 +23,12 @@ import { collectionOffer } from "@/lib/collection";
 import { reviewsForTopics } from "@/lib/siteReviews";
 import { piecesForService } from "@/lib/work";
 import { showPiece } from "@/lib/workMedia";
+import { lowestPrice } from "@/lib/siteCopy";
 
 export const revalidate = 86400;
+
+/** The hero's "Choose a time", which the phone's booking bar waits to see scroll away */
+const HERO_BOOK_ID = "service-hero-book";
 
 export function generateStaticParams() {
   return LOCAL_SERVICES.map((s) => ({ slug: s.slug }));
@@ -167,6 +173,9 @@ export default async function LocalServicePage({
     .filter((s): s is NonNullable<typeof s> => Boolean(s));
 
   const seasonal = seasonalNote(service);
+  // The cheapest line on this page's own price list, so the hero can't
+  // promise a price the list below doesn't have
+  const priceFrom = lowestPrice(service.prices);
   const whatsapp = whatsappLink(
     `Hi Kristina, I'd like a quote for ${service.serviceName.toLowerCase()} — here's a photo of the garment:`
   );
@@ -205,9 +214,43 @@ export default async function LocalServicePage({
           <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-5">
             {service.eyebrow} · Southampton
           </p>
-          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl leading-tight mb-7 text-balance">
+          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl leading-tight mb-5 text-balance">
             {service.h1}
           </h1>
+
+          {/* What it costs and how to start, straight under the heading: on a
+              phone the button used to sit below two paragraphs and the
+              campaign box, a full screen down from where Google lands you */}
+          {priceFrom && (
+            <p className="flex items-center gap-2 mb-6 text-[15px] text-charcoal">
+              <Tag size={15} aria-hidden="true" className="shrink-0 text-lavender-ink" />
+              <span>
+                From <span className="font-medium tabular-nums">{priceFrom}</span> ·{" "}
+                <a href="#prices" className="underline underline-offset-4 decoration-charcoal/30 hover:decoration-charcoal transition-colors">
+                  see every price
+                </a>
+              </span>
+            </p>
+          )}
+
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+            <a
+              id={HERO_BOOK_ID}
+              href="#book"
+              className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+            >
+              Choose a time
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+            </a>
+            <a
+              href={BUSINESS.telephoneHref}
+              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+            >
+              <Phone size={15} aria-hidden="true" />
+              Call the atelier
+            </a>
+          </div>
+          <PriceFirst whatsapp={whatsapp} className="mt-4 mb-9" />
 
           {seasonal && (
             <p className="inline-flex items-start gap-2 mb-7 px-4 py-2.5 rounded-2xl bg-lavender-bg border border-lavender-soft/60 text-sm text-charcoal">
@@ -230,40 +273,20 @@ export default async function LocalServicePage({
             <p className="text-sm text-charcoal-light leading-relaxed">{CAMPAIGN_HOOK.body}</p>
           </div>
 
-          <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-7">
-            <a
-              href="#book"
-              className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
-            >
-              Book a fitting
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
-            </a>
-            <a
-              href={whatsapp}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
-            >
-              <MessageCircle size={15} aria-hidden="true" />
-              Send a photo on WhatsApp
-            </a>
-            <a
-              href={BUSINESS.telephoneHref}
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
-            >
-              <Phone size={15} aria-hidden="true" />
-              Call the atelier
-            </a>
-          </div>
-
-          <p className="flex items-center gap-2 mt-6 text-sm text-charcoal-light">
-            <Clock size={14} aria-hidden="true" />
-            {BUSINESS.hours.label}
-          </p>
+          <ul className="mt-6 space-y-2 text-sm text-charcoal-light">
+            <li className="flex items-center gap-2">
+              <Clock size={14} aria-hidden="true" className="shrink-0" />
+              {BUSINESS.hours.label}
+            </li>
+            <li className="flex items-start gap-2">
+              <MapPin size={14} aria-hidden="true" className="shrink-0 mt-0.5" />
+              {BY_APPOINTMENT}
+            </li>
+          </ul>
         </section>
 
         {/* ──── Prices ──── */}
-        <section className="max-w-4xl mx-auto px-6 mt-20">
+        <section id="prices" className="max-w-4xl mx-auto px-6 mt-20 scroll-mt-24">
           <h2 className="font-serif text-2xl sm:text-3xl mb-2">Prices</h2>
           <p className="text-sm text-charcoal-light mb-7 flex items-center gap-2">
             <Clock size={14} aria-hidden="true" />
@@ -434,6 +457,7 @@ export default async function LocalServicePage({
         </section>
       </main>
 
+      <StickyBookBar heroId={HERO_BOOK_ID} whatsapp={whatsapp} />
       <FooterWrapper />
     </>
   );

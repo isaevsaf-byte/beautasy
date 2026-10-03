@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Scissors,
@@ -13,7 +13,6 @@ import {
   CalendarCheck,
   Ruler,
   SparkleIcon,
-  MessageCircle,
 } from "lucide-react";
 import BeautasyLogo from "@/components/BeautasyLogo";
 import Image from "next/image";
@@ -21,9 +20,11 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
+import StickyBookBar from "@/components/StickyBookBar";
+import PriceFirst from "@/components/PriceFirst";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { LOCAL_SERVICES } from "@/lib/localServices";
-import { BUSINESS, whatsappLink as whatsappWith } from "@/lib/business";
+import { BUSINESS, BY_APPOINTMENT, whatsappLink as whatsappWith } from "@/lib/business";
 import type { CollectionOffer } from "@/lib/collection";
 
 /* ─────────────── Data ─────────────── */
@@ -84,10 +85,11 @@ const steps = [
   {
     icon: CalendarCheck,
     step: "01",
-    title: "Book or Visit",
+    title: "Choose a Time",
     subtitle: "Southampton",
-    description:
-      "Drop by our atelier or book an appointment online. We\u2019ll discuss your needs over a cup of tea.",
+    // The workroom is in Kristina's home: there is no door to drop by, and
+    // the address goes to each customer once a time is agreed
+    description: `${BY_APPOINTMENT}. We'll talk through what you need over a cup of tea.`,
   },
   {
     icon: Ruler,
@@ -105,6 +107,9 @@ const steps = [
       "Your beautifully altered piece is ready. Try it on, smile, and take it home.",
   },
 ];
+
+/** The hero's "Choose a time", which the phone's booking bar waits to see scroll away */
+const HERO_BOOK_ID = "atelier-hero-book";
 
 /* ─────────────── Components ─────────────── */
 
@@ -158,35 +163,6 @@ export default function AtelierContent({
   const photoLink = whatsappWith("Hi Kristina, I'd like a quote. Here's a photo of the garment:");
   const emailLink = "mailto:hello@beautasy.co.uk";
 
-  // Google sends people who search for the atelier here, and the booking
-  // form is seven screens down on a phone. The hero now has the button, and
-  // once it has scrolled away a bar keeps it in reach until the form is on
-  // screen — and not after, so it never sits over the form or the footer.
-  const heroCtaRef = useRef<HTMLAnchorElement>(null);
-  const bookRef = useRef<HTMLElement>(null);
-  const [showBookBar, setShowBookBar] = useState(false);
-  useEffect(() => {
-    // Worked out from where things are on every scroll, not remembered from
-    // crossings: a jump from the footer back up the page crosses nothing, and
-    // an observer that only hears about crossings would leave the bar hidden.
-    const place = () => {
-      const hero = heroCtaRef.current;
-      const book = bookRef.current;
-      if (!hero || !book) return;
-      const heroGone = hero.getBoundingClientRect().bottom < 0;
-      const formBelow = book.getBoundingClientRect().top > window.innerHeight;
-      setShowBookBar(heroGone && formBelow);
-    };
-    const frame = requestAnimationFrame(place);
-    window.addEventListener("scroll", place, { passive: true });
-    window.addEventListener("resize", place);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", place);
-      window.removeEventListener("resize", place);
-    };
-  }, []);
-
   const activeCategory = pricingCategories.find((c) => c.id === activeTab)!;
 
   return (
@@ -235,33 +211,23 @@ export default function AtelierContent({
                   custom={2}
                   className="text-lg text-charcoal-light leading-relaxed mb-8 max-w-md"
                 >
-                  Expert alterations and repairs, crafted by hand in our
-                  Southampton atelier. Every stitch made with care, so your
-                  clothes feel as good as you do.
+                  Expert alterations and repairs by Kristina, a seamstress
+                  working by hand in her Southampton atelier. Every stitch made
+                  with care, so your clothes feel as good as you do.
                 </motion.p>
 
-                <motion.div
-                  variants={fadeUp}
-                  custom={3}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 mb-8"
-                >
+                {/* Booking first; for the person who wants a price before a
+                    time, the photo on WhatsApp right under it */}
+                <motion.div variants={fadeUp} custom={3} className="mb-8">
                   <a
-                    ref={heroCtaRef}
+                    id={HERO_BOOK_ID}
                     href="#book"
-                    className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                    className="group flex w-full sm:inline-flex sm:w-auto items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
                   >
                     Choose a time
                     <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                   </a>
-                  <a
-                    href={photoLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
-                  >
-                    <MessageCircle size={16} />
-                    Send a photo
-                  </a>
+                  <PriceFirst whatsapp={photoLink} className="mt-4" />
                 </motion.div>
 
                 <motion.div
@@ -666,7 +632,7 @@ export default function AtelierContent({
         </section>
 
         {/* ──── Booking Form ──── */}
-        <section ref={bookRef} id="book" className="py-20 md:py-28 bg-lavender-bg scroll-mt-24">
+        <section id="book" className="py-20 md:py-28 bg-lavender-bg scroll-mt-24">
           <div className="max-w-2xl mx-auto px-6">
             <motion.div
               initial="hidden"
@@ -747,7 +713,7 @@ export default function AtelierContent({
                     href="#book"
                     className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
                   >
-                    Book a Fitting Appointment
+                    Choose a time
                     <ArrowRight
                       size={16}
                       className="group-hover:translate-x-1 transition-transform"
@@ -766,30 +732,10 @@ export default function AtelierContent({
         </section>
       </main>
 
-      {/* Phones only: the way to the booking form, while it is still below */}
-      <div
-        inert={!showBookBar}
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center gap-3 transition-transform duration-300 ${
-          showBookBar ? "translate-y-0" : "translate-y-full"
-        }`}
-      >
-        <a
-          href="#book"
-          className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium"
-        >
-          Choose a time
-          <ArrowRight size={16} />
-        </a>
-        <a
-          href={photoLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Send Kristina a photo on WhatsApp"
-          className="w-12 h-12 shrink-0 rounded-full border border-charcoal/15 flex items-center justify-center text-charcoal"
-        >
-          <MessageCircle size={18} />
-        </a>
-      </div>
+      {/* Google sends people who search for the atelier here, and the booking
+          form is seven screens down on a phone. Once the hero's button has
+          scrolled away, a bar keeps it in reach until the form is on screen. */}
+      <StickyBookBar heroId={HERO_BOOK_ID} whatsapp={photoLink} />
       <Footer />
     </>
   );

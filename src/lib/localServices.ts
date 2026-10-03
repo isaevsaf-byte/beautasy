@@ -1,4 +1,5 @@
 import type { ReviewTopic } from "./siteReviews";
+import { BY_APPOINTMENT } from "./business";
 
 /**
  * The local landing pages under /alterations.
@@ -176,8 +177,8 @@ export const LOCAL_SERVICES: LocalService[] = [
     turnaround: "3–5 days. Same week during term time.",
     steps: [
       {
-        title: "Drop it off",
-        text: "Bring the uniform with the child if you can, or with a pair of trousers that already fits well as a guide.",
+        title: "Choose a time",
+        text: `${BY_APPOINTMENT}. Bring the uniform with the child if you can, or a pair of trousers that already fits well as a guide.`,
       },
       {
         title: "Pinned and priced",
@@ -323,7 +324,7 @@ export const LOCAL_SERVICES: LocalService[] = [
       },
       {
         q: "Do I need an appointment?",
-        a: "For small jobs you can drop in during opening hours. Booking a slot means you're seen straight away rather than waiting.",
+        a: `Yes. ${BY_APPOINTMENT}. Choose a time on this page and you're seen straight away, with no waiting.`,
       },
     ],
     related: ["school-uniform-southampton", "zip-replacement-southampton"],
@@ -355,8 +356,8 @@ export const LOCAL_SERVICES: LocalService[] = [
     turnaround: "5–7 days. Coats a little longer.",
     steps: [
       {
-        title: "Bring it in",
-        text: "No appointment needed for a repair. It's quoted while you wait.",
+        title: "Choose a time",
+        text: `${BY_APPOINTMENT}. The repair is quoted while you're there.`,
       },
       {
         title: "Matched, not just replaced",

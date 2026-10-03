@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Clock, MapPin, Phone } from "lucide-react";
+import { ArrowRight, Clock, MapPin, MessageCircle, Phone } from "lucide-react";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import MeetKristina from "@/components/MeetKristina";
@@ -14,6 +14,7 @@ import {
   googleServiceCatalog,
   openingHoursSpecification,
   postalAddress,
+  whatsappLink,
 } from "@/lib/business";
 
 export const revalidate = 86400;
@@ -49,6 +50,7 @@ export const metadata: Metadata = {
 
 export default async function AlterationsHub() {
   const kristina = await meetKristina();
+  const whatsapp = whatsappLink("Hi Kristina, I'd like a quote. Here's a photo of the garment:");
 
   const localBusinessLd = {
     "@context": "https://schema.org",
@@ -99,20 +101,31 @@ export default async function AlterationsHub() {
               worn.
             </p>
             <p className="text-charcoal-light leading-relaxed">
-              Beautasy is a one-woman atelier in Southampton. Everything below is
-              altered by the same pair of hands, quoted before any work starts, and
-              usually back with you inside a week.
+              Beautasy is a one-woman atelier in Southampton: Kristina, a seamstress
+              working from her home workroom. Everything below is altered by the same
+              pair of hands, quoted before any work starts, and usually back with you
+              inside a week.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 mt-9">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-9">
             <Link
               href="/atelier#book"
               className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
             >
-              Book a fitting
+              Choose a time
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
             </Link>
+            {/* A photo is how most prices start: the hub had only the phone */}
+            <a
+              href={whatsapp}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+            >
+              <MessageCircle size={15} aria-hidden="true" />
+              Send a photo on WhatsApp
+            </a>
             <a
               href={BUSINESS.telephoneHref}
               className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
@@ -123,7 +136,7 @@ export default async function AlterationsHub() {
           </div>
 
           <p className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-7 text-sm text-charcoal-light">
-            <span className="inline-flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Southampton and across Hampshire</span>
+            <span className="inline-flex items-center gap-2"><MapPin size={14} aria-hidden="true" /> Southampton and across Hampshire · by appointment</span>
             <span className="inline-flex items-center gap-2"><Clock size={14} aria-hidden="true" /> {BUSINESS.hours.label}</span>
           </p>
         </section>
@@ -166,8 +179,8 @@ export default async function AlterationsHub() {
         <section className="max-w-4xl mx-auto px-6 mt-16">
           <h2 className="font-serif text-2xl sm:text-3xl mb-3">Everything we alter and tailor</h2>
           <p className="text-sm text-charcoal-light mb-7 max-w-xl leading-relaxed">
-            If what you need isn&apos;t on the list, bring it in anyway — most things
-            can be taken in, let out, shortened or mended.
+            If what you need isn&apos;t on the list, send Kristina a photo anyway — most
+            things can be taken in, let out, shortened or mended.
           </p>
           <ul className="flex flex-wrap gap-2.5 list-none p-0">
             {GOOGLE_SERVICES.map((service) => (
@@ -195,7 +208,7 @@ export default async function AlterationsHub() {
               href="/atelier#book"
               className="inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
             >
-              Book a free fitting
+              Choose a time
               <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
