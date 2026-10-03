@@ -22,6 +22,54 @@ export function bookBarShown({
   return heroBottom < 0 && bookTop > viewportHeight;
 }
 
+/** What the bar needs from the browser: where things are on the page, the screen's height, and its scrolling */
+export interface BookBarWindow {
+  document: { getElementById(id: string): { getBoundingClientRect(): { top: number; bottom: number } } | null };
+  innerHeight: number;
+  addEventListener(type: "scroll" | "resize", listener: () => void, options?: { passive?: boolean }): void;
+  removeEventListener(type: "scroll" | "resize", listener: () => void): void;
+  requestAnimationFrame(callback: () => void): number;
+  cancelAnimationFrame(handle: number): void;
+}
+
+/**
+ * Tells `show` whether the bar should be up — once the page has drawn, then on
+ * every scroll and resize — until the function it returns is called.
+ *
+ * Worked out from where things are on every scroll, not remembered from
+ * crossings: a jump from the footer back up the page crosses nothing, and an
+ * observer that only hears about crossings would leave the bar hidden. The
+ * form's top edge is the one that counts: the bar goes as soon as the form
+ * starts to show, so it never covers its fields or its button.
+ */
+export function followBookBar(
+  win: BookBarWindow,
+  heroId: string,
+  bookId: string,
+  show: (shown: boolean) => void
+): () => void {
+  const place = () => {
+    const hero = win.document.getElementById(heroId);
+    const book = win.document.getElementById(bookId);
+    if (!hero || !book) return;
+    show(
+      bookBarShown({
+        heroBottom: hero.getBoundingClientRect().bottom,
+        bookTop: book.getBoundingClientRect().top,
+        viewportHeight: win.innerHeight,
+      })
+    );
+  };
+  const frame = win.requestAnimationFrame(place);
+  win.addEventListener("scroll", place, { passive: true });
+  win.addEventListener("resize", place);
+  return () => {
+    win.cancelAnimationFrame(frame);
+    win.removeEventListener("scroll", place);
+    win.removeEventListener("resize", place);
+  };
+}
+
 /**
  * The way to the booking form on a phone, kept in reach while it is still
  * several screens down: on /atelier, and on every service page, where people
@@ -42,31 +90,7 @@ export default function StickyBookBar({
   whatsapp: string;
 }) {
   const [shown, setShown] = useState(false);
-  useEffect(() => {
-    // Worked out from where things are on every scroll, not remembered from
-    // crossings: a jump from the footer back up the page crosses nothing, and
-    // an observer that only hears about crossings would leave the bar hidden.
-    const place = () => {
-      const hero = document.getElementById(heroId);
-      const book = document.getElementById(bookId);
-      if (!hero || !book) return;
-      setShown(
-        bookBarShown({
-          heroBottom: hero.getBoundingClientRect().bottom,
-          bookTop: book.getBoundingClientRect().top,
-          viewportHeight: window.innerHeight,
-        })
-      );
-    };
-    const frame = requestAnimationFrame(place);
-    window.addEventListener("scroll", place, { passive: true });
-    window.addEventListener("resize", place);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", place);
-      window.removeEventListener("resize", place);
-    };
-  }, [heroId, bookId]);
+  useEffect(() => followBookBar(window, heroId, bookId, setShown), [heroId, bookId]);
 
   return (
     // Phones only: the way to the booking form, while it is still below
