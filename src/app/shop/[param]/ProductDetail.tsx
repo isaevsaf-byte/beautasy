@@ -2,7 +2,21 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { productionTimeLabel } from "@/lib/productionTime";
+import { availability } from "@/lib/availability";
+import { DELIVERY_TIMES, withoutQuotedDays } from "@/lib/delivery";
+import {
+  EMPTY_MEASUREMENTS,
+  bagBlockers,
+  bagButtonLabel,
+  bagLines,
+  isBlocked,
+  listMeasurements,
+  measurementFieldsFor,
+  missingMeasurements,
+  requiredMeasurementsFor,
+  type Measurements,
+} from "@/lib/productBag";
+import { CARD, THUMB, sizedImageUrl } from "@/lib/shopImages";
 import {
   ChevronLeft,
   ChevronRight,
@@ -160,14 +174,18 @@ function Accordion({
   title,
   icon,
   content,
+  lead,
 }: {
   title: string;
   icon: React.ReactNode;
   content: unknown[] | null;
+  /** Lines the site says itself, above whatever was written in the Studio */
+  lead?: readonly string[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  if (!content || content.length === 0) return null;
+  const hasContent = !!content && content.length > 0;
+  if (!hasContent && !(lead && lead.length > 0)) return null;
 
   return (
     <div className="border-t border-lavender-soft/40">
@@ -197,7 +215,12 @@ function Accordion({
             className="overflow-hidden"
           >
             <div className="pb-5 text-sm text-charcoal-light leading-relaxed prose prose-sm max-w-none">
-              <PortableText value={content as Parameters<typeof PortableText>[0]["value"]} />
+              {lead?.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+              {hasContent && (
+                <PortableText value={content as Parameters<typeof PortableText>[0]["value"]} />
+              )}
             </div>
           </motion.div>
         )}
@@ -241,7 +264,10 @@ export default function ProductDetail({
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [giftBoxChecked, setGiftBoxChecked] = useState(false);
   const [madeToMeasure, setMadeToMeasure] = useState(false);
-  const [measurements, setMeasurements] = useState({ bust: "", waist: "", hips: "", height: "", notes: "" });
+  const [measurements, setMeasurements] = useState<Measurements>(EMPTY_MEASUREMENTS);
+  // Set when an add was stopped for a missing measurement; the message stays
+  // until the fields are filled, rather than flashing past
+  const [measurementsError, setMeasurementsError] = useState(false);
   const [giftMessage, setGiftMessage] = useState("");
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -251,6 +277,8 @@ export default function ProductDetail({
   const openCart = useCartUI((state) => state.openCart);
   // Lets the sticky mobile bar send the customer back up to the size/colour picker
   const optionsRef = useRef<HTMLDivElement | null>(null);
+  // …and to the measurement fields, when one of those is what's missing
+  const measurementsRef = useRef<HTMLDivElement | null>(null);
   const touchStartX = useRef<number | null>(null);
 
   const hasSizes = product.availableSizes && product.availableSizes.length > 0;
@@ -280,35 +308,39 @@ export default function ProductDetail({
 
   const mtmPrice = product.madeToMeasurePrice ?? 0;
   const mtmOffered = !!product.madeToMeasureAvailable && mtmPrice > 0;
-  const measurementSummary = [
-    measurements.bust && `Bust ${measurements.bust}`,
-    measurements.waist && `Waist ${measurements.waist}`,
-    measurements.hips && `Hips ${measurements.hips}`,
-    measurements.height && `Height ${measurements.height}`,
-    measurements.notes && `Notes: ${measurements.notes}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  // A child has no bust, and being asked for one is the kind of small
-  // wrongness that makes a parent close the tab. Children's pieces are cut
-  // from waist, hips and height instead.
+  // Ticked, on a piece that offers it: the only state in which the +£10 is owed
+  const measuring = madeToMeasure && mtmOffered;
+  // Children's pieces are cut from waist, hips and height (see @/lib/productBag)
   const forChild = product.category === "Kids";
-  const measurementFields = forChild
-    ? ([
-        ["waist", "Waist"],
-        ["hips", "Hips"],
-        ["height", "Height"],
-      ] as const)
-    : ([
-        ["bust", "Bust"],
-        ["waist", "Waist"],
-        ["hips", "Hips"],
-        ["height", "Height"],
-      ] as const);
-  const requiredMeasurements: readonly ("bust" | "waist" | "hips" | "height")[] = forChild
-    ? ["waist", "hips"]
-    : ["bust", "waist", "hips"];
-  const measurementsComplete = requiredMeasurements.every((field) => !!measurements[field]);
+  const measurementFields = measurementFieldsFor(product.category);
+  const requiredMeasurements = requiredMeasurementsFor(product.category);
+  const measurementsMissing = missingMeasurements(measurements, product.category);
+
+  // One answer to "can this go in the bag yet?", shared by the main button and
+  // the phone's sticky bar, so neither can add what the other would refuse
+  const blockers = bagBlockers({
+    hasSizes: !!hasSizes,
+    size: selectedSize,
+    hasColors: !!hasColors,
+    color: selectedColor,
+    madeToMeasure: measuring,
+    measurementsMissing,
+  });
+  const bagTotal =
+    currentPrice +
+    (giftBoxChecked && product.giftBoxAvailable ? product.giftBoxPrice : 0) +
+    (measuring ? mtmPrice : 0);
+
+  // Ships now or made for you: one answer, from the same helper as the grid
+  const avail = availability(
+    {
+      stock: product.stock,
+      sizeStock: product.sizeStock,
+      availableSizes: product.availableSizes,
+      productionTime: product.productionTime,
+    },
+    { size: selectedSize, madeToMeasure: measuring }
+  );
 
   const images = product.images;
   // If the selected colour has a variant image, show that instead of the gallery index
@@ -339,43 +371,44 @@ export default function ProductDetail({
   }, [product._id, product.name, product.slug, product.price, product.category]);
 
   function handleAddToCart() {
-    let blocked = false;
-    // Require a size if this product has sizes configured
-    if (hasSizes && !selectedSize) {
-      setSizeError(true);
-      setTimeout(() => setSizeError(false), 2500);
-      blocked = true;
+    if (blockers.size || blockers.colour) {
+      // On a phone this is pressed from the sticky bar, far below the choices
+      optionsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (blockers.size) {
+        setSizeError(true);
+        setTimeout(() => setSizeError(false), 2500);
+      }
+      if (blockers.colour) {
+        setColorError(true);
+        setTimeout(() => setColorError(false), 2500);
+      }
+      return;
     }
-    // Require a colour if this product has colours configured
-    if (hasColors && !selectedColor) {
-      setColorError(true);
-      setTimeout(() => setColorError(false), 2500);
-      blocked = true;
+    if (blockers.measurements) {
+      // Never the standard piece instead: she ticked made to measure, and
+      // that is what she expects to pay for and receive
+      setMeasurementsError(true);
+      measurementsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      measurementsRef.current
+        ?.querySelector<HTMLInputElement>(`input[name="${measurementsMissing[0]}"]`)
+        ?.focus({ preventScroll: true });
+      return;
     }
-    if (blocked) return;
 
-    const trimmedMessage = giftMessage.trim();
-
-    addItem({
-      id: product._id,
-      name: product.name,
-      slug: product.slug,
+    // The piece, then the gift box and the made-to-measure line when chosen
+    const lines = bagLines({
+      product: { _id: product._id, name: product.name, slug: product.slug },
       price: currentPrice,
       image: activeImage,
-      ...(selectedSize ? { size: selectedSize } : {}),
-      ...(selectedColor ? { color: selectedColor } : {}),
+      size: selectedSize,
+      color: selectedColor,
+      giftBox:
+        giftBoxChecked && product.giftBoxAvailable
+          ? { price: product.giftBoxPrice, message: giftMessage }
+          : null,
+      madeToMeasure: measuring ? { price: mtmPrice, measurements } : null,
     });
-
-    // Add gift box as separate line item, attaching the optional gift card message
-    if (giftBoxChecked && product.giftBoxAvailable && product.giftBoxPrice > 0) {
-      addItem({
-        id: `${product._id}-giftbox`,
-        name: `Gift Box — ${product.name}`,
-        price: product.giftBoxPrice,
-        image: activeImage,
-        ...(trimmedMessage ? { giftMessage: trimmedMessage } : {}),
-      });
-    }
+    for (const line of lines) addItem(line);
 
     trackAddToCart([
       {
@@ -388,16 +421,6 @@ export default function ProductDetail({
         variant: [selectedSize, selectedColor].filter(Boolean).join(" / ") || undefined,
       },
     ]);
-
-    if (madeToMeasure && mtmOffered && measurementsComplete) {
-      addItem({
-        id: `${product._id}${"-madetomeasure"}`,
-        name: `Made to Measure — ${product.name}`,
-        price: mtmPrice,
-        image: activeImage,
-        measurements: measurementSummary,
-      });
-    }
 
     // Show the customer what just happened — the bag icon is usually scrolled
     // out of view here, so adding silently reads as a broken button.
@@ -430,18 +453,21 @@ export default function ProductDetail({
 
         {/* ── Product Layout ── */}
         <section className="max-w-6xl mx-auto px-6 pb-24">
+          {/* initial={false}: painted as it is, not faded in. The photo is the
+              page's largest paint, and fading it in from opacity 0 kept it
+              invisible until every script had loaded — measured on a phone, 6.3
+              seconds after the picture itself had arrived. The name, price and
+              Add to Bag beside it waited the same way, 5.5–6 seconds on a
+              throttled phone, so the whole layout now starts visible; its
+              children inherit that. */}
           <motion.div
-            initial="hidden"
+            initial={false}
             animate="visible"
             variants={stagger}
             className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16"
           >
             {/* ──── Left: Image Gallery ──── */}
-            {/* initial={false}: the photo is the page's largest paint, and fading it
-                in from opacity 0 kept it invisible until every script had loaded
-                and the animation had run — measured on a phone, 6.3 seconds after
-                the picture itself had already arrived. The details still animate. */}
-            <motion.div variants={fadeUp} custom={0} initial={false}>
+            <motion.div variants={fadeUp} custom={0}>
               {/* Main Image */}
               <div
                 className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white/60 mb-4"
@@ -516,9 +542,14 @@ export default function ProductDetail({
                       }`}
                       aria-label={`Show image ${i + 1}`}
                     >
+                      {/* A small copy, fetched when needed (see @/lib/shopImages) */}
                       <img
-                        src={image}
+                        src={sizedImageUrl(image, THUMB)}
                         alt={`${product.name} thumbnail ${i + 1}`}
+                        width={64}
+                        height={64}
+                        loading="lazy"
+                        decoding="async"
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                     </button>
@@ -545,21 +576,21 @@ export default function ProductDetail({
                     )}
                   </Link>
                 )}
-                {hasSizeStock && !selectedSize ? (
-                  <span className="text-xs text-charcoal-light font-medium">
-                    Select a size to see stock
-                  </span>
-                ) : currentStock > 5 ? (
-                  <span className="text-xs text-green-600 font-medium">
-                    In Stock
-                  </span>
-                ) : currentStock > 0 ? (
-                  <span className="text-xs text-rose-500 font-medium">
-                    Only {currentStock} left in ready-made stock{selectedSize ? ` (size ${selectedSize})` : ""}
-                  </span>
-                ) : (
-                  <span className="text-xs text-amber-600 font-medium">
-                    Made to Order
+                {/* One availability line, not a stock chip beside a "Made in"
+                    chip: the two used to say "only 4 left" and "made in 3–5
+                    days" at once. The colours are dark enough to read at this
+                    size (4.5:1 or more on the cream page). */}
+                <span
+                  className={`flex items-center gap-1 text-xs font-medium ${
+                    avail.kind === "made-to-order" ? "text-charcoal-light" : "text-emerald-700"
+                  }`}
+                >
+                  <Package size={12} className="text-lavender" aria-hidden="true" />
+                  {avail.label}
+                </span>
+                {avail.fewLeft !== null && (
+                  <span className="text-xs text-rose-700 font-medium">
+                    Only {avail.fewLeft} left ready-made{selectedSize && hasSizeStock ? ` in size ${selectedSize}` : ""}
                   </span>
                 )}
                 {product.productBadges?.map((badge) => {
@@ -573,12 +604,6 @@ export default function ProductDetail({
                     </span>
                   ) : null;
                 })}
-                {productionTimeLabel(product.productionTime) && (
-                  <span className="flex items-center gap-1 text-xs text-charcoal-light">
-                    <Package size={12} className="text-lavender" />
-                    Made in {productionTimeLabel(product.productionTime)}
-                  </span>
-                )}
               </div>
 
               {/* Name + Price */}
@@ -730,12 +755,15 @@ export default function ProductDetail({
               {/* The atelier already sews to order; this sells that properly
                   instead of leaving it on a separate page nobody links to. */}
               {mtmOffered && (
-                <div className="mb-6">
+                <div className="mb-6" ref={measurementsRef}>
                   <label className="flex items-center gap-3 p-4 rounded-xl bg-lavender-bg/50 border border-lavender-soft/30 cursor-pointer group hover:bg-lavender-bg transition-colors">
                     <input
                       type="checkbox"
                       checked={madeToMeasure}
-                      onChange={(e) => setMadeToMeasure(e.target.checked)}
+                      onChange={(e) => {
+                        setMadeToMeasure(e.target.checked);
+                        setMeasurementsError(false);
+                      }}
                       className="w-4 h-4 rounded accent-lavender"
                     />
                     <Ruler size={18} className="text-lavender shrink-0" />
@@ -770,12 +798,15 @@ export default function ProductDetail({
                                 <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
                                   {label}
                                   {requiredMeasurements.includes(field) && (
-                                    <span className="text-rose-400"> *</span>
+                                    <span className="text-rose-700" aria-hidden="true"> *</span>
                                   )}
                                 </span>
                                 <input
                                   type="text"
                                   inputMode="decimal"
+                                  name={field}
+                                  aria-required={requiredMeasurements.includes(field)}
+                                  aria-invalid={measurementsError && measurementsMissing.includes(field)}
                                   value={measurements[field]}
                                   onChange={(e) =>
                                     setMeasurements((m) => ({ ...m, [field]: e.target.value.slice(0, 12) }))
@@ -800,8 +831,17 @@ export default function ProductDetail({
                               className="w-full text-sm px-3 py-2 rounded-lg border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
                             />
                           </label>
-                          <p className="text-[11px] text-charcoal-light leading-relaxed">
-                            Bust, waist and hips are needed. Not sure how to measure? Reply to your
+                          {/* Said where the missing fields are, after an add was
+                              stopped for them — never a standard size instead */}
+                          {measurementsError && measurementsMissing.length > 0 && (
+                            <p role="alert" className="text-xs text-rose-700 font-medium leading-relaxed">
+                              {forChild ? "Add their" : "Add your"} {listMeasurements(measurementsMissing)} so
+                              Kristina can cut it, or untick made to measure for a standard size.
+                            </p>
+                          )}
+                          {/* "Waist and hips" for a child's piece, which asks no bust */}
+                          <p className="text-[11px] text-charcoal-light leading-relaxed first-letter:uppercase">
+                            {listMeasurements(requiredMeasurements)} are needed. Not sure how to measure? Reply to your
                             order email and Kristina will talk you through it.
                           </p>
                         </div>
@@ -878,41 +918,21 @@ export default function ProductDetail({
 
               {/* Add to Cart + Wishlist */}
               <div className="flex items-center gap-3 mb-8">
-                {(() => {
-                  const missingSize = hasSizes && !selectedSize;
-                  const missingColor = hasColors && !selectedColor;
-                  const missingMeasurements = madeToMeasure && !measurementsComplete;
-                  const disabled = missingSize || missingColor || missingMeasurements;
-                  let label: string;
-                  if (missingSize && missingColor) {
-                    label = "Select Size & Colour";
-                  } else if (missingSize) {
-                    label = "Select a Size";
-                  } else if (missingColor) {
-                    label = "Select a Colour";
-                  } else if (missingMeasurements) {
-                    label = "Add Your Measurements";
-                  } else {
-                    label = `Add to Bag — £${(
-                      (currentPrice +
-                        (giftBoxChecked ? product.giftBoxPrice : 0) +
-                        (madeToMeasure ? mtmPrice : 0)) /
-                      100
-                    ).toFixed(2)}`;
-                  }
-                  return (
-                    <button
-                      onClick={handleAddToCart}
-                      className={`flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm tracking-wider uppercase font-medium transition-all duration-300 ${
-                        disabled
-                          ? "bg-lavender/40 text-charcoal/50 cursor-not-allowed"
-                          : "bg-lavender text-charcoal hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })()}
+                {/* aria-disabled rather than disabled: a disabled button
+                    swallows the tap, and the tap is what shows the customer
+                    what is still missing. handleAddToCart refuses the add. */}
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  aria-disabled={isBlocked(blockers)}
+                  className={`flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm tracking-wider uppercase font-medium transition-all duration-300 ${
+                    isBlocked(blockers)
+                      ? "bg-lavender/40 text-charcoal/50 cursor-not-allowed"
+                      : "bg-lavender text-charcoal hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                  }`}
+                >
+                  {bagButtonLabel(blockers, bagTotal)}
+                </button>
                 <WishlistButton
                   product={{
                     id: product._id,
@@ -925,13 +945,17 @@ export default function ProductDetail({
                 />
               </div>
 
-              {/* Handmade disclaimer */}
-              {product.handmadeDisclaimer && (
-                <p className="text-xs text-charcoal-light leading-relaxed mb-6 flex items-start gap-2">
-                  <Sparkles size={13} className="text-lavender shrink-0 mt-0.5" />
-                  {product.handmadeDisclaimer}
-                </p>
-              )}
+              {/* When it leaves the atelier, in a sentence. Kristina's handmade
+                  note says "ready to dispatch within 3–5 business days", which
+                  is only true of a piece made to order — beside ready-made stock
+                  it was a second, slower promise — so it stands in for the
+                  sentence on that branch alone. */}
+              <p className="text-xs text-charcoal-light leading-relaxed mb-6 flex items-start gap-2">
+                <Sparkles size={13} className="text-lavender shrink-0 mt-0.5" aria-hidden="true" />
+                {avail.kind === "made-to-order" && !measuring && product.handmadeDisclaimer
+                  ? product.handmadeDisclaimer
+                  : avail.detail}
+              </p>
 
               {/* Back-in-stock signup — only once we know there's no ready-made stock
                   for the current selection (or the product as a whole, when sizes
@@ -953,10 +977,13 @@ export default function ProductDetail({
                   icon={<Sparkles size={16} />}
                   content={product.careInstructions}
                 />
+                {/* Delivery times are the ones Stripe shows at payment (see
+                    @/lib/delivery); the Studio text keeps everything else */}
                 <Accordion
                   title="Shipping"
                   icon={<Truck size={16} />}
-                  content={product.shippingInfo}
+                  lead={DELIVERY_TIMES}
+                  content={withoutQuotedDays(product.shippingInfo)}
                 />
                 <Accordion
                   title="Packaging & Gifting"
@@ -992,9 +1019,15 @@ export default function ProductDetail({
                   <motion.div key={rp._id} variants={fadeUp} custom={i + 1}>
                     <Link href={`/shop/${rp.slug}`} className="group block">
                       <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-white/60 mb-3">
+                        {/* A 4:5 card a few hundred pixels wide, below the fold:
+                            a 400px copy, fetched once it is near the screen */}
                         <img
-                          src={rp.image}
+                          src={sizedImageUrl(rp.image, CARD)}
                           alt={rp.name}
+                          width={CARD.width}
+                          height={CARD.height}
+                          loading="lazy"
+                          decoding="async"
                           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                         />
                         <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300" />
@@ -1035,39 +1068,26 @@ export default function ProductDetail({
 
       {/* ──── Sticky mobile buy bar ──── */}
       {/* On a phone the price and the button sit well below the gallery, so the
-          main call to action was off-screen for most of the page. */}
+          main call to action was off-screen for most of the page. It asks the
+          same questions as the main button, through the same handler: it once
+          skipped the measurements and added a standard size instead. */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 py-3 flex items-center gap-3">
         <div className="min-w-0">
           <p className="text-[11px] text-charcoal-light truncate">{product.name}</p>
-          <p className="font-serif text-lg leading-tight">
-            £{((currentPrice + (giftBoxChecked ? product.giftBoxPrice : 0)) / 100).toFixed(2)}
-          </p>
+          <p className="font-serif text-lg leading-tight">£{(bagTotal / 100).toFixed(2)}</p>
+          {measuring && (
+            <p className="text-[11px] text-charcoal-light truncate">
+              incl. +£{(mtmPrice / 100).toFixed(2)} made to measure
+            </p>
+          )}
         </div>
         <button
-          onClick={() => {
-            const missingSize = hasSizes && !selectedSize;
-            const missingColor = hasColors && !selectedColor;
-            if (missingSize || missingColor) {
-              optionsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-              if (missingSize) {
-                setSizeError(true);
-                setTimeout(() => setSizeError(false), 2500);
-              }
-              if (missingColor) {
-                setColorError(true);
-                setTimeout(() => setColorError(false), 2500);
-              }
-              return;
-            }
-            handleAddToCart();
-          }}
+          type="button"
+          onClick={handleAddToCart}
+          aria-disabled={isBlocked(blockers)}
           className="flex-1 py-3 rounded-full bg-lavender text-charcoal text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors"
         >
-          {hasSizes && !selectedSize
-            ? "Select a Size"
-            : hasColors && !selectedColor
-            ? "Select a Colour"
-            : "Add to Bag"}
+          {bagButtonLabel(blockers)}
         </button>
       </div>
 
