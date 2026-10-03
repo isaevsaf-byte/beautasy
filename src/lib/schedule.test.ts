@@ -51,3 +51,34 @@ test("a fitting still holds its one slot", async () => {
   assert.equal(offered.includes("2026-10-06T10:00"), false);
   assert.equal(offered.includes("2026-10-06T10:30"), true);
 });
+
+test("a schedule saved before the bank-holiday switch existed keeps bank holidays shut", async () => {
+  // Thursday 30 April 2026, so the early May bank holiday (Monday 4th) is in view
+  const real = sanityClient.fetch;
+  const read = async (switchValue: unknown) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (sanityClient as any).fetch = async (query: string) =>
+      query === TAKEN_QUERY
+        ? []
+        : {
+            enabled: true,
+            slotMinutes: 30,
+            leadTimeHours: 0,
+            horizonDays: 7,
+            // A projection hands back null for a field nobody has set
+            workBankHolidays: switchValue,
+            weekly: [{ day: "mon", from: "09:00", to: "10:00" }],
+            closures: null,
+          };
+    const { days } = await getAvailableSlots({ now: new Date("2026-04-30T08:00:00Z") });
+    return days.map((day) => day.date);
+  };
+  try {
+    assert.deepEqual(await read(null), [], "a switch never touched opened the bank holiday");
+    assert.deepEqual(await read(false), []);
+    assert.deepEqual(await read(true), ["2026-05-04"]);
+  } finally {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (sanityClient as any).fetch = real;
+  }
+});

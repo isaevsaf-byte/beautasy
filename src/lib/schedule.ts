@@ -12,7 +12,7 @@ import { DEFAULT_SCHEDULE, generateSlots, startsCovered, type Schedule, type Slo
  */
 
 const SCHEDULE_QUERY = `*[_type == "atelierSchedule"][0]{
-  enabled, slotMinutes, leadTimeHours, horizonDays,
+  enabled, slotMinutes, leadTimeHours, horizonDays, workBankHolidays,
   "weekly": weekly[]{ day, from, to },
   "closures": closures[]{ date, from, to, note }
 }`;
@@ -49,6 +49,8 @@ function withDefaults(raw: Partial<Schedule> | null): Schedule {
     ...(raw ?? {}),
     weekly: raw?.weekly ?? [],
     closures: raw?.closures ?? [],
+    // Only a switch Kristina turned on opens bank holidays; never set reads as null
+    workBankHolidays: raw?.workBankHolidays === true,
   };
 }
 

@@ -51,6 +51,11 @@ export interface Schedule {
   horizonDays: number;
   weekly: DayHours[];
   closures: Closure[];
+  /**
+   * Off (or absent) closes England and Wales bank holidays by themselves —
+   * see bankHolidays below. Christmas Day and Boxing Day stay closed either way.
+   */
+  workBankHolidays?: boolean;
 }
 
 export interface Slot {
@@ -75,6 +80,7 @@ export const DEFAULT_SCHEDULE: Schedule = {
   horizonDays: 28,
   weekly: [],
   closures: [],
+  workBankHolidays: false,
 };
 
 /* ─── Time zone ─── */
@@ -194,6 +200,108 @@ function isClosed(closures: Closure[], date: string, minute: number): boolean {
   });
 }
 
+/* ─── Bank holidays ─── */
+
+/*
+ * England and Wales bank holidays, worked out rather than typed in.
+ *
+ * Kristina used to have to remember to close each one under "Выходные и
+ * перерывы", and a forgotten Easter Monday is a customer booked on a day the
+ * atelier was meant to be shut. The rules are fixed and public, so
+ * the diary keeps them itself: New Year's Day, Good Friday, Easter Monday, the
+ * first and last Mondays of May, the last Monday of August, Christmas Day and
+ * Boxing Day — each moved to the next free weekday when it falls at a weekend,
+ * the way gov.uk lists them.
+ *
+ * A one-off holiday the government adds (a coronation, a jubilee) cannot be
+ * worked out, and still goes in by hand as a closure.
+ */
+
+function dateOf(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** Easter Sunday in the Gregorian calendar — the anonymous algorithm, as printed in Meeus. */
+function easterSunday(year: number): string {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return dateOf(year, month, day);
+}
+
+function firstMondayOf(year: number, month: number): string {
+  let date = dateOf(year, month, 1);
+  while (weekdayOf(date) !== "mon") date = addDays(date, 1);
+  return date;
+}
+
+function lastMondayOf(year: number, month: number): string {
+  let date = addDays(month === 12 ? dateOf(year + 1, 1, 1) : dateOf(year, month + 1, 1), -1);
+  while (weekdayOf(date) !== "mon") date = addDays(date, -1);
+  return date;
+}
+
+function isWeekend(date: string): boolean {
+  const day = weekdayOf(date);
+  return day === "sat" || day === "sun";
+}
+
+const holidaysByYear = new Map<number, string[]>();
+
+/** The year's bank holidays in England and Wales, as the days off actually fall: "2026-12-28", not the Saturday. */
+export function bankHolidays(year: number): string[] {
+  const known = holidaysByYear.get(year);
+  if (known) return known;
+
+  const easter = easterSunday(year);
+  const days = new Set([
+    addDays(easter, -2), // Good Friday
+    addDays(easter, 1), // Easter Monday
+    firstMondayOf(year, 5),
+    lastMondayOf(year, 5),
+    lastMondayOf(year, 8),
+  ]);
+
+  // The three that can fall at a weekend. Those on a weekday keep their own
+  // day first, so that a Sunday Christmas moves to the Tuesday: Boxing Day
+  // already has the Monday.
+  const movable = [dateOf(year, 1, 1), dateOf(year, 12, 25), dateOf(year, 12, 26)];
+  for (const date of movable) if (!isWeekend(date)) days.add(date);
+  for (const date of movable.filter(isWeekend)) {
+    let kept = date;
+    while (isWeekend(kept) || days.has(kept)) kept = addDays(kept, 1);
+    days.add(kept);
+  }
+
+  const sorted = [...days].sort();
+  holidaysByYear.set(year, sorted);
+  return sorted;
+}
+
+/**
+ * Whether the diary is shut on this day for a holiday. Christmas Day and
+ * Boxing Day always are, whatever day of the week they fall on; the other bank
+ * holidays (and the days Christmas moves to) only while Kristina has not said
+ * she works them.
+ */
+export function closedForHoliday(date: string, workBankHolidays: boolean | undefined): boolean {
+  const monthDay = date.slice(5);
+  if (monthDay === "12-25" || monthDay === "12-26") return true;
+  if (workBankHolidays === true) return false;
+  return bankHolidays(Number(date.slice(0, 4))).includes(date);
+}
+
 /**
  * Every slot a customer may pick, grouped by day and already filtered:
  * closed days and hours are gone, so are slots inside the notice period and
@@ -216,6 +324,7 @@ export function generateSlots(options: {
 
   for (let offset = 0; offset <= schedule.horizonDays; offset++) {
     const date = addDays(today, offset);
+    if (closedForHoliday(date, schedule.workBankHolidays)) continue;
     const weekday = weekdayOf(date);
     const slots: Slot[] = [];
 

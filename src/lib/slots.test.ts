@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  bankHolidays,
   generateSlots,
   slotIsOffered,
   instantOf,
@@ -327,4 +328,64 @@ test("a day the diary left out because the collection fills it comes back for th
   // Once its slots have passed, there is nothing to bring the day back for
   const afterwards = Date.parse("2026-10-06T14:00:00Z"); // 3pm in Southampton
   assert.deepEqual(spansOffered(wednesday, 30, 30, own, afterwards).map((day) => day.date), ["2026-10-07"]);
+});
+
+/* ─── Bank holidays ─── */
+
+test("the bank holidays worked out are the ones gov.uk lists for England and Wales", () => {
+  // Copied from https://www.gov.uk/bank-holidays, England and Wales
+  assert.deepEqual(bankHolidays(2026), [
+    "2026-01-01", "2026-04-03", "2026-04-06", "2026-05-04", "2026-05-25", "2026-08-31", "2026-12-25", "2026-12-28",
+  ]);
+  assert.deepEqual(bankHolidays(2027), [
+    "2027-01-01", "2027-03-26", "2027-03-29", "2027-05-03", "2027-05-31", "2027-08-30", "2027-12-27", "2027-12-28",
+  ]);
+  assert.deepEqual(bankHolidays(2028), [
+    "2028-01-03", "2028-04-14", "2028-04-17", "2028-05-01", "2028-05-29", "2028-08-28", "2028-12-25", "2028-12-26",
+  ]);
+});
+
+test("a Christmas on a Sunday is kept on the Tuesday, because Boxing Day has the Monday", () => {
+  // 2022 and 2033: Christmas Day a Sunday, Boxing Day a Monday
+  assert.deepEqual(bankHolidays(2022).slice(-2), ["2022-12-26", "2022-12-27"]);
+  assert.deepEqual(bankHolidays(2033).slice(-2), ["2033-12-26", "2033-12-27"]);
+  // A New Year's Day on a Sunday moves to the Monday (2023)
+  assert.equal(bankHolidays(2023)[0], "2023-01-02");
+});
+
+/** Open every weekday 9 to 11 for the two weeks around a bank holiday. */
+const everyWeekday = (extra: Partial<Schedule> = {}): Schedule => ({
+  ...schedule,
+  horizonDays: 14,
+  leadTimeHours: 0,
+  weekly: (["mon", "tue", "wed", "thu", "fri", "sat"] as const).map((day) => ({ day, from: "09:00", to: "11:00" })),
+  ...extra,
+});
+
+const offeredDates = (days: SlotDay[]) => days.map((day) => day.date);
+
+test("the diary shuts on a bank holiday by itself, and opens it when Kristina says she works", () => {
+  // Friday 28 August 2026: the Monday after is the summer bank holiday
+  const friday = new Date("2026-08-28T06:00:00Z");
+  assert.ok(!offeredDates(generateSlots({ schedule: everyWeekday(), now: friday })).includes("2026-08-31"));
+  assert.ok(offeredDates(generateSlots({ schedule: everyWeekday(), now: friday })).includes("2026-09-01"));
+  assert.ok(
+    offeredDates(generateSlots({ schedule: everyWeekday({ workBankHolidays: true }), now: friday })).includes("2026-08-31"),
+    "she said she works bank holidays, and the Monday is still shut"
+  );
+});
+
+test("Christmas Day and Boxing Day stay shut even when she works bank holidays; the day off they move to opens", () => {
+  // Monday 21 December 2026: Christmas is a Friday, Boxing Day a Saturday, so the bank holiday is Monday 28th
+  const monday = new Date("2026-12-21T06:00:00Z");
+  const shut = offeredDates(generateSlots({ schedule: everyWeekday(), now: monday }));
+  assert.ok(!shut.includes("2026-12-25"));
+  assert.ok(!shut.includes("2026-12-26"), "Boxing Day on a Saturday is still Boxing Day");
+  assert.ok(!shut.includes("2026-12-28"), "the substitute day off is a bank holiday too");
+  assert.ok(shut.includes("2026-12-24"));
+
+  const working = offeredDates(generateSlots({ schedule: everyWeekday({ workBankHolidays: true }), now: monday }));
+  assert.ok(!working.includes("2026-12-25"));
+  assert.ok(!working.includes("2026-12-26"));
+  assert.ok(working.includes("2026-12-28"));
 });

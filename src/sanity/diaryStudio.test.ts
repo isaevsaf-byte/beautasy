@@ -6,6 +6,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ConcreteRuleClass } from "sanity";
 import { atelierBooking } from "./schemaTypes/atelierBooking";
+import { atelierSchedule } from "./schemaTypes/atelierSchedule";
 import { SlotPicker, shortDay, slotInRussian } from "./SlotPicker";
 import { SERVICE_TITLES } from "./ManualBookingPane";
 import { ATELIER_SERVICES } from "@/lib/atelierServices";
@@ -228,4 +229,15 @@ test("a finished move opens the new booking and says how it went, even with the 
   assert.match(success, /router\.navigateIntent\("edit", \{ id: String\(reply\.data\.id\), type: "atelierBooking" \}\)/);
   assert.match(success, /window\.alert\(doneMessage\(reply\.data\)\)/);
   assert.match(ACTION, /if \(!shown\.current\) \{\s*window\.alert\(message\);/);
+});
+
+test("the schedule has the bank-holiday switch, off unless Kristina turns it on, explained in Russian", () => {
+  const fields = (atelierSchedule as unknown as { fields: { name: string; title?: string; type: string; initialValue?: unknown; description?: string }[] }).fields;
+  const field = fields.find((f) => f.name === "workBankHolidays");
+  assert.ok(field, "no switch for bank holidays in «Часы для примерок»");
+  assert.equal(field.title, "Работать в банковские выходные");
+  assert.equal(field.type, "boolean");
+  assert.equal(field.initialValue, false, "a new schedule would open bank holidays");
+  assert.match(field.description ?? "", /25 и 26 декабря закрыты в любом случае/);
+  assert.doesNotMatch(field.description ?? "", /[A-Za-z]{4,}/, "the description slipped into English");
 });
