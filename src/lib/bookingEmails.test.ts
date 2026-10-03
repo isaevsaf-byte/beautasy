@@ -313,3 +313,20 @@ test("a bride's calendar holds her whole hour", () => {
   const single = fittingOf(booked)!;
   assert.equal(single.end.getTime() - single.start.getTime(), 30 * 60_000);
 });
+
+test("somebody not sure yet is written to about their look, and a collection about their piece", () => {
+  const look = { ...booked, service: "Not sure — free 10-minute look" };
+  assert.match(bookingEmailHtml(look, "confirmed"), /your appointment for free 10-minute look is confirmed/);
+  assert.match(fittingOf(look)?.description ?? "", /^Your free 10-minute look with Kristina/);
+  assert.match(bookingEmailHtml({ ...booked, service: "Other / Not Sure" }, "confirmed"), /your appointment for visit is confirmed/);
+
+  const collected = { ...look, collection: { district: "SO17", zone: "Southampton", terms: "Free" }, slotEnd: "2026-10-06T11:00" };
+  assert.match(bookingEmailHtml(collected, "confirmed"), /we'll collect your piece/);
+  assert.match(
+    replyToCustomerHtml({ name: "Anna", phone: "07700 900123", service: look.service, collection: true }),
+    /about%20collecting%20your%20piece/
+  );
+  for (const html of [bookingEmailHtml(look, "confirmed"), bookingEmailHtml(collected, "confirmed"), bookingEmailHtml(look, "declined")]) {
+    assert.doesNotMatch(html, /not sure — free/);
+  }
+});

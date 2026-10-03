@@ -321,6 +321,33 @@ test("a request with no time sent again within fifteen minutes is the same reque
   assert.equal(bookings().length, 3);
 });
 
+/* ─── Not sure yet ─── */
+
+test("somebody not sure yet is written to about a free 10-minute look, never 'not sure — free 10-minute look'", async () => {
+  const day = openDiary();
+  assert.equal((await POST(request({ ...ANNA, service: "Not sure — free 10-minute look", slot: `${day}T10:00` }))).status, 201);
+  const confirmation = emails.find((email) => email.to === ANNA.email)!;
+  assert.match(confirmation.html, /your appointment for free 10-minute look is confirmed/);
+  const invite = Buffer.from(confirmation.attachments![0].content, "base64").toString("utf8");
+  assert.match(invite.replace(/\r\n /g, ""), /Your free 10-minute look with Kristina/);
+
+  emails = [];
+  assert.equal(
+    (await POST(request({ ...ANNA, email: "bea@example.com", phone: "07700 900456", service: "Not sure — free 10-minute look" }))).status,
+    201
+  );
+  const toKristina = emails.find((email) => email.to !== "bea@example.com")!;
+  const opener = [...toKristina.html.matchAll(/href="(https:\/\/wa\.me\/[^"]+)"/g)].map((m) =>
+    new URL(m[1].replace(/&#39;/g, "'").replace(/&amp;/g, "&")).searchParams.get("text")
+  );
+  assert.ok(opener.includes("Hi Anna, it's Kristina from Beautasy, about your free 10-minute look request: "), String(opener));
+  // The name as a label — "Service: Not sure — free 10-minute look" — is fine; lower-cased mid-sentence it is not
+  for (const email of [confirmation, ...emails]) {
+    assert.doesNotMatch(email.html, /not sure — free/);
+    assert.doesNotMatch(decodeURIComponent(email.html), /not sure — free/);
+  }
+});
+
 /* ─── A price first ─── */
 
 /** Every wa.me link in some HTML, read the way a browser reads the attribute. */

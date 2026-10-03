@@ -12,6 +12,7 @@ import { BUSINESS, whatsappLink } from "@/lib/business";
 import { DEFAULT_SCHEDULE, durationLabel, instantOf, slotDocumentId, slotLabel, spanLabel, spanMinutes } from "@/lib/slots";
 import { fittingEvent, googleCalendarLink, icsInvite, type CalendarEvent } from "@/lib/bookingCalendar";
 import type { EmailMessage } from "@/lib/sendEmail";
+import { pieceInSentence, serviceInSentence } from "@/lib/atelierServices";
 
 type EmailAttachment = NonNullable<EmailMessage["attachments"]>[number];
 
@@ -93,7 +94,7 @@ export function fittingOf(booking: NotifiableBooking): CalendarEvent | null {
     service,
     location: `${BUSINESS.atelierName}, ${BUSINESS.address.locality}`,
     description:
-      `Your ${service.toLowerCase()} with Kristina at ${BUSINESS.atelierName}. ` +
+      `Your ${serviceInSentence(booking.service)} with Kristina at ${BUSINESS.atelierName}. ` +
       `She will send you the exact address before your visit. ` +
       `Bring the piece, and the shoes you will wear with it if the length is changing. ` +
       `To move it, reply to the confirmation email or WhatsApp ${BUSINESS.telephone}.`,
@@ -115,7 +116,7 @@ export function collectionEventOf(booking: NotifiableBooking): CalendarEvent | n
   const start = instantOf(booking.slotStart);
   const end = instantOf(booking.slotEnd);
   if (!(end.getTime() > start.getTime())) return null;
-  const piece = (booking.service ?? "piece").toLowerCase();
+  const piece = pieceInSentence(booking.service);
   return {
     uid: `${slotDocumentId(booking.slotStart)}@beautasy.co.uk`,
     start,
@@ -298,16 +299,17 @@ export function bookingEmailHtml(
   reviewLink: string | null = process.env.GOOGLE_REVIEW_URL ?? null
 ): string {
   const firstName = escapeHtml(booking.displayName ?? "there");
-  // Read mid-sentence ("your appointment for alterations"), so lower case: it
-  // is a label from the form, and "Anna, Your Alterations is confirmed" was
-  // what the first line of every confirmation said
-  const service = escapeHtml((booking.service ?? "fitting").toLowerCase());
-  const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
-
-  const reviewUrl = reviewLink || undefined;
   // Collect & return: nobody visits, so the calendar holds the window Kristina
   // comes to their door, when she gave it one from the diary
   const collection = booking.collection ?? null;
+  // Read mid-sentence ("your appointment for alterations"), so lower case: it
+  // is a label from the form, and "Anna, Your Alterations is confirmed" was
+  // what the first line of every confirmation said. A collection is of a
+  // piece, a visit is for a look (see serviceInSentence).
+  const service = escapeHtml(collection ? pieceInSentence(booking.service) : serviceInSentence(booking.service));
+  const when = escapeHtml(booking.confirmedFor ?? booking.preferredDate ?? "");
+
+  const reviewUrl = reviewLink || undefined;
   const visit = collection ? "collection" : "appointment";
   const fitting = status === "confirmed" ? (collection ? collectionEventOf(booking) : fittingOf(booking)) : null;
   const whatsappKristina = whatsappLink(

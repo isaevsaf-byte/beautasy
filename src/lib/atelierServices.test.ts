@@ -4,6 +4,8 @@ import {
   ATELIER_SERVICES,
   BRIDAL_SERVICES,
   LEGACY_SERVICES,
+  pieceInSentence,
+  serviceInSentence,
   slotsFor,
   startForService,
   startsFor,
@@ -85,4 +87,23 @@ test("a start that no longer fits once the service changes is let go", () => {
   assert.equal(startForService(DAYS, "Bridal fitting", 30, "2026-10-06T14:00"), "2026-10-06T14:00");
   assert.equal(startForService(DAYS, "Bridal fitting", 30, null), null);
   assert.equal(startForService(DAYS, "Alterations", 30, "2026-10-08T09:00"), null, "a time the diary no longer has");
+});
+
+test("a service reads as words mid-sentence, the 'not sure' choices as what they are", () => {
+  assert.equal(serviceInSentence("Alterations"), "alterations");
+  assert.equal(serviceInSentence("Bridal fitting"), "bridal fitting");
+  assert.equal(serviceInSentence("Not sure — free 10-minute look"), "free 10-minute look");
+  assert.equal(serviceInSentence("Other / Not Sure"), "visit");
+  assert.equal(serviceInSentence(undefined), "fitting");
+  assert.equal(serviceInSentence(""), "fitting");
+  // What Kristina collects is a piece when nobody has named the job yet
+  assert.equal(pieceInSentence("Repairs"), "repairs");
+  assert.equal(pieceInSentence("Not sure — free 10-minute look"), "piece");
+  assert.equal(pieceInSentence("Other / Not Sure"), "piece");
+  assert.equal(pieceInSentence(undefined), "piece");
+  // Every name the form offers, or ever offered, reads without the button's dash and slash
+  for (const service of [...ATELIER_SERVICES, ...LEGACY_SERVICES]) {
+    assert.doesNotMatch(serviceInSentence(service), /not sure|\//, service);
+    assert.doesNotMatch(pieceInSentence(service), /not sure|\//, service);
+  }
 });

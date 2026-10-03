@@ -22,6 +22,33 @@ export const ATELIER_SERVICES = [
 export const LEGACY_SERVICES = ["Other / Not Sure"];
 
 /**
+ * The two "not sure" choices, as they read in the middle of a sentence. Every
+ * other service is a label from the form put in lower case — "your
+ * appointment for alterations" — but lower-cased, these read as the button
+ * they were picked from: "your appointment for not sure — free 10-minute look".
+ */
+const VISIT_IN_A_SENTENCE: Record<string, string> = {
+  "Not sure — free 10-minute look": "free 10-minute look",
+  "Other / Not Sure": "visit",
+};
+
+/** A service mid-sentence, as a visit: "your appointment for alterations", "Your free 10-minute look with Kristina". */
+export function serviceInSentence(service: string | undefined | null, fallback = "fitting"): string {
+  if (typeof service !== "string" || !service.trim()) return fallback;
+  return VISIT_IN_A_SENTENCE[service] ?? service.toLowerCase();
+}
+
+/**
+ * A service mid-sentence, as the thing Kristina collects: "collect your
+ * repairs". Somebody who is not sure yet has not named the job, so it is
+ * their piece — "collect your free 10-minute look" is nonsense.
+ */
+export function pieceInSentence(service: string | undefined | null): string {
+  if (typeof service !== "string" || !service.trim() || VISIT_IN_A_SENTENCE[service]) return "piece";
+  return service.toLowerCase();
+}
+
+/**
  * The services that take two slots in the diary. The owner's decision:
  * «Невесте два слота». Prom and evening dresses stay at one.
  *

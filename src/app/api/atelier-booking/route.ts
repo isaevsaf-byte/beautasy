@@ -16,7 +16,7 @@ import { pounds } from "@/lib/friendsLink";
 import { getAvailableSlots } from "@/lib/schedule";
 import { localMinuteOf, spanIsOffered, spanLabel, slotLabel, slotDocumentId } from "@/lib/slots";
 import { claimSlot, fittingEnd, sanityDiaryStore } from "@/lib/diary";
-import { slotsFor } from "@/lib/atelierServices";
+import { pieceInSentence, serviceInSentence, slotsFor } from "@/lib/atelierServices";
 import {
   FUTURE_HOLDS_QUERY,
   MAX_FUTURE_HOLDS,
@@ -208,8 +208,8 @@ export function replyToCustomerHtml(input: {
   const opening = input.slot
     ? `Hi ${first}, it's Kristina from Beautasy. Looking forward to seeing you on ${slotLabel(input.slot)}. Here's how to find me: `
     : input.collection
-    ? `Hi ${first}, it's Kristina from Beautasy, about collecting your ${input.service.toLowerCase()}. What's the address? `
-    : `Hi ${first}, it's Kristina from Beautasy, about your ${input.service.toLowerCase()} request: `;
+    ? `Hi ${first}, it's Kristina from Beautasy, about collecting your ${pieceInSentence(input.service)}. What's the address? `
+    : `Hi ${first}, it's Kristina from Beautasy, about your ${serviceInSentence(input.service)} request: `;
   const whatsapp = number
     ? `<a href="${escapeHtml(`https://wa.me/${number}?text=${encodeURIComponent(opening)}`)}" style="color:#5e4b9a;font-weight:bold;">WhatsApp ${escapeHtml(first)}</a> or reply to this email.`
     : "Reply to this email to reach them.";
@@ -241,7 +241,7 @@ export function collectionReceivedHtml(
   collection: { request: CollectionRequest; when?: string }
 ): string {
   return `<p style="color:#3d3d3d;line-height:1.8;">
-            We've received your request to collect your <strong>${escapeHtml(service.toLowerCase())}</strong>.
+            We've received your request to collect your <strong>${escapeHtml(pieceInSentence(service))}</strong>.
             Kristina will email you the time she'll come and ask for your address. Nothing is collected until you've agreed it together.
           </p>${
             collection.when
