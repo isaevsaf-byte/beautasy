@@ -9,12 +9,14 @@ import {
   REFERRER_FIELDS,
   findReferrerById,
   judgeFriendFor,
+  partnerCommission,
+  partnerContactName,
   referralSettings,
   type PartnerOnReferrer,
   type Referrer,
 } from "./referrals";
 import { settleOneBooking } from "./referralSettle";
-import { PARTNER_SOURCE, partnerRewardsCap, type PartnerBooking, type PartnerKind, type PartnerInput, type PartnerOrder, type PartnerPayment, type PartnerReward } from "./partners";
+import { PARTNER_SOURCE, partnerRewardsCap, type PartnerBooking, type PartnerKind, type PartnerInput, type PartnerOrder, type PartnerPayment, type PartnerReward, type PartnerTerms } from "./partners";
 
 /**
  * Beautasy Partners on the server: where a partner lives, how it is found by
@@ -28,9 +30,11 @@ import { PARTNER_SOURCE, partnerRewardsCap, type PartnerBooking, type PartnerKin
  * a link printed on cards can never be handed to a second salon.
  *
  * The dataset is public (see @/lib/pii). In the open: the salon's name, its
- * link, what kind of business it is, its percentage, and the owner's first
- * name. Sealed: the email the credit codes go to and the phone the month's
- * note goes to.
+ * link and what kind of business it is — what its card prints anyway. Sealed:
+ * the owner's first name, the percentage Kristina agreed with this salon
+ * (what one partner is paid is not for the next one to read), the email the
+ * credit codes go to and the phone the month's note goes to. The server opens
+ * them for the Studio, through /api/studio/partners, and for the statement.
  */
 
 export function partnerIdFor(slug: string): string {
@@ -58,7 +62,6 @@ export interface PartnerDocument {
   emailHint?: string;
   emailSealed?: string;
   emailFingerprint: string;
-  codeHint: string;
   codeFingerprint: string;
   codeSealed: string;
   source: string;
@@ -68,11 +71,27 @@ export interface PartnerDocument {
     name: string;
     slug: string;
     kind: PartnerKind;
-    commissionPercent: number;
-    contactName?: string;
+    commissionSealed: string;
+    contactNameSealed?: string;
     phoneSealed?: string;
   };
   createdAt: string;
+}
+
+/**
+ * The percentage as it is sealed: always four characters ("00.0", "07.5",
+ * "30.0"). A sealed value is as long as what is inside it, so "5" and "12.5"
+ * would otherwise tell a stranger which salon is paid more without opening
+ * either. partnerCommission() reads it back with Number().
+ */
+export function commissionText(percent: number): string {
+  return percent.toFixed(1).padStart(4, "0");
+}
+
+/** A partner's terms, opened — for the Studio, the statement and the month's note. */
+export function partnerTerms(doc: Pick<PartnerRecord, "partner">): PartnerTerms {
+  const contactName = partnerContactName(doc.partner);
+  return { commissionPercent: partnerCommission(doc.partner), ...(contactName ? { contactName } : {}) };
 }
 
 /** The document a new partner is: a Friends link with a business on it, everything personal sealed. */
@@ -87,7 +106,6 @@ export function partnerDocument(input: PartnerInput, now: string): PartnerDocume
     ...(email
       ? { emailHint: maskEmail(email), emailSealed: seal(email), emailFingerprint: emailFingerprint(email) }
       : { emailFingerprint: noEmailFingerprint(input.slug) }),
-    codeHint: code.slice(-4),
     codeFingerprint: fingerprint(code),
     codeSealed: seal(code),
     source: PARTNER_SOURCE,
@@ -97,8 +115,8 @@ export function partnerDocument(input: PartnerInput, now: string): PartnerDocume
       name: input.name,
       slug: input.slug,
       kind: input.kind,
-      commissionPercent: input.commissionPercent,
-      ...(input.contactName ? { contactName: input.contactName } : {}),
+      commissionSealed: seal(commissionText(input.commissionPercent)),
+      ...(input.contactName ? { contactNameSealed: seal(input.contactName) } : {}),
       ...(input.phone ? { phoneSealed: seal(input.phone) } : {}),
     },
     createdAt: now,
@@ -127,12 +145,13 @@ export async function updatePartner(id: string, input: PartnerInput): Promise<"u
     active: input.active,
     "partner.name": input.name,
     "partner.kind": input.kind,
-    "partner.commissionPercent": input.commissionPercent,
+    "partner.commissionSealed": seal(commissionText(input.commissionPercent)),
     emailFingerprint: email ? emailFingerprint(email) : noEmailFingerprint(existing.partner.slug),
   };
-  const unset: string[] = [];
-  if (input.contactName) set["partner.contactName"] = input.contactName;
-  else unset.push("partner.contactName");
+  // The open copies a partner made before sealing may still carry go with the first save
+  const unset: string[] = ["partner.contactName", "partner.commissionPercent", "codeHint"];
+  if (input.contactName) set["partner.contactNameSealed"] = seal(input.contactName);
+  else unset.push("partner.contactNameSealed");
   if (email) {
     set.emailSealed = seal(email);
     set.emailHint = maskEmail(email);

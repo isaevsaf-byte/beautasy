@@ -43,7 +43,8 @@ export const dynamic = "force-dynamic";
  * projection in STUDIO_STATS_QUERY, not the two checks below.
  *
  * 🚨 Nothing sealed leaves here. STUDIO_STATS_QUERY counts and sums; the only
- * text in its answer is product names. Adding a field with a customer's name,
+ * text in its answer is product names, dates, and the fixed names of the kinds
+ * of page a WhatsApp or phone tap came from. Adding a field with a customer's name,
  * address or email in it would put that data into this reply and into Vercel's
  * request log, where it is no longer encrypted at all — which is the whole
  * reason the documents are sealed. studioStats.test.ts runs the real query

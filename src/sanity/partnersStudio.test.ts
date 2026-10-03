@@ -57,6 +57,15 @@ test("only a member of the project reaches partners, before anything is read or 
   assert.ok(site < limit && limit < member && member < keys && keys < firstTouch, "site, then limit, then member, then keys, then data");
 });
 
+test("a partner's terms reach the Studio opened by the server, never read off the document", () => {
+  // They are sealed in the dataset; read straight off it they would be empty
+  // and every statement would owe the salon nothing
+  assert.match(ROUTE, /const terms = partnerTerms\(doc\);\s*return \{/, "the list and the form");
+  assert.match(ROUTE, /commissionPercent: partnerTerms\(p\)\.commissionPercent/, "each month in the list");
+  assert.match(ROUTE, /partner: \{ name: doc\.partner\.name, slug: doc\.partner\.slug, \.\.\.terms \}/, "the note for WhatsApp");
+  assert.doesNotMatch(ROUTE, /\.partner\.(commissionPercent|contactName)/);
+});
+
 test("a partner's link never changes once made: it is printed on cards", () => {
   const update = STORE.slice(STORE.indexOf("export async function updatePartner"), STORE.indexOf("export async function listPartners"));
   assert.equal(update.includes('"partner.slug"'), false, "the update must not touch the link");
@@ -66,7 +75,9 @@ test("a partner's link never changes once made: it is printed on cards", () => {
 
 test("a partner plays by the Friends rules, with a business's allowance, and is greeted by its owner's name", () => {
   assert.match(REFERRALS, /settings: settingsForReferrer\(args\.settings, args\.referrer\),/);
-  assert.match(REFERRALS, /referrerName: referrer\.partner\?\.contactName \?\? referrer\.displayName,/);
+  // The owner's name is sealed on the document, so it is opened to greet her
+  assert.match(REFERRALS, /referrerName: partnerContactName\(referrer\.partner\) \?\? referrer\.displayName,/);
+  assert.match(REFERRALS, /return open\(partner\.contactNameSealed\) \?\? partner\.contactName \?\? undefined;/);
   assert.match(REFERRALS, /REFERRER_FIELDS = `[^`]*, source, partner`/);
 });
 

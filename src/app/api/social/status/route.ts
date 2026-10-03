@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkConnection } from "@/lib/instagram";
 import { checkPinterest } from "@/lib/pinterest";
 import { fromThisSite } from "@/lib/sameOrigin";
+import { isProjectMember } from "@/lib/studioMember";
 
 export const dynamic = "force-dynamic";
 
@@ -15,15 +16,24 @@ export const dynamic = "force-dynamic";
  * so setting the credentials up can be confirmed rather than assumed. It
  * publishes nothing.
  *
- * Guarded because the reply names the account: either the Studio, or a caller
- * with CRON_SECRET.
+ * Guarded because the reply names the account. Two ways in, both in the
+ * Authorization header, because a GET has no body and a token in the address
+ * is a token in every log on the way:
+ *   Bearer CRON_SECRET          → a schedule, or Safar with curl
+ *   Bearer <Studio session>     → someone who edits this project, asked of
+ *                                 Sanity as /api/studio/diary does (see
+ *                                 @/lib/studioMember)
+ * Being a page on this site used to be enough, and an Origin header is one
+ * line of curl.
  */
 export async function GET(req: NextRequest) {
-  const authorised =
-    !!process.env.CRON_SECRET &&
-    req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+  const header = req.headers.get("authorization") ?? "";
+  const bearer = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
 
-  if (!authorised && !fromThisSite(req)) {
+  const byMachine = !!process.env.CRON_SECRET && bearer === process.env.CRON_SECRET;
+  const byStudio = !byMachine && fromThisSite(req) && (await isProjectMember(bearer));
+
+  if (!byMachine && !byStudio) {
     return NextResponse.json({ error: "Not for you" }, { status: 403 });
   }
 

@@ -1,5 +1,7 @@
-import { useDocumentOperation } from "sanity";
+import { useClient, useDocumentOperation } from "sanity";
 import type { DocumentActionComponent, DocumentActionProps } from "sanity";
+import { sanityConfig } from "@/lib/sanity";
+import { studioToken } from "./studioToken";
 
 /**
  * The two buttons on a social post.
@@ -7,7 +9,15 @@ import type { DocumentActionComponent, DocumentActionProps } from "sanity";
  * "Одобрить" (Approve) is the only gate that matters — nothing reaches
  * Instagram without it — so it is one click, and it says what will happen next
  * rather than naming a status.
+ *
+ * "Выложить в Instagram" asks the site, and carries the Studio's own session
+ * token as the diary and «Показать контакты» do (see studioToken.ts):
+ * /api/social/publish asks Sanity whether the person pressing edits this
+ * project before it posts anything in public.
  */
+
+/** Hoisted: useClient memoises on the options object's reference — see dashboardTool.tsx */
+const CLIENT_OPTIONS = { apiVersion: sanityConfig.apiVersion };
 
 /**
  * The publisher's own reasons, as "Выложить в Instagram" shows them.
@@ -85,6 +95,9 @@ export const approvePostAction: DocumentActionComponent = (props: DocumentAction
 };
 
 export const publishNowAction: DocumentActionComponent = (props: DocumentActionProps) => {
+  // A React component in all but name, like approvePostAction above
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const client = useClient(CLIENT_OPTIONS);
   const published = props.published as PostDoc | null;
   const hasUnpublishedChanges = !!props.draft;
   const ready = published?.status === "approved" && !published?.publishedAt;
@@ -101,14 +114,23 @@ export const publishNowAction: DocumentActionComponent = (props: DocumentActionP
       ? "Этот пост уже в Instagram."
       : "Сначала одобрите пост.",
     onHandle: async () => {
+      const token = studioToken(client.config().token);
+      if (!token) {
+        window.alert("Не удалось найти вашу сессию Studio. Выйдите из Studio, войдите снова и попробуйте ещё раз.");
+        props.onComplete();
+        return;
+      }
       try {
         const res = await fetch("/api/social/publish", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: publishedIdOf(props.id) }),
+          body: JSON.stringify({ id: publishedIdOf(props.id), token }),
         });
-        const data = await res.json();
-        if (data?.skipped) {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok && typeof data?.error === "string") {
+          // Turned away before anything was tried — the site's own words, in Russian
+          window.alert(`Пост не ушёл: ${data.error}`);
+        } else if (data?.skipped) {
           window.alert(`Пост не ушёл: ${reasonInRussian(data.skipped)}`);
         } else if (data?.published > 0) {
           window.alert(

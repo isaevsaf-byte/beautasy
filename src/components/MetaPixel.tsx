@@ -1,12 +1,14 @@
 "use client";
 
 import Script from "next/script";
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 import {
   hasConsent,
   subscribeToConsent,
   noConsentOnServer,
 } from "@/lib/consent";
+import { noteThirdPartyTagsStarted, thirdPartyTagsAllowed } from "@/lib/analytics";
 
 export const META_PIXEL_ID = "1018486883937671";
 
@@ -20,13 +22,23 @@ export const META_PIXEL_ID = "1018486883937671";
  * Consent is read straight from the store rather than mirrored into state: an
  * effect that immediately calls setState renders twice on every mount, and the
  * server snapshot of `false` is what keeps hydration in step. See @/lib/consent.
+ *
+ * 🚨 Never in the Studio, whatever was accepted: Kristina's Sanity login token
+ * lives in this site's localStorage, and the pixel could read it like any
+ * script on the page. See thirdPartyTagsAllowed.
  */
 export default function MetaPixel() {
-  const allowed = useSyncExternalStore(
+  const consented = useSyncExternalStore(
     subscribeToConsent,
     hasConsent,
     noConsentOnServer
   );
+  const pathname = usePathname();
+  const allowed = consented && thirdPartyTagsAllowed(pathname);
+
+  useEffect(() => {
+    if (allowed) noteThirdPartyTagsStarted();
+  }, [allowed]);
 
   if (!allowed) return null;
 

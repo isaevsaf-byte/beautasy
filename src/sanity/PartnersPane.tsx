@@ -210,14 +210,15 @@ export function PartnerFormView({
         />
         <span style={hintStyle}>
           Процент от того, что заплатили клиентки этого салона, — сверх £5 кредита за каждую. Обычно только свадебным
-          салонам (10%). Без комиссии — 0. Платить — только по договорённости с владелицей салона.
+          салонам (10%). Без комиссии — 0. Платить — только по договорённости с владелицей салона. Хранится
+          зашифрованной: другие салоны её не увидят.
         </span>
       </label>
 
       <label style={labelStyle}>
         Имя владелицы
         <input style={inputStyle} value={form.contactName} maxLength={40} placeholder="Emma" onChange={(e) => set({ contactName: e.target.value })} />
-        <span style={hintStyle}>Только имя — для «Hi Emma» в отчёте. Оно хранится открыто.</span>
+        <span style={hintStyle}>Только имя — для «Hi Emma» в отчёте. Хранится зашифрованным.</span>
       </label>
 
       <label style={labelStyle}>

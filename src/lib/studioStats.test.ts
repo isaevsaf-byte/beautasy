@@ -230,9 +230,19 @@ test("fittings this week are found although slotStart has no timezone in it", as
     loaded("atelierBooking", { status: "confirmed", slotStart: "2026-10-30T09:00" }),
     loaded("atelierBooking", { status: "confirmed", slotStart: "2026-09-01T09:00" }),
     loaded("atelierBooking", { status: "declined", slotStart: "2026-09-23T09:00" }),
+    // Collect & return: at the customer's door, not a fitting in the workroom
+    loaded("atelierBooking", {
+      status: "confirmed",
+      slotStart: "2026-09-24T18:00",
+      collection: { terms: "free", window: "evening" },
+    }),
   ]);
 
-  assert.equal(answer.fittingsThisWeek, 2, "Only the two inside the next seven days, and not the declined one.");
+  assert.equal(
+    answer.fittingsThisWeek,
+    2,
+    "Only the two fittings inside the next seven days: not the declined one, and not a collection."
+  );
 });
 
 test("the oldest unanswered request is the one the page leads with", async () => {
@@ -660,6 +670,8 @@ const EVERYTHING_AT_ONCE: Partial<StatsRaw> = {
   fittingsThisWeek: 2,
   friendLinks: 5,
   friendsRewarded30: 1,
+  contactCountingSince: "2026-09-01",
+  contactClicks7: [{ whatsapp: 4, phone: 1, pages: { atelier: { whatsapp: 4, phone: 1 } } }],
 };
 
 /**
@@ -695,6 +707,7 @@ const EVERY_LINE: [key: string, tone: string, hasAction: boolean][] = [
   ["not-in-ads", "needs-you", true],
   ["sold-out", "plain", false],
   ["stock-wanted", "needs-you", true],
+  ["contact-clicks", "good", false],
   ["posts-published", "good", false],
   ["subscribers", "plain", false],
   ["reviews-live", "good", false],
@@ -1360,4 +1373,70 @@ test("the groups whose rules allow a post today are an open door on the page, no
     "no line when no group allows a post today"
   );
   assert.equal(allLines().find((l) => l.key === "group-posts"), undefined, "nor before any group is added");
+});
+
+/* ─── Taps on WhatsApp and the phone ─── */
+
+test("the taps of the last seven days are read, today included, and nothing older", async () => {
+  // NOW is 19 September; the seven days are the 13th to the 19th
+  const day = (date: string, whatsapp: number, phone: number) => ({
+    _id: `contactClicks-${date}`,
+    _type: "contactClicks",
+    date,
+    whatsapp,
+    phone,
+    pages: { atelier: { whatsapp, phone } },
+  });
+  const answer = await askTheRealQuery([
+    day("2026-08-30", 9, 9),
+    day("2026-09-12", 5, 5),
+    day("2026-09-13", 2, 0),
+    day("2026-09-19", 1, 1),
+    { ...day("2026-09-18", 7, 7), _id: "drafts.contactClicks-2026-09-18" },
+  ]);
+  assert.deepEqual(
+    answer.contactClicks7?.map((d) => [d.whatsapp, d.phone]).sort(),
+    [
+      [1, 1],
+      [2, 0],
+    ],
+    "the 13th and today; not the 12th, not August, not a draft"
+  );
+  assert.equal(answer.contactCountingSince, "2026-08-30", "the first day ever counted");
+});
+
+test("a week of taps reads as people who reached for WhatsApp or the phone, and where from", () => {
+  const line = allLines({
+    contactCountingSince: "2026-09-01",
+    contactClicks7: [
+      { whatsapp: 3, phone: 1, pages: { atelier: { whatsapp: 2, phone: 1 }, alterations: { whatsapp: 1 } } },
+      { whatsapp: 2, phone: 0, pages: { atelier: { whatsapp: 1 }, home: { whatsapp: 1 } } },
+    ],
+  }).find((l) => l.key === "contact-clicks");
+  assert.ok(line);
+  assert.equal(line.value, "6 раз");
+  assert.equal(line.label, "нажали на WhatsApp или на номер телефона за последние 7 дней");
+  assert.match(line.meaning, /^WhatsApp — 5, телефон — 1\. Откуда нажимали: страница ателье \(4\), главная \(1\), страницы о подгонке \(1\)\./);
+  assert.match(line.meaning, /написали ли они на самом деле, сайт не знает\.$/, "a tap is not a message, and the page says so");
+  assert.equal(line.tone, "good");
+});
+
+test("a quiet week is said plainly, a counter that has just started says so, and none is shown before it starts", () => {
+  const quiet = allLines({ contactCountingSince: "2026-09-01", contactClicks7: [] }).find((l) => l.key === "contact-clicks");
+  assert.ok(quiet);
+  assert.equal(`${quiet.value} ${quiet.label}`, "Никто не нажал на WhatsApp или на номер телефона за последние 7 дней");
+  assert.equal(quiet.tone, "plain", "nobody is waiting on her because of it");
+  assert.equal(quiet.meaning.includes("неделя ещё не полная"), false);
+
+  const fresh = allLines({
+    contactCountingSince: "2026-09-17",
+    contactClicks7: [{ whatsapp: 1, phone: 0, pages: { contact: { whatsapp: 1 } } }],
+  }).find((l) => l.key === "contact-clicks");
+  assert.match(fresh?.meaning ?? "", /Сайт считает это с 17 сентября, так что неделя ещё не полная\.$/);
+
+  assert.equal(
+    allLines().find((l) => l.key === "contact-clicks"),
+    undefined,
+    "before the first tap is counted there is nothing to say, and zero would be a false quiet week"
+  );
 });

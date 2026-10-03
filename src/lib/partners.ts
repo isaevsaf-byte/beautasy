@@ -61,17 +61,28 @@ export function kindTitle(kind: string | undefined): string {
   return PARTNER_KINDS.find((choice) => choice.value === kind)?.title ?? "Партнёр";
 }
 
-/** What the referrer document keeps in the open about its business. */
+/**
+ * What the referrer document keeps in the open about its business: what is
+ * printed on its card anyway. The dataset is public (see @/lib/pii).
+ */
 export interface PartnerInfo {
   name: string;
   slug: string;
   kind: PartnerKind;
+}
+
+/**
+ * What a partner agreed with Kristina, and who to greet: sealed on the
+ * document, because what one salon is paid is nobody else's business and the
+ * owner is a person. The server opens them for the Studio and the statement.
+ */
+export interface PartnerTerms {
   commissionPercent: number;
-  /** The owner's first name, for "Hi Emma" — nothing more, the dataset is public */
+  /** The owner's first name, for "Hi Emma" */
   contactName?: string;
 }
 
-/** A partner as the Studio sees it in the list — nothing sealed. */
+/** A partner as the Studio sees it in the list: its terms opened by the server, its contacts still sealed. */
 export interface PartnerSummary {
   id: string;
   name: string;
@@ -226,7 +237,7 @@ export function judgePartner(raw: unknown): PartnerVerdict {
     return { ok: false, error: `Комиссия — число от 0 до ${MAX_COMMISSION_PERCENT}, например 10. Без комиссии — 0.` };
   }
 
-  // Only the first name: it sits in a dataset anyone can read
+  // Only the first name: "Hi Emma" needs nothing more, and less kept is less to seal
   const contactName = clean(input.contactName, 40).split(" ")[0] || undefined;
 
   const email = clean(input.email, 200).toLowerCase() || undefined;
@@ -501,7 +512,7 @@ export function monthInEnglish(month: string): string {
  * Warm and short — it is a thank-you that happens to have numbers in it.
  */
 export function partnerReportText(args: {
-  partner: Pick<PartnerInfo, "name" | "slug" | "contactName" | "commissionPercent">;
+  partner: Pick<PartnerInfo, "name" | "slug"> & PartnerTerms;
   statement: PartnerStatement;
   /** What is on their Beautasy card now, in pence, when there is a card */
   creditBalance?: number | null;

@@ -1,5 +1,8 @@
+import { useClient } from "sanity";
 import type { DocumentActionComponent, DocumentActionProps } from "sanity";
+import { sanityConfig } from "@/lib/sanity";
 import { count } from "@/lib/studioStats";
+import { studioToken } from "./studioToken";
 
 /**
  * "Написать клиенту сейчас" (Email the customer now) — a button on orders and
@@ -11,7 +14,17 @@ import { count } from "@/lib/studioStats";
  *
  * Only enabled when there is actually something to send: the status has to be
  * one that emails, and the customer must not have been told about it already.
+ *
+ * The request carries the Studio's own session token, as «Показать контакты»
+ * and the diary do (see studioToken.ts): /api/notify asks Sanity whether the
+ * person pressing is someone who edits this project before it sends anything.
  */
+
+/** Hoisted: useClient memoises on the options object's reference — see dashboardTool.tsx */
+const CLIENT_OPTIONS = { apiVersion: sanityConfig.apiVersion };
+
+const NO_SESSION =
+  "Не удалось найти вашу сессию Studio. Выйдите из Studio, войдите снова и попробуйте ещё раз.";
 
 const ORDER_NOTIFIABLE = ["in-production", "shipped", "delivered"];
 const BOOKING_NOTIFIABLE = ["confirmed", "declined", "cancelled", "completed"];
@@ -29,6 +42,10 @@ function pendingEmail(doc: StatusDoc | null): boolean {
 }
 
 export const notifyCustomerAction: DocumentActionComponent = (props: DocumentActionProps) => {
+  // Sanity renders document actions as React components, so hooks belong here;
+  // the rule fires only because the convention names them `xAction`.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const client = useClient(CLIENT_OPTIONS);
   const doc = (props.draft ?? props.published) as StatusDoc | null;
   const published = props.published as StatusDoc | null;
 
@@ -48,9 +65,27 @@ export const notifyCustomerAction: DocumentActionComponent = (props: DocumentAct
       ? "Отправлять нечего: клиенту уже написали об этом статусе."
       : "Пока отправлять нечего.",
     onHandle: async () => {
+      const token = studioToken(client.config().token);
+      if (!token) {
+        window.alert(NO_SESSION);
+        props.onComplete();
+        return;
+      }
       try {
-        const res = await fetch("/api/notify", { method: "POST" });
-        const data = await res.json();
+        const res = await fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        const data = await res.json().catch(() => ({}));
+        // A refusal is not "nothing to send": say what the site said
+        if (!res.ok) {
+          window.alert(
+            typeof data?.error === "string" ? data.error : "Сайт не отправил письмо. Оно уйдёт само ночью."
+          );
+          props.onComplete();
+          return;
+        }
         const sent =
           (data?.bookings?.sent ?? 0) + (data?.orders?.sent ?? 0);
         window.alert(

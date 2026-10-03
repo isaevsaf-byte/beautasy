@@ -48,13 +48,11 @@ export const referrer = defineType({
     }),
     defineField({ name: "emailFingerprint", title: "Отпечаток эл. почты", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "emailSealed", title: "Эл. почта (зашифрована)", type: "string", readOnly: true, hidden: true }),
-    defineField({
-      name: "codeHint",
-      title: "Код заканчивается на",
-      type: "string",
-      readOnly: true,
-      description: "Последние четыре символа кода ссылки. Полный код есть только в письмах этому человеку — и за кнопкой «Показать контакты».",
-    }),
+    // No longer written: a code is the name and four more characters, and the
+    // name is in the open, so the last four rebuilt a working link from the
+    // public dataset. Kept, hidden, only so the links made before carry no
+    // "unknown field" until it is taken off them.
+    defineField({ name: "codeHint", title: "Код заканчивается на", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "codeFingerprint", title: "Отпечаток кода", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "codeSealed", title: "Код (зашифрован)", type: "string", readOnly: true, hidden: true }),
     defineField({
@@ -103,16 +101,23 @@ export const referrer = defineType({
         defineField({ name: "name", title: "Название", type: "string" }),
         defineField({ name: "slug", title: "Ссылка: beautasy.co.uk/p/…", type: "string" }),
         defineField({ name: "kind", title: "Кто это", type: "string", options: { list: PARTNER_KINDS } }),
-        defineField({ name: "commissionPercent", title: "Комиссия деньгами, %", type: "number" }),
-        defineField({ name: "contactName", title: "Имя владелицы", type: "string" }),
+        // Sealed, like the phone: what one salon is paid is not for the next to
+        // read, and the owner is a person. «Партнёры» shows them, opened by the site.
+        defineField({ name: "commissionSealed", title: "Комиссия (зашифрована)", type: "string", hidden: true }),
+        defineField({ name: "contactNameSealed", title: "Имя владелицы (зашифровано)", type: "string", hidden: true }),
         defineField({ name: "phoneSealed", title: "Телефон (зашифрован)", type: "string", hidden: true }),
+        // The open copies a partner made before sealing may carry; its next save in «Партнёры» takes them off
+        defineField({ name: "commissionPercent", title: "Комиссия деньгами, %", type: "number", hidden: true }),
+        defineField({ name: "contactName", title: "Имя владелицы", type: "string", hidden: true }),
       ],
     }),
   ],
   preview: {
     select: {
       name: "displayName",
-      hint: "codeHint",
+      // Tells two Annas apart. It used to be the code's last four, which with
+      // the name in front of them was the whole link.
+      hint: "emailHint",
       rewards: "rewardsCount",
       source: "source",
       active: "active",
@@ -128,7 +133,7 @@ export const referrer = defineType({
       }
       const from = SOURCES.find((s) => s.value === source)?.title.toLowerCase() ?? source ?? "ссылка";
       return {
-        title: `${name ?? "Без имени"}${hint ? ` …${hint}` : ""}`,
+        title: `${name ?? "Без имени"}${hint ? ` · ${hint}` : ""}`,
         subtitle: `Друзей с бонусом: ${count} · ${from}${active === false ? " · на паузе" : ""}`,
       };
     },
