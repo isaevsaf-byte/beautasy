@@ -447,16 +447,19 @@ function AtelierSection() {
  * `recentWork` is the row of the newest pieces from Our Work, and `reviews`
  * the newest kind words from /reviews — both read on the server by ./page.tsx
  * and passed in whole. `priceFrom` is the cheapest alteration, "£8", from the
- * service pages' price lists.
+ * service pages' price lists. `meetKristina` is her photo and a few words,
+ * once the Studio has a photo (see @/components/MeetKristina).
  */
 export default function Home({
   recentWork,
   reviews,
   priceFrom,
+  meetKristina,
 }: {
   recentWork?: React.ReactNode;
   reviews?: React.ReactNode;
   priceFrom?: string | null;
+  meetKristina?: React.ReactNode;
 }) {
   return (
     <>
@@ -466,6 +469,10 @@ export default function Home({
         {/* The atelier, its work and what people said about it, then the
             shop: the order the money comes in */}
         <AtelierSection />
+        {/* Who does the work, straight after what the work is */}
+        {meetKristina && (
+          <div className="max-w-6xl mx-auto px-6 pt-24 md:pt-28">{meetKristina}</div>
+        )}
         {recentWork && (
           <section className="py-24 md:py-28">
             <div className="max-w-6xl mx-auto px-6">{recentWork}</div>

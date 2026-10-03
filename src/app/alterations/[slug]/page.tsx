@@ -5,6 +5,7 @@ import { ArrowRight, Clock, MapPin, Phone, Mail, MessageCircle } from "lucide-re
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
+import MeetKristina from "@/components/MeetKristina";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK, getLocalService, seasonalNote } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
 import { getShelves } from "@/lib/getShelves";
@@ -15,7 +16,7 @@ import WorkStrip from "@/components/work/WorkStrip";
 import ReviewStrip from "@/components/reviews/ReviewStrip";
 import { getWork } from "@/lib/getWork";
 import { getReviews } from "@/lib/getReviews";
-import { collectionSettings, nextdoorPageUrl } from "@/lib/siteSettings";
+import { collectionSettings, meetKristina, nextdoorPageUrl } from "@/lib/siteSettings";
 import { collectionOffer } from "@/lib/collection";
 import { reviewsForTopics } from "@/lib/siteReviews";
 import { piecesForService } from "@/lib/work";
@@ -71,6 +72,7 @@ export default async function LocalServicePage({
   if (!service) notFound();
   // Asked alongside the rest, not after it
   const collectionAsSet = collectionSettings();
+  const kristinaAsSet = meetKristina();
   const [shelves, work, reviews, nextdoorUrl] = await Promise.all([
     getShelves(),
     getWork(),
@@ -78,6 +80,7 @@ export default async function LocalServicePage({
     nextdoorPageUrl(),
   ]);
   const collection = collectionOffer(await collectionAsSet);
+  const kristina = await kristinaAsSet;
   // Only the shelves with something on them: a bride sent here for garters
   // used to find "Coming Soon" — see @/lib/shelves
   const fromTheShop = stockedLinks(service.shop, shelves);
@@ -341,6 +344,10 @@ export default async function LocalServicePage({
             ))}
           </div>
         </section>
+
+        {/* ──── Meet Kristina ──── */}
+        {/* Who they will meet, just before they choose a time with her */}
+        <MeetKristina content={kristina} bookHref="#book" className="max-w-4xl mx-auto px-6 mt-20" />
 
         {/* ──── Booking ──── */}
         <section id="book" className="max-w-4xl mx-auto px-6 mt-20 scroll-mt-24">

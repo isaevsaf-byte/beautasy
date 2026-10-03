@@ -2,6 +2,7 @@ import { defineField, defineType } from "sanity";
 import { isNextdoorUrl } from "@/lib/siteReviews";
 import { collectionTerms, postcodeDistrict } from "@/lib/collection";
 import { penceRules } from "./product";
+import { MEET_KRISTINA_DEFAULT_TEXT, MEET_KRISTINA_MIN_SIDE, MEET_KRISTINA_TEXT_MAX, photoSizeProblem } from "@/lib/meetKristina";
 
 /** Southampton clock hours, shown as 22:00 rather than 22. */
 const HOURS = Array.from({ length: 24 }, (_, hour) => ({
@@ -401,6 +402,60 @@ export const siteSettings = defineType({
         defineField({ name: "showApplePay", title: "Apple Pay", type: "boolean", initialValue: true }),
         defineField({ name: "showGooglePay", title: "Google Pay", type: "boolean", initialValue: false }),
         defineField({ name: "showAmex", title: "Amex", type: "boolean", initialValue: false }),
+      ],
+    }),
+
+    /* ── Meet Kristina ── */
+    defineField({
+      name: "meetKristina",
+      title: "Знакомьтесь, Кристина",
+      type: "object",
+      description:
+        "Блок «Meet Kristina» с вашим фото и парой слов — на главной, на странице ателье, на /alterations и на каждой странице услуги, прямо перед формой записи. Пока нет главного фото, блока на сайте нет совсем. Под текстом две кнопки: «Choose a time» и «Send a photo on WhatsApp».",
+      fields: [
+        defineField({
+          name: "photo",
+          title: "Главное фото: портрет",
+          type: "image",
+          options: { hotspot: true },
+          description: `Портрет при дневном свете: у окна, без вспышки, лицом к камере, можно с улыбкой. Не меньше ${MEET_KRISTINA_MIN_SIDE} пикселей по короткой стороне — оригинал с телефона подходит, скриншот и фото из WhatsApp нет. На сайте фото вертикальное: после загрузки нажмите на значок с кружком и поставьте кружок на лицо, тогда лицо не обрежется ни на телефоне, ни на компьютере.`,
+          fields: [
+            defineField({
+              name: "alt",
+              title: "Что на фото — по-английски",
+              type: "string",
+              description:
+                "Одна фраза для незрячих посетителей и для Google. Например: Kristina in her Southampton workroom, smiling.",
+              validation: (Rule) => Rule.required().max(160),
+            }),
+          ],
+          validation: (Rule) => Rule.custom(photoSizeProblem).warning(),
+        }),
+        defineField({
+          name: "atWork",
+          title: "Второе фото: за работой (по желанию)",
+          type: "image",
+          options: { hotspot: true },
+          description: `Вы за швейной машинкой или с булавками на примерке — руки и ткань крупно. Тоже не меньше ${MEET_KRISTINA_MIN_SIDE} пикселей по короткой стороне. Встаёт рядом с портретом; без портрета не показывается.`,
+          fields: [
+            defineField({
+              name: "alt",
+              title: "Что на фото — по-английски",
+              type: "string",
+              description: "Например: Kristina pinning a hem at her sewing machine.",
+              validation: (Rule) => Rule.required().max(160),
+            }),
+          ],
+          validation: (Rule) => Rule.custom(photoSizeProblem).warning(),
+        }),
+        defineField({
+          name: "text",
+          title: "Пара слов о себе — по-английски (по желанию)",
+          type: "text",
+          rows: 4,
+          description: `До ${MEET_KRISTINA_TEXT_MAX} знаков, от первого лица. Пустая строка начинает новый абзац. Оставьте пустым — на сайте будет: «${MEET_KRISTINA_DEFAULT_TEXT}»`,
+          validation: (Rule) => Rule.max(MEET_KRISTINA_TEXT_MAX),
+        }),
       ],
     }),
 

@@ -138,17 +138,20 @@ function PriceLine({ item, index }: { item: PriceItem; index: number }) {
 
 /**
  * The atelier page as the browser runs it. `recentWork` is the row of finished
- * jobs from Our Work, read on the server by ./page.tsx and passed in whole.
+ * jobs from Our Work, read on the server by ./page.tsx and passed in whole, as
+ * is `meetKristina`, her photo and a few words once the Studio has a photo.
  */
 export default function AtelierContent({
   recentWork,
   reviews,
   collection = null,
+  meetKristina,
 }: {
   recentWork?: React.ReactNode;
   reviews?: React.ReactNode;
   /** Collect & return as the Studio has it, or null when it is switched off */
   collection?: CollectionOffer | null;
+  meetKristina?: React.ReactNode;
 }) {
   const [activeTab, setActiveTab] = useState("denim");
   const whatsappLink = "https://wa.me/447729741116";
@@ -393,6 +396,12 @@ export default function AtelierContent({
             </motion.div>
           </div>
         </section>
+
+        {/* ──── Meet Kristina ──── */}
+        {/* Who you will meet at the fitting, straight after how it goes */}
+        {meetKristina && (
+          <div className="max-w-6xl mx-auto px-6 pt-20 md:pt-24">{meetKristina}</div>
+        )}
 
         {/* ──── Recent work ──── */}
         {/* Proof before prices: someone deciding whether to trust a stranger

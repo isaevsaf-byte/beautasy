@@ -1,9 +1,17 @@
-import { sanityClient, sanityWriteClient } from "./sanity";
+import { sanityClient, sanityWriteClient, urlFor } from "./sanity";
 import { SITE_SETTINGS } from "./siteSettingsDocument";
 import { BUSINESS } from "./business";
 import { isNextdoorUrl } from "./siteReviews";
 import type { ReferralSettings } from "@/lib/referralRules";
 import { collectionSettingsFrom, type CollectionSettings } from "./collection";
+import {
+  MEET_KRISTINA_QUERY,
+  PORTRAIT,
+  meetKristinaFrom,
+  type MeetKristinaContent,
+  type MeetKristinaPhoto,
+  type ShownPortrait,
+} from "./meetKristina";
 
 export interface SiteSettings {
   announcementBar?: {
@@ -139,6 +147,41 @@ export async function collectionSettings({ fresh = false }: { fresh?: boolean } 
     return collectionSettingsFrom(raw);
   } catch {
     return { ...collectionSettingsFrom(null), enabled: false };
+  }
+}
+
+function showPortrait(photo: MeetKristinaPhoto): ShownPortrait {
+  return {
+    // Cut to the upright shape here, around the focus point Kristina set, so
+    // a face is never what the crop loses
+    src: urlFor(photo.image).width(PORTRAIT.width).height(PORTRAIT.height).fit("crop").quality(80).url(),
+    alt: photo.alt,
+    width: PORTRAIT.width,
+    height: PORTRAIT.height,
+    lqip: photo.lqip,
+  };
+}
+
+/**
+ * «Знакомьтесь, Кристина» as the Studio has it, with the picture addresses
+ * worked out here on the server — or null, and then no block at all, while
+ * there is no portrait or the Studio cannot be read. Read with the page,
+ * every five minutes, like the other settings.
+ */
+export async function meetKristina(): Promise<MeetKristinaContent | null> {
+  try {
+    const source = meetKristinaFrom(
+      await sanityClient.fetch<unknown>(MEET_KRISTINA_QUERY, {}, { next: { revalidate: 300 } })
+    );
+    if (!source) return null;
+    return {
+      photo: showPortrait(source.photo),
+      atWork: source.atWork ? showPortrait(source.atWork) : null,
+      paragraphs: source.paragraphs,
+    };
+  } catch {
+    // A page without the block is the right answer here, not an error
+    return null;
   }
 }
 

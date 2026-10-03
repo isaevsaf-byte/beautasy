@@ -3,9 +3,11 @@ import Link from "next/link";
 import { ArrowRight, Clock, MapPin, Phone } from "lucide-react";
 import HeaderWrapper from "@/components/HeaderWrapper";
 import FooterWrapper from "@/components/FooterWrapper";
+import MeetKristina from "@/components/MeetKristina";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
 import { jsonLdScript } from "@/lib/jsonLd";
+import { meetKristina } from "@/lib/siteSettings";
 import {
   BUSINESS,
   GOOGLE_SERVICES,
@@ -45,7 +47,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AlterationsHub() {
+export default async function AlterationsHub() {
+  const kristina = await meetKristina();
+
   const localBusinessLd = {
     "@context": "https://schema.org",
     "@type": "ClothingStore",
@@ -179,6 +183,7 @@ export default function AlterationsHub() {
           </ul>
         </section>
 
+        <MeetKristina content={kristina} className="max-w-4xl mx-auto px-6 mt-20" />
 
         <section className="max-w-4xl mx-auto px-6 mt-16">
           <div className="bg-lavender-bg rounded-3xl p-7 sm:p-10">
