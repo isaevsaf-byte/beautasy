@@ -33,6 +33,12 @@ export default defineConfig({
   // the browser allows — Chrome does, Safari doesn't — and a cookie there is
   // out of the page's reach. So those tools worked in Safari and told a Chrome
   // user "Could not find your Studio session". Found on 27 September 2026.
+  //
+  // 🚨 The price, said plainly: localStorage belongs to the whole of
+  // www.beautasy.co.uk, so every script on every page of the shop can read
+  // this token — Google's tag, the Meta Pixel and Clerk's script included.
+  // Keeping them off /studio does not change that. The way out is the Studio
+  // on an origin of its own; see thirdPartyTagsAllowed in src/lib/analytics.ts.
   auth: { loginMethod: "token" },
 
   // Kristina and Safar read Russian, so the Studio speaks it: Sanity's own

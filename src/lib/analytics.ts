@@ -17,7 +17,7 @@ type GtagParams = Record<string, unknown>;
  * Whether this path is the Studio, read as warily as the router might:
  * "/studio", "/studio/desk", "//studio", "/%73tudio" and an unknown path all
  * count. A false "yes" costs one page its analytics; a false "no" puts
- * Google's and Meta's scripts beside the Studio's login token.
+ * Google's and Meta's scripts inside the Studio, beside what it shows.
  */
 export function isStudioPath(path: string | null | undefined): boolean {
   if (typeof path !== "string") return true;
@@ -34,11 +34,25 @@ export function isStudioPath(path: string | null | undefined): boolean {
 /**
  * Whether Google's tag, Google Ads and the Meta Pixel may run on this page.
  *
- * 🚨 Not in the Studio. Kristina's Studio keeps its Sanity login token in
- * this site's localStorage, and that token writes and deletes the whole
- * dataset and opens every sealed contact through /api/studio/reveal. Every
- * third-party script on the same page can read it. The tags are there to
+ * Not in the Studio. There they would run beside what Kristina has open —
+ * a customer's phone and address once she presses «Показать контакты», the
+ * takings in «Касса» — and could read it off the page. The tags are there to
  * measure customers; there are none in the Studio to measure.
+ *
+ * 🚨 What this does NOT do: keep the Studio's login token out of their reach.
+ * The Studio keeps that token in localStorage (sanity.config.ts, loginMethod
+ * "token"), and localStorage belongs to the origin, shared by every page of
+ * www.beautasy.co.uk, not to a path. gtag.js loads on every public page
+ * whether or not the visitor accepted cookies (Consent Mode changes what it
+ * sends, not whether it runs), the Meta Pixel after a yes, and Clerk's script
+ * everywhere. In a browser where Kristina has signed in to the Studio, any of
+ * them could read the token from /atelier — and the token writes and deletes
+ * the whole dataset and opens every sealed contact through
+ * /api/studio/reveal. It would take a compromised or rogue script from Google,
+ * Meta or Clerk; nothing here stops one. Closing it for good means the Studio
+ * on an origin of its own (studio.beautasy.co.uk, or beautasy.sanity.studio)
+ * where none of the shop's scripts run, its tools calling the site's
+ * /api/studio/* across origins. That takes DNS and Sanity's CORS settings.
  */
 export function thirdPartyTagsAllowed(path: string | null | undefined): boolean {
   return !isStudioPath(path);

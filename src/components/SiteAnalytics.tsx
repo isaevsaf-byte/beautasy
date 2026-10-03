@@ -61,11 +61,14 @@ function GoogleTags() {
  * What the site measures, in one place: Vercel's counter, Google's tags, and
  * the taps on WhatsApp and the phone number.
  *
- * 🚨 None of Google's or Meta's scripts run in the Studio (see
- * thirdPartyTagsAllowed): Kristina's Sanity login token lives in this site's
- * localStorage, and any script on the page can read it. Decided from the
- * path while the page is still rendered on the server, so a Studio page never
- * has them in its HTML at all.
+ * None of Google's or Meta's scripts run in the Studio (see
+ * thirdPartyTagsAllowed), so they never see what its pages show. Decided from
+ * the path while the page is still rendered on the server, so a Studio page
+ * never has them in its HTML at all.
+ *
+ * 🚨 That does not put Kristina's Sanity login token out of their reach: it
+ * lives in localStorage, which every page of www.beautasy.co.uk shares, and
+ * gtag.js runs on every page but the Studio's. See thirdPartyTagsAllowed.
  */
 export default function SiteAnalytics() {
   const pathname = usePathname();

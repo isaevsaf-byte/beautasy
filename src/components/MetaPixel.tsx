@@ -23,9 +23,12 @@ export const META_PIXEL_ID = "1018486883937671";
  * effect that immediately calls setState renders twice on every mount, and the
  * server snapshot of `false` is what keeps hydration in step. See @/lib/consent.
  *
- * 🚨 Never in the Studio, whatever was accepted: Kristina's Sanity login token
- * lives in this site's localStorage, and the pixel could read it like any
- * script on the page. See thirdPartyTagsAllowed.
+ * Never in the Studio, whatever was accepted, so it never sees what the
+ * Studio's pages show.
+ *
+ * 🚨 That is all the path check does. Kristina's Sanity login token lives in
+ * localStorage, which every page of www.beautasy.co.uk shares, so on any other
+ * page the pixel could still read it. See thirdPartyTagsAllowed.
  */
 export default function MetaPixel() {
   const consented = useSyncExternalStore(
