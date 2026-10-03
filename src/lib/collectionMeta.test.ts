@@ -41,3 +41,10 @@ test("a word that only starts with 'the' is not taken for 'the'", () => {
     "Shop the Theodora collection — handmade pieces crafted with love in Southampton."
   );
 });
+
+test("a season typed loosely is tidied too", () => {
+  assert.equal(
+    collectionDescription("Essence", "  Autumn   2026. "),
+    "Shop the Essence collection (Autumn 2026) — handmade pieces crafted with love in Southampton."
+  );
+});

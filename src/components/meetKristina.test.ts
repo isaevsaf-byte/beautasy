@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { evaluate, parse } from "groq-js";
+import { ConcreteRuleClass } from "sanity";
 import { ImageConfigContext } from "next/dist/shared/lib/image-config-context.shared-runtime";
 import { imageConfigDefault, type ImageConfigComplete } from "next/dist/shared/lib/image-config";
 import nextConfig from "../../next.config";
@@ -159,6 +160,72 @@ test("when the Studio can't be read the pages carry on without the block", async
   assert.equal(await meetKristina(), null);
 });
 
+test("the photo at work reaches the page too, cut upright around its own focus point", async (t) => {
+  t.mock.method(sanityClient, "fetch", async () => ({
+    photo: { asset: { _ref: PORTRAIT_REF }, alt: "Kristina smiling" },
+    atWork: { asset: { _ref: AT_WORK_REF }, hotspot: { x: 0.9, y: 0.5, width: 0.1, height: 0.1 }, alt: "Kristina pinning a hem", lqip: LQIP },
+    text: "",
+  }));
+  const content = await meetKristina();
+  assert.ok(content?.atWork, "the photo at work is passed on");
+  const url = new URL(content.atWork.src);
+  assert.match(url.pathname, /\/f6e5d4c3b2a1-4032x3024\.jpg$/);
+  assert.equal(content.atWork.alt, "Kristina pinning a hem");
+  assert.equal(content.atWork.lqip, LQIP);
+  assert.deepEqual([content.atWork.width, content.atWork.height], [1080, 1350]);
+  // A wide photo cut upright: her focus point near the right edge keeps the right of it
+  const [left, , width] = (url.searchParams.get("rect") ?? "").split(",").map(Number);
+  assert.ok(left > (4032 - width) / 2, `the crop starts at ${left}, right of the middle`);
+});
+
+test("a crop Kristina sets in the Studio is the part of the photo the page shows", async (t) => {
+  t.mock.method(sanityClient, "fetch", async () => ({
+    photo: { asset: { _ref: PORTRAIT_REF }, crop: { top: 0.5, bottom: 0, left: 0, right: 0 }, alt: "Kristina" },
+    atWork: null,
+    text: "",
+  }));
+  const content = await meetKristina();
+  assert.ok(content);
+  const [, top] = (new URL(content.photo.src).searchParams.get("rect") ?? "").split(",").map(Number);
+  assert.ok(top >= 4032 / 2, `the picture starts below her crop line, at ${top}`);
+});
+
+test("the query keeps both photos' focus points and crops", async () => {
+  const hotspot = { x: 0.8, y: 0.4, width: 0.2, height: 0.2 };
+  const crop = { top: 0.1, bottom: 0, left: 0, right: 0.05 };
+  const dataset = [
+    {
+      _id: "siteSettings",
+      _type: "siteSettings",
+      meetKristina: {
+        photo: { _type: "image", asset: { _type: "reference", _ref: PORTRAIT_REF }, hotspot, crop, alt: "Kristina" },
+        atWork: { _type: "image", asset: { _type: "reference", _ref: AT_WORK_REF }, hotspot, crop, alt: "At work" },
+      },
+    },
+  ];
+  const source = meetKristinaFrom(await (await evaluate(parse(MEET_KRISTINA_QUERY), { dataset })).get());
+  assert.ok(source?.atWork);
+  for (const [name, photo] of [["photo", source.photo], ["atWork", source.atWork]] as const) {
+    assert.deepEqual(photo.image.hotspot, hotspot, name);
+    assert.deepEqual(photo.image.crop, crop, name);
+  }
+});
+
+test("a file that is not a picture is never taken for her portrait", () => {
+  assert.equal(meetKristinaFrom({ photo: { asset: { _ref: "file-abc123-pdf" }, alt: "Kristina" } }), null);
+});
+
+test("the block is read fresh every five minutes, like the other settings", async (t) => {
+  let options: unknown;
+  t.mock.method(sanityClient, "fetch", async (_query: string, _params: unknown, given: unknown) => {
+    options = given;
+    return null;
+  });
+  await meetKristina();
+  // Not the page's own day: a service page is rebuilt once a day
+  assert.deepEqual(options, { next: { revalidate: 300 } });
+});
+
 /* ─── What the page shows ─── */
 
 test("without a photo the block renders nothing at all — no frame, no heading", () => {
@@ -209,6 +276,14 @@ test("her own words, the photo at work beside the portrait, and the form on the 
   assert.equal((html.match(/<p class="text-charcoal-light leading-relaxed">/g) ?? []).length, 2);
   assert.doesNotMatch(textOf(html), new RegExp(MEET_KRISTINA_DEFAULT_TEXT.slice(0, 20)));
   assert.match(html, /<a[^>]*href="#book"[^>]*>\s*Choose a time/);
+});
+
+test("the block's WhatsApp button opens the chat with its first line typed", () => {
+  const html = render(createElement(MeetKristina, { content: shown() }));
+  const href = /href="(https:\/\/wa\.me\/[^"]+)"/.exec(html)?.[1].replace(/&amp;/g, "&").replace(/&#x27;/g, "'");
+  assert.ok(href);
+  // The photo is what she needs to give a price, so the chat starts by asking for it
+  assert.equal(new URL(href).searchParams.get("text"), "Hi Kristina, here's a photo of something I'd like altered:");
 });
 
 test("in the narrower column of /alterations and the service pages the photos are fetched narrower too", () => {
@@ -302,4 +377,37 @@ test("the Studio names the button Kristina will really find, and asks for no cli
   // Anyone else in it would be on nine public pages
   assert.match(fields.atWork.description ?? "", /на манекене.*без клиентов в кадре/);
   assert.doesNotMatch(fields.atWork.description ?? "", /на примерке/);
+});
+
+/** What the Studio would say about a value, through Sanity's own rule engine */
+async function says(rule: unknown, value: unknown): Promise<string[]> {
+  const rules = (Array.isArray(rule) ? rule : [rule]) as {
+    validate: (value: unknown, context: never) => Promise<{ level: string; message: string }[]>;
+  }[];
+  const context = { i18n: { t: (key: string) => key }, path: [] } as never;
+  const markers = (await Promise.all(rules.map((r) => r.validate(value, context)))).flat();
+  return markers.map((marker) => `${marker.level}: ${marker.message}`);
+}
+
+test("in the Studio a small photo is questioned, never refused; each photo needs its description; the words stop at the limit", async () => {
+  const group = (siteSettings.fields as Field[]).find((f) => f.name === "meetKristina");
+  const fields = Object.fromEntries((group?.fields ?? []).map((f) => [f.name, f]));
+  const rulesOf = (field: Field | undefined, kind: "object" | "string") =>
+    (field?.validation as (rule: never) => unknown)(ConcreteRuleClass[kind]() as never);
+
+  for (const name of ["photo", "atWork"]) {
+    const rules = rulesOf(fields[name], "object");
+    const small = await says(rules, { asset: { _ref: "image-abc-1080x1350-jpg" } });
+    assert.equal(small.length, 1, name);
+    assert.match(small[0], /^warning: .*1080×1350/, `${name}: a warning, so she can still publish`);
+    assert.deepEqual(await says(rules, { asset: { _ref: PORTRAIT_REF } }), [], name);
+
+    const alt = rulesOf(fields[name].fields?.find((f) => f.name === "alt"), "string");
+    assert.match((await says(alt, undefined))[0] ?? "", /^error/, `${name}: the English description is required`);
+    assert.deepEqual(await says(alt, "Kristina at her sewing machine"), [], name);
+  }
+
+  const text = rulesOf(fields.text, "string");
+  assert.deepEqual(await says(text, "x".repeat(MEET_KRISTINA_TEXT_MAX)), []);
+  assert.match((await says(text, "x".repeat(MEET_KRISTINA_TEXT_MAX + 1)))[0] ?? "", /^error/, "no essay beside the photo");
 });
