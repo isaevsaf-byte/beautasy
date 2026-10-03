@@ -23,6 +23,7 @@
  */
 
 import { groupStatus, type FacebookGroup } from "./groupPosts";
+import { sumContactClicks, type ContactClickDay, type PageBucket } from "./contactClicks";
 
 /** Sums are in pence, the way Stripe and every document in the dataset hold them. */
 export const STUDIO_STATS_QUERY = `{
@@ -42,11 +43,25 @@ export const STUDIO_STATS_QUERY = `{
   // seconds — because a fitting at half two is at half two in June and in
   // December. dateTime() cannot read it, so the week is bounded by string
   // comparison against plain dates, which sorts correctly for this format.
+  // A Collect & return booking happens at the customer's door, not in the
+  // workroom, so it is not a fitting and does not take her time there.
   "fittingsThisWeek": count(*[
     _type == "atelierBooking" && !(_id in path("drafts.**"))
-    && status == "confirmed" && defined(slotStart)
+    && status == "confirmed" && defined(slotStart) && !defined(collection)
     && slotStart >= $todayLocal && slotStart < $weekAheadLocal
   ]),
+
+  // ── Someone reached for WhatsApp or the phone ──
+  // A tally per day and nothing more: two numbers and which kind of page the
+  // tap came from, never who (see @/lib/contactClicks). The day is a plain
+  // date, compared as text like slotStart above.
+  "contactClicks7": *[
+    _type == "contactClicks" && !(_id in path("drafts.**")) && date > $weekAgoLocal
+  ]{ whatsapp, phone, pages },
+  // The first day counted, so a counter that has just started is not read as a quiet week
+  "contactCountingSince": *[
+    _type == "contactClicks" && !(_id in path("drafts.**"))
+  ] | order(date asc)[0].date,
 
   // ── Money ──
   "ordersAllTime": count(*[_type == "order" && !(_id in path("drafts.**"))]),
@@ -244,6 +259,10 @@ export interface StatsRaw {
   friendsRewarded30: number;
   /** The groups she posts in, with their rules — optional, as older answers had none */
   facebookGroups?: FacebookGroup[];
+  /** The last seven days' WhatsApp and phone taps, a document per day */
+  contactClicks7?: ContactClickDay[];
+  /** The first day the taps were counted, or null before the first tap */
+  contactCountingSince?: string | null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -260,6 +279,8 @@ export function statsParams(now: Date): Record<string, string> {
     // in a query that answers "is this week busy".
     todayLocal: now.toISOString().slice(0, 10),
     weekAheadLocal: new Date(now.getTime() + 7 * DAY_MS).toISOString().slice(0, 10),
+    // The day before the seven that count: taps are counted on days after it, today included
+    weekAgoLocal: new Date(now.getTime() - 7 * DAY_MS).toISOString().slice(0, 10),
     // Anything still marked "publishing" from before this instant stopped
     // halfway. Two hours, the same as siteHealth's IN_FLIGHT_STALE_HOURS.
     stuckBefore: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
@@ -879,6 +900,9 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
   /* Reach */
   const reach: StatLine[] = [];
 
+  const contactLine = contactClicksLine(raw, now);
+  if (contactLine) reach.push(contactLine);
+
   const published = raw.postsPublished30;
   reach.push({
     key: "posts-published",
@@ -969,6 +993,65 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
     headline: headlineFor(raw, traffic, oldestDays),
     sections,
     traffic,
+  };
+}
+
+/** The kinds of page a tap is put down to, as she would name them. */
+const PAGE_NAMES: Record<PageBucket, string> = {
+  home: "главная",
+  atelier: "страница ателье",
+  alterations: "страницы о подгонке",
+  contact: "контакты",
+  work: "наши работы",
+  partner: "страницы салонов-партнёров",
+  shop: "магазин",
+  other: "другие страницы",
+};
+
+/** "3 октября", from "2026-10-03". */
+function dayInRussian(day: string): string {
+  const instant = new Date(`${day}T12:00:00Z`);
+  return Number.isNaN(instant.getTime())
+    ? day
+    : instant.toLocaleDateString("ru-RU", { day: "numeric", month: "long", timeZone: "UTC" });
+}
+
+/**
+ * Taps on WhatsApp and on the phone number over the last seven days — for the
+ * atelier, the moment a visit turns into a client. Nothing until the site has
+ * counted its first tap, so a counter that has just been switched on is not
+ * read as a week in which nobody got in touch.
+ */
+function contactClicksLine(raw: StatsRaw, now: Date): StatLine | null {
+  if (!raw.contactCountingSince) return null;
+  const { whatsapp, phone, pages } = sumContactClicks(raw.contactClicks7);
+  const taps = whatsapp + phone;
+  // Begun inside the seven days: say so, or a half-counted week reads as a slow one
+  const since =
+    raw.contactCountingSince > statsParams(now).weekAgoLocal
+      ? ` Сайт считает это с ${dayInRussian(raw.contactCountingSince)}, так что неделя ещё не полная.`
+      : "";
+
+  if (taps === 0) {
+    return {
+      key: "contact-clicks",
+      value: "Никто",
+      label: "не нажал на WhatsApp или на номер телефона за последние 7 дней",
+      meaning: `Ни одного нажатия с сайта за неделю.${since}`,
+      tone: "plain",
+    };
+  }
+
+  const where = pages
+    .slice(0, 3)
+    .map((p) => `${PAGE_NAMES[p.page]} (${p.taps})`)
+    .join(", ");
+  return {
+    key: "contact-clicks",
+    value: count(taps, "раз", "раза", "раз"),
+    label: "нажали на WhatsApp или на номер телефона за последние 7 дней",
+    meaning: `WhatsApp — ${whatsapp}, телефон — ${phone}.${where ? ` Откуда нажимали: ${where}.` : ""} Это люди, которые решили вам написать или позвонить; написали ли они на самом деле, сайт не знает.${since}`,
+    tone: "good",
   };
 }
 

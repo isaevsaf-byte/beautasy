@@ -9,7 +9,56 @@
  * loads, or when a blocker removes it — so callers never need to guard.
  */
 
+import { contactMethodOf, pageBucketOf, type ContactMethod } from "./contactClicks";
+
 type GtagParams = Record<string, unknown>;
+
+/**
+ * Whether this path is the Studio, read as warily as the router might:
+ * "/studio", "/studio/desk", "//studio", "/%73tudio" and an unknown path all
+ * count. A false "yes" costs one page its analytics; a false "no" puts
+ * Google's and Meta's scripts beside the Studio's login token.
+ */
+export function isStudioPath(path: string | null | undefined): boolean {
+  if (typeof path !== "string") return true;
+  let bare = path.split(/[?#]/)[0];
+  try {
+    bare = decodeURIComponent(bare);
+  } catch {
+    // A malformed escape: judged as written
+  }
+  const first = bare.split("/").filter(Boolean)[0] ?? "";
+  return first.trim().toLowerCase() === "studio";
+}
+
+/**
+ * Whether Google's tag, Google Ads and the Meta Pixel may run on this page.
+ *
+ * 🚨 Not in the Studio. Kristina's Studio keeps its Sanity login token in
+ * this site's localStorage, and that token writes and deletes the whole
+ * dataset and opens every sealed contact through /api/studio/reveal. Every
+ * third-party script on the same page can read it. The tags are there to
+ * measure customers; there are none in the Studio to measure.
+ */
+export function thirdPartyTagsAllowed(path: string | null | undefined): boolean {
+  return !isStudioPath(path);
+}
+
+/**
+ * Set once this document has started Google's or Meta's scripts. They cannot
+ * be unloaded, so should the page ever move into the Studio without a fresh
+ * load — no link does today — SiteAnalytics reloads it, and the fresh
+ * document starts clean, without them and with this back at false.
+ */
+let thirdPartyTagsStarted = false;
+
+export function noteThirdPartyTagsStarted(): void {
+  thirdPartyTagsStarted = true;
+}
+
+export function haveThirdPartyTagsStarted(): boolean {
+  return thirdPartyTagsStarted;
+}
 
 declare global {
   interface Window {
@@ -197,4 +246,72 @@ export function trackPurchase(params: {
       value,
     });
   }
+}
+
+/* ─── A tap on WhatsApp or the phone number ─── */
+
+/** Where the page reports a tap; see /api/contact-click. */
+export const CONTACT_CLICK_ENDPOINT = "/api/contact-click";
+
+/**
+ * Someone tapped WhatsApp or the phone number — for the atelier, the moment a
+ * visit becomes a client. Told twice: to Google, which hears it within
+ * whatever the visitor agreed to in the cookie banner, and to the site's own
+ * day tally, which keeps no cookie and nothing about the person, so it counts
+ * everybody (see @/lib/contactClicks). sendBeacon, because the page is being
+ * left for WhatsApp or the dialler as this runs, and an ordinary request
+ * would be cancelled with it.
+ */
+export function trackContactClick(method: ContactMethod, path: string): void {
+  const page = pageBucketOf(path);
+  send("contact", { method, page_bucket: page });
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      navigator.sendBeacon(CONTACT_CLICK_ENDPOINT, JSON.stringify({ method, page }));
+    }
+  } catch {
+    // A tap that is not counted is one short on the Dashboard, never a broken link
+  }
+}
+
+/** Just enough of a DOM element for this: tests pass plain objects. */
+interface Closest {
+  closest?: (selector: string) => { getAttribute(name: string): string | null } | null;
+}
+
+/** The method of the contact link a tap landed on or inside, if it was one. */
+export function contactTapOf(target: unknown): ContactMethod | null {
+  const closest = (target as Closest | null)?.closest;
+  if (typeof closest !== "function") return null;
+  const link = closest.call(target, "a[href]");
+  return link ? contactMethodOf(link.getAttribute("href")) : null;
+}
+
+/** Just enough of a document for this. */
+interface Listens {
+  addEventListener(type: "click", listener: (event: { target: unknown }) => void, capture: boolean): void;
+  removeEventListener(type: "click", listener: (event: { target: unknown }) => void, capture: boolean): void;
+}
+
+/**
+ * One listener for the whole site rather than an onClick on each of the
+ * dozen WhatsApp and phone links: a new page's link is counted without
+ * anybody remembering to. Listens while the event is on its way down
+ * (capture), so a component that stops it on the way back up cannot hide a
+ * tap. Nothing is counted in the Studio. Returns the way to stop listening.
+ */
+export function listenForContactTaps(
+  doc: Listens,
+  currentPath: () => string,
+  report: (method: ContactMethod, path: string) => void = trackContactClick
+): () => void {
+  const onClick = (event: { target: unknown }) => {
+    const method = contactTapOf(event.target);
+    if (!method) return;
+    const path = currentPath();
+    if (isStudioPath(path)) return;
+    report(method, path);
+  };
+  doc.addEventListener("click", onClick, true);
+  return () => doc.removeEventListener("click", onClick, true);
 }
