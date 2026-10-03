@@ -208,6 +208,37 @@ test("when Stripe cannot be asked, nothing is guessed: it throws for the webhook
   assert.equal(sanity.docs.size, 0);
 });
 
+test("a key that may not read payments skips the check instead of holding up every order", async () => {
+  const realError = console.error;
+  console.error = () => undefined;
+  try {
+    for (const type of ["StripePermissionError", "StripeAuthenticationError"]) {
+      const refused: PaymentReader = {
+        paymentIntents: {
+          async retrieve() {
+            throw Object.assign(new Error("The provided key does not have the required permissions"), { type });
+          },
+        },
+      };
+      const sanity = store();
+      const before = await refundBeforeWriting(giftCardSession, purchase, { stripe: refused, sanity: sanity.writer });
+      assert.equal(before.stop, false, `${type}: three days of retries would stall the shop`);
+      assert.equal(sanity.docs.size, 0);
+    }
+    // A hiccup is still tried again
+    const flaky: PaymentReader = {
+      paymentIntents: {
+        async retrieve() {
+          throw Object.assign(new Error("socket hang up"), { type: "StripeConnectionError" });
+        },
+      },
+    };
+    await assert.rejects(refundSoFar("pi_1", flaky));
+  } finally {
+    console.error = realError;
+  }
+});
+
 test("only a gift card stops on part of a refund; an order stops only on all of it", () => {
   assert.equal(refundStops("giftCard", null), false);
   assert.equal(refundStops("giftCard", { refunded: 0, charged: 100 }), false);

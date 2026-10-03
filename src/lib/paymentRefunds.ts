@@ -82,6 +82,12 @@ export type RefundedRecord = { _id: string; _type: "order" | "giftCard"; stripeS
   unknown
 >;
 
+/** Stripe's refusal of the key itself, as opposed to a hiccup worth trying again. */
+export function keyMayNotAsk(err: unknown): boolean {
+  const type = (err as { type?: unknown } | null)?.type;
+  return type === "StripePermissionError" || type === "StripeAuthenticationError";
+}
+
 /** The charge's own facts, as the refund event carries them. */
 export function refundOfCharge(charge: ChargeFacts): RefundSoFar {
   return {
@@ -98,10 +104,27 @@ export function refundOfCharge(charge: ChargeFacts): RefundSoFar {
  * Null when Stripe took nothing — a gift card paid for the whole order — so
  * there is nothing that could have been refunded. Throws when Stripe cannot be
  * asked: the caller hands that back to Stripe to try again, rather than guess.
+ *
+ * Except when the key itself may not ask. A restricted key without read
+ * access to payments refuses every time, so trying again would hold up every
+ * order and card for three days over a race that needs a refund within
+ * minutes of a failed write. Then the check is skipped, loudly, and the
+ * refunded record the refund event leaves is the guard that remains.
  */
 export async function refundSoFar(paymentIntent: string | null | undefined, stripe: PaymentReader): Promise<RefundSoFar | null> {
   if (!paymentIntent) return null;
-  const intent = await stripe.paymentIntents.retrieve(paymentIntent, { expand: ["latest_charge"] });
+  let intent: { latest_charge?: string | ChargeFacts | null };
+  try {
+    intent = await stripe.paymentIntents.retrieve(paymentIntent, { expand: ["latest_charge"] });
+  } catch (err) {
+    if (keyMayNotAsk(err)) {
+      console.error(
+        "The Stripe key may not read payments, so this one was not checked for a refund. Give the key PaymentIntents: Read in Stripe."
+      );
+      return null;
+    }
+    throw err;
+  }
   const charge = intent.latest_charge;
   if (!charge) return null;
   if (typeof charge === "string") throw new Error("Stripe sent the payment's charge back without its refunds");
