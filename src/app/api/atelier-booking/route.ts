@@ -27,6 +27,8 @@ import {
   heldBySameCustomer,
   postcodeFits,
   readBookingFields,
+  requestFingerprint,
+  requestKeyOf,
   sameAnswerAgain,
   type EarlierBooking,
 } from "@/lib/bookingRequest";
@@ -64,33 +66,48 @@ interface BookingBody {
 
 const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
+/** Who is asking: the address's fingerprint, and the form's own (see requestFingerprint). */
+interface Asker {
+  email: string;
+  request: string;
+}
+
 /**
- * The booking this request repeats, if it is one: the same customer's booking
- * holding the very slot picked, or — with no time held — the same address and
- * service in the last fifteen minutes (see @/lib/bookingRequest). A phone that
- * lost the answer to the first request sends it again, and that customer is
- * owed the first answer, not "that time has just been taken" about their own
- * booking, nor a second booking and a second email. A database that cannot be
- * asked is no reason to turn a customer away: then it is not a repeat.
+ * The booking holding this slot, if it is this same form's — read again
+ * wherever the route is about to say "that time has just been taken", because
+ * the first copy of this request may have landed a moment ago. Nothing found,
+ * or a database that cannot be asked, is null: then the time is somebody else's.
  */
-async function sameRequestBefore(input: {
-  fingerprint: string;
-  service: string;
-  slot?: string;
-  collection: boolean;
-}): Promise<EarlierBooking | null> {
+async function ownBookingOn(slot: string, asker: Asker): Promise<EarlierBooking | null> {
+  const holder = await sanityWriteClient
+    .getDocument<EarlierBooking>(slotDocumentId(slot))
+    .catch((err) => {
+      console.error("Could not read who holds a slot:", err);
+      return undefined;
+    });
+  return holder && heldBySameCustomer(holder, asker.email, asker.request) ? holder : null;
+}
+
+/**
+ * The booking this request repeats, if it is one: this form's booking holding
+ * the very slot picked, or — with no time held — the same form's request with
+ * the same words in the last fifteen minutes (see @/lib/bookingRequest). A
+ * phone that lost the answer to the first request sends it again, and that
+ * customer is owed the first answer, not "that time has just been taken"
+ * about their own booking, nor a second booking and a second email. A
+ * database that cannot be asked is no reason to turn a customer away: then it
+ * is not a repeat.
+ */
+async function sameRequestBefore(asker: Asker, slot: string | undefined): Promise<EarlierBooking | null> {
+  if (slot) {
+    const holder = await ownBookingOn(slot, asker);
+    if (holder) return holder;
+  }
   try {
-    if (input.slot) {
-      const holder = await sanityWriteClient.getDocument<EarlierBooking>(slotDocumentId(input.slot));
-      if (holder && heldBySameCustomer(holder, input.fingerprint)) return holder;
-    }
     const earlier = await sanityWriteClient.fetch<EarlierBooking | null>(REPEAT_REQUEST_QUERY, {
-      fingerprint: input.fingerprint,
-      service: input.service,
+      fingerprint: asker.email,
+      request: asker.request,
       since: new Date(Date.now() - REPEAT_WINDOW_MS).toISOString(),
-      collection: input.collection,
-      // A picked time the diary could not hold was kept as a request for it
-      asked: input.slot ? slotLabel(input.slot) : null,
     });
     return earlier ?? null;
   } catch (err) {
@@ -322,9 +339,19 @@ export async function POST(req: NextRequest) {
     // Keyed and one-way: how the same customer is recognised without their address in the database
     const fingerprint =
       process.env.SANITY_API_WRITE_TOKEN && secretsConfigured() ? emailFingerprint(email) : null;
+    // And the same form: only a request carrying the key its first copy
+    // carried is answered as that first copy — see requestFingerprint
+    const requestKey = requestKeyOf(body);
+    const asker: Asker | null =
+      fingerprint && requestKey
+        ? {
+            email: fingerprint,
+            request: requestFingerprint({ key: requestKey, slot, fields: read.fields, collection: body.collection }),
+          }
+        : null;
 
-    if (fingerprint) {
-      const earlier = await sameRequestBefore({ fingerprint, service, slot, collection: wantsCollection });
+    if (asker) {
+      const earlier = await sameRequestBefore(asker, slot);
       if (earlier) return NextResponse.json(sameAnswerAgain(earlier), { status: 201 });
     }
 
@@ -422,6 +449,10 @@ export async function POST(req: NextRequest) {
         );
       }
       if (!offered) {
+        // The diary may not offer it because this very form holds it: its
+        // first copy landed after the check above. That customer has the time.
+        const own = asker ? await ownBookingOn(slot, asker) : null;
+        if (own) return NextResponse.json(sameAnswerAgain(own), { status: 201 });
         return NextResponse.json(
           {
             error: "Sorry — that time has just been taken. Please pick another.",
@@ -458,9 +489,11 @@ export async function POST(req: NextRequest) {
         phoneSealed: sealOptional(phone),
         // When they're in is their own words, so it is sealed with the notes
         notesSealed: sealOptional(sealedNotesText(collection?.when, notes)),
-        // Keyed and one-way: what "first visit?" is asked of next time, how
-        // many times one address holds, and what recognises the same request sent again
+        // Keyed and one-way: what "first visit?" is asked of next time, and
+        // how many times one address holds
         emailFingerprint: emailFingerprint(email),
+        // What recognises this form's request when it is sent again
+        ...(asker ? { requestFingerprint: asker.request } : {}),
         service,
         // The district and the terms they saw: never the street
         ...(collection ? { collection: collection.request } : {}),
@@ -504,12 +537,8 @@ export async function POST(req: NextRequest) {
         if (claim === "taken") {
           // Taken by this same request, sent twice at once: the first one got
           // there, so this one gets its answer
-          const holder = await sanityWriteClient
-            .getDocument<EarlierBooking>(slotDocumentId(slot))
-            .catch(() => undefined);
-          if (holder && fingerprint && heldBySameCustomer(holder, fingerprint)) {
-            return NextResponse.json(sameAnswerAgain(holder), { status: 201 });
-          }
+          const own = asker ? await ownBookingOn(slot, asker) : null;
+          if (own) return NextResponse.json(sameAnswerAgain(own), { status: 201 });
           return NextResponse.json(
             {
               error: "Sorry — that time has just been taken. Please pick another.",

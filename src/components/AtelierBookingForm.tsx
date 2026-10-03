@@ -1,13 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car, MessageCircle } from "lucide-react";
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
 import { durationLabel, slotIsOffered } from "@/lib/slots";
-import { FIELD_LIMITS, HONEYPOT_FIELD, NO_ANSWER, sendBooking, whatsappAboutBooking } from "@/lib/bookingForm";
+import {
+  FIELD_LIMITS,
+  HONEYPOT_FIELD,
+  NO_ANSWER,
+  bookingBody,
+  newRequestKey,
+  sendBooking,
+  whatsappAboutBooking,
+} from "@/lib/bookingForm";
 import { WHEN_MAX, onItsWayTo, postcodeDistrict, type CollectionOffer } from "@/lib/collection";
 
 /**
@@ -105,6 +113,9 @@ export default function AtelierBookingForm({
   const [error, setError] = useState<string | null>(null);
   // No answer came back at all: said in plain words, with WhatsApp beside it
   const [unanswered, setUnanswered] = useState(false);
+  // This form's own key, made on the first send and sent with every retry —
+  // see REQUEST_KEY_FIELD
+  const requestKey = useRef<string | null>(null);
 
   // Collect & return
   const [mode, setMode] = useState<"fitting" | "collect">("fitting");
@@ -205,24 +216,27 @@ export default function AtelierBookingForm({
     setStatus("loading");
     setError(null);
     setUnanswered(false);
+    requestKey.current ??= newRequestKey();
     try {
-      const reply = await sendBooking({
-        name,
-        email,
-        phone,
-        service,
-        notes,
-        [HONEYPOT_FIELD]: trap,
-        ...(collecting
-          ? { collection: { postcode, ...(collectWhen.trim() ? { when: collectWhen } : {}) } }
-          : slot
-          ? { slot }
-          : { preferredDate }),
-        ...(friend ? { referralCode: friend.code } : {}),
-      });
+      const reply = await sendBooking(
+        bookingBody({
+          name,
+          email,
+          phone,
+          service,
+          notes,
+          trap,
+          requestKey: requestKey.current,
+          collection: collecting ? { postcode, when: collectWhen } : null,
+          slot,
+          preferredDate,
+          referralCode: friend?.code ?? null,
+        })
+      );
 
       // The connection dropped, or what came back was not the booking's answer.
-      // Trying again is safe: the same request sent twice is booked once.
+      // Trying again goes with the same key, so a first copy that did arrive
+      // is answered as itself rather than booked twice.
       if (!reply.reached) {
         setUnanswered(true);
         setStatus("error");

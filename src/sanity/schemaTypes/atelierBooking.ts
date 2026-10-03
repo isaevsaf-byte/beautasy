@@ -83,6 +83,8 @@ export const atelierBooking = defineType({
     defineField({ name: "phoneSealed", title: "Телефон (зашифрован)", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "notesSealed", title: "Заметки (зашифрованы)", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "emailFingerprint", title: "Отпечаток эл. почты", type: "string", readOnly: true, hidden: true }),
+    // Keyed and one-way, like the email's: how the site knows the same form sent again when its answer was lost
+    defineField({ name: "requestFingerprint", title: "Отпечаток заявки", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "service", title: "Услуга", type: "string", readOnly: true }),
     defineField({
       name: "referredBy",

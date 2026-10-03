@@ -30,17 +30,76 @@ export const FIELD_LIMITS = {
  */
 export const HONEYPOT_FIELD = "website";
 
+/* ─── The same form, sending again ─── */
+
+/**
+ * The field that carries the form's own key: made once for each filled-in
+ * form, the first time it is sent, and sent again with every retry. It is how
+ * the route knows a second copy is this browser trying again — not somebody
+ * else who knows the customer's email address and is asking, time by time,
+ * which booking is theirs.
+ */
+export const REQUEST_KEY_FIELD = "requestKey";
+
+/** A key nobody can guess: a random UUID, or 128 random bits where the browser has no randomUUID. */
+export function newRequestKey(random: Crypto = globalThis.crypto): string {
+  if (typeof random.randomUUID === "function") return random.randomUUID();
+  const bytes = random.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * What the form sends, from what is on it. Pulled out of the component so what
+ * leaves the browser can be checked without one: the hidden field above all,
+ * which catches nothing if its value never goes out.
+ */
+export function bookingBody(form: {
+  name: string;
+  email: string;
+  phone: string;
+  service: string;
+  notes: string;
+  /** The hidden field's value — empty unless a bot filled it in */
+  trap: string;
+  requestKey: string;
+  /** Collect & return chosen: its postcode and when they are in, and no time */
+  collection: { postcode: string; when: string } | null;
+  slot: string | null;
+  preferredDate: string;
+  referralCode: string | null;
+}): Record<string, unknown> {
+  return {
+    name: form.name,
+    email: form.email,
+    phone: form.phone,
+    service: form.service,
+    notes: form.notes,
+    [HONEYPOT_FIELD]: form.trap,
+    [REQUEST_KEY_FIELD]: form.requestKey,
+    ...(form.collection
+      ? { collection: { postcode: form.collection.postcode, ...(form.collection.when.trim() ? { when: form.collection.when } : {}) } }
+      : form.slot
+      ? { slot: form.slot }
+      : { preferredDate: form.preferredDate }),
+    ...(form.referralCode ? { referralCode: form.referralCode } : {}),
+  };
+}
+
 /* ─── When no answer comes back ─── */
 
 /**
  * What the customer is told when their booking got no answer at all. The
  * browser's own words for it — "Load failed" on an iPhone, "Failed to fetch"
- * in Chrome — tell nobody what happened or what to do next. Trying again is
- * safe: the route answers the same request sent twice with the first answer,
- * and books nothing twice (see sameRequestBefore in the booking route).
+ * in Chrome — tell nobody what happened or what to do next.
+ *
+ * Trying again is safe in the ordinary case: the route answers the same form
+ * sent twice with the first answer (see sameRequestBefore in the booking
+ * route). It is not a promise, so it is not worded as one — a database that
+ * could not be asked, or a first copy that reached Kristina's inbox and not the
+ * Studio, leaves nothing to recognise, and then she gets it twice.
  */
 export const NO_ANSWER =
-  "We couldn't hear back from the atelier — your connection may have dropped. Please try again (you won't be booked twice), or message Kristina on WhatsApp.";
+  "We couldn't hear back from the atelier — your connection may have dropped. Please try again (if your first one got through, we'll spot it), or message Kristina on WhatsApp.";
 
 /** What came back from sending a booking: the route's answer, or nothing anyone can read. */
 export type BookingReply = { reached: true; ok: boolean; data: Record<string, unknown> } | { reached: false };

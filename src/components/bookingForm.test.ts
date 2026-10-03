@@ -64,8 +64,9 @@ test("no answer at all is said plainly, with Kristina's WhatsApp one tap away", 
   assert.match(block, /WhatsApp Kristina/);
 });
 
+const source = readFileSync(join(process.cwd(), "src", "components", "AtelierBookingForm.tsx"), "utf8");
+
 test("the form shows that block, not the browser's words, when no answer comes back", () => {
-  const source = readFileSync(join(process.cwd(), "src", "components", "AtelierBookingForm.tsx"), "utf8");
   assert.match(source, /const reply = await sendBooking\(/);
   assert.match(source, /if \(!reply\.reached\) \{\s*setUnanswered\(true\);/);
   assert.match(source, /\{unanswered && <NoAnswer whatsapp=\{whatsappAboutBooking\(\{ name, service, slot, collecting \}\)\} \/>\}/);
@@ -96,3 +97,16 @@ test("'(optional)' is as readable as the label it sits in", () => {
     assert.doesNotMatch(classes, /text-charcoal-light\/\d+/, "faded again");
   }
 });
+
+test("what the form sends is built by bookingBody, with the hidden field's value and the form's key in it", () => {
+  // bookingBody itself is tested in src/lib/bookingForm.test.ts; this is the form handing it the real values
+  const sent = source.slice(source.indexOf("const reply = await sendBooking("), source.indexOf("if (!reply.reached)"));
+  assert.match(sent, /bookingBody\(\{/);
+  assert.match(sent, /\btrap,/, "the hidden field never leaves the browser, so a bot filling the page is never caught");
+  assert.match(sent, /requestKey: requestKey\.current,/);
+  assert.match(sent, /slot,/);
+  // One key for the form, made on the first send and kept for every retry
+  assert.match(source, /requestKey\.current \?\?= newRequestKey\(\);/);
+  assert.doesNotMatch(source, /requestKey\.current = /, "a new key on a retry would make it somebody else's request");
+});
+

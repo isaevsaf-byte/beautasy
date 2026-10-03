@@ -5,12 +5,16 @@ import {
   FIELD_LIMITS,
   FUTURE_HOLDS_QUERY,
   REPEAT_REQUEST_QUERY,
+  TOO_MANY_HOLDS,
   acceptedService,
   filledHoneypot,
   heldBySameCustomer,
   postcodeFits,
   readBookingFields,
+  requestFingerprint,
+  requestKeyOf,
   sameAnswerAgain,
+  type BookingFields,
 } from "./bookingRequest";
 import { LOCAL_SERVICES } from "./localServices";
 
@@ -113,6 +117,12 @@ const holding = (id: string, fields: Record<string, unknown>) => ({
   ...fields,
 });
 
+test("the limit on times ahead is said as the rule, not as what this address holds", () => {
+  assert.match(TOO_MANY_HOLDS, /up to two upcoming appointments/);
+  assert.match(TOO_MANY_HOLDS, /WhatsApp/);
+  assert.doesNotMatch(TOO_MANY_HOLDS, /you already have|you have/i);
+});
+
 test("only booked times still ahead, still held and this customer's own are counted", async () => {
   const dataset = [
     holding("slot-2026-10-06-1400", { slotStart: "2026-10-06T14:00" }),
@@ -142,42 +152,112 @@ const request = (id: string, fields: Record<string, unknown>) => ({
   ...fields,
 });
 
-test("a request with no time is the same one again only from the same address, for the same service, within fifteen minutes", async () => {
-  const params = { fingerprint: MINE, service: "Repairs", since, collection: false, asked: null };
+test("a request with no time is the same one again only from the same form and address, within fifteen minutes", async () => {
+  const params = { fingerprint: MINE, request: "rq-1", since };
   const found = (dataset: Record<string, unknown>[], over: Record<string, unknown> = {}) =>
     run(REPEAT_REQUEST_QUERY, dataset, { ...params, ...over });
 
-  assert.equal((await found([request("r1", {})]))?._id, "r1");
-  assert.equal(await found([request("r1", { createdAt: new Date(NOW - 16 * 60_000).toISOString() })]), null, "older than the window");
-  assert.equal(await found([request("r1", { service: "Alterations" })]), null, "another service is another request");
-  assert.equal(await found([request("r1", { emailFingerprint: "fp-bea" })]), null);
-  assert.equal(await found([request("r1", { status: "declined" })]), null);
-  assert.equal(await found([request("r1", { slotStart: "2026-10-06T14:00" })]), null, "a booked time is matched by its slot instead");
-  assert.equal(await found([request("r1", { collection: { district: "SO17" } })]), null, "a fitting request is not a collection");
-  assert.equal((await found([request("r1", { collection: { district: "SO17" } })], { collection: true }))?._id, "r1");
-  assert.equal(await found([request("drafts.r1", {})]), null);
+  assert.equal((await found([request("r1", { requestFingerprint: "rq-1" })]))?._id, "r1");
+  assert.equal(
+    await found([request("r1", { requestFingerprint: "rq-1", createdAt: new Date(NOW - 16 * 60_000).toISOString() })]),
+    null,
+    "older than the window"
+  );
+  assert.equal(await found([request("r1", { requestFingerprint: "rq-2" })]), null, "another form, or other words, is another request");
+  assert.equal(await found([request("r1", {})]), null, "a request from before forms had keys is never somebody's repeat");
+  assert.equal(await found([request("r1", { requestFingerprint: "rq-1", emailFingerprint: "fp-bea" })]), null);
+  assert.equal(await found([request("r1", { requestFingerprint: "rq-1", status: "declined" })]), null);
+  assert.equal(
+    await found([request("r1", { requestFingerprint: "rq-1", slotStart: "2026-10-06T14:00" })]),
+    null,
+    "a booked time is matched by its slot instead"
+  );
+  assert.equal(await found([request("drafts.r1", { requestFingerprint: "rq-1" })]), null);
   // The newest copy is the one answered from
-  const two = [request("r1", {}), request("r2", { createdAt: new Date(NOW - 60_000).toISOString() })];
+  const two = [
+    request("r1", { requestFingerprint: "rq-1" }),
+    request("r2", { requestFingerprint: "rq-1", createdAt: new Date(NOW - 60_000).toISOString() }),
+  ];
   assert.equal((await found(two))?._id, "r2");
 });
 
-test("a picked time the diary could not hold is the same request again only for that time", async () => {
-  const kept = request("r1", { preferredDate: "Tuesday 6 October at 2:00pm" });
-  const params = { fingerprint: MINE, service: "Repairs", since, collection: false };
-  assert.equal((await run(REPEAT_REQUEST_QUERY, [kept], { ...params, asked: "Tuesday 6 October at 2:00pm" }))?._id, "r1");
-  assert.equal(await run(REPEAT_REQUEST_QUERY, [kept], { ...params, asked: "Tuesday 6 October at 3:00pm" }), null);
+/** Runs with a key of its own, as the route does — see @/lib/secrets. */
+function withSecret<T>(run: () => T): T {
+  const was = process.env.DATA_SECRET;
+  process.env.DATA_SECRET = "a passphrase for these tests only";
+  try {
+    return run();
+  } finally {
+    if (was === undefined) delete process.env.DATA_SECRET;
+    else process.env.DATA_SECRET = was;
+  }
+}
+
+const FIELDS: BookingFields = { name: "Anna Smith", email: "anna@example.com", service: "Repairs", notes: "Jacket lining", preferredDate: "2026-11-02" };
+const KEY = "0b6f3c1e-2a4d-4e5f-9a8b-7c6d5e4f3a2b";
+
+test("a form's key is taken only when it looks like one", () => {
+  assert.equal(requestKeyOf({ requestKey: KEY }), KEY);
+  assert.equal(requestKeyOf({ requestKey: "0123456789abcdef0123456789abcdef" }), "0123456789abcdef0123456789abcdef");
+  for (const key of [undefined, "", "short", "x".repeat(65), "has spaces in it, so no", 42, { key: KEY }]) {
+    assert.equal(requestKeyOf({ requestKey: key }), null, String(key));
+  }
+  assert.equal(requestKeyOf(null), null);
 });
 
-test("the booking on a slot is this customer's own only while it holds the time", () => {
-  const held = holding("slot-2026-10-06-1400", { slotStart: "2026-10-06T14:00" });
-  assert.equal(heldBySameCustomer(held, MINE), true);
-  assert.equal(heldBySameCustomer(held, "fp-bea"), false, "somebody else's fitting");
-  assert.equal(heldBySameCustomer({ ...held, status: "cancelled" }, MINE), false, "a time given back is free to book again");
-  assert.equal(heldBySameCustomer({ ...held, _type: "order" }, MINE), false);
-  assert.equal(heldBySameCustomer(null, MINE), false);
+test("a booked time is known again by the form's key and the time, whatever else changed", () => {
+  withSecret(() => {
+    const first = requestFingerprint({ key: KEY, slot: "2026-10-06T14:00", fields: FIELDS });
+    assert.equal(first, requestFingerprint({ key: KEY, slot: "2026-10-06T14:00", fields: { ...FIELDS, notes: "Also the cuffs" } }));
+    assert.notEqual(first, requestFingerprint({ key: KEY, slot: "2026-10-06T14:30", fields: FIELDS }), "another time");
+    assert.notEqual(
+      first,
+      requestFingerprint({ key: "ffffffff-2a4d-4e5f-9a8b-7c6d5e4f3a2b", slot: "2026-10-06T14:00", fields: FIELDS }),
+      "somebody else's form, with the same address and the same time"
+    );
+    assert.doesNotMatch(first, new RegExp(KEY), "the key itself would be readable in a public dataset");
+  });
 });
 
-test("the answer given again is the answer the first request got", () => {
+test("a request with no time is known again only with every word the same", () => {
+  withSecret(() => {
+    const first = requestFingerprint({ key: KEY, fields: FIELDS });
+    assert.equal(first, requestFingerprint({ key: KEY, fields: { ...FIELDS } }));
+    for (const [changed, why] of [
+      [{ ...FIELDS, preferredDate: "2026-11-20" }, "another date"],
+      [{ ...FIELDS, notes: "Also a second coat, different job" }, "other notes"],
+      [{ ...FIELDS, phone: "07700 900123" }, "a phone number added"],
+      [{ ...FIELDS, name: "Anna Smyth" }, "a name corrected"],
+      [{ ...FIELDS, service: "Alterations" }, "another service"],
+    ] as const) {
+      assert.notEqual(requestFingerprint({ key: KEY, fields: changed }), first, why);
+    }
+    // A collection: its postcode and when they are in are words too
+    const collect = requestFingerprint({ key: KEY, fields: FIELDS, collection: { postcode: "SO17 1AB", when: "mornings" } });
+    assert.notEqual(collect, first, "a collection is not a fitting request");
+    assert.equal(collect, requestFingerprint({ key: KEY, fields: FIELDS, collection: { postcode: " SO17 1AB", when: "mornings " } }));
+    assert.notEqual(collect, requestFingerprint({ key: KEY, fields: FIELDS, collection: { postcode: "SO17 1AB", when: "evenings" } }));
+    // And a booked time is never the same as a request
+    assert.notEqual(requestFingerprint({ key: KEY, slot: "2026-10-06T14:00", fields: FIELDS }), first);
+  });
+});
+
+test("the booking on a slot is this form's own only while it holds the time", () => {
+  const held = holding("slot-2026-10-06-1400", { slotStart: "2026-10-06T14:00", requestFingerprint: "rq-1" });
+  assert.equal(heldBySameCustomer(held, MINE, "rq-1"), true);
+  assert.equal(heldBySameCustomer(held, "fp-bea", "rq-1"), false, "somebody else's fitting");
+  assert.equal(heldBySameCustomer(held, MINE, "rq-2"), false, "somebody else who knows this customer's address");
+  assert.equal(
+    heldBySameCustomer({ ...held, requestFingerprint: undefined }, MINE, "rq-1"),
+    false,
+    "a booking made before forms had keys, or in the Studio"
+  );
+  assert.equal(heldBySameCustomer({ ...held, status: "cancelled" }, MINE, "rq-1"), false, "a time given back is free to book again");
+  assert.equal(heldBySameCustomer({ ...held, _type: "order" }, MINE, "rq-1"), false);
+  assert.equal(heldBySameCustomer(null, MINE, "rq-1"), false);
+});
+
+test("the answer given again is the answer the first request got, without the friend's name", () => {
   assert.deepEqual(
     sameAnswerAgain({
       _id: "slot-2026-10-06-1400",
@@ -190,7 +270,7 @@ test("the answer given again is the answer the first request got", () => {
       ok: true,
       emailed: true,
       confirmedFor: "Tuesday 6 October at 2:00pm",
-      referral: { applied: true, discount: 5, referredBy: "Maria" },
+      referral: { applied: true, discount: 5 },
     }
   );
   // A request: "Request sent!", with no time it does not hold

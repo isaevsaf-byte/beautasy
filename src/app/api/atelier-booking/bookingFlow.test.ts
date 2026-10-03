@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { sanityWriteClient } from "@/lib/sanity";
 import { emailFingerprint } from "@/lib/pii";
 import { instantOf, localDateOf, slotDocumentId } from "@/lib/slots";
+import { requestFingerprint } from "@/lib/bookingRequest";
 import { POST, priceFirstHtml } from "./route";
 
 /**
@@ -138,6 +139,9 @@ function request(body: Record<string, unknown>): NextRequest {
 
 const ANNA = { name: "Anna Smith", email: "anna@example.com", phone: "07700 900123", notes: "Lace hem" };
 
+/** The key Anna's form made when she first pressed the button, sent again with every retry. */
+const ANNAS_FORM = "6f1c2b9e-3d4a-4c5b-8e7f-0a1b2c3d4e5f";
+
 const bookings = () => [...docs.values()].filter((doc) => doc._type === "atelierBooking");
 
 /* ─── A bride's two slots ─── */
@@ -238,7 +242,9 @@ test("one address holds at most two times ahead; the third is asked to message i
   const sent = emails.length;
   const third = await POST(request({ ...ANNA, email: "ANNA@example.com ", service: "Repairs", slot: `${day}T12:00` }));
   assert.equal(third.status, 409);
-  assert.match((await third.json()).error, /already have two appointments booked/);
+  const refusal = (await third.json()).error;
+  assert.match(refusal, /up to two upcoming appointments/);
+  assert.doesNotMatch(refusal, /you already have/i, "says what this address holds to whoever typed it in");
   assert.equal(bookings().length, 2, "the third time was taken");
   assert.equal(emails.length, sent);
 
@@ -271,14 +277,16 @@ test("a cancelled time, or one already past, does not count against the next boo
 
 /* ─── The same request, sent again ─── */
 
-test("a booking sent again after its answer was lost gets the same answer, and no second booking or email", async () => {
+test("a booking sent again from the same form after its answer was lost gets the same answer, and no second booking or email", async () => {
   const day = openDiary();
-  const first = await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T10:00` }));
+  const body = { ...ANNA, service: "Alterations", slot: `${day}T10:00`, requestKey: ANNAS_FORM };
+  const first = await POST(request(body));
   assert.equal(first.status, 201);
   const firstAnswer = await first.json();
   assert.equal(emails.length, 2);
 
-  const again = await POST(request({ ...ANNA, email: " Anna@Example.com", service: "Alterations", slot: `${day}T10:00` }));
+  // Notes touched up before pressing again do not make her time somebody else's
+  const again = await POST(request({ ...body, email: " Anna@Example.com", notes: "Lace hem, and the straps" }));
   assert.equal(again.status, 201, "told their own time had just been taken");
   const answer = await again.json();
   assert.equal(answer.ok, true);
@@ -292,18 +300,83 @@ test("a booking sent again after its answer was lost gets the same answer, and n
   assert.equal((await other.json()).slotTaken, true);
 });
 
+test("somebody who knows a customer's email cannot find out which booked time is hers", async () => {
+  const day = openDiary();
+  assert.equal((await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T15:00`, requestKey: ANNAS_FORM }))).status, 201);
+  emails = [];
+
+  // Her address and her time, from another browser: with no key, and with a key of its own
+  for (const requestKey of [undefined, "0d0d0d0d-1e1e-4f2f-8a3a-4b4b4b4b4b4b"]) {
+    const probe = await POST(
+      request({ name: "Mallory", email: ANNA.email, service: "Alterations", slot: `${day}T15:00`, ...(requestKey ? { requestKey } : {}) })
+    );
+    assert.equal(probe.status, 409, "answered as the customer who holds that time");
+    const said = await probe.json();
+    assert.equal(said.slotTaken, true);
+    assert.equal(said.confirmedFor, undefined);
+  }
+  assert.equal(bookings().length, 1);
+  assert.equal(emails.length, 0);
+});
+
+test("the same request again says the friend's discount is noted, without the friend's name", async () => {
+  const day = openDiary();
+  const slot = `${day}T10:00`;
+  docs.set(slotDocumentId(slot), {
+    _id: slotDocumentId(slot),
+    _type: "atelierBooking",
+    status: "confirmed",
+    slotStart: slot,
+    confirmedFor: "Saturday at 10:00am",
+    emailFingerprint: emailFingerprint(ANNA.email),
+    requestFingerprint: requestFingerprint({ key: ANNAS_FORM, slot, fields: { ...ANNA, service: "Alterations" } }),
+    referredBy: "Maria",
+    referralDiscount: 5,
+  });
+  const res = await POST(request({ ...ANNA, service: "Alterations", slot, requestKey: ANNAS_FORM }));
+  assert.equal(res.status, 201);
+  const answer = await res.json();
+  assert.equal(answer.confirmedFor, "Saturday at 10:00am");
+  assert.deepEqual(answer.referral, { applied: true, discount: 5 });
+  assert.doesNotMatch(JSON.stringify(answer), /Maria/);
+  assert.equal(emails.length, 0);
+});
+
 test("pressed twice at once, one booking is made and both presses hear it went through", async () => {
   const day = openDiary();
-  const body = { ...ANNA, service: "Bridal fitting", slot: `${day}T14:00` };
+  const body = { ...ANNA, service: "Bridal fitting", slot: `${day}T14:00`, requestKey: ANNAS_FORM };
   const answers = await Promise.all([POST(request(body)), POST(request(body))]);
   assert.deepEqual(answers.map((res) => res.status), [201, 201]);
   assert.equal(bookings().length, 1);
   assert.equal(emails.length, 2, "one email to Kristina and one confirmation");
 });
 
-test("a request with no time sent again within fifteen minutes is the same request; after that it is a new one", async () => {
+test("a retry whose first copy lands between its own two looks at the diary is told it has the time", async () => {
+  const day = openDiary();
+  const body = { ...ANNA, service: "Alterations", slot: `${day}T14:00`, requestKey: ANNAS_FORM };
+  assert.equal((await POST(request(body))).status, 201);
+  emails = [];
+  // The retry asks who holds 2:00pm a moment before the first copy is
+  // written, and reads the diary a moment after
+  const reads = client.getDocument as (id: string) => Promise<unknown>;
+  let first = true;
+  client.getDocument = async (id: string) => {
+    if (first) {
+      first = false;
+      return undefined;
+    }
+    return reads(id);
+  };
+  const res = await POST(request(body));
+  assert.equal(res.status, 201, "the customer who holds 2:00pm was told it had just been taken");
+  assert.match(String((await res.json()).confirmedFor), /at 2:00pm$/);
+  assert.equal(bookings().length, 1);
+  assert.equal(emails.length, 0);
+});
+
+test("a request with no time sent again from the same form within fifteen minutes is the same request; after that it is a new one", async () => {
   openDiary();
-  const body = { ...ANNA, service: "Repairs", preferredDate: "2026-11-02" };
+  const body = { ...ANNA, service: "Repairs", preferredDate: "2026-11-02", requestKey: ANNAS_FORM };
   assert.equal((await POST(request(body))).status, 201);
   const again = await POST(request(body));
   assert.equal(again.status, 201);
@@ -319,6 +392,59 @@ test("a request with no time sent again within fifteen minutes is the same reque
   for (const doc of bookings()) doc.createdAt = new Date(Date.now() - 16 * 60_000).toISOString();
   assert.equal((await POST(request(body))).status, 201);
   assert.equal(bookings().length, 3);
+});
+
+test("a corrected request, or a second one, reaches Kristina rather than being taken for the first", async () => {
+  openDiary();
+  const first = { ...ANNA, service: "Repairs", preferredDate: "2026-11-02", notes: "Jacket lining", requestKey: ANNAS_FORM };
+  assert.equal((await POST(request(first))).status, 201);
+
+  // The same form, sent again with another date and other words after the first answer was lost
+  const corrected = { ...first, preferredDate: "2026-11-20", notes: "Also a second coat, different job" };
+  assert.equal((await POST(request(corrected))).status, 201);
+  assert.equal(bookings().length, 2, "the corrected request was thanked and dropped");
+  assert.equal(emails.length, 4);
+  assert.ok(emails.some((email) => email.to !== ANNA.email && /2026-11-20/.test(email.html)), "Kristina never heard of the new date");
+
+  // A second request from a new form, word for word the first — two children, two uniforms
+  assert.equal((await POST(request({ ...first, requestKey: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d" }))).status, 201);
+  assert.equal(bookings().length, 3);
+
+  // And somebody else sending a request in her name first does not swallow hers
+  openDiary();
+  docs.clear();
+  assert.equal((await POST(request({ name: "Mallory", email: ANNA.email, service: "Repairs" }))).status, 201);
+  assert.equal((await POST(request({ ...ANNA, service: "Repairs", requestKey: ANNAS_FORM }))).status, 201);
+  assert.equal(bookings().length, 2);
+});
+
+test("a picked time after a recent request with no time is booked, not answered as that request", async () => {
+  const day = openDiary();
+  const form = { ...ANNA, service: "Alterations", requestKey: ANNAS_FORM };
+  assert.equal((await POST(request({ ...form, preferredDate: "2026-11-02" }))).status, 201);
+  const res = await POST(request({ ...form, slot: `${day}T10:00` }));
+  assert.equal(res.status, 201);
+  assert.match(String((await res.json()).confirmedFor), /at 10:00am$/, "told 'request sent' and the time was never held");
+  assert.equal(docs.get(slotDocumentId(`${day}T10:00`))?.status, "confirmed");
+});
+
+test("a time the diary could not hold is kept as a request, and sending it again finds that request", async () => {
+  const day = openDiary();
+  const body = { ...ANNA, service: "Alterations", slot: `${day}T10:00`, requestKey: ANNAS_FORM };
+  // The database answers everything but the claim on the slot
+  const creating = client.create as (doc: Doc) => Promise<Doc>;
+  client.create = async (doc: Doc) => {
+    if (doc._id) throw Object.assign(new Error("Service Unavailable"), { statusCode: 503 });
+    return creating(doc);
+  };
+  assert.equal((await POST(request(body))).status, 201);
+  assert.equal(bookings().length, 1);
+  assert.equal(bookings()[0].status, "new");
+  const again = await POST(request(body));
+  assert.equal(again.status, 201);
+  assert.deepEqual(await again.json(), { ok: true, emailed: true }, "told 'request sent' both times");
+  assert.equal(bookings().length, 1);
+  assert.equal(emails.length, 2);
 });
 
 /* ─── Not sure yet ─── */
