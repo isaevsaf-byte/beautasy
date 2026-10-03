@@ -33,6 +33,7 @@ const STATUS_LABELS: Record<string, string> = {
   "in-production": "In Production",
   shipped: "Shipped",
   delivered: "Delivered",
+  refunded: "Refunded",
 };
 
 export default async function OrdersPage() {

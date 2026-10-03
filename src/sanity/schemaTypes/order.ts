@@ -8,6 +8,10 @@ const STATUS_OPTIONS = [
   { title: "В работе", value: "in-production" },
   { title: "Отправлен", value: "shipped" },
   { title: "Доставлен", value: "delivered" },
+  // Written by the Stripe webhook for a payment refunded in full before its
+  // order could be saved (see @/lib/paymentRefunds): no title here and the
+  // Studio would call the stored value one it does not know
+  { title: "Деньги возвращены", value: "refunded" },
 ];
 
 export const order = defineType({

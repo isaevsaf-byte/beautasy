@@ -9,6 +9,41 @@ export interface WishlistItem {
   slug: string;
   /** Present when the product requires a size selection before adding to cart */
   availableSizes?: string[];
+  /**
+   * How many colours the piece comes in, when it was saved. Missing on
+   * anything saved before this was kept, and on gift boxes — the wishlist then
+   * cannot know there is nothing to choose, and sends the shopper to the page.
+   */
+  colorCount?: number;
+}
+
+/**
+ * A shop piece as the wishlist keeps it: the shop card and the product page
+ * both save it through this, so both keep what "Add to Bag" on the wishlist
+ * needs to know. The wishlist used to keep the sizes alone, so the Cloud
+ * sleeping mask (four colours) went straight into the bag with no colour, and
+ * checkout then refused the whole bag until she found the line and took it out.
+ */
+export function wishlistEntry(
+  piece: {
+    _id: string;
+    name: string;
+    price: number;
+    slug: string;
+    availableSizes?: string[] | null;
+    colorCount?: number | null;
+  },
+  image: string
+): WishlistItem {
+  return {
+    id: piece._id,
+    name: piece.name,
+    price: piece.price,
+    image,
+    slug: piece.slug,
+    availableSizes: piece.availableSizes ?? [],
+    ...(typeof piece.colorCount === "number" ? { colorCount: piece.colorCount } : {}),
+  };
 }
 
 interface WishlistState {

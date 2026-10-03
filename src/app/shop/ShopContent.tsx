@@ -12,6 +12,7 @@ import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 import AddToCartButton from "@/components/AddToCartButton";
 import WishlistButton from "@/components/WishlistButton";
+import { wishlistEntry } from "@/store/useWishlist";
 import Lightbox from "@/components/Lightbox";
 import { fadeUp, stagger } from "@/components/animations";
 
@@ -677,14 +678,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           {/* Wishlist heart */}
           <div className="absolute top-4 right-4 z-10">
             <WishlistButton
-              product={{
-                id: product._id,
-                name: product.name,
-                price: product.price,
-                image: activeImage,
-                slug: product.slug,
-                availableSizes: product.availableSizes,
-              }}
+              product={wishlistEntry(product, activeImage)}
               className="bg-white/80 backdrop-blur-sm shadow-sm"
             />
           </div>
