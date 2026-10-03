@@ -22,7 +22,7 @@ export const atelierBooking = defineType({
   title: "Запись в ателье",
   type: "document",
   description:
-    "Заявка на подгонку, ремонт или примерку. Смените статус, чтобы подтвердить её или отказать, — клиенту автоматически придёт письмо. Чтобы назначить время, перенести запись или записать клиента снова, нажмите «Назначить время», «Перенести на другое время» или «Записать снова» в меню внизу. Заявку на забор (🚗) подтверждают без этих кнопок: статус «Подтверждена» и день с окном в «Подтверждено на». Контакты хранятся в зашифрованном виде — чтобы их прочитать, нажмите «Показать контакты».",
+    "Заявка на подгонку, ремонт или примерку. Смените статус, чтобы подтвердить её или отказать, — клиенту автоматически придёт письмо. Чтобы назначить время, перенести запись или записать клиента снова, нажмите «Назначить время», «Перенести на другое время» или «Записать снова» в меню внизу. Заявке на забор (🚗) время назначает кнопка «🚗 Назначить забор»: она закрывает в дневнике время поездки. Вписывать время руками в «Подтверждено на» стоит, только если кнопкой нельзя — забор вне часов дневника или онлайн-запись выключена. Контакты хранятся в зашифрованном виде — чтобы их прочитать, нажмите «Показать контакты».",
   fields: [
     defineField({
       name: "displayName",
@@ -101,7 +101,16 @@ export const atelierBooking = defineType({
       type: "string",
       readOnly: true,
       description:
-        "Время, закреплённое за этой записью в дневнике записей, — онлайн его больше никому не предложат. Чтобы его изменить, нажмите «Перенести на другое время» в меню внизу.",
+        "Время, закреплённое за этой записью в дневнике записей, — онлайн его больше никому не предложат. Чтобы его изменить, нажмите «Перенести на другое время» в меню внизу (у забора — «🚗 Перенести забор»).",
+    }),
+    defineField({
+      name: "slotEnd",
+      title: "Занято до",
+      type: "string",
+      readOnly: true,
+      hidden: ({ document }) => !document?.slotEnd,
+      description:
+        "До какого времени дневник закрыт под эту запись. Так бывает у забора: пока вы ездите, на примерку в ателье никто не запишется.",
     }),
     defineField({
       name: "movedFrom",
@@ -133,11 +142,17 @@ export const atelierBooking = defineType({
       readOnly: true,
       hidden: ({ document }) => !document?.collection,
       description:
-        "Клиент попросил забрать вещь и привезти обратно. Адрес уточните в переписке: сайт хранит только район, полный индекс пришёл в письме. Цена — по условиям ниже, их видел клиент. Когда договоритесь, поставьте статус «Подтверждена» и впишите в «Подтверждено на» день и окно по-английски, например «Tuesday 6 October, 6–8pm», — клиенту уйдёт письмо «Your collection is arranged». Кнопки «Назначить время» у забора нет: он проходит у двери клиента и не занимает время примерок в дневнике.",
+        "Клиент попросил забрать вещь и привезти обратно. Сайт хранит только район, полный индекс и когда клиенту удобно — в письме вам (и в заметках, кнопка «Показать контакты»). Время назначьте кнопкой «🚗 Назначить забор» в меню внизу: выберите день, время и сколько займёт поездка — это время закроется в дневнике, а клиенту уйдёт письмо «Your collection is arranged» с окном и приглашением в календарь. Адрес спросите в переписке. Цена — по условиям ниже, их видел клиент.",
       fields: [
         defineField({ name: "district", title: "Район (индекс)", type: "string" }),
         defineField({ name: "zone", title: "Зона", type: "string" }),
-        defineField({ name: "window", title: "Когда удобно забрать", type: "string" }),
+        // From before Kristina drove, when the customer picked one of Safar's windows
+        defineField({
+          name: "window",
+          title: "Окно, которое выбрал клиент",
+          type: "string",
+          hidden: ({ parent }) => !(parent as { window?: string } | undefined)?.window,
+        }),
         defineField({ name: "terms", title: "Условия, которые увидел клиент", type: "string" }),
       ],
     }),
@@ -156,7 +171,15 @@ export const atelierBooking = defineType({
       type: "string",
       // Confirming it again would put two people on one time, and email this
       // one a time somebody else now holds. "Book again" takes a free one.
-      readOnly: ({ document }) => Boolean(document?.releasedAt),
+      // The same goes for any booking with a time that gave it back: since a
+      // collection holds a whole trip, the time may be gone without anyone
+      // taking this booking's id, so only the button, which asks the diary,
+      // may give it back.
+      readOnly: ({ document }) =>
+        Boolean(document?.releasedAt) ||
+        (Boolean(document?.slotStart) && ["declined", "cancelled"].includes(String(document?.status))),
+      description:
+        "Отменённую запись со временем вернуть можно только кнопкой «Записать снова» (у забора — «🚗 Назначить забор снова»): она проверит, что время всё ещё свободно. Если статус поменяли по ошибке и ещё не опубликовали, нажмите «Отменить изменения».",
       options: {
         list: STATUS_OPTIONS,
         layout: "radio",
@@ -172,7 +195,7 @@ export const atelierBooking = defineType({
       // moved with the action, which holds the new time first.
       readOnly: ({ document }) => Boolean(document?.slotStart),
       description:
-        "Только для заявки, своими словами — например, «Tuesday 3 March, 2pm». Это попадёт в письмо клиенту, поэтому пишите по-английски. Лучше нажмите «Назначить время» в меню внизу: кнопка закрепит время в дневнике записей и отправит подтверждение с приглашением в календарь. В подтверждении также сказано, что вы пришлёте адрес и объясните, как найти дверь, — так что после подтверждения пришлите их. У забора (🚗) кнопки нет: впишите сюда день и окно забора — например, «Tuesday 6 October, 6–8pm».",
+        "Только для заявки, своими словами — например, «Tuesday 3 March, 2pm». Это попадёт в письмо клиенту, поэтому пишите по-английски. Лучше нажмите «Назначить время» в меню внизу (у забора — «🚗 Назначить забор»): кнопка закрепит время в дневнике записей и отправит подтверждение с приглашением в календарь. В подтверждении примерки также сказано, что вы пришлёте адрес и объясните, как найти дверь, — так что после подтверждения пришлите их. Вписывать время сюда вручную стоит, только когда кнопкой нельзя: забор вне часов дневника — например, «Monday 5 October, 7:30pm» — или онлайн-запись выключена. В дневнике такое время не закроется.",
     }),
     defineField({
       name: "replyNote",
@@ -230,9 +253,9 @@ export const atelierBooking = defineType({
     },
     prepare({ title, service, status, date, confirmedFor, referralDiscount, referredBy, district, collectAt }) {
       const when = confirmedFor
-        ? ` · ${confirmedFor}`
+        ? `${district ? " · 🚗" : ""} · ${confirmedFor}`
         : district
-        ? ` · 🚗 забрать: ${[district, collectAt].filter(Boolean).join(", ")}`
+        ? ` · 🚗 забрать: ${[district, collectAt].filter(Boolean).join(", ")} — время не назначено`
         : date
         ? ` · желаемая дата: ${date}`
         : "";

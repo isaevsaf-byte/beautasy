@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   COLLECTION_DEFAULTS,
+  COLLECTION_TRIP_MINUTES,
+  DEFAULT_TRIP_MINUTES,
+  WHEN_MAX,
   collectionHeadline,
   collectionOffer,
   collectionSettingsFrom,
@@ -10,6 +13,7 @@ import {
   judgeCollection,
   onItsWayTo,
   postcodeDistrict,
+  whenSuits,
   zoneFor,
 } from "./collection";
 
@@ -95,9 +99,7 @@ test("empty settings fall back to the defaults, a copy rather than the original"
   assert.equal(settings.enabled, true);
   assert.equal(settings.zones.length, 2);
   settings.zones[0].districts.push("SO45");
-  settings.windows.push("Sunday");
   assert.equal(COLLECTION_DEFAULTS.zones[0].districts.includes("SO45"), false, "a caller changed the defaults");
-  assert.equal(COLLECTION_DEFAULTS.windows.includes("Sunday"), false, "a caller changed the defaults");
 });
 
 test("the Studio's own zones are read, tidied, and the unfinished ones left out", () => {
@@ -110,11 +112,9 @@ test("the Studio's own zones are read, tidied, and the unfinished ones left out"
       { name: "No districts", districts: [], fee: 500 },
       { name: "Negative", districts: ["SO50"], fee: -100 },
     ],
-    windows: [" Monday 7–9pm ", "", "Monday 7–9pm", 5],
     note: "  Curtains only  ",
   });
   assert.deepEqual(settings.zones, [{ name: "City", districts: ["SO17", "SO18"], fee: 700, freeFrom: 3500 }]);
-  assert.deepEqual(settings.windows, ["Monday 7–9pm"]);
   assert.equal(settings.note, "Curtains only");
 });
 
@@ -128,14 +128,28 @@ test("an empty list in the Studio is taken at its word", () => {
   const nowhere = collectionSettingsFrom({ zones: [] });
   assert.equal(nowhere.zones.length, 0);
   assert.equal(collectionOffer(nowhere), null, "no zones, and the form still offered to collect");
-  const untimed = collectionSettingsFrom({ windows: [] });
-  assert.deepEqual(untimed.windows, []);
 });
 
 test("switched off in the Studio, the form offers nothing", () => {
   assert.equal(collectionOffer(collectionSettingsFrom({ enabled: false })), null);
-  const verdict = judgeCollection(collectionSettingsFrom({ enabled: false, windows: ["Tuesday 6–8pm"] }), { postcode: "SO17 1AB", window: "Tuesday 6–8pm" });
+  const verdict = judgeCollection(collectionSettingsFrom({ enabled: false }), { postcode: "SO17 1AB" });
   assert.equal(verdict.ok, false);
+});
+
+test("the windows Safar used to drive in are no longer read or offered", () => {
+  // Kristina drives from 3 October 2026 and picks each time from her diary;
+  // the old windows may still be saved in the Studio
+  const settings = collectionSettingsFrom({ windows: ["Tuesday 6–8pm", "Thursday 6–8pm"] });
+  assert.equal("windows" in settings, false, "the settings still carry Safar's windows");
+  assert.equal(settings.zones.length, 2, "old windows lost the default zones");
+  const offer = collectionOffer(settings);
+  assert.ok(offer);
+  assert.equal("windows" in offer, false, "the form is still handed windows to offer");
+  const verdict = judgeCollection(settings, { postcode: "SO17 1AB", window: "Tuesday 6–8pm" });
+  assert.equal(verdict.ok, true);
+  if (verdict.ok) {
+    assert.equal(JSON.stringify(verdict).includes("Tuesday"), false, "a window from an old page reached the booking");
+  }
 });
 
 test("the offer carries the price of every zone and the headline of the first", () => {
@@ -143,34 +157,25 @@ test("the offer carries the price of every zone and the headline of the first", 
   assert.ok(offer);
   assert.equal(offer.headline, "Free collection & return in Southampton on orders from £40");
   assert.equal(offer.zones[0].terms, "Free on orders from £40, otherwise £8");
-  assert.deepEqual(offer.windows, COLLECTION_DEFAULTS.windows);
 });
 
-/** Windows are Safar's and live only in the Studio; these stand in for his */
-const timed = () => collectionSettingsFrom({ windows: ["Tuesday 6–8pm", "Thursday 6–8pm"] });
-
-test("the defaults ask no time: the windows are Safar's, kept in the Studio", () => {
-  assert.deepEqual(COLLECTION_DEFAULTS.windows, []);
-  assert.deepEqual(timed().windows, ["Tuesday 6–8pm", "Thursday 6–8pm"]);
-  assert.equal(timed().zones.length, 2, "setting windows alone lost the default zones");
-});
-
-test("a good request is kept as its district and terms, never its street", () => {
-  const verdict = judgeCollection(timed(), { postcode: "so17 1ab", window: " Thursday 6–8pm " });
+test("a good request is kept as its district and terms, never its street or their words", () => {
+  const verdict = judgeCollection(collectionSettingsFrom(null), { postcode: "so17 1ab", when: " weekday\n  mornings " });
   assert.equal(verdict.ok, true);
   if (!verdict.ok) return;
   assert.deepEqual(verdict.request, {
     district: "SO17",
     zone: "Southampton",
     terms: "Free on orders from £40, otherwise £8",
-    window: "Thursday 6–8pm",
   });
   assert.equal(verdict.postcode, "SO17 1AB", "the full postcode is for Kristina's email");
+  assert.equal(verdict.when, "weekday mornings", "when they are in is tidied into one line for Kristina");
   assert.equal(JSON.stringify(verdict.request).includes("1AB"), false, "the booking keeps the street half of the postcode");
+  assert.equal(JSON.stringify(verdict.request).includes("mornings"), false, "their own words went into the public booking");
 });
 
 test("a district nobody drives to is refused with a way forward", () => {
-  const verdict = judgeCollection(timed(), { postcode: "SO45 6AB", window: "Tuesday 6–8pm" });
+  const verdict = judgeCollection(collectionSettingsFrom(null), { postcode: "SO45 6AB" });
   assert.equal(verdict.ok, false);
   if (verdict.ok) return;
   assert.match(verdict.error, /SO45/);
@@ -178,26 +183,36 @@ test("a district nobody drives to is refused with a way forward", () => {
 });
 
 test("no postcode is refused", () => {
-  const settings = timed();
-  assert.equal(judgeCollection(settings, { window: "Tuesday 6–8pm" }).ok, false);
-  assert.equal(judgeCollection(settings, { postcode: "hello", window: "Tuesday 6–8pm" }).ok, false);
+  const settings = collectionSettingsFrom(null);
+  assert.equal(judgeCollection(settings, { when: "mornings" }).ok, false);
+  assert.equal(judgeCollection(settings, { postcode: "hello" }).ok, false);
   assert.equal(judgeCollection(settings, null).ok, false);
   assert.equal(judgeCollection(settings, "SO17 1AB").ok, false);
 });
 
-test("a time that is gone, or none, is no reason to refuse — and a time nobody offered is not kept", () => {
-  // A page open since the Studio changed its windows: its list is stale, and
-  // refusing would leave the customer nothing they could choose
-  const settings = timed();
-  for (const window of [undefined, "", "Saturday 10am–12pm", "Sunday 3am", 5]) {
-    const verdict = judgeCollection(settings, { postcode: "SO17 1AB", window });
-    assert.equal(verdict.ok, true, `refused with the window ${String(window)}`);
-    if (verdict.ok) assert.equal(verdict.request.window, undefined, "a time nobody offered reached Kristina");
+test("saying nothing about when, or nonsense, is never a reason to refuse", () => {
+  const settings = collectionSettingsFrom(null);
+  for (const when of [undefined, "", "   ", 5, null, { day: "Monday" }]) {
+    const verdict = judgeCollection(settings, { postcode: "SO17 1AB", when });
+    assert.equal(verdict.ok, true, `refused with when = ${JSON.stringify(when)}`);
+    if (verdict.ok) assert.equal(verdict.when, undefined, `kept when = ${JSON.stringify(when)}`);
   }
 });
 
-test("with no windows in the Studio, no time is asked", () => {
-  const verdict = judgeCollection(collectionSettingsFrom({ windows: [] }), { postcode: "SO17 1AB", window: "anything" });
-  assert.equal(verdict.ok, true);
-  if (verdict.ok) assert.equal(verdict.request.window, undefined);
+test("when they are in is one tidy line, cut to length", () => {
+  assert.equal(whenSuits("  after   5pm\r\n or Saturdays "), "after 5pm or Saturdays");
+  assert.equal(whenSuits("a\u0000b\u0007c"), "a b c", "control characters went into Kristina's email");
+  assert.equal(whenSuits("x".repeat(500))?.length, WHEN_MAX);
+  assert.equal(whenSuits("   "), undefined);
+  assert.equal(whenSuits(42), undefined);
+});
+
+test("the trip lengths Kristina can pick are whole half hours, the default among them", () => {
+  assert.deepEqual([...COLLECTION_TRIP_MINUTES], [30, 60, 90, 120]);
+  assert.ok((COLLECTION_TRIP_MINUTES as readonly number[]).includes(DEFAULT_TRIP_MINUTES));
+  for (const minutes of COLLECTION_TRIP_MINUTES) assert.equal(minutes % 30, 0);
+});
+
+test("a line cut on a space does not keep the space", () => {
+  assert.equal(whenSuits("x".repeat(119) + " yz"), "x".repeat(119));
 });

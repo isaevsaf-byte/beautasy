@@ -85,7 +85,8 @@ test("only a member of the project reaches the diary, before anything is read or
 
 test("the Studio books from the fresh diary, strictly, without the customers' notice period", () => {
   assert.match(ROUTE, /getAvailableSlots\(\{ fresh: true, strict: true, leadTimeHours: 0 \}\)/);
-  assert.match(ROUTE, /if \(!slotIsOffered\(days, slot\)\)/);
+  // Every action but a collection's checks the bare slot; a collection checks its whole trip (planCollection)
+  assert.match(ROUTE, /if \(body\.action !== "collect" && !slotIsOffered\(days, slot\)\)/);
 });
 
 test("a booking made by hand goes through the same claim as one made on the site", () => {
@@ -96,7 +97,7 @@ test("a booking made by hand goes through the same claim as one made on the site
 
 test("a move takes the new time before letting go of the old one, and only for a live booking", () => {
   assert.match(ROUTE, /if \(!canMove\(from\.status\)\)/);
-  assert.match(ROUTE, /const moved = await moveBooking\(store, \{ from, to, now \}\);/);
+  assert.match(ROUTE, /: await moveBooking\(store, \{ from, to, now \}\);/);
   assert.match(ROUTE, /if \(moved === "failed"\) return answer\(500/);
 });
 
@@ -105,7 +106,7 @@ test("the move is not offered over unpublished changes, and it asks the diary ro
   assert.match(ACTION, /askDiary\(token, \{ action: "move", id, slot \}\)/);
   assert.match(
     CONFIG,
-    /return \[\s*\.\.\.prev,\s*moveBookingAction,\s*recordPaymentAction,\s*partnerAttributionAction,\s*notifyCustomerAction,\s*revealContactAction,\s*\];/
+    /return \[\s*\.\.\.prev,\s*moveBookingAction,\s*collectionTimeAction,\s*recordPaymentAction,\s*partnerAttributionAction,\s*notifyCustomerAction,\s*revealContactAction,\s*\];/
   );
   assert.match(STRUCTURE, /\.title\("Записать вручную"\)/);
 });
@@ -116,13 +117,20 @@ test("a booked time cannot be changed by typing — Confirmed For is read-only o
 });
 
 test("a booking whose time went to someone else cannot be confirmed again by its status — only booked again", () => {
-  assert.match(SCHEMA, /name: "status",[\s\S]*?readOnly: \(\{ document \}\) => Boolean\(document\?\.releasedAt\)/);
+  assert.match(
+    SCHEMA,
+    /name: "status",[\s\S]*?readOnly: \(\{ document \}\) =>\s*Boolean\(document\?\.releasedAt\) \|\|\s*\(Boolean\(document\?\.slotStart\) && \["declined", "cancelled"\]\.includes\(String\(document\?\.status\)\)\)/,
+    "a booking with a time that gave it back can be confirmed by its status, over whatever took its time"
+  );
   assert.match(SCHEMA, /name: "releasedAt",[\s\S]*?hidden: \(\{ document \}\) => !document\?\.releasedAt/);
   assert.match(ACTION, /const label = again \? "Записать снова"/);
 });
 
 test("the booking that holds a time is not moved onto it, whatever its status", () => {
-  assert.match(ROUTE, /if \(from\._id === slotDocumentId\(slot\)\)/);
+  assert.match(ROUTE, /const sameSlot = from\._id === slotDocumentId\(slot\);/);
+  assert.match(ROUTE, /if \(sameSlot && !releasesItsTime\(from\.status\)\) return answer\(400, "Запись уже стоит на это время\."\);/);
+  // One that gave its time back is booked again in place, after the diary said the time is free
+  assert.match(ROUTE, /\? await reholdBooking\(store, \{ from, slot, now \}\)/);
   assert.doesNotMatch(ROUTE, /from\.slotStart === slot/, "a record the diary kept has the time but not the id");
 });
 

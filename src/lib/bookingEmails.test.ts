@@ -153,7 +153,7 @@ test("both ways a confirmation leaves carry the calendar invite, and survive its
   // …and from the nightly job, when the first attempt was refused
   assert.match(nightly, /const invite = status === "confirmed" \? bookingInvite\(booking\) : null;/);
   assert.match(nightly, /sendConfirmation\(\{[\s\S]*?\}, invite\)/);
-  assert.match(nightly, /confirmedFor, slotStart, movedFrom, replyNote/);
+  assert.match(nightly, /confirmedFor, slotStart, slotEnd, movedFrom, replyNote/);
   // Nothing sends an attachment except through the fallback
   assert.doesNotMatch(route + nightly, /attachments: \[invite\] \} : \{\}/);
 });

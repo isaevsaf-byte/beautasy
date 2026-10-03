@@ -7,21 +7,25 @@ import { secretsConfigured } from "@/lib/secrets";
 import { emailFingerprint, firstNameOf, maskEmail, open, sealOptional } from "@/lib/pii";
 import { getAvailableSlots } from "@/lib/schedule";
 import { slotDocumentId, slotIsOffered, slotLabel } from "@/lib/slots";
+import { planCollection } from "@/lib/collectionTime";
 import {
   canMove,
   claimSlot,
   moveBooking,
   movedCopy,
   releasesItsTime,
+  reheldDoc,
+  reholdBooking,
   sanityDiaryStore,
   type DiaryDoc,
+  type Move,
 } from "@/lib/diary";
 import {
   bookingEmailHtml,
   bookingEmailSubject,
   bookingInvite,
+  notifiableFromDiary,
   sendConfirmation,
-  type NotifiableBooking,
 } from "@/lib/bookingEmails";
 
 export const dynamic = "force-dynamic";
@@ -32,12 +36,18 @@ export const dynamic = "force-dynamic";
  *   { token, action: "slots" }                         → the free times
  *   { token, action: "book", slot, name, ... }         → a booking agreed elsewhere
  *   { token, action: "move", id, slot }                → a booking given a (new) time
+ *   { token, action: "collect", id, slot, minutes }    → a collection given the time Kristina drives out
  *
  * Why it exists: the diary only knew about bookings made on the site. A time
  * agreed on WhatsApp or Nextdoor stayed on offer online, and moving a booking
  * meant typing words into "Confirmed For", which held nothing. Both went
  * straight to two people at the door. Both now go through the same claim as a
  * booking on the site — see @/lib/diary.
+ *
+ * A collection is Kristina at the customer's door, so the time she drives out
+ * is taken from the diary for the whole trip: nobody can book a fitting in the
+ * atelier while she is away. It holds its start the way every booking does,
+ * by its id, and the rest of its span through `slotEnd` (see @/lib/schedule).
  *
  * The notice customers must give does not apply here: Kristina books times
  * she has just agreed with the person. Contact details are sealed on the way
@@ -79,24 +89,8 @@ async function tellCustomer(doc: DiaryDoc, slotMinutes: number): Promise<boolean
   const email = open(typeof doc.emailSealed === "string" ? doc.emailSealed : undefined);
   if (!email) return false;
 
-  const booking: NotifiableBooking = {
-    _id: doc._id,
-    _rev: "",
-    status: "confirmed",
-    displayName: typeof doc.displayName === "string" ? doc.displayName : undefined,
-    service: typeof doc.service === "string" ? doc.service : undefined,
-    confirmedFor: doc.confirmedFor,
-    slotStart: doc.slotStart,
-    slotMinutes,
-    movedFrom: typeof doc.movedFrom === "string" ? doc.movedFrom : undefined,
-    referredBy: typeof doc.referredBy === "string" ? doc.referredBy : undefined,
-    referralDiscount: typeof doc.referralDiscount === "number" ? doc.referralDiscount : undefined,
-    // Carried so the email can never call a collection an appointment
-    collection:
-      doc.collection && typeof doc.collection === "object"
-        ? (doc.collection as NotifiableBooking["collection"])
-        : undefined,
-  };
+  // The collection, the window and any note Kristina left travel with it — see notifiableFromDiary
+  const booking = notifiableFromDiary(doc, slotMinutes);
 
   try {
     await sendConfirmation(
@@ -152,12 +146,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.action === "slots") {
-    return NextResponse.json({ enabled: schedule.enabled, days });
+    return NextResponse.json({ enabled: schedule.enabled, days, slotMinutes: schedule.slotMinutes });
   }
 
   const slot = typeof body.slot === "string" && SLOT_SHAPE.test(body.slot) ? body.slot : null;
   if (!slot) return answer(400, "Сначала выберите время.");
-  if (!slotIsOffered(days, slot)) {
+  // A collection is checked for the whole trip, counting its own slots as its own (see planCollection)
+  if (body.action !== "collect" && !slotIsOffered(days, slot)) {
     return answer(409, "Это время уже занято — выберите другое.", { slotTaken: true });
   }
 
@@ -228,27 +223,22 @@ export async function POST(req: NextRequest) {
     }
     if (!from || from._type !== "atelierBooking") return answer(404, "Этой записи больше нет.");
     if (!canMove(from.status)) return answer(400, "У записи со статусом «Выполнена» время не меняется.");
-    // Collect & return happens at the customer's door, not in the atelier: a
-    // time in the diary would block a fitting and send them an invite to visit
+    // A collection is given its time with the length of the trip, and its
+    // email talks about a collection at their door, never a visit
     if (from.collection) {
-      return answer(
-        400,
-        "Это заявка на забор — время в дневнике ей не нужно. Поставьте статус «Подтверждена» и впишите в «Подтверждено на» день и окно по-английски, например «Tuesday 6 October, 6–8pm»."
-      );
+      return answer(400, "Это заявка на забор — время для неё назначает кнопка «🚗 Назначить забор» в меню внизу.");
     }
     // The booking that holds this very time: moving it onto itself would hand
-    // its own time back. One that gave it back only needs its status again.
-    if (from._id === slotDocumentId(slot)) {
-      return answer(
-        400,
-        releasesItsTime(from.status)
-          ? "Это время можно просто вернуть: вместо переноса поставьте статус «Подтверждена»."
-          : "Запись уже стоит на это время."
-      );
-    }
+    // its own time back. One that gave it back is booked again in place — the
+    // diary above has just said the time is free, which a status set back by
+    // hand never asked (a collection may hold that time without its id).
+    const sameSlot = from._id === slotDocumentId(slot);
+    if (sameSlot && !releasesItsTime(from.status)) return answer(400, "Запись уже стоит на это время.");
 
-    const to = movedCopy(from, slot, now);
-    const moved = await moveBooking(store, { from, to, now });
+    const to = sameSlot ? reheldDoc(from, slot, now) : movedCopy(from, slot, now);
+    const moved: Move = sameSlot
+      ? await reholdBooking(store, { from, slot, now })
+      : await moveBooking(store, { from, to, now });
     if (moved === "taken") {
       return answer(409, "Это время только что заняли — выберите другое.", { slotTaken: true });
     }
@@ -271,6 +261,62 @@ export async function POST(req: NextRequest) {
       label: slotLabel(slot),
       emailed,
       hadEmail: typeof from.emailSealed === "string",
+    });
+  }
+
+  if (body.action === "collect") {
+    const id = typeof body.id === "string" ? body.id.replace(/^drafts\./, "") : "";
+    if (!id) return answer(400, "Какую заявку на забор назначить?");
+
+    let from: DiaryDoc | null;
+    try {
+      from = await store.read(id);
+    } catch (error) {
+      console.error(`Could not read collection ${id} to give it a time:`, error);
+      return answer(503, "Не удалось прочитать заявку. Попробуйте через минуту.");
+    }
+
+    const plan = planCollection({
+      from,
+      slot,
+      minutes: body.minutes,
+      days,
+      slotMinutes: schedule.slotMinutes,
+      now,
+      nowMs: Date.now(),
+    });
+    if (!plan.ok) return answer(plan.status, plan.error, plan.slotTaken ? { slotTaken: true } : {});
+    // planCollection has looked: there is a request to change
+    const request = from as DiaryDoc;
+
+    const { end } = plan;
+    const to = plan.inPlace ? reheldDoc(request, slot, now, end) : plan.to;
+    const moved: Move = plan.inPlace
+      ? await reholdBooking(store, { from: request, slot, now, end })
+      : await moveBooking(store, { from: request, to, now });
+    if (moved === "taken") {
+      return answer(409, "Это время только что заняли — выберите другое.", { slotTaken: true });
+    }
+    if (moved === "changed") {
+      return answer(409, "Пока вы назначали забор, заявку изменили. Откройте её заново и попробуйте ещё раз.");
+    }
+    if (moved === "failed") return answer(500, "Не удалось сохранить, поэтому ничего не изменилось. Попробуйте через минуту.");
+    if (moved === "unsure") {
+      return answer(
+        500,
+        "Дневник записей перестал отвечать на полпути. Загляните в «Записи в ателье»: заявка может стоять на старом времени, на новом или на обоих. Оставьте нужную, остальные удалите и сообщите клиенту время сами."
+      );
+    }
+
+    const emailed = await tellCustomer(to, schedule.slotMinutes);
+    return NextResponse.json({
+      ok: true,
+      id: to._id,
+      slot,
+      end,
+      label: to.confirmedFor,
+      emailed,
+      hadEmail: typeof request.emailSealed === "string",
     });
   }
 

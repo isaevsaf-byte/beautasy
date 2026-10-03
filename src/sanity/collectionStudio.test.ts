@@ -8,15 +8,18 @@ import { poundsTypedAsPence } from "@/sanity/schemaTypes/product";
 
 /**
  * Collect & return in the Studio: the prices Kristina types, and the diary's
- * buttons, which a collection must not have. A collection happens at the
- * customer's door, so it never takes a fitting's time and never sends an
- * invite to the atelier; it is confirmed by its status.
+ * buttons. A collection happens at the customer's door, so it never takes a
+ * fitting's button or sends an invite to the atelier. Since 3 October 2026
+ * Kristina drives, so it has a button of its own, «🚗 Назначить забор»: the
+ * time of the whole trip is taken from the diary.
  */
 
 const ROOT = process.cwd();
 const read = (file: string) => readFileSync(join(ROOT, file), "utf8");
 const ROUTE = read("src/app/api/studio/diary/route.ts");
 const ACTION = read("src/sanity/moveBookingAction.tsx");
+const COLLECT = read("src/sanity/collectionAction.tsx");
+const FORM = read("src/components/AtelierBookingForm.tsx");
 
 interface FieldDef {
   name: string;
@@ -88,5 +91,41 @@ test("the diary refuses a collection before moving anything, even from a Studio 
 
 test("an email from the Studio's diary keeps the collection it is about", () => {
   const tell = ROUTE.slice(ROUTE.indexOf("async function tellCustomer"), ROUTE.indexOf("export async function POST"));
-  assert.match(tell, /\bcollection:/, "without it, a collection is emailed as an appointment at the atelier");
+  assert.match(tell, /notifiableFromDiary\(doc, slotMinutes\)/, "without it, a collection is emailed as an appointment at the atelier");
+});
+
+test("a collection is given its time by its own button, with the length of the trip", () => {
+  assert.match(COLLECT, /if \(!doc \|\| !doc\.collection \|\| !canMove\(doc\.status\)\) return null;/, "the button showed on a fitting");
+  assert.match(COLLECT, /disabled: Boolean\(props\.draft\)/, "the button works over unpublished changes, which the move would throw away");
+  assert.match(COLLECT, /askDiary\(token, \{ action: "collect", id, slot: chosen, minutes \}\)/);
+  assert.match(
+    COLLECT,
+    /spansOffered\(times\.days, minutes, slotMinutes, own, openedAt\)/,
+    "the picker offered times the trip does not fit in"
+  );
+  assert.match(COLLECT, /heldBy\(\{ slotStart: doc\.slotStart, slotEnd: doc\.slotEnd, status: doc\.status \}, slotMinutes\)/);
+  assert.match(COLLECT, /const chosen = stillFits\(days, slot\);/);
+  assert.match(read("sanity.config.ts"), /moveBookingAction,\s*collectionTimeAction,/);
+});
+
+test("the diary's collect action decides with planCollection and only then changes anything", () => {
+  const collect = ROUTE.slice(ROUTE.indexOf('if (body.action === "collect")'));
+  const plan = collect.indexOf("planCollection(");
+  const refused = collect.indexOf("if (!plan.ok) return answer(plan.status, plan.error");
+  const writing = Math.min(collect.indexOf("reholdBooking("), collect.indexOf("moveBooking("));
+  assert.ok(plan !== -1 && refused !== -1 && writing !== -1);
+  assert.ok(plan < refused && refused < writing, "the collection is written before it is judged");
+  assert.match(collect, /minutes: body\.minutes,/);
+  assert.match(collect, /nowMs: Date\.now\(\),/);
+});
+
+test("the email from the Studio carries the span, so the calendar gets the window", () => {
+  assert.match(ROUTE, /return NextResponse\.json\(\{ enabled: schedule\.enabled, days, slotMinutes: schedule\.slotMinutes \}\)/);
+});
+
+test("the booking form asks when they're in, and offers no windows", () => {
+  assert.doesNotMatch(FORM, /booking-window|collection\.windows/, "the form still offers Safar's windows");
+  assert.match(FORM, /id="booking-when"/);
+  assert.match(FORM, /maxLength=\{WHEN_MAX\}/);
+  assert.doesNotMatch(FORM, /required\s+value=\{collectWhen\}/, "when they're in became compulsory");
 });

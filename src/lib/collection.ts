@@ -5,10 +5,16 @@ import { pounds } from "./friendsLink";
  *
  * The best-paid work is often the heaviest to carry: four curtain panels, a
  * winter coat, a bag of school uniform. And the atelier's address is not
- * published, so "bring it round" always needed a message first. From
- * 30 September 2026 Safar collects things and brings them back in set
- * windows, priced by postcode district rather than by the mile, so a customer
- * sees the price the moment they type their postcode and nobody measures a map.
+ * published, so "bring it round" always needed a message first. Since
+ * 30 September 2026 things are collected and brought back, priced by postcode
+ * district rather than by the mile, so a customer sees the price the moment
+ * they type their postcode and nobody measures a map.
+ *
+ * Kristina drives, from 3 October 2026. So there are no set windows: the
+ * customer says when they are usually in, and Kristina picks a time from her
+ * diary in the Studio ("🚗 Назначить забор"). That time is taken from the
+ * diary for the whole trip, since nobody can be pinned in the atelier while
+ * she is out (see the "collect" action in /api/studio/diary).
  *
  * Plain data and plain functions, shared by the booking form (which shows the
  * price as they type) and the booking route (which decides again, because a
@@ -31,11 +37,19 @@ export interface CollectionZone {
 export interface CollectionSettings {
   enabled: boolean;
   zones: CollectionZone[];
-  /** When Safar drives, as the customer reads it: "Tuesday 6–8pm". Empty means no time is asked. */
-  windows: string[];
   /** Which jobs it suits, one or two lines of English under the choice */
   note: string;
 }
+
+/**
+ * How long a trip can take in the diary, in minutes, as Kristina picks it when
+ * she gives a collection its time. The diary is in half-hour slots.
+ */
+export const COLLECTION_TRIP_MINUTES = [30, 60, 90, 120] as const;
+export const DEFAULT_TRIP_MINUTES = 60;
+
+/** The longest "when suits you" the form keeps: a line, not a letter. */
+export const WHEN_MAX = 120;
 
 /**
  * What was agreed on 29 September 2026. The city is free from the average
@@ -43,10 +57,7 @@ export interface CollectionSettings {
  * address nobody has to be given, not a profit on the driving; the outer ring
  * costs more because it is two to three times the miles.
  *
- * No windows here on purpose. They are Safar's evenings, kept in the Studio
- * where he can change them, and a day-and-time written in the code is exactly
- * what the one-place-for-hours guard in business.test.ts exists to stop. With
- * none set, no time is asked and it is agreed in a message.
+ * No times here: Kristina chooses each one from her diary.
  */
 export const COLLECTION_DEFAULTS: CollectionSettings = {
   enabled: true,
@@ -64,7 +75,6 @@ export const COLLECTION_DEFAULTS: CollectionSettings = {
       freeFrom: 8000,
     },
   ],
-  windows: [],
   note: "Best for curtains, zips, repairs and hems you've pinned yourself. Dresses and trousers that need pinning on you are best at a fitting.",
 };
 
@@ -138,22 +148,20 @@ function zoneFrom(raw: unknown): CollectionZone | null {
 /**
  * The settings as the Studio holds them, with the defaults under anything
  * left empty. A list that is there but empty is taken at its word: no zones
- * means nowhere to collect from, no windows means no time is asked.
+ * means nowhere to collect from. The windows the Studio may still hold from
+ * before Kristina drove are not read.
  */
 export function collectionSettingsFrom(raw: unknown): CollectionSettings {
   const defaults = COLLECTION_DEFAULTS;
   if (!raw || typeof raw !== "object") {
-    return { ...defaults, zones: defaults.zones.map((z) => ({ ...z, districts: [...z.districts] })), windows: [...defaults.windows] };
+    return { ...defaults, zones: defaults.zones.map((z) => ({ ...z, districts: [...z.districts] })) };
   }
   const settings = raw as Record<string, unknown>;
   const zones = Array.isArray(settings.zones)
     ? settings.zones.map(zoneFrom).filter((z): z is CollectionZone => z !== null)
     : defaults.zones.map((z) => ({ ...z, districts: [...z.districts] }));
-  const windows = Array.isArray(settings.windows)
-    ? [...new Set(settings.windows.filter((w): w is string => typeof w === "string").map((w) => w.trim()).filter(Boolean))]
-    : [...defaults.windows];
   const note = typeof settings.note === "string" && settings.note.trim() ? settings.note.trim() : defaults.note;
-  return { enabled: settings.enabled !== false, zones, windows, note };
+  return { enabled: settings.enabled !== false, zones, note };
 }
 
 export function collectionOffered(settings: CollectionSettings): boolean {
@@ -182,7 +190,6 @@ export function collectionHeadline(zone: CollectionZone): string {
 /** What the booking form is handed: enough to price a postcode as it is typed, nothing more. */
 export interface CollectionOffer {
   zones: { name: string; districts: string[]; terms: string }[];
-  windows: string[];
   note: string;
   headline: string;
 }
@@ -191,7 +198,6 @@ export function collectionOffer(settings: CollectionSettings): CollectionOffer |
   if (!collectionOffered(settings)) return null;
   return {
     zones: settings.zones.map((zone) => ({ name: zone.name, districts: zone.districts, terms: collectionTerms(zone) })),
-    windows: settings.windows,
     note: settings.note,
     headline: collectionHeadline(settings.zones[0]),
   };
@@ -202,27 +208,42 @@ export interface CollectionRequest {
   district: string;
   zone: string;
   terms: string;
-  window?: string;
 }
 
+/**
+ * `when` is what the customer typed about when they are usually in. It is
+ * their own words, so it never goes into the booking's public fields: the
+ * route seals it with their notes and puts it in Kristina's email.
+ */
 export type CollectionVerdict =
-  | { ok: true; request: CollectionRequest; postcode: string }
+  | { ok: true; request: CollectionRequest; postcode: string; when?: string }
   | { ok: false; error: string };
+
+/** "  weekday\n mornings  " → "weekday mornings", cut to a line; nothing when nothing was said. */
+export function whenSuits(input: unknown): string | undefined {
+  if (typeof input !== "string") return undefined;
+  const line = input
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, WHEN_MAX)
+    .trim();
+  return line || undefined;
+}
 
 /**
  * Whether a collection can be promised, decided on the server from the
  * settings as they are now. The form shows the same answer while the
  * customer types, but only this one is kept: a stale page, or a request
- * written by hand, must not book a collection from a district nobody drives
- * to, or keep a time nobody offered.
+ * written by hand, must not book a collection from a district nobody drives to.
  */
 export function judgeCollection(settings: CollectionSettings, input: unknown): CollectionVerdict {
   if (!collectionOffered(settings)) {
     return { ok: false, error: "Collection isn't available at the moment. Please book a fitting, or message us on WhatsApp." };
   }
-  const { postcode, window } = (input && typeof input === "object" ? input : {}) as {
+  const { postcode, when } = (input && typeof input === "object" ? input : {}) as {
     postcode?: unknown;
-    window?: unknown;
+    when?: unknown;
   };
   const district = postcodeDistrict(postcode);
   if (!district) return { ok: false, error: "Please enter your postcode, like SO17 1AB." };
@@ -233,14 +254,13 @@ export function judgeCollection(settings: CollectionSettings, input: unknown): C
       error: `Sorry, we don't collect from ${district} yet. You're welcome to book a fitting, or message us on WhatsApp.`,
     };
   }
-  // The window is a preference, and the time is agreed in a message anyway. A
-  // page open since the Studio changed its windows sends one that is gone, or
-  // none at all, and refusing it would leave the customer nothing to choose
-  // from: kept only when it is still on offer, and never a reason to refuse.
-  const chosen = typeof window === "string" ? settings.windows.find((w) => w === window.trim()) : undefined;
+  // When they are in is a preference and never a reason to refuse: Kristina
+  // picks the time from her diary and tells them
+  const said = whenSuits(when);
   return {
     ok: true,
     postcode: formatPostcode(postcode) ?? district,
-    request: { district, zone: zone.name, terms: collectionTerms(zone), ...(chosen ? { window: chosen } : {}) },
+    request: { district, zone: zone.name, terms: collectionTerms(zone) },
+    ...(said ? { when: said } : {}),
   };
 }

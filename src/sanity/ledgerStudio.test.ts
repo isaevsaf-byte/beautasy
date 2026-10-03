@@ -78,7 +78,7 @@ test("a refund reaches the ledger whether part or whole, and only a whole one un
 
 test("the Studio has «Касса» beside the bookings, and every booking a way to record its payment", () => {
   assert.match(STRUCTURE, /\.title\("Касса"\)\.child\(S\.component\(LedgerPane\)/);
-  assert.match(CONFIG, /moveBookingAction,\s*recordPaymentAction,\s*partnerAttributionAction,\s*notifyCustomerAction,\s*revealContactAction/);
+  assert.match(CONFIG, /moveBookingAction,\s*collectionTimeAction,\s*recordPaymentAction,\s*partnerAttributionAction,\s*notifyCustomerAction,\s*revealContactAction/);
 });
 
 const today = "2026-10-02";

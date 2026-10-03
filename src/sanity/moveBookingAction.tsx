@@ -20,8 +20,8 @@ import { SlotPicker, primaryButton, secondaryButton, slotInRussian } from "./Slo
  * Disabled while the booking has unpublished changes: the move copies the
  * published booking, and a draft left behind would be lost with it.
  *
- * Not offered on Collect & return: that happens at the customer's door, holds
- * no time in the diary, and is confirmed by its status.
+ * Not offered on Collect & return: that is given the time Kristina drives out,
+ * with the length of the trip, by collectionAction.
  */
 
 interface BookingDoc {
@@ -29,7 +29,7 @@ interface BookingDoc {
   slotStart?: string;
   confirmedFor?: string;
   displayName?: string;
-  /** Collect & return — confirmed by its status, never given a time in the diary */
+  /** Collect & return — given its time by collectionAction instead */
   collection?: unknown;
 }
 

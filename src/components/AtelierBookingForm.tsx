@@ -6,7 +6,7 @@ import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car } from "lucide-reac
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 import { ATELIER_SERVICES } from "@/lib/atelierServices";
-import { onItsWayTo, postcodeDistrict, type CollectionOffer } from "@/lib/collection";
+import { WHEN_MAX, onItsWayTo, postcodeDistrict, type CollectionOffer } from "@/lib/collection";
 
 /**
  * Google Ads conversion for a fitting request. Create a "Lead" conversion in
@@ -45,8 +45,8 @@ interface SlotDay {
  *
  * `collection` is the Collect & return offer as the Studio has it (see
  * @/lib/collection), handed down by the page; without it the form is exactly
- * what it was. Chosen, it replaces the diary with a postcode and a window: a
- * collection holds no fitting time, and the price shows as the postcode is
+ * what it was. Chosen, it replaces the diary with a postcode and "when are you
+ * usually in": Kristina picks the time from her diary afterwards, and the price shows as the postcode is
  * typed, so nobody has to ask what it costs.
  */
 export default function AtelierBookingForm({
@@ -72,8 +72,8 @@ export default function AtelierBookingForm({
   // Collect & return
   const [mode, setMode] = useState<"fitting" | "collect">("fitting");
   const [postcode, setPostcode] = useState("");
-  const [collectWindow, setCollectWindow] = useState("");
-  const [collected, setCollected] = useState<{ terms: string; window: string | null } | null>(null);
+  const [collectWhen, setCollectWhen] = useState("");
+  const [collected, setCollected] = useState<{ terms: string; when: string | null } | null>(null);
   const collecting = mode === "collect" && !!collection;
   const district = postcodeDistrict(postcode);
   const zone = district ? collection?.zones.find((z) => z.districts.includes(district)) ?? null : null;
@@ -148,11 +148,6 @@ export default function AtelierBookingForm({
         setStatus("error");
         return;
       }
-      if (collection && collection.windows.length > 0 && !collectWindow) {
-        setError("Please choose a time for the collection.");
-        setStatus("error");
-        return;
-      }
     } else if (bookable && !slot) {
       setError("Please choose a time.");
       setStatus("error");
@@ -172,7 +167,7 @@ export default function AtelierBookingForm({
           service,
           notes,
           ...(collecting
-            ? { collection: { postcode, ...(collectWindow ? { window: collectWindow } : {}) } }
+            ? { collection: { postcode, ...(collectWhen.trim() ? { when: collectWhen } : {}) } }
             : slot
             ? { slot }
             : { preferredDate }),
@@ -210,9 +205,9 @@ export default function AtelierBookingForm({
           <>
             <p className="font-serif text-xl mb-2">Collection requested</p>
             <p className="text-sm text-charcoal-light max-w-sm">
-              Kristina will message you to arrange the address and time
-              {collected.window ? ` (${collected.window} suits you)` : ""}. Nothing is collected until you&apos;ve agreed
-              it together.
+              Kristina will email you the time she&apos;ll come and ask for your address. Nothing is collected until
+              you&apos;ve agreed it together.
+              {collected.when ? <> You told us: &ldquo;{collected.when}&rdquo;.</> : null}
             </p>
             <p className="text-sm text-charcoal mt-3 font-medium">Collection &amp; return: {collected.terms}</p>
           </>
@@ -307,38 +302,27 @@ export default function AtelierBookingForm({
               className={FIELD_CLASS}
             />
           </div>
-          {collection.windows.length > 0 && (
-            <div>
-              <label htmlFor="booking-window" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
-                Collection time
-              </label>
-              <select
-                id="booking-window"
-                name="collectionWindow"
-                required
-                value={collectWindow}
-                onChange={(e) => {
-                  setCollectWindow(e.target.value);
-                  setError(null);
-                  if (status === "error") setStatus("idle");
-                }}
-                className={FIELD_CLASS}
-              >
-                <option value="">Choose a time</option>
-                {collection.windows.map((w) => (
-                  <option key={w} value={w}>
-                    {w}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label htmlFor="booking-when" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+              When are you usually in? <span className="normal-case tracking-normal">(optional)</span>
+            </label>
+            <input
+              id="booking-when"
+              name="collectionWhen"
+              maxLength={WHEN_MAX}
+              value={collectWhen}
+              onChange={(e) => setCollectWhen(e.target.value)}
+              placeholder="e.g. weekday afternoons"
+              className={FIELD_CLASS}
+            />
+          </div>
           <p className="sm:col-span-2 flex items-start gap-2 text-sm text-charcoal" aria-live="polite">
             <Car size={16} className="text-lavender shrink-0 mt-0.5" aria-hidden="true" />
             <span>
               {zone ? (
                 <>
-                  <strong>{zone.name}:</strong> {zone.terms}. Kristina will message you to arrange the address.
+                  <strong>{zone.name}:</strong> {zone.terms}. Kristina will email you the time she&apos;ll come and
+                  ask for your address.
                 </>
               ) : refused ? (
                 <>

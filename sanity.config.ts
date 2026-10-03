@@ -9,6 +9,7 @@ import { notifyCustomerAction } from "./src/sanity/notifyAction";
 import { approvePostAction, publishNowAction } from "./src/sanity/socialActions";
 import { revealContactAction } from "./src/sanity/revealAction";
 import { moveBookingAction } from "./src/sanity/moveBookingAction";
+import { collectionTimeAction } from "./src/sanity/collectionAction";
 import { recordPaymentAction } from "./src/sanity/paymentAction";
 import { partnerAttributionAction } from "./src/sanity/partnerAction";
 import { structure } from "./src/sanity/structure";
@@ -72,12 +73,14 @@ export default defineConfig({
         "referrer",
       ];
       // A booking is given a time, or moved, through the diary — never by
-      // typing into "Confirmed For", which held nothing. See moveBookingAction.
+      // typing into "Confirmed For", which held nothing. See moveBookingAction;
+      // a collection gets the time Kristina drives out, see collectionAction.
       // "Кто прислал" puts a WhatsApp client down to the salon that sent her.
       if (context.schemaType === "atelierBooking") {
         return [
           ...prev,
           moveBookingAction,
+          collectionTimeAction,
           recordPaymentAction,
           partnerAttributionAction,
           notifyCustomerAction,

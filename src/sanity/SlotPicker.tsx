@@ -97,24 +97,23 @@ export function SlotPicker({
   days,
   value,
   onChange,
+  emptyText = "На ближайшие недели свободного времени нет. Проверьте часы в разделе «Часы для примерок».",
 }: {
   days: SlotDay[];
   value: string | null;
   onChange: (slot: string) => void;
+  /** What to say when nothing fits — a collection says which trip length to try */
+  emptyText?: string;
 }) {
-  const [picked, setPicked] = useState(() =>
-    Math.max(0, days.findIndex((day) => value?.startsWith(day.date)))
-  );
+  // The day is remembered by its date, not its place in the row: a longer trip
+  // drops days that have no room for it, and the row shifts under the index
+  const [picked, setPicked] = useState<string | null>(() => value?.slice(0, 10) ?? null);
 
   if (days.length === 0) {
-    return (
-      <p style={{ fontSize: 14, opacity: 0.75, margin: 0 }}>
-        На ближайшие недели свободного времени нет. Проверьте часы в разделе «Часы для примерок».
-      </p>
-    );
+    return <p style={{ fontSize: 14, opacity: 0.75, margin: 0 }}>{emptyText}</p>;
   }
 
-  const day = days[Math.min(picked, days.length - 1)];
+  const day = days.find((option) => option.date === picked) ?? days[0];
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -123,12 +122,12 @@ export function SlotPicker({
         aria-label="День"
         style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}
       >
-        {days.map((option, index) => (
+        {days.map((option) => (
           <button
             key={option.date}
             type="button"
             aria-pressed={option.date === day.date}
-            onClick={() => setPicked(index)}
+            onClick={() => setPicked(option.date)}
             style={chipStyle(option.date === day.date)}
           >
             {shortDay(option.date)}

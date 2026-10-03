@@ -1,5 +1,5 @@
 import { sanityClient, sanityWriteClient } from "@/lib/sanity";
-import { DEFAULT_SCHEDULE, generateSlots, type Schedule, type SlotDay } from "@/lib/slots";
+import { DEFAULT_SCHEDULE, generateSlots, startsCovered, type Schedule, type SlotDay } from "@/lib/slots";
 
 /**
  * The atelier's diary, as the site sees it.
@@ -20,12 +20,28 @@ const SCHEDULE_QUERY = `*[_type == "atelierSchedule"][0]{
 /**
  * Slots already spoken for. A booking declined or cancelled frees its time
  * again — see HOLDING_STATUSES in @/lib/diary, which this list must match.
+ * A collection also says where it ends: Kristina is out for all of it.
  */
 export const TAKEN_QUERY = `*[
   _type == "atelierBooking"
   && defined(slotStart)
   && status in ["new", "confirmed", "completed"]
-].slotStart`;
+]{ "start": slotStart, "end": slotEnd }`;
+
+/** A booking's hold on the diary: where it starts, and where it ends if it holds more than one slot. */
+export interface TakenTime {
+  start: string;
+  end?: string | null;
+}
+
+/** Every slot the bookings hold, spans spelt out slot by slot. */
+export function heldStarts(taken: TakenTime[], slotMinutes: number): string[] {
+  return taken.flatMap((held) =>
+    held && typeof held.start === "string"
+      ? startsCovered(held.start, typeof held.end === "string" ? held.end : undefined, slotMinutes)
+      : []
+  );
+}
 
 function withDefaults(raw: Partial<Schedule> | null): Schedule {
   return {
@@ -62,10 +78,10 @@ export async function getSchedule(options?: DiaryReadOptions): Promise<Schedule>
   }
 }
 
-export async function getTakenSlots(options?: DiaryReadOptions): Promise<string[]> {
+export async function getTakenSlots(options?: DiaryReadOptions): Promise<TakenTime[]> {
   const client = options?.fresh ? sanityWriteClient : sanityClient;
   try {
-    return (await client.fetch<string[]>(TAKEN_QUERY)) ?? [];
+    return (await client.fetch<TakenTime[]>(TAKEN_QUERY)) ?? [];
   } catch (error) {
     if (options?.strict) throw error;
     return [];
@@ -95,6 +111,6 @@ export async function getAvailableSlots(
     options?.leadTimeHours === undefined ? schedule : { ...schedule, leadTimeHours: options.leadTimeHours };
   return {
     schedule,
-    days: generateSlots({ schedule: rules, now: options?.now ?? new Date(), taken }),
+    days: generateSlots({ schedule: rules, now: options?.now ?? new Date(), taken: heldStarts(taken, schedule.slotMinutes) }),
   };
 }
