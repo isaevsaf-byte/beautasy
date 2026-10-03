@@ -195,16 +195,38 @@ export const PUBLISHED_REVIEWS_QUERY = `*[
 }`;
 
 /**
+ * How a buyer's photo is shown: a copy Sanity's image pipeline has made, never
+ * the file as it was uploaded.
+ *
+ * The upload takes HEIC now, which is what an iPhone saves, and only Safari
+ * can show one. And an original straight off a phone can carry where it was
+ * taken in its EXIF — for a photo of a piece on, that is usually her home.
+ * Asking for a size and a format makes Sanity decode the photo and encode a
+ * new one, JPEG or whatever smaller format the browser takes, without the
+ * camera's metadata. Square and small, because the review shows it as a
+ * 64-pixel thumbnail; 256 covers a phone's screen density with room to spare.
+ *
+ * What this does not do, said plainly: the original is still in the asset
+ * store at its own address, which the public dataset can be asked for. The
+ * page just never links to it.
+ */
+export const REVIEW_PHOTO_PARAMS = "?w=256&h=256&fit=crop&auto=format&fm=jpg";
+
+/**
  * The reviews on a piece's own page, which also make its stars in Google
  * (aggregateRating). Only the site's own: Google does not allow marking up
  * reviews gathered on another site, and a Nextdoor recommendation is about
  * Kristina, never about one piece.
+ *
+ * Photos come back already re-encoded (see REVIEW_PHOTO_PARAMS), so nothing
+ * that shows them can use the original by mistake. An image entry whose asset
+ * has gone is left out rather than handed on as a blank.
  */
 export const PRODUCT_REVIEWS_QUERY = `*[
   _type == "review" && product._ref == $id && approved == true && coalesce(source, "site") == "site"
 ] | order(createdAt desc) {
   _id, userName, rating, comment, createdAt, verifiedPurchase,
-  "images": images[].asset->url
+  "images": images[defined(asset->url)]{ "url": asset->url + "${REVIEW_PHOTO_PARAMS}" }.url
 }`;
 
 /**

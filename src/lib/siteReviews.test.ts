@@ -1,11 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { evaluate, parse } from "groq-js";
 import {
   COMMENT_MAX,
   LATEST_REVIEW_QUERY,
   PRODUCT_REVIEWS_QUERY,
   PUBLISHED_REVIEWS_QUERY,
+  REVIEW_PHOTO_PARAMS,
   REVIEW_TOPICS,
   atelierReviews,
   featuredReview,
@@ -202,6 +205,55 @@ test("a piece's page, and its stars in Google, only ever count reviews written o
     reviews.map((review: { _id: string }) => review._id),
     ["new", "old"]
   );
+});
+
+test("a buyer's photo is shown as Sanity's re-encoded copy, never the file she uploaded", async () => {
+  const original = "https://cdn.sanity.io/images/5uun6fw6/production/abc123-4032x3024.heic";
+  const dataset = [
+    { _id: "image-abc123-4032x3024-heic", _type: "sanity.imageAsset", url: original },
+    { _id: "image-def456-800x600-jpg", _type: "sanity.imageAsset", url: "https://cdn.sanity.io/images/5uun6fw6/production/def456-800x600.jpg" },
+    {
+      _id: "r1", _type: "review", source: "site", approved: true, userName: "Anna", rating: 5, comment: "Lovely.",
+      createdAt: "2026-09-26T10:00:00Z", product: { _type: "reference", _ref: "p1" },
+      images: [
+        { _key: "a", _type: "image", asset: { _type: "reference", _ref: "image-abc123-4032x3024-heic" } },
+        { _key: "b", _type: "image", asset: { _type: "reference", _ref: "image-def456-800x600-jpg" } },
+        // Its asset was deleted: nothing to show, so nothing is handed on
+        { _key: "c", _type: "image", asset: { _type: "reference", _ref: "image-gone-10x10-jpg" } },
+      ],
+    },
+  ];
+  const [review] = await (await evaluate(parse(PRODUCT_REVIEWS_QUERY), { dataset, params: { id: "p1" } })).get();
+  assert.deepEqual(review.images, [
+    `${original}${REVIEW_PHOTO_PARAMS}`,
+    `https://cdn.sanity.io/images/5uun6fw6/production/def456-800x600.jpg${REVIEW_PHOTO_PARAMS}`,
+  ]);
+  // A size and a format are what make the pipeline encode a new file; JPEG
+  // for any browser that cannot take the smaller formats, and HEIC for none
+  const params = new URLSearchParams(REVIEW_PHOTO_PARAMS);
+  assert.equal(params.get("fm"), "jpg");
+  assert.equal(params.get("auto"), "format");
+  assert.ok(Number(params.get("w")) > 0);
+});
+
+test("no query for reviews hands a page the original photo", () => {
+  // Any file that asks Sanity for reviews and reads their images as a bare
+  // asset->url is a page showing the file as uploaded, EXIF and all
+  const raw: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (/\.tsx?$/.test(entry.name) && !entry.name.endsWith(".test.ts")) {
+        const source = readFileSync(path, "utf8");
+        if (/_type == "review"/.test(source) && /images\[[^\]]*\]\s*\.\s*asset\s*->\s*url/.test(source)) raw.push(path);
+      }
+    }
+  };
+  walk(join(process.cwd(), "src"));
+  assert.deepEqual(raw, [], "use REVIEW_PHOTO_PARAMS, as PRODUCT_REVIEWS_QUERY does");
+  const page = readFileSync(join(process.cwd(), "src", "app", "shop", "[param]", "page.tsx"), "utf8");
+  assert.match(page, /sanityClient\.fetch\(PRODUCT_REVIEWS_QUERY, \{ id: product\._id \}\)/);
 });
 
 test("only an https link to Nextdoor itself counts as Nextdoor", () => {
