@@ -235,6 +235,13 @@ test("instead they say a visit is by appointment, with the address sent before i
   assert.match(answer.acceptedAnswer.text, /^Yes\. By appointment — Kristina sends the address before your visit\./);
 });
 
+test("/alterations says so in its hero, where its buttons are", async (t) => {
+  stubSanity(t, { photo: false });
+  const out = await html(AlterationsHub());
+  // In the hero itself: the footer says it on every page, which would prove nothing
+  assert.match(visible(out.slice(out.indexOf("</h1>"), out.indexOf("What we alter"))), /\bby appointment\b/i);
+});
+
 /* ─── NAV-7 and FUN-2: one name for booking, and a price first for those who want one ─── */
 
 test("every button to the booking form on these pages reads 'Choose a time'", async (t) => {
@@ -244,6 +251,17 @@ test("every button to the booking form on these pages reads 'Choose a time'", as
     const toBooking = anchors(await html(page)).filter((a) => /^(\/atelier)?#book$/.test(a.href));
     assert.ok(toBooking.length >= 2, `${name}: has booking buttons`);
     for (const a of toBooking) assert.equal(a.text, "Choose a time", `${name}: "${a.text}"`);
+  }
+});
+
+test("every link to a place on the same page lands somewhere on that page", async (t) => {
+  stubSanity(t, { photo: true });
+  for (const [name, page] of pages()) {
+    const out = await html(page);
+    for (const a of anchors(out).filter((link) => link.href.startsWith("#") && link.href.length > 1)) {
+      // The home page has no form of its own: a "#book" there would go nowhere
+      assert.ok(out.includes(`id="${a.href.slice(1)}"`), `${name}: "${a.text}" goes to ${a.href}, which is not on the page`);
+    }
   }
 });
 
@@ -265,7 +283,22 @@ test("beside the first 'Choose a time' on /atelier and each service page: a pric
     );
     const link = anchors(line[0])[0];
     assert.ok(link.href.startsWith(`https://wa.me/${BUSINESS.whatsappNumber}?text=`), name);
+    assert.match(link.attrs, /target="_blank" rel="noopener noreferrer"/, `${name}: WhatsApp opens beside the page, not instead of it`);
     assert.doesNotMatch(line[0], /free|pay|£|cost/i, `${name}: nothing about the fitting's price or paying`);
+  }
+});
+
+test("on every service page the hero's row is 'Choose a time' and 'Call the atelier', both", async (t) => {
+  stubSanity(t, { photo: false });
+  for (const s of LOCAL_SERVICES) {
+    const out = await html(service(s.slug));
+    const from = out.lastIndexOf("<a", out.indexOf('id="service-hero-book"'));
+    const row = anchors(out.slice(from, out.indexOf("Want a price first?", from)));
+    assert.deepEqual(
+      row.map((a) => [a.href, a.text]),
+      [["#book", "Choose a time"], [BUSINESS.telephoneHref, "Call the atelier"]],
+      s.slug
+    );
   }
 });
 
