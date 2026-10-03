@@ -64,6 +64,46 @@ export function writeConsent(choice: ConsentChoice): void {
   window.dispatchEvent(new Event(CONSENT_EVENT));
 }
 
+/** Fired on `window` when someone asks to see the cookie choice again. */
+export const CONSENT_REOPEN_EVENT = "beautasy-consent-reopen";
+
+/**
+ * Show the banner again — "Cookie settings" in the footer. Taking a yes back
+ * has to be as easy as giving it, and the privacy policy points here.
+ */
+export function reopenConsent(): void {
+  window.dispatchEvent(new Event(CONSENT_REOPEN_EVENT));
+}
+
+/** Cookies Google Analytics, Google Ads and the Meta Pixel set after a yes. */
+const TRACKING_COOKIE = /^(_ga|_gid$|_gat|_gcl_|_fbp$|_fbc$)/;
+
+/**
+ * After a yes turns into a no, take away the cookies the tags already left.
+ *
+ * Google writes _ga on the widest domain it can (".beautasy.co.uk" from
+ * www), and a cookie is only removed by naming the domain it was set on, so
+ * every suffix of the host is tried; a browser ignores the ones that can't
+ * hold cookies, such as "co.uk". Returns the names it found.
+ */
+export function clearTrackingCookies(
+  doc: Pick<Document, "cookie"> = document,
+  host: string = window.location.hostname
+): string[] {
+  const names = doc.cookie
+    .split(";")
+    .map((pair) => pair.split("=")[0].trim())
+    .filter((name) => TRACKING_COOKIE.test(name));
+  const labels = host.split(".");
+  const domains: (string | undefined)[] = [undefined, ...labels.map((_, i) => labels.slice(i).join("."))];
+  for (const name of names) {
+    for (const domain of domains) {
+      doc.cookie = `${name}=; Max-Age=0; Path=/${domain ? `; Domain=${domain}` : ""}`;
+    }
+  }
+  return names;
+}
+
 /** Subscribe to consent changes. Shaped for `useSyncExternalStore`. */
 export function subscribeToConsent(onStoreChange: () => void): () => void {
   window.addEventListener(CONSENT_EVENT, onStoreChange);

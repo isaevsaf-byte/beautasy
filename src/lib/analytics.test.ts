@@ -58,6 +58,13 @@ test("gtag.js waits for the page instead of competing with it, and consent stays
   assert.doesNotMatch(site, /gtag\('consent'/, "consent belongs to the layout's default script, which runs first");
 });
 
+test("the layout leaves Google's tags to SiteAnalytics, so the Studio never gets them", () => {
+  const layout = read("src", "app", "layout.tsx");
+  // A second copy here would load gtag.js on every page, the Studio included
+  assert.doesNotMatch(layout, /googletagmanager\.com\/gtag\/js|gtag\('config'/);
+  assert.match(layout, /<Script id="google-consent-default" strategy="beforeInteractive">/);
+});
+
 /* ─── Taps on WhatsApp and the phone ─── */
 
 function element(href: string | null) {

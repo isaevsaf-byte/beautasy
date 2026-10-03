@@ -63,3 +63,7 @@ __pycache__/
 # processed, metadata-free copies ever leave this Mac (see scripts/gallery-import.mjs)
 /Gallery/
 /gallery/
+
+# Sanity backups hold customers' names in plain text, and this repo is public
+*.ndjson
+*.tar.gz

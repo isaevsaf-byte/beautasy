@@ -118,13 +118,10 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdScript(organizationLd) }}
         />
-        {/* Google Analytics 4 */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-XSEN40QLSR"
-          strategy="afterInteractive"
-        />
         {/* Consent Mode v2: analytics and ads start denied and only measure once
-            the visitor accepts in the cookie banner. Required for UK/EEA. */}
+            the visitor accepts in the cookie banner. Required for UK/EEA. The
+            tags themselves load from SiteAnalytics, which keeps them out of
+            the Studio. */}
         <Script id="google-consent-default" strategy="beforeInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
@@ -149,15 +146,6 @@ export default function RootLayout({
                 });
               }
             } catch (e) {}
-          `}
-        </Script>
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-XSEN40QLSR');
-            gtag('config', 'AW-18152477897');
           `}
         </Script>
       </head>

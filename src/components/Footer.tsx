@@ -4,6 +4,7 @@ import { CalendarCheck, Clock, Heart, Mail, MapPin, MessageCircle, Phone } from 
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import { reopenConsent } from "@/lib/consent";
 import { stockedLinks, type Shelves } from "@/lib/shelves";
 import { BUSINESS, whatsappLink } from "@/lib/business";
 
@@ -362,6 +363,14 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
         <div className="border-t border-lavender-soft/30 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-charcoal-light">
             © {new Date().getFullYear()} Beautasy. All rights reserved.
+            {/* Where a cookie yes is taken back; the privacy policy sends people here */}
+            <button
+              type="button"
+              onClick={reopenConsent}
+              className="ml-3 underline underline-offset-2 hover:text-charcoal transition-colors"
+            >
+              Cookie settings
+            </button>
           </p>
           <p className="text-xs text-charcoal-light flex items-center gap-1">
             Made with <Heart size={12} className="text-lavender fill-lavender" /> in

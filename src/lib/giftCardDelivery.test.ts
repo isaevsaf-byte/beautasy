@@ -48,3 +48,8 @@ test("friends credit is never picked up by the delivery job", () => {
   const credit = REFERRALS.slice(REFERRALS.indexOf("async function topUpCredit"));
   assert.match(credit, /sentAt:\s*now/, "Credit cards mark themselves sent at creation, so the queue skips them either way.");
 });
+
+test("a card switched off by a full refund is never emailed on its day", () => {
+  // The code no longer works, so the email would hand the recipient a dud
+  assert.match(dueQuery(), /&& active != false/);
+});

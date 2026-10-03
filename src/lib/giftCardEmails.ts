@@ -170,6 +170,7 @@ export const DUE_QUERY = `*[
   && !defined(sentAt)
   && defined(recipientEmailSealed)
   && source != "referral"
+  && active != false
   && (!defined(deliverAt) || deliverAt <= $now)
 ] [0...50] {
   _id, codeSealed, codeHint, initialAmount, expiresAt,

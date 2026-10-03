@@ -80,6 +80,9 @@ export const order = defineType({
             defineField({ name: "quantity", title: "Количество", type: "number" }),
             defineField({ name: "amountTotal", title: "Сумма (в пенсах)", type: "number" }),
             defineField({ name: "image", title: "Ссылка на фото", type: "string" }),
+            // Measurements or a gift message, sealed by the webhook: the dataset
+            // is public. Kept out of sight so Studio doesn't call it unknown.
+            defineField({ name: "detailSealed", title: "Мерки / послание (зашифровано)", type: "string", hidden: true }),
           ],
           preview: {
             select: { title: "name", subtitle: "quantity" },

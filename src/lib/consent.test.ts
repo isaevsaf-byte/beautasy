@@ -1,5 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CONSENT_KEY,
   CONSENT_EVENT,
@@ -8,6 +10,9 @@ import {
   writeConsent,
   subscribeToConsent,
   noConsentOnServer,
+  CONSENT_REOPEN_EVENT,
+  reopenConsent,
+  clearTrackingCookies,
 } from "./consent";
 
 /**
@@ -143,4 +148,48 @@ test("the stored value is exactly what the layout's inline script looks for", ()
 
 test("the server never assumes consent", () => {
   assert.equal(noConsentOnServer(), false);
+});
+
+/* ─── Taking a yes back ─── */
+
+test("Cookie settings asks the banner to show again", () => {
+  let asked = 0;
+  window.addEventListener(CONSENT_REOPEN_EVENT, () => asked++);
+  reopenConsent();
+  assert.equal(asked, 1);
+});
+
+/** document.cookie as a browser treats it: reading lists them, writing sets or removes one. */
+function cookieJar(initial: string[]) {
+  const live = new Set(initial);
+  const writes: string[] = [];
+  return {
+    writes,
+    live,
+    get cookie() {
+      return [...live].map((name) => `${name}=x`).join("; ");
+    },
+    set cookie(line: string) {
+      writes.push(line);
+      if (/Max-Age=0/.test(line)) live.delete(line.split("=")[0]);
+    },
+  };
+}
+
+test("a withdrawn yes takes Google's and Meta's cookies with it, and nothing else", () => {
+  const jar = cookieJar(["_ga", "_ga_XSEN40QLSR", "_gcl_au", "_fbp", "_fbc", "__session", "beautasy-ref", "_gid"]);
+  const cleared = clearTrackingCookies(jar, "www.beautasy.co.uk");
+  assert.deepEqual(cleared.sort(), ["_fbc", "_fbp", "_ga", "_ga_XSEN40QLSR", "_gcl_au", "_gid"]);
+  assert.deepEqual([...jar.live].sort(), ["__session", "beautasy-ref"], "sign-in and a friend's link are essential");
+  // _ga lives on the widest domain Google could set, so that one is named
+  assert.ok(jar.writes.includes("_ga=; Max-Age=0; Path=/; Domain=beautasy.co.uk"));
+  assert.ok(jar.writes.includes("_ga=; Max-Age=0; Path=/"));
+});
+
+test("the banner clears and reloads only when a yes becomes a no", () => {
+  const banner = readFileSync(join(process.cwd(), "src", "components", "CookieConsent.tsx"), "utf8");
+  assert.match(banner, /if \(before === "granted" && next === "denied"\) \{\s*clearTrackingCookies\(\);\s*window\.location\.reload\(\);/);
+  assert.match(banner, /window\.addEventListener\(CONSENT_REOPEN_EVENT, reopen\)/);
+  const footer = readFileSync(join(process.cwd(), "src", "components", "Footer.tsx"), "utf8");
+  assert.match(footer, /onClick=\{reopenConsent\}[\s\S]{0,200}Cookie settings/);
 });

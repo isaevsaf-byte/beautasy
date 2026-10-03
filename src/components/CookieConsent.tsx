@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useIsClient } from "@/lib/useIsClient";
 import {
+  CONSENT_REOPEN_EVENT,
+  clearTrackingCookies,
   readConsent,
   writeConsent,
   type ConsentChoice,
@@ -37,9 +39,24 @@ export default function CookieConsent() {
     typeof window === "undefined" ? null : readConsent()
   );
 
+  // "Cookie settings" in the footer asks for the banner again
+  useEffect(() => {
+    const reopen = () => setChoice(null);
+    window.addEventListener(CONSENT_REOPEN_EVENT, reopen);
+    return () => window.removeEventListener(CONSENT_REOPEN_EVENT, reopen);
+  }, []);
+
   const decide = (next: ConsentChoice) => {
+    const before = readConsent();
     applyChoice(next);
     setChoice(next);
+    // A yes taken back: Google's tags switch to denied by themselves, but the
+    // Meta Pixel has no such mode and a script can't be taken out of a page.
+    // Clear what they stored and start the page again without them.
+    if (before === "granted" && next === "denied") {
+      clearTrackingCookies();
+      window.location.reload();
+    }
   };
 
   if (!isClient || choice !== null) return null;

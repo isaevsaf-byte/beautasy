@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 
-const LOGO_SRC = "/beautasy-icon.png";
+// The 64px mark (2 KB), the same picture as the favicon. It is only ever drawn
+// at 18px; the full beautasy-icon.png is 138 KB.
+const LOGO_SRC = "/beautasy-mark.png";
 
 interface BeautasyLogoProps {
   /** Size in pixels (used for both width and height) */
@@ -10,7 +12,7 @@ interface BeautasyLogoProps {
 
 /**
  * Beautasy logo used for WhatsApp/Telegram links and brand consistency.
- * Add your logo as public/beautasy-logo.png (square, min 96×96 for quality).
+ * Sharp up to 32px; anything bigger needs a larger file.
  */
 export default function BeautasyLogo({
   size = 24,
