@@ -194,19 +194,57 @@ export async function deductFromCard(cardId: string, spent: number, sessionId?: 
   if (spent <= 0) return;
   await sanityWriteClient.patch(cardId).dec({ balance: spent }).commit();
 
-  const after = await sanityWriteClient.fetch<{ balance?: number } | null>(
-    `*[_id == $id][0]{ balance }`,
-    { id: cardId }
-  );
-  const balance = after?.balance ?? 0;
-  if (balance < 0) {
-    console.error(
-      `Gift card ${cardId} over-redeemed by £${(-balance / 100).toFixed(2)} — flooring to zero. Check the orders that used it.`
+  // The money is off the card from here on. What follows only tidies up, so
+  // it is not allowed to throw: the webhook reads a throw from this function
+  // as "the card was not charged" and emails hello@ to take the amount off by
+  // hand, which done after a successful `dec` would take it off twice.
+  try {
+    const after = await sanityWriteClient.fetch<{ balance?: number } | null>(
+      `*[_id == $id][0]{ balance }`,
+      { id: cardId }
     );
-    await sanityWriteClient.patch(cardId).set({ balance: 0 }).commit();
-  }
+    const balance = after?.balance ?? 0;
+    if (balance < 0) {
+      console.error(
+        `Gift card ${cardId} over-redeemed by £${(-balance / 100).toFixed(2)} — flooring to zero. Check the orders that used it.`
+      );
+      await sanityWriteClient.patch(cardId).set({ balance: 0 }).commit();
+    }
 
-  if (sessionId) await releaseCard(cardId, sessionId);
+    if (sessionId) await releaseCard(cardId, sessionId);
+  } catch (err) {
+    console.error(`Gift card ${cardId} was charged; tidying up after it failed:`, err);
+  }
+}
+
+/** The part of the client the refund path needs, so a test can stand in for Sanity. */
+export interface CardSwitch {
+  fetch<T>(query: string, params: Record<string, unknown>): Promise<T>;
+  patch(id: string): { set(fields: Record<string, unknown>): { commit(): Promise<unknown> } };
+}
+
+/**
+ * Switches off the gift card a refunded payment bought.
+ *
+ * A card's money was given back and the card itself went on working: a £50
+ * card, bought, refunded in full and then spent, is £50 of dresses for
+ * nothing. `active: false` is the switch checkout already reads (see
+ * findSpendableCard), and the one Kristina flips in the Studio by hand. The
+ * card stays in the Studio, with its balance as it was, so she can see what
+ * happened to it. Returns the card's id, or null when no card was bought with
+ * that payment.
+ */
+export async function deactivateCardForSession(
+  sessionId: string,
+  client: CardSwitch = sanityWriteClient as unknown as CardSwitch
+): Promise<string | null> {
+  const cardId = await client.fetch<string | null>(
+    `*[_type == "giftCard" && stripeSessionId == $id][0]._id`,
+    { id: sessionId }
+  );
+  if (!cardId) return null;
+  await client.patch(cardId).set({ active: false }).commit();
+  return cardId;
 }
 
 export function expiryFromNow(): string {
