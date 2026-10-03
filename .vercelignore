@@ -7,4 +7,7 @@ merchant-center
 # of the type check `next build` runs; without the file that check fails
 scripts/*
 !scripts/outside-watch.mjs
-workers
+# Cloudflare Workers deploy themselves — all but the backup's code, which
+# sanityBackup.test.ts imports and the build's type check therefore reads
+workers/*
+!workers/sanity-backup

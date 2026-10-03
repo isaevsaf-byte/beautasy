@@ -409,3 +409,11 @@ test("a downloaded copy cannot be committed from the Worker's folder", () => {
   assert.match(ignored, /^\*\.ndjson$/m, "the repository is public, and a copy holds customers' names");
   assert.match(ignored, /^\.dev\.vars/m);
 });
+
+test("Vercel receives the Worker's code, which the build's type check reads through this test", () => {
+  const ignored = readFileSync(join(process.cwd(), ".vercelignore"), "utf8");
+  // Without the files the deploy fails with "Cannot find module ../../workers/sanity-backup/src/…"
+  assert.match(ignored, /^workers\/\*$/m);
+  assert.match(ignored, /^!workers\/sanity-backup$/m);
+  assert.doesNotMatch(ignored, /^workers\/?$/m);
+});
