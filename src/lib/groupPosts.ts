@@ -1,6 +1,7 @@
 import { BUSINESS } from "./business";
 import { SITE_URL } from "./site";
 import { LOCAL_SERVICES, type LocalService } from "./localServices";
+import { groupShortLink } from "./shortLinks";
 
 /**
  * Posts for the Facebook groups Kristina has joined.
@@ -234,6 +235,8 @@ export interface GroupPost {
   text: string;
   /** The link in the text, or null when the group allows none */
   link: string | null;
+  /** The link as the text prints it: "www.beautasy.co.uk/g/prom/k3x" */
+  shown: string | null;
   /** The service the post is about this time */
   service: string;
 }
@@ -263,14 +266,19 @@ export function groupPost(
     .map((line) => `${line.name} ${line.price}`)
     .join(" · ");
 
+  // The short link (www.beautasy.co.uk/g/prom/k3x) — see @/lib/shortLinks.
+  // The long one stays for a page without a short word, so no post is ever
+  // left without its link.
+  const short = group.links === false ? null : groupShortLink(service.slug, group._id ?? slug);
   const link =
     group.links === false
       ? null
-      : `${SITE_URL}/alterations/${service.slug}?utm_source=facebook&utm_medium=group&utm_campaign=${slug}`;
+      : (short?.href ??
+        `${SITE_URL}/alterations/${service.slug}?utm_source=facebook&utm_medium=group&utm_campaign=${slug}`);
   const ask = link
-    ? `Not sure if it can be done? Send me a photo, or book a free ten-minute look 🤍\n${link}`
+    ? `Not sure if it can be done? Send me a photo, or book a free ten-minute look 🤍\n${short?.shown ?? link}`
     : `Not sure if it can be done? Message me here or on WhatsApp ${localPhone()} with a photo, and I'll tell you straight away 🤍`;
 
   const text = [hook, `I'm Kristina, a seamstress here in ${area}. ${words.what}`, prices, ask].join("\n\n");
-  return { text, link, service: service.slug };
+  return { text, link, shown: short?.shown ?? link, service: service.slug };
 }

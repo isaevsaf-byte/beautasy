@@ -15,7 +15,7 @@ export const facebookGroup = defineType({
       name: "name",
       title: "Название группы",
       type: "string",
-      description: "Как группа называется в Facebook. Из него же делается метка в ссылке — по ней видно, какая группа привела клиента.",
+      description: "Как группа называется в Facebook. Переименовать можно: короткая ссылка в постах (www.beautasy.co.uk/g/…) привязана к самой группе, а не к названию, и по ней видно, какая группа привела клиента.",
       validation: (Rule) => Rule.required().max(80),
     }),
     defineField({

@@ -80,11 +80,11 @@ test("a post introduces Kristina in the group's own area, quotes the page's pric
   assert.ok(service, "a real service");
   assert.match(post.text, /I'm Kristina, a seamstress here in Shirley\./);
   assert.ok(post.text.includes(`${service.prices[0].name} ${service.prices[0].price}`), "the price as the page gives it");
-  assert.equal(
-    post.link,
-    `https://www.beautasy.co.uk/alterations/${service.slug}?utm_source=facebook&utm_medium=group&utm_campaign=southampton-mums`
-  );
-  assert.ok(post.text.endsWith(post.link), "the link closes the post");
+  // The short link, coded from the group (here by its name: the fixture has no id) — see shortLinks.test.ts
+  assert.match(post.link ?? "", /^https:\/\/www\.beautasy\.co\.uk\/g\/[a-z]+\/[a-z2-9]{3}$/);
+  assert.equal(post.shown, post.link!.replace("https://", ""));
+  assert.ok(post.text.endsWith(`\n${post.shown}`), "the link closes the post, on its own line");
+  assert.doesNotMatch(post.text, /utm_|https:\/\//, "no tags and no scheme in what she pastes");
   assert.doesNotMatch(post.text, /undefined|null|NaN/);
   assert.match(groupPost(group(), MONDAY).text, /here in Southampton\./, "no area: Southampton");
 });

@@ -203,6 +203,12 @@ export function FacebookGroupsPane() {
                     <button type="button" style={primaryButton(true)} onClick={() => copy(id, post.text)}>
                       {copied === id ? "Скопировано ✓" : "1. Скопировать текст"}
                     </button>
+                    {/* For a group that wants the link in the first comment, not the post */}
+                    {post.link && (
+                      <button type="button" style={secondaryButton} onClick={() => copy(`${id}:link`, post.link!)}>
+                        {copied === `${id}:link` ? "Ссылка скопирована ✓" : "Скопировать ссылку"}
+                      </button>
+                    )}
                     {group.url && (
                       <a href={group.url} target="_blank" rel="noopener noreferrer" style={{ ...secondaryButton, textDecoration: "none" }}>
                         2. Открыть группу ↗

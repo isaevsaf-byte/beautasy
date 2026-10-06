@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { clerkEnabled } from "@/lib/clerk";
 import { gluedLinkTarget } from "@/lib/gluedLinks";
+import { shortLinkTarget } from "@/lib/shortLinks";
 
 // Auth lives inside the review routes themselves rather than here: a customer
 // following a review-request link has no account, and blanket-protecting
@@ -32,6 +33,11 @@ const auth = clerkEnabled
  * word is not an address.
  */
 export default function middleware(req: NextRequest, event: NextFetchEvent) {
+  // A short link from a group post (/g/prom/k3x) — see @/lib/shortLinks.
+  // Temporary too: the words may point somewhere else one day.
+  const short = shortLinkTarget(req.nextUrl.pathname, req.nextUrl.search);
+  if (short) return NextResponse.redirect(new URL(short, req.nextUrl.origin), 307);
+
   const meant = gluedLinkTarget(req.nextUrl.pathname);
   if (meant) {
     const url = req.nextUrl.clone();
