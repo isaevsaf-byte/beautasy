@@ -171,11 +171,11 @@ export const LOCAL_SERVICES: LocalService[] = [
       "Hems shortened properly, waists taken in, sleeves adjusted, name tapes sewn where they won't scratch. Bring a bag of it at once — five items priced as a bundle costs less than five separate jobs.",
     ],
     prices: [
-      { name: "Shorten trousers or skirt", price: "£8" },
-      { name: "Take in waist", price: "£12" },
+      { name: "Shorten trousers or skirt", price: "from £8" },
+      { name: "Take in waist", price: "from £12" },
       { name: "Shorten blazer sleeves", price: "from £18" },
       { name: "Replace a broken zip", price: "from £14" },
-      { name: "Bundle of five items", price: "£35" },
+      { name: "Bundle of five items", price: "from £35" },
     ],
     priceNote:
       "Hems let down as a child grows are charged at the same price — the fabric is already there, so the growing room costs nothing extra.",
@@ -197,7 +197,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     faqs: [
       {
         q: "How much does it cost to hem school trousers?",
-        a: "£8 per pair. Five items brought in together are £35, which works out cheaper than pricing each one separately.",
+        a: "From £8 per pair. Five items brought in together start at £35, which works out cheaper than pricing each one separately.",
       },
       {
         q: "How quickly can uniform be done?",
@@ -235,7 +235,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     prices: [
       { name: "Shorten an evening dress", price: "from £30" },
       { name: "Take in sides or back", price: "from £28" },
-      { name: "Strap adjustment", price: "£20" },
+      { name: "Strap adjustment", price: "from £20" },
       { name: "Add cups or bust support", price: "from £25" },
       { name: "Take in a lined gown", price: "from £40" },
     ],
@@ -293,11 +293,11 @@ export const LOCAL_SERVICES: LocalService[] = [
       "The original hem can be kept: the leg is shortened from above and the worn edge stitched back on, so nothing about the finish gives it away.",
     ],
     prices: [
-      { name: "Shorten jeans, standard hem", price: "£15.50" },
-      { name: "Shorten jeans, keep original hem", price: "£17.00" },
-      { name: "Waist adjustment", price: "£22.00" },
+      { name: "Shorten jeans, standard hem", price: "from £15.50" },
+      { name: "Shorten jeans, keep original hem", price: "from £17.00" },
+      { name: "Waist adjustment", price: "from £22.00" },
       { name: "Taper legs", price: "from £25.00" },
-      { name: "Replace a zip", price: "£18.00" },
+      { name: "Replace a zip", price: "from £18.00" },
     ],
     turnaround: "3–5 days.",
     steps: [
@@ -317,11 +317,11 @@ export const LOCAL_SERVICES: LocalService[] = [
     faqs: [
       {
         q: "How much does it cost to shorten jeans?",
-        a: "£15.50 for a standard hem, £17.00 to keep the original faded hem so the shortening is invisible.",
+        a: "From £15.50 for a standard hem, from £17.00 to keep the original faded hem so the shortening is invisible.",
       },
       {
         q: "Can you take in a waistband?",
-        a: "Yes, £22. Taken in at the centre back so the belt loops stay evenly spaced, which is what stops it looking altered.",
+        a: "Yes, from £22. Taken in at the centre back so the belt loops stay evenly spaced, which is what stops it looking altered.",
       },
       {
         q: "Can wide-leg jeans be made slimmer?",
@@ -352,7 +352,7 @@ export const LOCAL_SERVICES: LocalService[] = [
       "Coats, dresses, jeans, bags, cushion covers. Zips are matched to the original in weight and colour, and on a lined coat the lining is reopened and closed by hand so the repair doesn't show from inside either.",
     ],
     prices: [
-      { name: "Zip in trousers or jeans", price: "£18" },
+      { name: "Zip in trousers or jeans", price: "from £18" },
       { name: "Zip in a dress or skirt", price: "from £22" },
       { name: "Zip in a lined coat", price: "from £45" },
       { name: "Zip in a bag or cushion", price: "from £14" },
@@ -376,11 +376,11 @@ export const LOCAL_SERVICES: LocalService[] = [
     faqs: [
       {
         q: "How much does it cost to replace a zip?",
-        a: "£18 in jeans or trousers, from £22 in a dress, from £45 in a lined coat. Coats cost more because the lining has to be opened and closed by hand.",
+        a: "From £18 in jeans or trousers, from £22 in a dress, from £45 in a lined coat. Coats cost more because the lining has to be opened and closed by hand.",
       },
       {
         q: "Is it worth repairing rather than replacing the garment?",
-        a: "Almost always, if you liked the garment. A £45 coat zip against a new coat is not a close comparison, and the coat you already own already fits you.",
+        a: "Almost always, if you liked the garment. A coat zip from £45 against a new coat is not a close comparison, and the coat you already own already fits you.",
       },
       {
         q: "Can you repair bags and home items?",

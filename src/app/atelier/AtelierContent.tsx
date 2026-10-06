@@ -45,10 +45,10 @@ const pricingCategories: ServiceCategory[] = [
     id: "denim",
     label: "Denim & Trousers",
     items: [
-      { name: "Shorten Jeans (Standard)", price: "£15.50" },
-      { name: "Shorten Jeans (Keep Original Hem)", price: "£17.00" },
-      { name: "Waist Adjustment", price: "£22.00" },
-      { name: "Replace Zip", price: "£18.00" },
+      { name: "Shorten Jeans (Standard)", price: "from £15.50" },
+      { name: "Shorten Jeans (Keep Original Hem)", price: "from £17.00" },
+      { name: "Waist Adjustment", price: "from £22.00" },
+      { name: "Replace Zip", price: "from £18.00" },
     ],
   },
   {
@@ -58,14 +58,14 @@ const pricingCategories: ServiceCategory[] = [
       { name: "Day Dress Shorten", price: "from £15.00" },
       { name: "Evening / Prom Dress Shorten", price: "from £30.00" },
       { name: "Take in Sides (Resize)", price: "from £28.00" },
-      { name: "Strap Adjustments", price: "£20.00" },
+      { name: "Strap Adjustments", price: "from £20.00" },
     ],
   },
   {
     id: "coats",
     label: "Coats & Jackets",
     items: [
-      { name: "Shorten Sleeves", price: "£36.00" },
+      { name: "Shorten Sleeves", price: "from £36.00" },
       { name: "New Zip (Coat)", price: "from £45.00" },
       { name: "Relining", price: "from £80.00" },
     ],

@@ -21,7 +21,7 @@ export const revalidate = 86400;
 
 const TITLE = "Clothing Alterations in Southampton | Beautasy Atelier";
 const DESCRIPTION =
-  "Clothing alterations in Southampton: wedding dresses, school uniform, jeans, zips and curtains. Fixed prices from £8, most work back within a week.";
+  "Clothing alterations in Southampton: wedding dresses, school uniform, jeans, zips and curtains. Prices from £8, most work back within a week.";
 
 export const metadata: Metadata = {
   title: TITLE,

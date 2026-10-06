@@ -27,6 +27,22 @@ test("every local page answers its own search — no paragraph is shared between
   }
 });
 
+test("every price on the site is a starting price — 'from £20', never a bare '£20'", async () => {
+  // The owner's rule (06.10): the work is quoted at the fitting, so a list
+  // price is where a job starts. A bare "£20" read as a promise for every
+  // strap on every gown.
+  for (const s of LOCAL_SERVICES) {
+    for (const line of s.prices) {
+      assert.match(line.price, /^from £\d/, `${s.slug}: "${line.name}" says ${line.price}`);
+    }
+  }
+  const { readFile } = await import("node:fs/promises");
+  const atelier = await readFile(new URL("../app/atelier/AtelierContent.tsx", import.meta.url), "utf8");
+  const prices = [...atelier.matchAll(/price: "([^"]*)"/g)].map((m) => m[1]);
+  assert.ok(prices.length >= 10, "the /atelier price list has moved — point this test at it");
+  for (const price of prices) assert.match(price, /^from £\d/, `/atelier says ${price}`);
+});
+
 test("every local page leads somewhere in the shop — that is the campaign's whole shape", () => {
   for (const s of LOCAL_SERVICES) {
     assert.ok(s.shop.length >= 2, `${s.slug}: at least two shop links`);
