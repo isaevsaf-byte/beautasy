@@ -74,8 +74,12 @@ export async function readVercelVisits(now: Date = new Date()): Promise<VisitRea
 
   // Vercel gives every deployment its project's id; the name works as well
   const projectId = process.env.VERCEL_PROJECT_ID?.trim() || "beautasy";
+  // The project belongs to a team, and the API looks in the token owner's
+  // personal account unless told which team: a project's name alone is not
+  // enough there. The team's id is an address, not a secret.
+  const teamId = process.env.VERCEL_TEAM_ID?.trim() || "team_ryR3tzKHVW1ZdN8961v01OYC";
   const { since, until } = lastSevenDays(now);
-  const week = { projectId, since: String(since), until: String(until) };
+  const week = { projectId, teamId, since: String(since), until: String(until) };
 
   // One deadline for both reads, which go together
   const deadline = AbortSignal.timeout(VERCEL_TIMEOUT_MS);
