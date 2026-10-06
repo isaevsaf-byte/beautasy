@@ -53,7 +53,7 @@ export default async function Home() {
     <HomeContent
       recentWork={
         recent.length > 0 ? (
-          <WorkStrip pieces={recent} eyebrow="Made & Mended" heading="Fresh from the workroom" />
+          <WorkStrip pieces={recent} eyebrow="Made & Mended" heading="Latest from the atelier" />
         ) : null
       }
       reviews={kindWords.length > 0 ? <ReviewStrip reviews={kindWords} nextdoorUrl={nextdoorUrl} /> : null}
