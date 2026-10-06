@@ -35,8 +35,17 @@ const API = "https://api.vercel.com/v1/query/web-analytics/visits";
  */
 const VERCEL_TIMEOUT_MS = 5_000;
 
+/**
+ * The token, newest first. VERCEL_ANALYTICS_TOKEN was set on 30.09 with a
+ * token of unknown scope; the project-scoped one made on 06.10 went in beside
+ * it as VERCEL_ANALYTICS_TOKEN2, and wins while both are there.
+ */
+function analyticsToken(env: NodeJS.ProcessEnv): string | undefined {
+  return env.VERCEL_ANALYTICS_TOKEN2?.trim() || env.VERCEL_ANALYTICS_TOKEN?.trim() || undefined;
+}
+
 export function vercelVisitsConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-  return !!env.VERCEL_ANALYTICS_TOKEN?.trim();
+  return !!analyticsToken(env);
 }
 
 async function askVercel(
@@ -69,7 +78,7 @@ async function askVercel(
 
 /** Visitors, page views and the top five places they came from, last seven days */
 export async function readVercelVisits(now: Date = new Date()): Promise<VisitReading> {
-  const token = process.env.VERCEL_ANALYTICS_TOKEN?.trim();
+  const token = analyticsToken(process.env);
   if (!token) throw new Error("VERCEL_ANALYTICS_TOKEN is not set.");
 
   // Vercel gives every deployment its project's id; the name works as well

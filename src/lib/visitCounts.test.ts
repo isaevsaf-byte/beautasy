@@ -172,7 +172,10 @@ test("the token stays on the server and Vercel gets a deadline", () => {
   const reader = read("src/lib/vercelVisits.ts");
   assert.match(reader, /^import "server-only";/, "The token file must refuse to be bundled for the browser.");
   assert.match(reader, /Authorization: `Bearer \$\{token\}`/);
-  assert.match(reader, /process\.env\.VERCEL_ANALYTICS_TOKEN/);
+  // The project-scoped token of 06.10 sits beside the older one, and wins
+  assert.match(reader, /env\.VERCEL_ANALYTICS_TOKEN2\?\.trim\(\) \|\| env\.VERCEL_ANALYTICS_TOKEN\?\.trim\(\)/);
+  assert.match(reader, /const token = analyticsToken\(process\.env\);/);
+  assert.match(reader, /return !!analyticsToken\(env\);/);
   assert.match(reader, /AbortSignal\.timeout\(VERCEL_TIMEOUT_MS\)/, "Vercel has no deadline.");
   assert.match(reader, /cache: "no-store",\s*signal,/, "The deadline is made and never handed to the request.");
   assert.match(reader, /await Promise\.all\(\[/, "The total and the sources are read one after the other.");
