@@ -80,7 +80,10 @@ export const workPiece = defineType({
       name: "media",
       title: "Фото и видео",
       type: "array",
-      description: "Первое — обложка. Перетаскивайте, чтобы поменять порядок.",
+      // 06.10: scrunchies and a quilted pouch shared one card, so beside the
+      // pouch a visitor read about scrunchies and got a hair-accessories button
+      description:
+        "Первое — обложка. Перетаскивайте, чтобы поменять порядок. Все фото — про одну вещь или одну работу: заголовок, история и ссылка в магазин стоят рядом с каждым фото. Другая вещь — отдельная работа.",
       of: [
         defineArrayMember({
           name: "workPhoto",
