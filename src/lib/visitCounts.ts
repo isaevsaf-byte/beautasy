@@ -66,6 +66,15 @@ const COUNTRY = String.raw`\.((com?\.)?[a-z]{2,3})$`;
 
 /** Sites that send people under more than one address, by the name people know them by */
 const REFERRERS: [RegExp, string][] = [
+  // Google's own staff, from its internal tools (biztools.corp.google.com):
+  // the people who review the business listing and the adverts, not searchers
+  [/(^|\.)corp\.google\.com$/, "Сотрудники Google"],
+  // Answers from AI assistants that linked to the site
+  [/(^|\.)(chatgpt\.com|chat\.openai\.com)$/, "ChatGPT"],
+  [/(^|\.)gemini\.google\.com$/, "Gemini"],
+  [/(^|\.)perplexity\.ai$/, "Perplexity"],
+  [/(^|\.)claude\.ai$/, "Claude"],
+  [/(^|\.)copilot\.microsoft\.com$/, "Copilot"],
   [new RegExp(String.raw`(^|\.)google` + COUNTRY), "Google"],
   // Android apps name themselves instead of a site
   [/^com\.google\.android\.googlequicksearchbox$/, "Google"],
@@ -101,10 +110,20 @@ export function referrerLabel(hostname: string | null | undefined): string {
   return host.replace(/^www\./, "");
 }
 
-/** One page of the shop leading to another is not somebody arriving */
+/**
+ * Not somebody arriving: one page of the shop leading to another, and the
+ * round trips a visitor already here makes — signing in with Google, paying
+ * on Stripe's page — which come back with that site as the referrer.
+ */
 function isOwnSite(hostname: string): boolean {
   const host = hostname.trim().toLowerCase();
-  return host === "beautasy.co.uk" || host.endsWith(".beautasy.co.uk") || host === "beautasy.vercel.app";
+  return (
+    host === "beautasy.co.uk" ||
+    host.endsWith(".beautasy.co.uk") ||
+    host === "beautasy.vercel.app" ||
+    host === "accounts.google.com" ||
+    host === "checkout.stripe.com"
+  );
 }
 
 function numberOf(value: unknown): number {
@@ -154,8 +173,11 @@ export function vercelRefusal(status: number, message?: string): string {
   if (status === 401 || status === 403) {
     return `Vercel не принял ключ VERCEL_ANALYTICS_TOKEN: он истёк, отозван или выдан не на проект beautasy${said}.`;
   }
+  // Vercel says this both when Analytics is off and when the key belongs to
+  // somewhere else: on 28.09 a key without this project got it while the
+  // counter had been counting for three weeks
   if (status === 404 && /web analytics/i.test(message ?? "")) {
-    return "Счётчик Vercel выключен: Vercel → проект beautasy → Analytics → Enable.";
+    return "Vercel не видит счётчик проекта по этому ключу: проверьте, что VERCEL_ANALYTICS_TOKEN выдан на проект beautasy (Scope → команда → beautasy) и что в проекте включён Analytics.";
   }
   if (status === 402) {
     return `Бесплатные 50 000 событий Vercel за месяц кончились, счётчик стоит до начала следующего${said}.`;

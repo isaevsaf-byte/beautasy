@@ -98,6 +98,10 @@ const nextConfig: NextConfig = {
       { source: "/products/:slug", destination: "/shop/:slug", permanent: true },
       { source: "/collections/:path*", destination: "/shop", permanent: true },
       { source: "/cart", destination: "/shop", permanent: true },
+      // Three visits to /sanity in a month: someone looking for the Studio.
+      // (Links glued to the next word, /atelierFeel, are sent on in the
+      // middleware: matching here ignores case, see @/lib/gluedLinks.)
+      { source: "/sanity", destination: "/studio", permanent: false },
     ];
   },
 };

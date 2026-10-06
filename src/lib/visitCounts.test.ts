@@ -91,6 +91,11 @@ test("a site that sends people from several addresses goes by one name", () => {
     [null, "Напрямую или по закладке"],
     [undefined, "Напрямую или по закладке"],
     ["Others", "Другие сайты"],
+    ["biztools.corp.google.com", "Сотрудники Google"],
+    ["chatgpt.com", "ChatGPT"],
+    ["gemini.google.com", "Gemini"],
+    ["www.perplexity.ai", "Perplexity"],
+    ["claude.ai", "Claude"],
     ["www.southamptonmums.co.uk", "southamptonmums.co.uk"],
   ];
   for (const [host, name] of cases) assert.equal(referrerLabel(host), name, String(host));
@@ -115,6 +120,9 @@ test("the sources are the top five, one line per site, and never the shop itself
       { referrerHostname: "Others", visitors: 2, pageviews: 2 },
       { referrerHostname: "instagram.com", visitors: 0, pageviews: 0 },
       { referrerHostname: "bing.com", visitors: 1, pageviews: 1 },
+      // Round trips of someone already on the site, not arrivals
+      { referrerHostname: "accounts.google.com", visitors: 40, pageviews: 40 },
+      { referrerHostname: "checkout.stripe.com", visitors: 40, pageviews: 40 },
     ],
   };
   assert.deepEqual(referrerSources(body), [
@@ -143,10 +151,9 @@ test("the week's totals come from Vercel's count, and nothing is guessed when it
 test("a refusal from Vercel says what to fix and where", () => {
   assert.match(vercelRefusal(401, "Not authorized"), /VERCEL_ANALYTICS_TOKEN.*проект beautasy.*Not authorized/);
   assert.match(vercelRefusal(403), /VERCEL_ANALYTICS_TOKEN/);
-  assert.equal(
-    vercelRefusal(404, "Web Analytics not found."),
-    "Счётчик Vercel выключен: Vercel → проект beautasy → Analytics → Enable."
-  );
+  // Said both for a key without this project and for Analytics switched off:
+  // the line names both, rather than blaming the switch (it was on all along)
+  assert.match(vercelRefusal(404, "Web Analytics not found."), /VERCEL_ANALYTICS_TOKEN.*проект beautasy.*включён Analytics/);
   assert.equal(vercelRefusal(404, "Project not found"), "Vercel ответил 404 (Project not found).");
   assert.match(vercelRefusal(402), /50 000/);
   assert.equal(vercelRefusal(503), "Vercel ответил 503.");
