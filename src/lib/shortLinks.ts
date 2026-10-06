@@ -76,7 +76,10 @@ export function shortLinkTarget(pathname: string, search = ""): string | null {
 
   // A word glued to the next one ("promFeel") is still the word
   const word = /^[a-z]+/.exec(rawWord)?.[0] ?? /^[a-z]+/.exec(rawWord.toLowerCase())?.[0] ?? "";
-  const slug = SHORT_WORDS[word] ?? Object.entries(SHORT_WORDS).find(([w]) => word.startsWith(w))?.[1];
+  // Own keys only: "constructor" is not a word on the list
+  const slug =
+    (Object.hasOwn(SHORT_WORDS, word) ? SHORT_WORDS[word] : undefined) ??
+    Object.entries(SHORT_WORDS).find(([w]) => word.startsWith(w))?.[1];
   const code = CODE_START.exec(rawCode)?.[0] ?? null;
 
   const params = new URLSearchParams(search);

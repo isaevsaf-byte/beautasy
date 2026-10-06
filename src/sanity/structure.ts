@@ -27,11 +27,13 @@ import {
  * (/studio/structure/shop;product;…), so three things keep old links working:
  *
  *  - Every list has a fixed .id(). Without one Sanity makes it from the
- *    title, and renaming a list would move its address too. The six pinned
- *    below are exactly the ids Sanity derived before (postyNaOdobrenie…).
+ *    title, and renaming a list would move its address too. Four are pinned
+ *    to exactly the ids Sanity derived before (postyNaOdobrenie…); the two
+ *    settings documents take their own ids (atelierSchedule, siteSettings),
+ *    which is what lets search open them.
  *  - A bookmark or a copied address to a list that moved is sent on to its
  *    new place by the middleware — see @/lib/studioMoves, which also lists
- *    which folder each moved list is in.
+ *    which folder each moved list is in, and the two settings' old ids.
  *  - A list with its own filter only answers "open this document" one level
  *    down unless told otherwise. The lists inside folders say
  *    .canHandleIntent(defaultIntentChecker), so the link in the new-review
@@ -84,6 +86,9 @@ export const structure: StructureResolver = (S) =>
             .id("reviews")
             .title("Отзывы")
             .items([
+              // .initialValueTemplates() comes last on purpose: every later call
+              // copies the list and Sanity guesses the templates again — all four
+              // review kinds — so «+ Создать» offered every kind in every list
               S.listItem()
                 .id("review")
                 .title("Отзывы с сайта")
@@ -94,9 +99,9 @@ export const structure: StructureResolver = (S) =>
                     .schemaType("review")
                     .apiVersion("2024-01-29")
                     .filter(SITE_REVIEWS_FILTER)
-                    .initialValueTemplates([S.initialValueTemplateItem("review")])
                     .defaultOrdering([{ field: "createdAt", direction: "desc" }])
                     .canHandleIntent(defaultIntentChecker)
+                    .initialValueTemplates([S.initialValueTemplateItem("review")])
                 ),
               S.listItem()
                 .id("nextdoor")
@@ -108,9 +113,9 @@ export const structure: StructureResolver = (S) =>
                     .schemaType("review")
                     .apiVersion("2024-01-29")
                     .filter(NEXTDOOR_REVIEWS_FILTER)
-                    .initialValueTemplates([S.initialValueTemplateItem(NEXTDOOR_TEMPLATE_ID)])
                     .defaultOrdering([{ field: "createdAt", direction: "desc" }])
                     .canHandleIntent(defaultIntentChecker)
+                    .initialValueTemplates([S.initialValueTemplateItem(NEXTDOOR_TEMPLATE_ID)])
                 ),
               S.listItem()
                 .id("google-reviews")
@@ -122,9 +127,9 @@ export const structure: StructureResolver = (S) =>
                     .schemaType("review")
                     .apiVersion("2024-01-29")
                     .filter(GOOGLE_REVIEWS_FILTER)
-                    .initialValueTemplates([S.initialValueTemplateItem(GOOGLE_TEMPLATE_ID)])
                     .defaultOrdering([{ field: "createdAt", direction: "desc" }])
                     .canHandleIntent(defaultIntentChecker)
+                    .initialValueTemplates([S.initialValueTemplateItem(GOOGLE_TEMPLATE_ID)])
                 ),
               S.listItem()
                 .id("etsy-reviews")
@@ -136,9 +141,9 @@ export const structure: StructureResolver = (S) =>
                     .schemaType("review")
                     .apiVersion("2024-01-29")
                     .filter(ETSY_REVIEWS_FILTER)
-                    .initialValueTemplates([S.initialValueTemplateItem(ETSY_TEMPLATE_ID)])
                     .defaultOrdering([{ field: "createdAt", direction: "desc" }])
                     .canHandleIntent(defaultIntentChecker)
+                    .initialValueTemplates([S.initialValueTemplateItem(ETSY_TEMPLATE_ID)])
                 ),
             ])
         ),
@@ -269,14 +274,16 @@ export const structure: StructureResolver = (S) =>
               // The pictures of finished jobs on /work: the atelier's shop window
               S.documentTypeListItem("workPiece").title("Наши работы"),
               // 🚨 The documentId is what the site, the outside watcher and the
-              // booking form read; without it the Studio would make a second schedule
+              // booking form read; without it the Studio would make a second schedule.
+              // The item's id is the document's own, so a search result or a link
+              // to the document opens it here (Sanity looks for an item by that id)
               S.listItem()
-                .id("chasyDlyaPrimerok")
+                .id("atelierSchedule")
                 .title("Часы для примерок")
                 .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
               S.documentTypeListItem("legalPage").title("Инфо-страницы"),
               S.listItem()
-                .id("nastroikiSaita")
+                .id(SITE_SETTINGS_ID)
                 .title("Настройки сайта")
                 .child(S.document().schemaType("siteSettings").documentId(SITE_SETTINGS_ID)),
             ])

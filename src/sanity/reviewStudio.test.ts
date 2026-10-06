@@ -160,15 +160,24 @@ test("the sidebar and the Studio use those lists and that template", () => {
   // (/studio/structure/review;…) is sent on to reviews;review;… — see studioMoves
   assert.match(structure, /\.id\("reviews"\)\s*\.title\("Отзывы"\)/, "every review in one folder");
   assert.match(structure, /\.id\("review"\)\s*\.title\("Отзывы с сайта"\)/, "the site's list keeps its id");
-  assert.match(structure, /\.filter\(SITE_REVIEWS_FILTER\)\s*\.initialValueTemplates\(\[S\.initialValueTemplateItem\("review"\)\]\)/);
+  // Each list's own template, and set LAST: every later call on the list
+  // copies it and Sanity guesses the templates afresh — all four review
+  // kinds — so «+ Создать» used to offer every kind in every list
+  for (const [filter, template] of [
+    ["SITE_REVIEWS_FILTER", '"review"'],
+    ["NEXTDOOR_REVIEWS_FILTER", "NEXTDOOR_TEMPLATE_ID"],
+    ["GOOGLE_REVIEWS_FILTER", "GOOGLE_TEMPLATE_ID"],
+    ["ETSY_REVIEWS_FILTER", "ETSY_TEMPLATE_ID"],
+  ]) {
+    const list = new RegExp(
+      `\\.filter\\(${filter}\\)[^]*?\\.initialValueTemplates\\(\\[S\\.initialValueTemplateItem\\(${template}\\)\\]\\)\\s*\\)`
+    );
+    assert.match(structure, list, `${filter}: its own template, as the list's last call`);
+    const body = list.exec(structure)![0];
+    assert.equal(body.match(/\.initialValueTemplates\(/g)?.length, 1, `${filter}: one template call, no other list's`);
+  }
   assert.match(structure, /\.title\("Рекомендации Nextdoor"\)/);
-  assert.match(
-    structure,
-    /\.filter\(NEXTDOOR_REVIEWS_FILTER\)\s*\.initialValueTemplates\(\[S\.initialValueTemplateItem\(NEXTDOOR_TEMPLATE_ID\)\]\)/
-  );
   assert.doesNotMatch(structure, /documentTypeListItem\("review"\)/, "one list for every review would mix the two again");
-  assert.match(structure, /\.filter\(GOOGLE_REVIEWS_FILTER\)\s*\.initialValueTemplates\(\[S\.initialValueTemplateItem\(GOOGLE_TEMPLATE_ID\)\]\)/);
-  assert.match(structure, /\.filter\(ETSY_REVIEWS_FILTER\)\s*\.initialValueTemplates\(\[S\.initialValueTemplateItem\(ETSY_TEMPLATE_ID\)\]\)/);
   assert.match(
     read("sanity.config.ts"),
     /templates: \(prev\) => \[\.\.\.prev, nextdoorReviewTemplate, googleReviewTemplate, etsyReviewTemplate\]/

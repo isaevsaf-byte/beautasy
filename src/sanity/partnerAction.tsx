@@ -141,7 +141,7 @@ export function AttributionFormView({
       </label>
       {offer && !offer.enabled ? (
         <p style={{ fontSize: 13, margin: 0, color: "#c0392b", lineHeight: 1.5 }}>
-          Программа «Beautasy Friends» выключена в «Настройках сайта» — сейчас клиентку салону не засчитать.
+          Программа «Beautasy Friends» выключена в разделе «Сайт и настройки» → «Настройки сайта» — сейчас клиентку салону не засчитать.
         </p>
       ) : (
         <p style={{ fontSize: 13, margin: 0, opacity: 0.75, lineHeight: 1.5 }}>

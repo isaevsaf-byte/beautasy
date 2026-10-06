@@ -396,7 +396,7 @@ export function attributionRefusal(name: string, verdict: string, cap: number): 
     case "capped":
       return `Не записано: у «${name}» кончился лимит — ${cap} клиенток за год.`;
     case "disabled":
-      return `Не записано: программа «Beautasy Friends» выключена в «Настройках сайта». Включите её — и партнёры снова заработают.`;
+      return `Не записано: программа «Beautasy Friends» выключена в разделе «Сайт и настройки» → «Настройки сайта». Включите её — и партнёры снова заработают.`;
     default:
       return `Не записано: партнёр «${name}» сейчас не принимает клиенток.`;
   }

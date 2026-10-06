@@ -367,7 +367,7 @@ export function PartnerListView({
 
       {offer && !offer.enabled && (
         <p role="alert" style={{ fontSize: 14, margin: 0, color: OUT }}>
-          Программа «Beautasy Friends» выключена в «Настройках сайта», поэтому все партнёрские ссылки сейчас на паузе.
+          Программа «Beautasy Friends» выключена в разделе «Сайт и настройки» → «Настройки сайта», поэтому все партнёрские ссылки сейчас на паузе.
         </p>
       )}
 

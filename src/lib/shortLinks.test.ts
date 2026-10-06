@@ -66,6 +66,9 @@ test("Facebook's click id comes along, and tags already on the link are replaced
 test("a short link is never a dead end, and never leaves the site", () => {
   assert.equal(at(shortLinkTarget("/g/coat/k3x")).pathname, "/alterations", "unknown word: every service");
   assert.equal(at(shortLinkTarget("/g/coat/k3x")).searchParams.get("utm_campaign"), "fb-k3x");
+  for (const word of ["constructor", "Constructor", "toString", "__proto__"]) {
+    assert.equal(at(shortLinkTarget(`/g/${word}/k3x`)).pathname, "/alterations", `${word} is not a word on the list`);
+  }
   for (const path of ["/g", "/g/"]) assert.equal(at(shortLinkTarget(path)).pathname, "/alterations");
   for (const path of ["/g/zip", "/g/zip/", "/g/zip/0", "/g/zip/K3X"]) {
     const url = at(shortLinkTarget(path));

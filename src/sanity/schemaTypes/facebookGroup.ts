@@ -1,5 +1,6 @@
 import { defineField, defineType } from "sanity";
 import { WEEKDAYS, isFacebookGroupUrl } from "@/lib/groupPosts";
+import { groupCode } from "@/lib/shortLinks";
 
 /**
  * A Facebook group Kristina has joined, and its rules for posts like hers.
@@ -87,8 +88,8 @@ export const facebookGroup = defineType({
     }),
   ],
   preview: {
-    select: { title: "name", active: "active", days: "days", everyDays: "everyDays", area: "area" },
-    prepare({ title, active, days, everyDays, area }) {
+    select: { title: "name", active: "active", days: "days", everyDays: "everyDays", area: "area", id: "_id" },
+    prepare({ title, active, days, everyDays, area, id }) {
       const when = (days as string[] | undefined)?.length
         ? WEEKDAYS.filter((day) => (days as string[]).includes(day.value))
             .map((day) => day.title)
@@ -96,7 +97,11 @@ export const facebookGroup = defineType({
         : "любой день";
       return {
         title: `${active === false ? "⏸" : "👥"} ${title ?? "Без названия"}`,
-        subtitle: [area, when, `раз в ${everyDays ?? 7} дн.`].filter(Boolean).join(" · "),
+        // The group's tag in visit statistics (utm_campaign fb-…), the same as
+        // in its short link. A draft's id carries "drafts.", which is not the group's
+        subtitle: [area, when, `раз в ${everyDays ?? 7} дн.`, id && `метка fb-${groupCode(String(id).replace(/^drafts\./, ""))}`]
+          .filter(Boolean)
+          .join(" · "),
       };
     },
   },

@@ -44,12 +44,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   const [settings, collection] = await Promise.all([referralSettings(), collectionSettings()]);
   if (!settings.enabled) {
     return page(
-      cardUnavailableHtml("Программа «Beautasy Friends» выключена в «Настройках сайта» — ссылка на карточке сейчас не даёт скидку."),
+      cardUnavailableHtml("Программа «Beautasy Friends» выключена в разделе «Сайт и настройки» → «Настройки сайта» — ссылка на карточке сейчас не даёт скидку."),
       409
     );
   }
   if (settings.friendAtelierDiscount <= 0) {
-    return page(cardUnavailableHtml("Скидка за друга в «Настройках сайта» — £0: карточке нечего обещать."), 409);
+    return page(cardUnavailableHtml("Скидка за друга в разделе «Сайт и настройки» → «Настройки сайта» — £0: карточке нечего обещать."), 409);
   }
   const offer = { discount: pounds(settings.friendAtelierDiscount), collection: collectionLine(collection) };
   return page(partnerCardHtml({ salon: partner.partner.name, slug, url: partnerLink(slug), size, offer, toolbar: true }));
