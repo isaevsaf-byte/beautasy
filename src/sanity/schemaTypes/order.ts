@@ -66,7 +66,7 @@ export const order = defineType({
       weak: true,
       readOnly: true,
       description:
-        "Заполняется, если на этот заказ пришли по ссылке друга и часть суммы покрыла скидка. Сам бонус другу — в разделе «Бонусы за друзей».",
+        "Заполняется, если на этот заказ пришли по ссылке друга и часть суммы покрыла скидка. Сам бонус другу — в разделе «Друзья и партнёры» → «Бонусы за друзей».",
     }),
     defineField({ name: "referredBy", title: "Кто порекомендовал", type: "string", readOnly: true }),
     defineField({ name: "referralDiscount", title: "Применённая скидка за друга (в пенсах)", type: "number", readOnly: true }),

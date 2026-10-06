@@ -156,7 +156,10 @@ test("the two lists split the reviews the way the site does, older ones counted 
 
 test("the sidebar and the Studio use those lists and that template", () => {
   const structure = read("src/sanity/structure.ts");
-  assert.match(structure, /\.id\("review"\)\s*\.title\("Отзывы"\)/, "the old address of the list still opens it");
+  // The list keeps its id inside the «Отзывы» folder; an old address to it
+  // (/studio/structure/review;…) is sent on to reviews;review;… — see studioMoves
+  assert.match(structure, /\.id\("reviews"\)\s*\.title\("Отзывы"\)/, "every review in one folder");
+  assert.match(structure, /\.id\("review"\)\s*\.title\("Отзывы с сайта"\)/, "the site's list keeps its id");
   assert.match(structure, /\.filter\(SITE_REVIEWS_FILTER\)\s*\.initialValueTemplates\(\[S\.initialValueTemplateItem\("review"\)\]\)/);
   assert.match(structure, /\.title\("Рекомендации Nextdoor"\)/);
   assert.match(

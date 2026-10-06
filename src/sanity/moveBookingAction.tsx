@@ -144,7 +144,7 @@ function MoveDialog({ id, doc, onClose }: { id: string; doc: BookingDoc; onClose
       )}
       {times.state === "ready" && !times.enabled && (
         <p style={{ fontSize: 14, margin: 0 }}>
-          Онлайн-запись выключена в разделе «Часы для примерок», поэтому в дневнике нечего закреплять.
+          Онлайн-запись выключена в разделе «Сайт и настройки» → «Часы для примерок», поэтому в дневнике нечего закреплять.
         </p>
       )}
       {times.state === "ready" && times.enabled && length > slotMinutes && (

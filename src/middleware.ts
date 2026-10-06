@@ -3,6 +3,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 import { clerkEnabled } from "@/lib/clerk";
 import { gluedLinkTarget } from "@/lib/gluedLinks";
 import { shortLinkTarget } from "@/lib/shortLinks";
+import { movedStudioPath } from "@/lib/studioMoves";
 
 // Auth lives inside the review routes themselves rather than here: a customer
 // following a review-request link has no account, and blanket-protecting
@@ -37,6 +38,14 @@ export default function middleware(req: NextRequest, event: NextFetchEvent) {
   // Temporary too: the words may point somewhere else one day.
   const short = shortLinkTarget(req.nextUrl.pathname, req.nextUrl.search);
   if (short) return NextResponse.redirect(new URL(short, req.nextUrl.origin), 307);
+
+  // An old address of a Studio list that now lives in a folder — see @/lib/studioMoves
+  const moved = movedStudioPath(req.nextUrl.pathname);
+  if (moved) {
+    const url = req.nextUrl.clone();
+    url.pathname = moved;
+    return NextResponse.redirect(url, 307);
+  }
 
   const meant = gluedLinkTarget(req.nextUrl.pathname);
   if (meant) {

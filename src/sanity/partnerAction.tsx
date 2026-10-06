@@ -105,7 +105,7 @@ export function AttributionFormView({
     return (
       <div style={{ display: "grid", gap: 12 }}>
         <p style={{ fontSize: 14, margin: 0, lineHeight: 1.5 }}>
-          Партнёров пока нет. Добавьте салон в разделе «Партнёры», потом вернитесь сюда.
+          Партнёров пока нет. Добавьте салон в разделе «Друзья и партнёры» → «Партнёры», потом вернитесь сюда.
         </p>
         {close}
       </div>

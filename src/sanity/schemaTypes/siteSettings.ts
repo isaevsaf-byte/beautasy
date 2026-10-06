@@ -478,7 +478,7 @@ export const siteSettings = defineType({
       title: "Страница «Наши работы»",
       type: "object",
       description:
-        "Короткий ролик в самом верху страницы /work. Его нарезает из видео в разделе «Наши работы» скрипт scripts/gallery-import.mjs; если здесь пусто, вместо ролика показываются фото.",
+        "Короткий ролик в самом верху страницы /work. Его нарезает из видео в разделе «Сайт и настройки» → «Наши работы» скрипт scripts/gallery-import.mjs; если здесь пусто, вместо ролика показываются фото.",
       fields: [
         defineField({
           name: "showreel",
@@ -486,7 +486,7 @@ export const siteSettings = defineType({
           type: "file",
           options: { accept: "video/mp4" },
           readOnly: true,
-          description: "Нарезается при импорте из видео в разделе «Наши работы»: вертикальный, секунд десять, без звука, крутится по кругу.",
+          description: "Нарезается при импорте из видео в разделе «Сайт и настройки» → «Наши работы»: вертикальный, секунд десять, без звука, крутится по кругу.",
         }),
         defineField({
           name: "showreelPoster",

@@ -1,4 +1,4 @@
-import type { StructureResolver } from "sanity/structure";
+import { defaultIntentChecker, type StructureResolver } from "sanity/structure";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
 import { ManualBookingPane } from "./ManualBookingPane";
 import { LedgerPane } from "./LedgerPane";
@@ -17,73 +17,34 @@ import {
 /**
  * The Studio sidebar.
  *
- * The default list is every document type in alphabetical order, which buries
- * the two things Kristina opens daily. This puts the shop first, gives the
- * content queue its own section split by what needs doing, and pushes the
- * records she only reads (orders, subscribers) to the bottom.
+ * It had grown to 33 rows. Now the five things Kristina opens most days sit
+ * at the top — bookings, booking by hand, posts to approve, group posts, the
+ * till — and everything else is in five folders: reviews, social media, the
+ * shop, friends & partners, the site and its settings. Nothing is more than
+ * two clicks away.
+ *
+ * Moving a list into a folder changes its address in the Studio
+ * (/studio/structure/shop;product;…), so three things keep old links working:
+ *
+ *  - Every list has a fixed .id(). Without one Sanity makes it from the
+ *    title, and renaming a list would move its address too. The six pinned
+ *    below are exactly the ids Sanity derived before (postyNaOdobrenie…).
+ *  - A bookmark or a copied address to a list that moved is sent on to its
+ *    new place by the middleware — see @/lib/studioMoves, which also lists
+ *    which folder each moved list is in.
+ *  - A list with its own filter only answers "open this document" one level
+ *    down unless told otherwise. The lists inside folders say
+ *    .canHandleIntent(defaultIntentChecker), so the link in the new-review
+ *    email, «+ Создать» and search still open beside the right list.
+ *
+ * Emails, the Dashboard and hints in the Studio name lists in words; when a
+ * list moves, they say «Folder» → «List» (STUDIO_LISTS in @/lib/studioStats).
  */
 export const structure: StructureResolver = (S) =>
   S.list()
     .title("Beautasy")
     .items([
-      S.listItem()
-        .title("Посты на одобрение")
-        .child(
-          S.documentList()
-            .title("Ждут вашего решения")
-            .filter('_type == "socialPost" && status in ["draft", "failed"]')
-            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
-        ),
-      S.listItem()
-        .title("Посты в очереди")
-        .child(
-          S.documentList()
-            .title("Одобренные")
-            // "publishing" belongs here too. The site sets it for the few
-            // seconds a post is on its way to Instagram, so that two runs can
-            // never send the same picture — but if something stops halfway the
-            // post keeps that status, and this is the list where it has to be
-            // visible rather than quietly belonging to no list at all.
-            .filter('_type == "socialPost" && status in ["approved", "publishing"]')
-            .defaultOrdering([{ field: "scheduledFor", direction: "asc" }])
-        ),
-      S.listItem()
-        .title("Reels")
-        .child(
-          S.documentList()
-            .title("Видеопосты")
-            // Reels are their own job: a video has to be rendered and uploaded
-            // before it can be approved, so they collect here rather than
-            // sitting among photos that are ready to go in one click.
-            .filter('_type == "socialPost" && format == "reel"')
-            .defaultOrdering([{ field: 'createdAt', direction: 'desc' }])
-        ),
-      S.listItem()
-        .title("Уже опубликованы")
-        .child(
-          S.documentList()
-            .title("Опубликованные")
-            .filter('_type == "socialPost" && status == "published"')
-            .defaultOrdering([{ field: "publishedAt", direction: "desc" }])
-        ),
-      // Facebook lets no site post to a group, so the Studio writes each
-      // group's post and Kristina publishes it herself — see FacebookGroupsPane
-      S.listItem()
-        .id("group-posts")
-        .title("Посты в группы")
-        .child(S.component(FacebookGroupsPane).id("group-posts-pane").title("Посты в группы")),
-      S.documentTypeListItem("facebookGroup").title("Группы Facebook"),
-
-      S.divider(),
-
-      S.documentTypeListItem("product").title("Товары"),
-      S.documentTypeListItem("collection").title("Коллекции"),
-      S.documentTypeListItem("giftBox").title("Подарочные боксы"),
-      S.documentTypeListItem("giftCard").title("Подарочные карты"),
-      S.documentTypeListItem("sizeGuide").title("Таблицы размеров"),
-
-      S.divider(),
-
+      // ─── Every day ───
       S.documentTypeListItem("atelierBooking").title("Записи в ателье"),
       // For someone who got in touch on WhatsApp, by phone or on Nextdoor: the
       // time goes into the same diary the site books from, so it closes online
@@ -92,105 +53,232 @@ export const structure: StructureResolver = (S) =>
         .title("Записать вручную")
         .child(S.component(ManualBookingPane).id("book-by-hand-pane").title("Запись клиента вручную")),
       S.listItem()
-        .title("Часы для примерок")
-        .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
+        .id("postyNaOdobrenie")
+        .title("Посты на одобрение")
+        .child(
+          S.documentList()
+            .title("Ждут вашего решения")
+            .apiVersion("2024-01-29")
+            .filter('_type == "socialPost" && status in ["draft", "failed"]')
+            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+        ),
+      // Facebook lets no site post to a group, so the Studio writes each
+      // group's post and Kristina publishes it herself — see FacebookGroupsPane
+      S.listItem()
+        .id("group-posts")
+        .title("Посты в группы")
+        .child(S.component(FacebookGroupsPane).id("group-posts-pane").title("Посты в группы")),
       // What came in and what went out. Entries are sealed (the dataset is
       // public), so this is a pane that asks the server, not a document list
       S.listItem().id("kassa").title("Касса").child(S.component(LedgerPane).id("kassa-pane").title("Касса")),
-      // Salons and shops that send their clients, each with a link, a card and
-      // a month's statement. Contacts and payments are sealed, so it is a pane
-      // that asks the server — see PartnersPane
+
+      S.divider(),
+
+      // ─── Reviews: written on the site and waiting for approval, and those
+      // copied in by hand from Nextdoor, Google and Etsy. See reviewLists.ts.
       S.listItem()
-        .id("partners")
-        .title("Партнёры")
-        .child(S.component(PartnersPane).id("partners-pane").title("Партнёры")),
-      S.documentTypeListItem("order").title("Заказы"),
-      // Reviews written on the site wait here for approval; recommendations
-      // from Nextdoor and reviews from Google and Etsy are copied in by hand
-      // beside them. See reviewLists.ts.
-      S.listItem()
-        .id("review")
+        .id("reviews")
         .title("Отзывы")
-        .schemaType("review")
         .child(
-          S.documentList()
-            .title("Отзывы с сайта")
-            .schemaType("review")
-            .apiVersion("2024-01-29")
-            .filter(SITE_REVIEWS_FILTER)
-            .initialValueTemplates([S.initialValueTemplateItem("review")])
-            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+          S.list()
+            .id("reviews")
+            .title("Отзывы")
+            .items([
+              S.listItem()
+                .id("review")
+                .title("Отзывы с сайта")
+                .schemaType("review")
+                .child(
+                  S.documentList()
+                    .title("Отзывы с сайта")
+                    .schemaType("review")
+                    .apiVersion("2024-01-29")
+                    .filter(SITE_REVIEWS_FILTER)
+                    .initialValueTemplates([S.initialValueTemplateItem("review")])
+                    .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+              S.listItem()
+                .id("nextdoor")
+                .title("Рекомендации Nextdoor")
+                .schemaType("review")
+                .child(
+                  S.documentList()
+                    .title("Рекомендации Nextdoor")
+                    .schemaType("review")
+                    .apiVersion("2024-01-29")
+                    .filter(NEXTDOOR_REVIEWS_FILTER)
+                    .initialValueTemplates([S.initialValueTemplateItem(NEXTDOOR_TEMPLATE_ID)])
+                    .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+              S.listItem()
+                .id("google-reviews")
+                .title("Отзывы Google")
+                .schemaType("review")
+                .child(
+                  S.documentList()
+                    .title("Отзывы Google")
+                    .schemaType("review")
+                    .apiVersion("2024-01-29")
+                    .filter(GOOGLE_REVIEWS_FILTER)
+                    .initialValueTemplates([S.initialValueTemplateItem(GOOGLE_TEMPLATE_ID)])
+                    .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+              S.listItem()
+                .id("etsy-reviews")
+                .title("Отзывы Etsy")
+                .schemaType("review")
+                .child(
+                  S.documentList()
+                    .title("Отзывы Etsy")
+                    .schemaType("review")
+                    .apiVersion("2024-01-29")
+                    .filter(ETSY_REVIEWS_FILTER)
+                    .initialValueTemplates([S.initialValueTemplateItem(ETSY_TEMPLATE_ID)])
+                    .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+            ])
         ),
+
+      // ─── Social media: Instagram's queue, and the Facebook groups
       S.listItem()
-        .id("nextdoor")
-        .title("Рекомендации Nextdoor")
-        .schemaType("review")
+        .id("social")
+        .title("Соцсети")
         .child(
-          S.documentList()
-            .title("Рекомендации Nextdoor")
-            .schemaType("review")
-            .apiVersion("2024-01-29")
-            .filter(NEXTDOOR_REVIEWS_FILTER)
-            .initialValueTemplates([S.initialValueTemplateItem(NEXTDOOR_TEMPLATE_ID)])
-            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+          S.list()
+            .id("social")
+            .title("Соцсети")
+            .items([
+              S.divider().title("Instagram"),
+              S.listItem()
+                .id("postyVOcheredi")
+                .title("Посты в очереди")
+                .child(
+                  S.documentList()
+                    .title("Одобренные")
+                    .apiVersion("2024-01-29")
+                    // "publishing" belongs here too. The site sets it for the few
+                    // seconds a post is on its way to Instagram, so that two runs can
+                    // never send the same picture — but if something stops halfway the
+                    // post keeps that status, and this is the list where it has to be
+                    // visible rather than quietly belonging to no list at all.
+                    .filter('_type == "socialPost" && status in ["approved", "publishing"]')
+                    .defaultOrdering([{ field: "scheduledFor", direction: "asc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+              S.listItem()
+                .id("reels")
+                .title("Reels")
+                .child(
+                  S.documentList()
+                    .title("Видеопосты")
+                    .apiVersion("2024-01-29")
+                    // Reels are their own job: a video has to be rendered and uploaded
+                    // before it can be approved, so they collect here rather than
+                    // sitting among photos that are ready to go in one click.
+                    .filter('_type == "socialPost" && format == "reel"')
+                    .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+              S.listItem()
+                .id("uzheOpublikovany")
+                .title("Уже опубликованы")
+                .child(
+                  S.documentList()
+                    .title("Опубликованные")
+                    .apiVersion("2024-01-29")
+                    .filter('_type == "socialPost" && status == "published"')
+                    .defaultOrdering([{ field: "publishedAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+              S.divider().title("Facebook"),
+              S.documentTypeListItem("facebookGroup").title("Группы Facebook"),
+            ])
         ),
+
+      // ─── The shop: what is for sale, what was sold, and the records she only reads
       S.listItem()
-        .id("google-reviews")
-        .title("Отзывы Google")
-        .schemaType("review")
+        .id("shop")
+        .title("Магазин")
         .child(
-          S.documentList()
-            .title("Отзывы Google")
-            .schemaType("review")
-            .apiVersion("2024-01-29")
-            .filter(GOOGLE_REVIEWS_FILTER)
-            .initialValueTemplates([S.initialValueTemplateItem(GOOGLE_TEMPLATE_ID)])
-            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+          S.list()
+            .id("shop")
+            .title("Магазин")
+            .items([
+              S.documentTypeListItem("product").title("Товары"),
+              S.documentTypeListItem("order").title("Заказы"),
+              S.documentTypeListItem("giftCard").title("Подарочные карты"),
+              S.divider(),
+              S.documentTypeListItem("collection").title("Коллекции"),
+              S.documentTypeListItem("giftBox").title("Подарочные боксы"),
+              S.documentTypeListItem("sizeGuide").title("Таблицы размеров"),
+              S.divider().title("Покупатели"),
+              S.documentTypeListItem("stockAlert").title("Ждут поступления"),
+              S.documentTypeListItem("abandonedCart").title("Брошенные корзины"),
+              S.documentTypeListItem("subscriber").title("Подписчики"),
+            ])
         ),
+
+      // ─── Who sends clients: salons and shops, and "Give £5, get £5"
       S.listItem()
-        .id("etsy-reviews")
-        .title("Отзывы Etsy")
-        .schemaType("review")
+        .id("friends")
+        .title("Друзья и партнёры")
         .child(
-          S.documentList()
-            .title("Отзывы Etsy")
-            .schemaType("review")
-            .apiVersion("2024-01-29")
-            .filter(ETSY_REVIEWS_FILTER)
-            .initialValueTemplates([S.initialValueTemplateItem(ETSY_TEMPLATE_ID)])
-            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+          S.list()
+            .id("friends")
+            .title("Друзья и партнёры")
+            .items([
+              // Salons and shops that send their clients, each with a link, a card and
+              // a month's statement. Contacts and payments are sealed, so it is a pane
+              // that asks the server — see PartnersPane
+              S.listItem()
+                .id("partners")
+                .title("Партнёры")
+                .child(S.component(PartnersPane).id("partners-pane").title("Партнёры")),
+              // "Give £5, get £5": who has a link, and every friend who came through one.
+              // A partner's link is a referrer too, and lives in «Партнёры» instead
+              S.listItem()
+                .id("referrer")
+                .title("Ссылки для друзей")
+                .schemaType("referrer")
+                .child(
+                  S.documentList()
+                    .title("Ссылки для друзей")
+                    .schemaType("referrer")
+                    .apiVersion("2024-01-29")
+                    .filter('_type == "referrer" && !defined(partner)')
+                    .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+              S.documentTypeListItem("referral").title("Бонусы за друзей"),
+            ])
         ),
-      // The pictures of finished jobs on /work: the atelier's shop window
-      S.documentTypeListItem("workPiece").title("Наши работы"),
 
-      S.divider(),
-
-      // "Give £5, get £5": who has a link, and every friend who came through one.
-      // A partner's link is a referrer too, and lives in «Партнёры» instead
+      // ─── What the site shows, and how it runs
       S.listItem()
-        .id("referrer")
-        .title("Ссылки для друзей")
-        .schemaType("referrer")
+        .id("settings")
+        .title("Сайт и настройки")
         .child(
-          S.documentList()
-            .title("Ссылки для друзей")
-            .schemaType("referrer")
-            .apiVersion("2024-01-29")
-            .filter('_type == "referrer" && !defined(partner)')
-            .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+          S.list()
+            .id("settings")
+            .title("Сайт и настройки")
+            .items([
+              // The pictures of finished jobs on /work: the atelier's shop window
+              S.documentTypeListItem("workPiece").title("Наши работы"),
+              // 🚨 The documentId is what the site, the outside watcher and the
+              // booking form read; without it the Studio would make a second schedule
+              S.listItem()
+                .id("chasyDlyaPrimerok")
+                .title("Часы для примерок")
+                .child(S.document().schemaType("atelierSchedule").documentId("atelierSchedule")),
+              S.documentTypeListItem("legalPage").title("Инфо-страницы"),
+              S.listItem()
+                .id("nastroikiSaita")
+                .title("Настройки сайта")
+                .child(S.document().schemaType("siteSettings").documentId(SITE_SETTINGS_ID)),
+            ])
         ),
-      S.documentTypeListItem("referral").title("Бонусы за друзей"),
-
-      S.divider(),
-
-      S.documentTypeListItem("subscriber").title("Подписчики"),
-      S.documentTypeListItem("stockAlert").title("Ждут поступления"),
-      S.documentTypeListItem("abandonedCart").title("Брошенные корзины"),
-
-      S.divider(),
-
-      S.documentTypeListItem("legalPage").title("Инфо-страницы"),
-      S.listItem()
-        .title("Настройки сайта")
-        .child(S.document().schemaType("siteSettings").documentId(SITE_SETTINGS_ID)),
     ]);

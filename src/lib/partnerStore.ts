@@ -467,10 +467,10 @@ export async function attributeBooking(bookingId: string, partnerId: string | nu
   }
 
   const partner = await findPartnerById(partnerId);
-  if (!partner) return { ok: false, status: 404, error: "Такого партнёра нет — обновите список в «Партнёры»." };
+  if (!partner) return { ok: false, status: 404, error: "Такого партнёра нет — обновите список в «Друзья и партнёры» → «Партнёры»." };
   const name = partner.partner.name;
   if (partner.active === false) {
-    return { ok: false, status: 400, error: `Партнёр «${name}» на паузе — сначала включите его в «Партнёры».` };
+    return { ok: false, status: 400, error: `Партнёр «${name}» на паузе — сначала включите его в «Друзья и партнёры» → «Партнёры».` };
   }
   if (currentRef === partner._id) return { ok: true, message: `Запись уже приписана «${name}».` };
 

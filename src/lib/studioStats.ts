@@ -433,11 +433,22 @@ export const STUDIO_LISTS = {
   postsGoingOut: "Посты в очереди",
   products: "Товары",
   orders: "Заказы",
-  reviews: "Отзывы",
+  siteReviews: "Отзывы с сайта",
   giftCards: "Подарочные карты",
   siteSettings: "Настройки сайта",
   groupPosts: "Посты в группы",
+  // The folders a list may live in. A list inside one is named with its
+  // folder first — "Магазин" → "Товары" — or she would look for it at the top
+  reviews: "Отзывы",
+  social: "Соцсети",
+  shop: "Магазин",
+  settings: "Сайт и настройки",
 } as const;
+
+/** A list inside a folder, as a sentence names it: "Магазин" → "Товары" */
+function inFolder(folder: string, list: string): string {
+  return `"${folder}" → "${list}"`;
+}
 
 /**
  * How much a line wants attention.
@@ -654,7 +665,7 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
         "пост не вышел, но и вашего решения не ждёт",
         "посты не вышли, но и вашего решения не ждут"
       )}.`,
-      action: `Откройте "${STUDIO_LISTS.postsGoingOut}" и загляните в Instagram: если картинка там появилась, поставьте посту статус “Опубликован”; если нет — снова “Одобрен”, и он уйдёт со следующей отправкой.`,
+      action: `Откройте ${inFolder(STUDIO_LISTS.social, STUDIO_LISTS.postsGoingOut)} и загляните в Instagram: если картинка там появилась, поставьте посту статус “Опубликован”; если нет — снова “Одобрен”, и он уйдёт со следующей отправкой.`,
       tone: "needs-you",
     });
   }
@@ -670,7 +681,7 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
         "Вы одобрили этот пост, и его дата уже прошла, но в Instagram он так и не попал.",
         "Вы одобрили эти посты, и их дата уже прошла, но в Instagram они так и не попали."
       ),
-      action: `Откройте "${STUDIO_LISTS.siteSettings}" и проверьте “Тихие часы” и “Постов в день” — или нажмите “Выложить в Instagram” ${oneOrMany(
+      action: `Откройте ${inFolder(STUDIO_LISTS.settings, STUDIO_LISTS.siteSettings)} и проверьте “Тихие часы” и “Постов в день” — или нажмите “Выложить в Instagram” ${oneOrMany(
         n,
         "в самом посте",
         "в одном из них"
@@ -687,7 +698,7 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
       label: agrees(n, "написан, но не показан на сайте", "написаны, но не показаны на сайте"),
       meaning:
         "Пока отзыв не одобрен, его никто не видит. Это похвала, которая у вас уже есть, но пока не работает.",
-      action: `Откройте "${STUDIO_LISTS.reviews}", отметьте “Одобрен” у тех, которыми вы довольны, и нажмите “Опубликовать”.`,
+      action: `Откройте ${inFolder(STUDIO_LISTS.reviews, STUDIO_LISTS.siteReviews)}, отметьте “Одобрен” у тех, которыми вы довольны, и нажмите “Опубликовать”.`,
       tone: "needs-you",
     });
   }
@@ -704,7 +715,7 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
       ),
       meaning:
         "Кто-то оплатил подарок, который уже должен был прийти. Такое людей по-настоящему злит.",
-      action: `Откройте "${STUDIO_LISTS.giftCards}" и найдите карты, у которых “Дата отправки” уже прошла, а “Когда отправлена” пусто.`,
+      action: `Откройте ${inFolder(STUDIO_LISTS.shop, STUDIO_LISTS.giftCards)} и найдите карты, у которых “Дата отправки” уже прошла, а “Когда отправлена” пусто.`,
       tone: "needs-you",
     });
   }
@@ -754,7 +765,7 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
       value: count(n, "заказ", "заказа", "заказов"),
       label: agrees(n, "оплачен, но ещё не в работе", "оплачены, но ещё не в работе"),
       meaning: `${oneOrMany(n, "У этого заказа", "У этих заказов")} всё ещё статус “Оплачен”, а не “В работе”.`,
-      action: `Откройте "${STUDIO_LISTS.orders}" и, когда начнёте шить, поставьте ${oneOrMany(
+      action: `Откройте ${inFolder(STUDIO_LISTS.shop, STUDIO_LISTS.orders)} и, когда начнёте шить, поставьте ${oneOrMany(
         n,
         "заказу",
         "заказам"
@@ -827,7 +838,7 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
         "Этот товар не продастся",
         "Эти товары не продадутся"
       )} вовсе.`,
-      action: `Откройте "${STUDIO_LISTS.products}", найдите те, где поле “Фотографии товара” пустое, и добавьте снимок.`,
+      action: `Откройте ${inFolder(STUDIO_LISTS.shop, STUDIO_LISTS.products)}, найдите те, где поле “Фотографии товара” пустое, и добавьте снимок.`,
       tone: "needs-you",
     });
   }
@@ -858,7 +869,7 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
       // In English, and the page says so: the colour goes into the Google
       // Shopping feed for British shoppers as it is typed, and the field's own
       // description in the product asks for English too.
-      action: `Откройте "${STUDIO_LISTS.products}" и заполните “Основной цвет” у каждого. Это одно слово по-английски, например Black или Cream.`,
+      action: `Откройте ${inFolder(STUDIO_LISTS.shop, STUDIO_LISTS.products)} и заполните “Основной цвет” у каждого. Это одно слово по-английски, например Black или Cream.`,
       tone: "needs-you",
     });
   }

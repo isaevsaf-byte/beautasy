@@ -96,7 +96,7 @@ export const referrer = defineType({
       readOnly: true,
       hidden: ({ document }) => !document?.partner,
       description:
-        "Это ссылка салона-партнёра. Её название, условия, отчёт за месяц и карточки для печати — в разделе «Партнёры»; меняйте их там.",
+        "Это ссылка салона-партнёра. Её название, условия, отчёт за месяц и карточки для печати — в разделе «Друзья и партнёры» → «Партнёры»; меняйте их там.",
       fields: [
         defineField({ name: "name", title: "Название", type: "string" }),
         defineField({ name: "slug", title: "Ссылка: beautasy.co.uk/p/…", type: "string" }),

@@ -253,7 +253,7 @@ export function FacebookGroupsPane() {
           <section style={{ display: "grid", gap: 8 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>На паузе</h2>
             <p style={muted}>
-              {paused.map(({ group }) => group.name).join(", ")} — чтобы вернуть, откройте группу в «Группы Facebook» и
+              {paused.map(({ group }) => group.name).join(", ")} — чтобы вернуть, откройте группу в «Соцсети» → «Группы Facebook» и
               поставьте «Публикуем в этой группе».
             </p>
           </section>

@@ -55,14 +55,15 @@ test("the form offers exactly the days the calendar knows", () => {
   assert.ok(schemaTypes.some((type) => type.name === "facebookGroup"), "the Studio knows the type");
 });
 
-test("the sidebar has today's posts and the groups themselves, beside Instagram's", () => {
+test("the sidebar has today's group posts at the top, and the groups themselves under «Соцсети»", () => {
   const structure = read("src/sanity/structure.ts");
   assert.match(structure, /\.title\("Посты в группы"\)\s*\.child\(S\.component\(FacebookGroupsPane\)/);
   assert.match(structure, /S\.documentTypeListItem\("facebookGroup"\)\.title\("Группы Facebook"\)/);
-  assert.ok(
-    structure.indexOf('.title("Посты в группы")') > structure.indexOf('.title("Уже опубликованы")'),
-    "with the other posts, at the top"
-  );
+  // A daily job: right after the posts to approve, before the first folder
+  const at = (needle: string) => structure.indexOf(needle);
+  assert.ok(at('.title("Посты в группы")') > at('.title("Посты на одобрение")'));
+  assert.ok(at('.title("Посты в группы")') < at('.id("reviews")'), "at the top, not in a folder");
+  assert.ok(at('S.documentTypeListItem("facebookGroup")') > at('.id("social")'), "the groups live in «Соцсети»");
 });
 
 test("the three buttons copy the post, open the group, and rest it — draft and all", () => {

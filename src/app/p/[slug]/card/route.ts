@@ -31,11 +31,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   const { slug } = await params;
   const size = req.nextUrl.searchParams.get("size") === "a6" ? "a6" : "card";
   const partner = isPartnerSlug(slug) ? await findPartnerBySlug(slug).catch(() => null) : null;
-  if (!partner) return page(cardUnavailableHtml("Такого партнёра нет. Проверьте ссылку в разделе «Партнёры»."), 404);
+  if (!partner) return page(cardUnavailableHtml("Такого партнёра нет. Проверьте ссылку в разделе «Друзья и партнёры» → «Партнёры»."), 404);
   if (partner.active === false) {
     return page(
       cardUnavailableHtml(
-        `«${partner.partner.name}» на паузе: ссылка на карточке сейчас не даёт скидку. Включите партнёра в «Партнёры», потом печатайте.`
+        `«${partner.partner.name}» на паузе: ссылка на карточке сейчас не даёт скидку. Включите партнёра в «Друзья и партнёры» → «Партнёры», потом печатайте.`
       ),
       409
     );
