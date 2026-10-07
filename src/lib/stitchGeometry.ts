@@ -91,6 +91,31 @@ export const LOOP = (() => {
   return `M${round(eye.x)} ${round(eye.y)}C${round(eye.x + 42)} ${round(eye.y + 10)} ${knot.x + 50} ${knot.y - 32} ${knot.x} ${knot.y}`;
 })();
 
+/**
+ * The seam under a confirmation's heading (components/stitch/TiedOff.tsx),
+ * in the same 1000 × 20 cloth stretched to the words. Each stitch takes
+ * `along` of its unit and leaves the rest as the gap; the last one is exactly
+ * a unit long, so the seam ends at the words' edge, where a knot is tied.
+ */
+function seamOf(wobble: readonly (readonly [number, number])[], along: number): readonly Stitch[] {
+  const unit = 1 / (wobble.length - 1 + along);
+  return wobble.map(([dy, length], k) => {
+    const x1 = k * unit * SEAM_WIDTH;
+    const x2 = x1 + along * unit * length * SEAM_WIDTH;
+    const y = CLOTH + dy;
+    return { x1: round(x1), y1: round(y), x2: round(x2), y2: round(y - dy * 0.3) };
+  });
+}
+
+/** A booking that holds its time: seven gold stitches, knotted and cut. Chosen by Safar on the demo, 07.10.2026 */
+export const TIED_STITCHES = seamOf(
+  [[0.6, 1.02], [-0.4, 0.97], [0.8, 1.04], [-0.6, 0.96], [0.3, 1.03], [-0.7, 0.98], [0.4, 1]],
+  0.6,
+);
+
+/** A request Kristina still answers: five long, loose tacking stitches and no knot — held, not yet sewn */
+export const TACKED_STITCHES = seamOf([[1.6, 1], [-1.6, 1.02], [1.2, 0.97], [-1.2, 1.01], [1, 1]], 0.72);
+
 function round(n: number): number {
   return Math.round(n * 100) / 100;
 }

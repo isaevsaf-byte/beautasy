@@ -306,3 +306,137 @@ test("the chosen time is pinned, and the booking button names it", async () => {
     assert.doesNotMatch(body, /\b(left|right|top|bottom|width|height|margin[a-z-]*):/, name);
   }
 });
+
+test("a booking is tied off under its heading, a request only tacked", async () => {
+  const { TIED_STITCHES, TACKED_STITCHES } = await import("./stitchGeometry");
+  // No hooks, so it renders by a plain call
+  const TiedOff = (await import("../components/stitch/TiedOff")).default;
+  for (const [seam, count] of [[TIED_STITCHES, 7], [TACKED_STITCHES, 5]] as const) {
+    assert.equal(seam.length, count);
+    for (let i = 1; i < seam.length; i++) assert.ok(seam[i].x1 > seam[i - 1].x2, "sewn left to right, a gap after each");
+    assert.equal(seam[0].x1, 0, "from the words' first letter");
+    assert.equal(seam[seam.length - 1].x2, 1000, "to their last, where the knot goes");
+  }
+  // The words stay the words; the seam is hidden from screen readers
+  const tied = renderToStaticMarkup(TiedOff({ children: "You're booked in" }));
+  assert.match(tied, /^<span class="tied-off">You&#x27;re booked in<span class="tied-off-art" aria-hidden="true">/);
+  assert.equal((tied.match(/<line /g) ?? []).length, 7);
+  assert.match(tied, /tied-off-knot/);
+  assert.match(tied, /tied-off-snips/);
+  const tacked = renderToStaticMarkup(TiedOff({ tacked: true, children: "Request sent!" }));
+  assert.match(tacked, /^<span class="tied-off tied-off-tacked">Request sent!<span class="tied-off-art" aria-hidden="true">/);
+  assert.equal((tacked.match(/<line /g) ?? []).length, 5);
+  assert.doesNotMatch(tacked, /knot|snips|tied-off-end/, "a tacked seam is not tied");
+  // Tacking is in its own lavender, lighter than the booking's gold thread
+  const thread = (selector: string) => /--thread:\s*([^;]+);/.exec(rule(selector))?.[1];
+  assert.equal(thread(".tied-off"), "#b08848");
+  assert.ok(thread(".tied-off-tacked"));
+  assert.notEqual(thread(".tied-off-tacked"), thread(".tied-off"), "a request is not sewn in the booking's gold");
+  assert.match(rule(".tied-off-tacked .tied-off-seam line"), /stroke-width:/);
+
+  // Which confirmation gets which, and the old tick is gone
+  const form = read("src/components/AtelierBookingForm.tsx");
+  assert.match(form, /<TiedOff>You&apos;re booked in<\/TiedOff>/);
+  assert.match(form, /<TiedOff tacked>Request sent!<\/TiedOff>/);
+  assert.match(form, /<TiedOff tacked>Collection requested<\/TiedOff>/);
+  assert.doesNotMatch(form, /CheckCircle2/);
+});
+
+test("the tied-off seam's still picture is the finished seam, and it moves only for those who want motion", () => {
+  // Stitches, knot and cut end are there at rest; the snips have gone
+  for (const part of [".tied-off-seam line", ".tied-off-knot", ".tied-off-end"]) {
+    assert.doesNotMatch(rule(part), /opacity:\s*0|scale\(0\)/, `${part} shows at rest`);
+  }
+  assert.match(rule(".tied-off-snips"), /opacity: 0;/);
+  assert.equal(frame("bty-snips", "100%"), "opacity: 0; transform: translate(0.3em, -0.5em);");
+  assert.equal(frame("bty-blade-a", "55%, 100%"), "transform: rotate(0deg);");
+  assert.equal(frame("bty-blade-b", "55%, 100%"), "transform: rotate(0deg);");
+  // The knot is tied after the last stitch is sewn, the snips close after the knot
+  const motion = block(CSS, "@media (prefers-reduced-motion: no-preference)", CSS.indexOf(".tied-off-blade {"));
+  const timing = (selector: string) => {
+    const match = / ([\d.]+)s [a-z-]+(?:\([^)]*\))? ([\d.]+)s both;/.exec(rule(selector, motion));
+    assert.ok(match, `${selector} is animated`);
+    return { duration: Number(match[1]), delay: Number(match[2]) };
+  };
+  const lastStitch = 6 * 0.13 + 0.14;
+  assert.match(rule(".tied-off-seam line", motion), /bty-stitch 0\.14s linear calc\(var\(--i\) \* 0\.13s\) both/);
+  assert.ok(timing(".tied-off-knot").delay > lastStitch, "knot after the seventh stitch");
+  const snips = timing(".tied-off-snips");
+  assert.ok(snips.delay > timing(".tied-off-knot").delay, "cut after the knot");
+  // The blades close while the snips are there to be seen, and the cut end shows once they have
+  for (const blade of [".tied-off-blade-a", ".tied-off-blade-b"]) assert.deepEqual(timing(blade), snips, blade);
+  const shut = snips.delay + snips.duration * 0.55;
+  assert.ok(timing(".tied-off-end").delay >= shut - 0.01, "the cut end shows once the blades have closed");
+});
+
+test("Book with no time draws chalk by the times instead of red words by the button", () => {
+  const form = read("src/components/AtelierBookingForm.tsx");
+  const noTime = form.slice(form.indexOf("} else if (bookable && !slot) {"), form.indexOf("setStatus(\"loading\");"));
+  assert.match(noTime, /setChalk\(\(n\) => n \+ 1\);\s*showTimes\(\);\s*return;/);
+  // The chalk lies in the legend of the times, hidden from screen readers, which hear the message instead
+  const legend = form.slice(form.indexOf("<legend className=\"relative w-full"), form.indexOf("</legend>", form.indexOf("<legend className=\"relative w-full")));
+  assert.match(legend, /Choose a time/);
+  assert.match(legend, /className="chalk"\s*aria-hidden="true"/);
+  assert.match(legend, /choose one<span className="chalk-note-tail"> first<\/span>/);
+  // Only "choose a time", and only while its chalk is on screen, is hidden from sight
+  assert.match(noTime, /setError\(CHOOSE_A_TIME\);/);
+  assert.match(
+    form,
+    /role="alert"[\s\S]{0,500}className=\{chalk > 0 && bookable && !collecting && error === CHOOSE_A_TIME \? "sr-only" : "text-xs text-red-500"\}/,
+  );
+  // A time picked, a switch between fitting and collection, another service or a send brushes it off
+  assert.match(form, /setPicked\(s\.start\);\s*setError\(null\);\s*setUnanswered\(false\);\s*setChalk\(0\);/);
+  assert.match(form, /setMode\(option\.value\);\s*setError\(null\);\s*setUnanswered\(false\);\s*setChalk\(0\);/);
+  assert.match(form, /setMode\("fitting"\);\s*setError\(null\);\s*setUnanswered\(false\);\s*setChalk\(0\);/);
+  const chooseService = form.slice(form.indexOf("function chooseService("), form.indexOf("async function handleSubmit("));
+  assert.match(chooseService, /setChalk\(0\);\s*setError\(\(current\) => \(current === CHOOSE_A_TIME \? null : current\)\);/);
+  const send = form.slice(form.indexOf("} else if (bookable && !slot) {"), form.indexOf("const reply = await sendBooking("));
+  assert.match(send, /setChalk\(0\);\s*setStatus\("loading"\);/, "a server's answer is never hidden behind old chalk");
+  // The times come into view only if they are off screen or under the header, lined up below the
+  // header, smoothly only for those who want motion; then the first time has the focus
+  const show = form.slice(form.indexOf("function showTimes()"), form.indexOf("function chooseService("));
+  assert.match(show, /const header = Math\.max\(0, document\.querySelector\("header"\)\?\.getBoundingClientRect\(\)\.bottom \?\? 0\);/);
+  assert.match(
+    show,
+    /if \(top < header \+ \d+ \|\| top > window\.innerHeight - \d+\) \{\s*const still = window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches;\s*window\.scrollTo\(\{ top: window\.scrollY \+ top - header - \d+, behavior: still \? "auto" : "smooth" \}\);\s*\}/,
+  );
+  assert.equal((show.match(/scroll(To|IntoView|By)\(/g) ?? []).length, 1, "no scroll outside the guard");
+  assert.match(show, /querySelector<HTMLButtonElement>\("\.pin-slot"\)\?\.focus\(\{ preventScroll: true \}\)/);
+
+  // The stroke takes no room and its grain is in the drawing
+  const mark = rule(".chalk-mark");
+  assert.match(mark, /position: absolute;/);
+  assert.match(mark, /url\("data:image\/svg\+xml,[^"]*feTurbulence[^"]*"\)/);
+  assert.doesNotMatch(mark, /animation/);
+  assert.equal(frame("bty-chalk", "to"), "clip-path: inset(0 0 0 0);");
+  assert.match(block(CSS, "@media (forced-colors: active)", CSS.indexOf(".chalk {")), /\.chalk-mark \{[^}]*border-top: 2px dashed CanvasText;/);
+  // A narrow form, or larger text, shrinks the note, then shortens it, then lets the stroke speak
+  // alone — in the legend's em, so the steps grow with the words they keep clear of
+  assert.match(rule(".chalk"), /container: chalk \/ inline-size;/);
+  const steps = [...CSS.matchAll(/@container chalk \(max-width: ([\d.]+)em\) \{\s*([^{]+)\{([^}]*)\}/g)].map(([, at, selector, body]) => [
+    Number(at),
+    selector.trim(),
+    body.replace(/\s+/g, " ").trim(),
+  ]);
+  assert.deepEqual(steps, [
+    [19.5, ".chalk-note", "font-size: 0.75rem;"],
+    [17.6, ".chalk-note-tail", "display: none;"],
+    [15.5, ".chalk-note", "display: none;"],
+  ]);
+});
+
+test("nothing in the chalk or the knot moves for a visitor who asked for less motion", () => {
+  const part = CSS.slice(CSS.indexOf(".chalk {"), CSS.indexOf("@keyframes bty-blade-b"));
+  let rest = part;
+  for (const name of [".chalk-mark", ".tied-off-blade {"]) {
+    const motion = block(CSS, "@media (prefers-reduced-motion: no-preference)", CSS.indexOf(name));
+    for (const [, selector] of motion.matchAll(/([^{}]+)\{[^{}]*animation/g)) {
+      assert.match(selector.trim(), /^\.(chalk|tied-off)/, selector);
+    }
+    rest = rest.replace(motion, "");
+  }
+  assert.doesNotMatch(rest, /animation:/, "an animation outside the reduced-motion guard");
+  for (const name of ["bty-chalk", "bty-snips", "bty-blade-a", "bty-blade-b"]) {
+    assert.doesNotMatch(block(CSS, `@keyframes ${name}`), /\b(left|right|top|bottom|width|height|margin[a-z-]*):/, `${name} lays nothing out`);
+  }
+});

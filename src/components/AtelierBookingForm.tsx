@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, CheckCircle2, CalendarClock, Sparkles, Car, MessageCircle } from "lucide-react";
+import { Loader2, CalendarClock, Sparkles, Car, MessageCircle } from "lucide-react";
 import TermsNote from "@/components/TermsNote";
+import TiedOff from "@/components/stitch/TiedOff";
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
@@ -27,6 +28,9 @@ import { WHEN_MAX, onItsWayTo, postcodeDistrict, type CollectionOffer } from "@/
 const ADS_LEAD_CONVERSION: string | undefined = undefined;
 
 const SERVICES = ATELIER_SERVICES;
+
+/** What Book with no time chosen says — in chalk on screen, in words to a screen reader */
+const CHOOSE_A_TIME = "Please choose a time.";
 
 const FIELD_CLASS =
   "w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20";
@@ -165,6 +169,10 @@ export default function AtelierBookingForm({
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
+  // Book pressed with no time chosen: a stroke of chalk under "Choose a time",
+  // one more for each press, brushed off when a time is picked (.chalk in globals.css)
+  const [chalk, setChalk] = useState(0);
+  const timesRef = useRef<HTMLFieldSetElement>(null);
 
   const loadSlots = useCallback(async () => {
     try {
@@ -195,9 +203,30 @@ export default function AtelierBookingForm({
   const visitMinutes = slotsFor(service) * slotMinutes;
   const twoSlots = slotsFor(service) > 1;
 
+  /**
+   * The times, brought into view if the press was a screen away from them —
+   * their heading and its chalk lined up just under the fixed header, never
+   * behind it, however tall the day is — and the first of them focused, so
+   * the next tap or key is a choice
+   */
+  function showTimes() {
+    const times = timesRef.current;
+    if (!times) return;
+    const header = Math.max(0, document.querySelector("header")?.getBoundingClientRect().bottom ?? 0);
+    const top = times.getBoundingClientRect().top;
+    if (top < header + 8 || top > window.innerHeight - 160) {
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: window.scrollY + top - header - 16, behavior: still ? "auto" : "smooth" });
+    }
+    times.querySelector<HTMLButtonElement>(".pin-slot")?.focus({ preventScroll: true });
+  }
+
   function chooseService(next: string) {
     setService(next);
     setUnanswered(false);
+    // Another service offers other times, or none: the chalk and its words start over
+    setChalk(0);
+    setError((current) => (current === CHOOSE_A_TIME ? null : current));
     // A start that fitted one slot may not fit two: let it go rather than send it
     if (days) setPicked((current) => startForService(days, next, slotMinutes, current));
   }
@@ -215,11 +244,17 @@ export default function AtelierBookingForm({
         return;
       }
     } else if (bookable && !slot) {
-      setError("Please choose a time.");
+      // Said in chalk by the times, not in red by the button; a screen reader
+      // still hears it, from the message kept out of sight below
+      setError(CHOOSE_A_TIME);
       setStatus("error");
+      setChalk((n) => n + 1);
+      showTimes();
       return;
     }
 
+    // Whatever comes back from here on is the server's, and is shown in words
+    setChalk(0);
     setStatus("loading");
     setError(null);
     requestKey.current ??= newRequestKey();
@@ -280,10 +315,13 @@ export default function AtelierBookingForm({
   if (status === "done") {
     return (
       <div className="flex flex-col items-center text-center py-8" role="status">
-        <CheckCircle2 size={36} className="text-lavender mb-4" aria-hidden="true" />
+        {/* A booking that holds its time is tied off under its heading; a
+            request Kristina still answers is only tacked (stitch/TiedOff.tsx) */}
         {collected ? (
           <>
-            <p className="font-serif text-xl mb-2">Collection requested</p>
+            <p className="font-serif text-xl mb-5">
+              <TiedOff tacked>Collection requested</TiedOff>
+            </p>
             <p className="text-sm text-charcoal-light max-w-sm">
               Kristina will email you the time she&apos;ll come and ask for your address. Nothing is collected until
               you&apos;ve agreed it together.
@@ -293,7 +331,9 @@ export default function AtelierBookingForm({
           </>
         ) : confirmedFor ? (
           <>
-            <p className="font-serif text-xl mb-2">You&apos;re booked in</p>
+            <p className="font-serif text-xl mb-5">
+              <TiedOff>You&apos;re booked in</TiedOff>
+            </p>
             <p className="text-sm text-charcoal mb-1 font-medium">{confirmedFor}</p>
             {twoSlots && (
               <p className="text-sm text-charcoal mb-1">Your fitting takes {durationLabel(visitMinutes)}.</p>
@@ -304,7 +344,9 @@ export default function AtelierBookingForm({
           </>
         ) : (
           <>
-            <p className="font-serif text-xl mb-2">Request sent!</p>
+            <p className="font-serif text-xl mb-5">
+              <TiedOff tacked>Request sent!</TiedOff>
+            </p>
             <p className="text-sm text-charcoal-light max-w-sm">
               We&apos;ll confirm your appointment by email or WhatsApp shortly.
             </p>
@@ -357,6 +399,7 @@ export default function AtelierBookingForm({
                     setMode(option.value);
                     setError(null);
                     setUnanswered(false);
+                    setChalk(0);
                     if (status === "error") setStatus("idle");
                   }}
                   aria-pressed={active}
@@ -429,6 +472,7 @@ export default function AtelierBookingForm({
                       setMode("fitting");
                       setError(null);
                       setUnanswered(false);
+                      setChalk(0);
                       if (status === "error") setStatus("idle");
                     }}
                     className="underline underline-offset-2"
@@ -451,10 +495,29 @@ export default function AtelierBookingForm({
           its own content, so without it the strip of days stretches the whole
           form instead of scrolling inside it, and takes the page sideways. */}
       {bookable && !collecting && (
-        <fieldset className="sm:col-span-2 min-w-0 border-0 p-0 m-0">
-          <legend className="flex items-center gap-2 text-xs tracking-wider uppercase text-charcoal-light mb-3">
+        <fieldset ref={timesRef} className="sm:col-span-2 min-w-0 border-0 p-0 m-0">
+          <legend className="relative w-full flex items-center gap-2 text-xs tracking-wider uppercase text-charcoal-light mb-3">
             <CalendarClock size={14} aria-hidden="true" />
             Choose a time
+            {/* Book pressed with no time: a stroke of tailor's chalk under
+                these words and a note at its end. Another press draws it
+                again; a time picked brushes it off. */}
+            <AnimatePresence>
+              {chalk > 0 && (
+                <motion.span
+                  key={chalk}
+                  className="chalk"
+                  aria-hidden="true"
+                  exit={{ opacity: 0, filter: "blur(1px)" }}
+                  transition={{ duration: 0.25 }}
+                >
+                  <span className="chalk-mark" />
+                  <span className="chalk-note font-serif italic normal-case tracking-normal text-sm text-lavender-ink">
+                    choose one<span className="chalk-note-tail"> first</span>
+                  </span>
+                </motion.span>
+              )}
+            </AnimatePresence>
           </legend>
 
           {twoSlots && (
@@ -496,6 +559,7 @@ export default function AtelierBookingForm({
                       setPicked(s.start);
                       setError(null);
                       setUnanswered(false);
+                      setChalk(0);
                       if (status === "error") setStatus("idle");
                     }}
                     aria-pressed={active}
@@ -657,7 +721,9 @@ export default function AtelierBookingForm({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="text-xs text-red-500"
+              // Only "choose a time" is said by the chalk, while it is there; this
+              // line keeps it for screen readers. Anything else shows in words.
+              className={chalk > 0 && bookable && !collecting && error === CHOOSE_A_TIME ? "sr-only" : "text-xs text-red-500"}
             >
               {error}
             </motion.p>
