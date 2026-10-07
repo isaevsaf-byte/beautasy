@@ -159,6 +159,21 @@ export function timeLabel(hhmm: string): string {
   return `${hour}:${String(m).padStart(2, "0")}${suffix}`;
 }
 
+/**
+ * "2026-10-07T10:00" → "Wed 7 Oct · 10:00am": the time a booking button names
+ * once one is pinned, short enough to sit on a phone's button.
+ */
+export function pinnedLabel(start: string): string {
+  const [date, hhmm = "00:00"] = start.split("T");
+  const day = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(`${date}T12:00:00Z`));
+  return `${day.replace(",", "")} · ${timeLabel(hhmm.slice(0, 5))}`;
+}
+
 /** "2026-09-10" → "Thursday 10 September" */
 export function dayLabel(date: string): string {
   const formatted = new Intl.DateTimeFormat("en-GB", {

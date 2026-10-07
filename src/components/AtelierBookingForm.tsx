@@ -7,7 +7,7 @@ import TermsNote from "@/components/TermsNote";
 import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
-import { durationLabel, slotIsOffered } from "@/lib/slots";
+import { durationLabel, pinnedLabel, slotIsOffered } from "@/lib/slots";
 import {
   FIELD_LIMITS,
   HONEYPOT_FIELD,
@@ -499,7 +499,9 @@ export default function AtelierBookingForm({
                       if (status === "error") setStatus("idle");
                     }}
                     aria-pressed={active}
-                    className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                    // The chosen time gets a dressmaker's pin through its
+                    // corner: this one is yours (.pin-slot in globals.css)
+                    className={`pin-slot relative px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
                       active
                         ? "bg-lavender border-lavender text-charcoal shadow-sm"
                         : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
@@ -633,15 +635,19 @@ export default function AtelierBookingForm({
           type="submit"
           disabled={status === "loading"}
           aria-describedby={termsId}
-          className="inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium text-center hover:bg-[#CFC0F0] transition-all duration-300 disabled:opacity-60"
         >
           {status === "loading" && <Loader2 size={16} className="animate-spin" />}
+          {/* With a time pinned the button names it: on a phone the times
+              are a full screen above, and this keeps her choice in sight */}
           {status === "loading"
             ? "Sending..."
             : collecting
             ? "Request Collection"
             : bookable
-            ? "Book This Time"
+            ? slot
+              ? `Book ${pinnedLabel(slot)}`
+              : "Book This Time"
             : "Request Booking"}
         </button>
         <AnimatePresence>

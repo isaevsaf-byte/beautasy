@@ -288,3 +288,21 @@ test("where the needle cannot be kept inside the screen, it is left out and the 
   // A contrast theme and print keep a leader they can show
   assert.match(block(CSS, "@media (forced-colors: active), print"), /\.leader-stitch \{[^}]*border-bottom: 2px dotted CanvasText;/);
 });
+
+test("the chosen time is pinned, and the booking button names it", async () => {
+  const { pinnedLabel } = await import("./slots");
+  assert.equal(pinnedLabel("2026-10-07T10:00"), "Wed 7 Oct · 10:00am");
+  assert.equal(pinnedLabel("2026-12-25T14:30"), "Fri 25 Dec · 2:30pm");
+  const form = read("src/components/AtelierBookingForm.tsx");
+  // Only the time chips carry the pin, and only the pressed one shows it
+  assert.equal((form.match(/className=\{`pin-slot relative /g) ?? []).length, 1, "the time chips, not the day pills");
+  assert.match(form, /\? `Book \$\{pinnedLabel\(slot\)\}`\s*: "Book This Time"/);
+  const pin = rule('.pin-slot[aria-pressed="true"]::after');
+  assert.match(pin, /pointer-events: none;/);
+  assert.doesNotMatch(pin, /animation/, "it moves only for a visitor who has not asked for less motion");
+  const motion = block(CSS, "@media (prefers-reduced-motion: no-preference)", CSS.indexOf(".pin-slot"));
+  assert.match(motion, /\.pin-slot\[aria-pressed="true"\]::after \{\s*animation: bty-pin-in/);
+  for (const [, name, body] of CSS.matchAll(/@keyframes (bty-pin-in) \{([\s\S]*?\})\s*\}/g)) {
+    assert.doesNotMatch(body, /\b(left|right|top|bottom|width|height|margin[a-z-]*):/, name);
+  }
+});

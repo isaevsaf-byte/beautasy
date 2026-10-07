@@ -380,6 +380,38 @@ main:focus {
   }
 }
 
+/* The time chosen in the booking form, pinned: a dressmaker's pin with a plum
+   pearl head goes in through the chip's corner, runs under the cloth and
+   comes out at its point (components/AtelierBookingForm.tsx, .pin-slot).
+   One pin on the page, only on the chosen time, so it always means "this
+   one is yours". It is pushed in when the time is picked — the pin appears
+   with the choice, no script — and simply there for less motion. */
+.pin-slot[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  top: -11px;
+  right: -11px;
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M16.4 7.6 11.6 12.4' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M16.4 7.6 11.6 12.4' stroke='%238A8F98' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M8 16 4.3 19.7' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M8 16 4.3 19.7' stroke='%238A8F98' stroke-width='1.3' stroke-linecap='round'/%3E%3Ccircle cx='18.4' cy='5.6' r='4.1' fill='%23fff'/%3E%3Ccircle cx='18.4' cy='5.6' r='3.4' fill='%235A2D5C'/%3E%3Ccircle cx='17.2' cy='4.4' r='1.1' fill='%23fff' fill-opacity='.65'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pin-slot[aria-pressed="true"]::after {
+    animation: bty-pin-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+@keyframes bty-pin-in {
+  0% { opacity: 0; transform: translate(7px, -7px); }
+  70% { opacity: 1; transform: translate(-1px, 1px); }
+  100% { opacity: 1; transform: translate(0, 0); }
+}
+@media (forced-colors: active), print {
+  .pin-slot[aria-pressed="true"]::after {
+    display: none;
+  }
+}
+
 /* A needle for a cursor, where there is a mouse and no contrast theme: it
    pricks with its point, which is the cursor's hot spot. Links, buttons and
    fields keep the cursors people know, unless they name one of their own
