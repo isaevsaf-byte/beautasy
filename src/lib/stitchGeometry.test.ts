@@ -15,7 +15,7 @@ import HomeContent from "../app/HomeContent";
  * its positions come from lib/stitchGeometry.ts, so these hold the two
  * together — and hold the promises that keep it harmless: the still picture
  * is the finished seam, nothing moves for a visitor who asked for less
- * motion, it runs once a visit, and the heading's words never change.
+ * motion, it sews each time the page opens, and the heading's words never change.
  */
 
 const ROOT = resolve(__dirname, "..", "..");
@@ -88,9 +88,9 @@ test("each movement starts where the one before it stopped", () => {
 });
 
 test("the still picture is the finished seam: where every movement ends", () => {
-  // A visitor who asked for less motion, a page already sewn this visit and
-  // a browser that runs no animation all see these, so they must be exactly
-  // the last frames — or the needle would jump when the page is marked sewn
+  // A visitor who asked for less motion and a browser that runs no animation
+  // see these, and every movement fills forwards onto them, so they must be
+  // exactly the last frames — or the needle would jump as it comes to rest
   const parkedAt = `calc(${percent(SEAM_END)} + ${PARKED.pastEnd}em)`;
   assert.equal(frame("bty-x-park", "to"), `transform: translateX(${parkedAt});`);
   assert.ok(rule(".stitched-x").includes(`transform: translateX(${parkedAt});`), rule(".stitched-x"));
@@ -112,55 +112,35 @@ test("the timings add up: the needle comes in, sews eleven stitches, pulls, and 
   close(seconds("sew"), STITCH_COUNT * seconds("dt"), "one rock of the needle per stitch");
   close(seconds("tug-at"), seconds("sew-at") + seconds("sew"), "the tug follows the last stitch");
   close(seconds("park-at"), seconds("tug-at") + seconds("tug"), "it comes to rest after the tug");
-  const y = rule("html:not([data-sewn]) .stitched-y");
+  const motion = block(CSS, "@media (prefers-reduced-motion: no-preference)", CSS.indexOf("@keyframes bty-r-park"));
+  const y = rule(".stitched-y", motion);
   assert.match(y, new RegExp(`bty-y-rock var\\(--dt\\) ease-in-out var\\(--sew-at\\) ${STITCH_COUNT} both`));
-  assert.match(rule("html:not([data-sewn]) .stitched-r"), new RegExp(`bty-r-rock var\\(--dt\\) ease-in-out var\\(--sew-at\\) ${STITCH_COUNT} both`));
+  assert.match(rule(".stitched-r", motion), new RegExp(`bty-r-rock var\\(--dt\\) ease-in-out var\\(--sew-at\\) ${STITCH_COUNT} both`));
   // Slow, as chosen: about five seconds in all, under three of them sewing
   const end = seconds("park-at") + seconds("park");
   assert.ok(end > 4.5 && end < 6, `the whole stitch takes ${end}s`);
 });
 
-test("nothing moves for a visitor who asked for less motion, or after the page is sewn", () => {
+test("nothing moves for a visitor who asked for less motion", () => {
   const motion = block(CSS, "@media (prefers-reduced-motion: no-preference)", CSS.indexOf("@keyframes bty-r-park"));
   // Every animation in the stitch's part of the stylesheet is in that block
   const stitchCss = CSS.slice(CSS.indexOf(".stitched {"), CSS.indexOf(".topstitch {"));
   const outside = stitchCss.replace(motion, "");
   assert.doesNotMatch(outside, /animation:/, "an animation outside the reduced-motion guard");
-  // And every rule in it waits for a page not yet sewn
-  for (const [, selector] of motion.matchAll(/([^{}]+)\{[^{}]*animation/g)) {
-    assert.match(selector.trim(), /^html:not\(\[data-sewn\]\) \.stitched/, selector);
-  }
-  assert.ok((motion.match(/html:not\(\[data-sewn\]\)/g) ?? []).length >= 9);
+  // And every rule in it is the stitch's own
+  const animated = [...motion.matchAll(/([^{}]+)\{[^{}]*animation/g)].map(([, selector]) => selector.trim());
+  for (const selector of animated) assert.match(selector, /^\.stitched-/, selector);
+  assert.ok(animated.length >= 9, animated.join(" | "));
 });
 
-test("the page is marked sewn when the last movement ends, and at once later in the visit", () => {
-  const script = /const SEWN_ONCE =([\s\S]*?);\n/.exec(LAYOUT)?.[1] ?? "";
-  assert.match(script, /sessionStorage\.getItem\('bty-sewn'\)/);
-  assert.match(script, /e\.animationName==='bty-r-park'/);
-  assert.match(script, /setAttribute\('data-sewn',''\)/);
-  // Storage throws where the site's data is blocked: each use is guarded on
-  // its own, and the page is still marked when the needle rests
-  const code = script.replace(/"\s*\+\s*"/g, "").replace(/^\s*"|"\s*$/g, "");
-  assert.match(code, /try\{if\(sessionStorage\.getItem\('bty-sewn'\)\)d\.setAttribute\('data-sewn',''\)\}catch\(e\)\{\}document\.addEventListener/);
-  assert.match(code, /\{d\.setAttribute\('data-sewn','\'\);try\{sessionStorage\.setItem\('bty-sewn','1'\)\}catch\(_\)\{\}\}/);
-  // And the script itself runs as written: it marks a page whose visit has been sewn
-  const marks: string[] = [];
-  const listeners: ((e: { animationName: string }) => void)[] = [];
-  const page = {
-    documentElement: { setAttribute: (name: string) => marks.push(name) },
-    addEventListener: (_: string, listener: (e: { animationName: string }) => void) => listeners.push(listener),
-  };
-  const blocked = { getItem: () => { throw new Error("SecurityError"); }, setItem: () => { throw new Error("SecurityError"); } };
-  new Function("document", "sessionStorage", code)(page, blocked);
-  assert.deepEqual(marks, [], "nothing to read, nothing marked yet");
-  listeners.forEach((listener) => listener({ animationName: "bty-x-park" }));
-  assert.deepEqual(marks, []);
-  listeners.forEach((listener) => listener({ animationName: "bty-r-park" }));
-  assert.deepEqual(marks, ["data-sewn"], "storage blocked, the page is still marked when the needle rests");
-  assert.match(LAYOUT, /<script dangerouslySetInnerHTML=\{\{ __html: SEWN_ONCE \}\} \/>/);
-  assert.match(LAYOUT, /<html lang="en" className="[^"]*" suppressHydrationWarning>/);
+test("it sews each time the page opens, and the needle's rest is the last thing to finish", () => {
+  // Nothing marks a visit sewn any more (07.10.2026): a stitch that has run
+  // stays finished on its page, and a page opened again sews again
+  assert.doesNotMatch(LAYOUT, /data-sewn|sessionStorage|SEWN_ONCE/);
+  assert.doesNotMatch(CSS, /data-sewn/);
+  assert.match(LAYOUT, /<html lang="en" className="[^"]*">/);
 
-  // The rest is the last to finish — mark the page sooner and it jumps mid-flight
+  // The needle comes to rest last: nothing is still moving once it is parked
   const motion = block(CSS, "@media (prefers-reduced-motion: no-preference)", CSS.indexOf("@keyframes bty-r-park"));
   const animations = /(bty-[a-z-]+) ([\d.]+s|var\(--[a-z]+\)) (?:[^,;()]|\([^)]*\))*?(var\(--[a-z-]+\)|calc\(var\(--park-at\) \+ ([\d.]+)s\))(?: (\d+))?/g;
   const ends = [...motion.matchAll(animations)].map((m) => {

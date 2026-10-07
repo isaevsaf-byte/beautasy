@@ -47,40 +47,18 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-/**
- * The one script the site writes into a page that is not data: the root
- * layout's mark for a page whose first stitch is sewn. It may pass because it
- * is nothing but quoted text written in the same file — no value from
- * anywhere else can reach it.
- */
-const CONSTANT_SCRIPTS: Record<string, string> = { "src/app/layout.tsx": "SEWN_ONCE" };
-
 test("every block of HTML the site writes by hand goes through jsonLdScript", () => {
   const raw = sourceFiles(join(process.cwd(), "src")).flatMap((path) =>
     readFileSync(path, "utf8")
       .split("\n")
       .map((line, i) => ({ path, line: i + 1, text: line }))
       .filter(({ text }) => text.includes("__html:") && !/__html:\s*jsonLdScript\(/.test(text))
-      .filter(({ path, text }) => {
-        const name = CONSTANT_SCRIPTS[path.replace(process.cwd() + "/", "")];
-        return !(name && new RegExp(`__html: ${name} \\}`).test(text));
-      })
   );
 
   assert.deepEqual(
     raw.map(({ path, line, text }) => `${path.replace(process.cwd(), "")}:${line} ${text.trim()}`),
     []
   );
-});
-
-test("the script allowed past the guard is only quoted text from its own file", () => {
-  for (const [file, name] of Object.entries(CONSTANT_SCRIPTS)) {
-    const source = readFileSync(join(process.cwd(), file), "utf8");
-    const value = new RegExp(`const ${name} =([\\s\\S]*?);\\n`).exec(source)?.[1];
-    assert.ok(value, `${file} defines ${name}`);
-    // Double-quoted pieces joined by +, nothing interpolated, nothing named
-    assert.match(value.trim(), /^"[^"`$\\]*"(\s*\+\s*"[^"`$\\]*")*$/, value);
-  }
 });
 
 test("the guard above is looking at real files", () => {

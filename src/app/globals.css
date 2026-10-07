@@ -84,13 +84,14 @@ main:focus {
 
 /* ──────────────────────────────────────────────────────────────────────────
    The first stitch (components/stitch/Stitched.tsx): a needle with gold
-   thread sews the seam under "in Southampton" on a visitor's first page.
+   thread sews the seam under "in Southampton" each time such a page opens —
+   coming back to the home page too (Safar's choice, 07.10.2026: at first it
+   played once a visit).
 
    What these rules draw by default is the finished seam with the needle left
    in the cloth. The movement is only added below, for a visitor who has not
-   asked for less motion and a visit that has not seen it yet (the script in
-   app/layout.tsx marks the page sewn when the needle comes to rest). Every
-   animation therefore ends exactly where the still picture is.
+   asked for less motion; it starts whenever the heading appears and every
+   animation ends exactly where the still picture is.
 
    The needle's point rides on the left edge of .stitched-x, a strip as wide
    as the words and no height, slid along with translateX: a percentage there
@@ -269,38 +270,38 @@ main:focus {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-sewn]) .stitched-seam line {
+  .stitched-seam line {
     animation: bty-stitch calc(var(--dt) * 0.48) linear calc(var(--sew-at) + var(--dt) * (var(--i) + 0.12)) both;
   }
-  html:not([data-sewn]) .stitched-seam {
+  .stitched-seam {
     transform-origin: 50% 50%;
     animation: bty-gather var(--tug) ease-in-out var(--tug-at) both;
   }
-  html:not([data-sewn]) .stitched-pin {
+  .stitched-pin {
     animation: bty-appear var(--intro) ease var(--d0) both;
   }
-  html:not([data-sewn]) .stitched-tail {
+  .stitched-tail {
     animation: bty-fade 0.4s ease var(--park-at) both;
   }
-  html:not([data-sewn]) .stitched-knot {
+  .stitched-knot {
     animation: bty-knot 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) var(--park-at) both;
   }
-  html:not([data-sewn]) .stitched-loop {
+  .stitched-loop {
     animation: bty-appear 0.5s ease calc(var(--park-at) + 0.25s) both;
   }
-  html:not([data-sewn]) .stitched-x {
+  .stitched-x {
     animation:
       bty-x-sew var(--sew) linear var(--sew-at) both,
       bty-x-tug var(--tug) ease-in-out var(--tug-at) forwards,
       bty-x-park var(--park) cubic-bezier(0.2, 0.8, 0.2, 1) var(--park-at) forwards;
   }
-  html:not([data-sewn]) .stitched-y {
+  .stitched-y {
     animation:
       bty-y-rock var(--dt) ease-in-out var(--sew-at) 11 both,
       bty-y-tug var(--tug) ease-in-out var(--tug-at) forwards,
       bty-y-park var(--park) cubic-bezier(0.2, 0.8, 0.2, 1) var(--park-at) forwards;
   }
-  html:not([data-sewn]) .stitched-r {
+  .stitched-r {
     animation:
       bty-r-rock var(--dt) ease-in-out var(--sew-at) 11 both,
       bty-r-tug var(--tug) ease-in-out var(--tug-at) forwards,

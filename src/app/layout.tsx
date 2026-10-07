@@ -32,18 +32,6 @@ const organizationLd = {
   sameAs: [...BUSINESS.sameAs],
 };
 
-/**
- * Marks the page sewn: at once if this visit has seen the first stitch, and
- * when it finishes. The two are apart on purpose: where the browser blocks
- * the site's storage, reading it throws, and the page must still be marked
- * when the needle comes to rest — or the stitch replays on every page.
- */
-const SEWN_ONCE =
-  "var d=document.documentElement;" +
-  "try{if(sessionStorage.getItem('bty-sewn'))d.setAttribute('data-sewn','')}catch(e){}" +
-  "document.addEventListener('animationend',function(e){if(e.animationName==='bty-r-park'){" +
-  "d.setAttribute('data-sewn','');try{sessionStorage.setItem('bty-sewn','1')}catch(_){}}})";
-
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
@@ -124,17 +112,8 @@ export default function RootLayout({
   );
 
   return (
-    // The script below may mark <html> before React arrives, hence the
-    // suppressed warning: it is about this one element's attributes only
-    <html lang="en" className="scroll-smooth motion-reduce:scroll-auto" suppressHydrationWarning>
+    <html lang="en" className="scroll-smooth motion-reduce:scroll-auto">
       <head>
-        {/* The first stitch is sewn once a visit. When the needle comes to
-            rest the page is marked sewn, the movement rules stop applying
-            and the still seam they end on stays; a page opened later in the
-            same visit is marked before it is drawn. sessionStorage, not a
-            cookie: it lives in this tab, says nothing about the visitor and
-            is gone when the tab is closed. See .stitched in globals.css. */}
-        <script dangerouslySetInnerHTML={{ __html: SEWN_ONCE }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdScript(organizationLd) }}
