@@ -104,7 +104,7 @@ export default function MeetKristina({
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-8">
             <Link
               href={bookHref}
-              className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+              className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
             >
               Choose a time
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />

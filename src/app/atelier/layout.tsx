@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/site";
+import { ATELIER_CARD_IMAGES } from "@/lib/socialCard";
 
 const siteUrl = SITE_URL;
 
@@ -20,30 +21,18 @@ export const metadata: Metadata = {
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
-    // The atelier keeps a picture of its own: it sells a different service to
-    // a different person, and the shop's card says nothing about alterations.
-    //
-    // The height was declared as 1029. `file public/beautasy-atelier-og.jpg`
-    // says 1200x1028 — one pixel out, and wrong is wrong when a scraper trusts
-    // the number to reserve the space. It is still the wrong shape for a chat
-    // card (1.17:1 against the 1.91:1 the apps crop to, which takes the
-    // ALTERATIONS banner off the top), so this artwork wants re-exporting onto
-    // a 1200x630 canvas. That is Kristina's picture to redraw, not ours.
-    images: [
-      {
-        url: `${siteUrl}/beautasy-atelier-og.jpg`,
-        width: 1200,
-        height: 1028,
-        alt: "Beautasy Alterations — Scissors, needle, thread and measuring tape with gold Beautasy logo",
-      },
-    ],
+    // The atelier's card: Kristina's artwork on a sewn-on label beside
+    // "Alterations & repairs in Southampton" and the lowest price, at the
+    // 1200x630 chat apps crop from. Until 07.10.2026 this named the artwork
+    // itself, 1200x1028, and the apps cut the ALTERATIONS banner off its top.
+    images: ATELIER_CARD_IMAGES,
   },
   twitter: {
     card: "summary_large_image",
     title: "Beautasy Atelier | Alterations & Tailoring",
     description:
       "Expert clothing alterations, custom sewing, and repairs in Southampton. Book a fitting today.",
-    images: [`${siteUrl}/beautasy-atelier-og.jpg`],
+    images: ATELIER_CARD_IMAGES,
   },
 };
 

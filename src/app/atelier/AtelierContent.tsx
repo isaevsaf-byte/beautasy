@@ -127,7 +127,7 @@ function PriceLine({ item, index }: { item: PriceItem; index: number }) {
         {item.name}
       </span>
       <span
-        className="flex-1 min-w-6 border-b border-dotted border-charcoal/15 mb-1.5 group-hover:border-lavender/50 transition-colors"
+        className="leader-stitch flex-1 min-w-6 mb-1.5"
         aria-hidden="true"
       />
       <span className="text-[15px] font-medium text-charcoal whitespace-nowrap tabular-nums">
@@ -222,7 +222,7 @@ export default function AtelierContent({
                   <a
                     id={HERO_BOOK_ID}
                     href="#book"
-                    className="group flex w-full sm:inline-flex sm:w-auto items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                    className="topstitch group flex w-full sm:inline-flex sm:w-auto items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
                   >
                     Choose a time
                     <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -711,7 +711,7 @@ export default function AtelierContent({
                 >
                   <Link
                     href="#book"
-                    className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                    className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
                   >
                     Choose a time
                     <ArrowRight

@@ -111,7 +111,8 @@ test("pinch-zoom stays allowed", () => {
 
 test("the pages written for this fix use the ink, not the brand lavender, for words", () => {
   const home = read("src/app/HomeContent.tsx");
-  assert.match(home, /<span className="italic text-lavender-ink">in Southampton<\/span>/);
+  // The words are sewn since 07.10 (components/stitch), inside the same ink
+  assert.match(home, /<span className="italic text-lavender-ink">\s*<Stitched>in Southampton<\/Stitched>\s*<\/span>/);
   const legal = read("src/app/pages/[slug]/page.tsx");
   assert.match(legal, /prose-a:text-lavender-ink prose-a:underline/);
   assert.doesNotMatch(legal, /prose-a:text-lavender\b(?!-)/);

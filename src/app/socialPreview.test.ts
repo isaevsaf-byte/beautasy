@@ -1,12 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import sharp from "sharp";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 import ogImage, { alt, contentType, size } from "./opengraph-image";
+import * as cardRoute from "./cards/[card]/route";
 import { domainVerificationTags } from "../lib/domainVerification";
-import { ATELIER_CARD_IMAGES, SOCIAL_CARD_IMAGES, SOCIAL_CARD_URL } from "../lib/socialCard";
+import { ATELIER_CARD_IMAGES, SEWN_CARDS, SOCIAL_CARD_IMAGES, SOCIAL_CARD_URL, sewnCardFor, sewnCardImages } from "../lib/socialCard";
 import { SITE_DESCRIPTION, SITE_TITLE, lowestPrice } from "../lib/siteCopy";
+import { LOCAL_SERVICES } from "../lib/localServices";
+import { bindAmpersands, sewnCard } from "../lib/sewnCard";
+import { ATELIER_LEAD, CARD_DESIGN, cardVersion, sewnCardAlt, sewnLead } from "../lib/sewnCardVersion";
+import { SITE_URL } from "../lib/site";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import HomeContent from "./HomeContent";
 
 /**
  * What a shared link looks like, and who is allowed to claim this domain.
@@ -459,13 +469,121 @@ test("/reviews, /refer and /gift-cards preview with their own words everywhere, 
   assert.doesNotMatch(twitter, /\bimages\b/);
 });
 
-test("the atelier card is the size its file really is", () => {
-  const [card] = ATELIER_CARD_IMAGES;
-  const file = publicFileIn(card.url);
-  assert.ok(file, "the atelier card names a file in public/");
-  const real = measure(file);
-  assert.equal(real.format, "jpeg");
-  assert.deepEqual({ width: card.width, height: card.height }, { width: real.width, height: real.height });
+/** A card's PNG: its size, from the IHDR chunk, and its bytes */
+async function drawn(response: Response | Promise<Response>): Promise<{ width: number; height: number; bytes: Buffer }> {
+  const png = Buffer.from(await (await response).arrayBuffer());
+  assert.equal(png.subarray(1, 4).toString("ascii"), "PNG");
+  return { width: png.readUInt32BE(16), height: png.readUInt32BE(20), bytes: png };
+}
+
+/**
+ * What the atelier's cards look like now, pinned. The card's address ends in
+ * a hash of its words and of CARD_DESIGN (src/lib/sewnCardVersion.ts), so a
+ * chat app that kept an old picture fetches the new one — but only if the
+ * mark changes with the look. When one of these fails because the drawing or
+ * Kristina's artwork changed on purpose: change CARD_DESIGN, then paste the
+ * new hashes here.
+ */
+const PINNED = {
+  design: "2026-10-07.3",
+  artwork: "42da08475688a6e77916730100dc841ca3599ec1593944d8e924c344b575f22f",
+  sample: "5b9d01dd3777797f48a63a6cd866da9909174f87075c4049c1f8246c80f49fcc",
+};
+
+const sha256 = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
+
+/** A card as its route serves it */
+const fetchCard = (card: string) => cardRoute.GET(new Request(`${SITE_URL}/cards/${card}`), { params: Promise.resolve({ card }) });
+
+test("the atelier's card and each alteration page's own card are drawn at build time, 1200x630, light enough for WhatsApp, touching no network", async () => {
+  // Until 07.10.2026 all of these named Kristina's artwork itself, 1200x1028,
+  // and chat apps cut the ALTERATIONS banner off its top (src/lib/sewnCard.tsx)
+  assert.deepEqual([...SEWN_CARDS], ["atelier", ...LOCAL_SERVICES.map((service) => service.slug)]);
+  assert.equal(cardRoute.dynamic, "force-static", "drawn once at build time");
+  assert.equal(cardRoute.dynamicParams, false, "and no other card is drawn on request");
+  assert.deepEqual(cardRoute.generateStaticParams(), SEWN_CARDS.map((name) => ({ card: `${name}.png` })));
+  for (const name of SEWN_CARDS) {
+    const response = await fetchCard(`${name}.png`);
+    assert.equal(response.status, 200, name);
+    assert.equal(response.headers.get("content-type"), "image/png");
+    const png = await drawn(response);
+    assert.deepEqual({ width: png.width, height: png.height }, size, name);
+    // WhatsApp is widely seen to drop a preview picture over about 300 KB
+    assert.ok(png.bytes.length < 280_000, `${name} is ${png.bytes.length} bytes`);
+  }
+  for (const nowhere of ["not-a-service.png", "atelier", "atelier.jpg"]) {
+    assert.equal((await fetchCard(nowhere)).status, 404, nowhere);
+  }
+  // The renders above are this file's first of these cards, so a fetch would be on record
+  assert.deepEqual(networkCalls, [], "drawing a card reached the network");
+});
+
+test("a card's address moves when what it shows moves, and every page that names it names it the same way", () => {
+  for (const name of SEWN_CARDS) {
+    const content = sewnCardFor(name)!;
+    const [image] = sewnCardImages(name);
+    assert.equal(image.url, `${SITE_URL}/cards/${name}.png?v=${cardVersion(content.lead, content.priceFrom)}`);
+    assert.deepEqual({ width: image.width, height: image.height }, size);
+    assert.equal(image.alt, sewnCardAlt(content.lead, content.priceFrom));
+  }
+  assert.deepEqual(ATELIER_CARD_IMAGES, sewnCardImages("atelier"));
+  assert.throws(() => sewnCardImages("nope"));
+  // A new price, a new address
+  assert.notEqual(cardVersion("Wedding Dress Alterations", "£45"), cardVersion("Wedding Dress Alterations", "£50"));
+  assert.match(cardVersion("x", null), /^[0-9a-f]{10}$/);
+  // The home page, the atelier and each alteration page name their card in both blocks
+  for (const [file, call] of [
+    ["page.tsx", /images: ATELIER_CARD_IMAGES/],
+    ["atelier/layout.tsx", /images: ATELIER_CARD_IMAGES/],
+    ["alterations/[slug]/page.tsx", /images: sewnCardImages\(service\.slug\)/],
+  ] as const) {
+    const source = stripComments(readFileSync(join(APP_DIR, file), "utf8"));
+    for (const key of file === "page.tsx" ? ["openGraph"] : ["openGraph", "twitter"]) {
+      const [block] = blocksFor(source, key);
+      assert.match(block, call, `${file} ${key}`);
+    }
+  }
+});
+
+test("a new look or new artwork comes with a new design mark", async () => {
+  assert.equal(CARD_DESIGN, PINNED.design, "CARD_DESIGN changed: paste the new hashes into PINNED");
+  const artwork = readFileSync(join(PUBLIC_DIR, "beautasy-atelier-art.png"));
+  assert.equal(sha256(artwork), PINNED.artwork, "the artwork changed: change CARD_DESIGN and PINNED");
+  // The pixels, not the file: an encoder's choices are not a new look
+  const sample = await drawn(sewnCard({ lead: "Sample & test", priceFrom: "£1.50" }));
+  const pixels = await sharp(sample.bytes).raw().toBuffer();
+  assert.equal(sha256(pixels), PINNED.sample, "the card's drawing changed: change CARD_DESIGN and PINNED");
+});
+
+test("a card says what its page's heading says, at the price its page and its description show", async () => {
+  for (const service of LOCAL_SERVICES) {
+    const lead = sewnLead(service.h1);
+    assert.equal(`${lead} in Southampton`, service.h1, service.slug);
+    const price = lowestPrice(service.prices)!;
+    assert.deepEqual(sewnCardFor(service.slug), { lead, priceFrom: price });
+    const [image] = sewnCardImages(service.slug);
+    assert.ok(image.alt.includes(service.h1) && image.alt.includes(price), image.alt);
+    // The description printed under the picture in the same preview: the
+    // card's "from" price is in it, and every price in it is on the page
+    assert.ok(service.metaDescription.length <= 160, `${service.slug} description is ${service.metaDescription.length} characters`);
+    assert.match(service.metaDescription, new RegExp(`from ${price.replace(".", "\\.")}\\b`, "i"), service.slug);
+    const listed = new Set(service.prices.map((line) => /£\d+(?:\.\d+)?/.exec(line.price)?.[0]));
+    for (const [figure] of service.metaDescription.matchAll(/£\d+(?:\.\d+)?/g)) {
+      assert.ok(listed.has(figure), `${service.slug}: ${figure} is not on the page's list`);
+    }
+  }
+  // The same lowest price the page's hero prints under its heading
+  const page = stripComments(readFileSync(join(APP_DIR, "alterations", "[slug]", "page.tsx"), "utf8"));
+  assert.match(page, /const priceFrom = lowestPrice\(service\.prices\);/);
+  // The atelier's card: the home page's heading, at the price its hero shows
+  assert.deepEqual(sewnCardFor("atelier"), { lead: ATELIER_LEAD, priceFrom: lowestPrice() });
+  assert.match(stripComments(readFileSync(join(APP_DIR, "page.tsx"), "utf8")), /const priceFrom = lowestPrice\(\);/);
+  // The atelier's card sews the home page's heading
+  const home = renderToStaticMarkup(createElement(HomeContent, { priceFrom: "£8" }));
+  const h1 = (/<h1\b[^>]*>([\s\S]*?)<\/h1>/.exec(home)?.[1] ?? "").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+  assert.equal(h1, `${ATELIER_LEAD} in Southampton`);
+  // A line never ends on "&"
+  assert.equal(bindAmpersands("Zip Replacement & Repairs"), `Zip Replacement &${String.fromCharCode(160)}Repairs`);
 });
 
 test("every other route that sets openGraph still names a picture", () => {
@@ -475,6 +593,20 @@ test("every other route that sets openGraph still names a picture", () => {
   for (const file of files) {
     const where = relative(APP_DIR, file);
     if (where === "layout.tsx") continue; // the one segment that inherits the file convention
+
+    // A segment that draws its own card: the file convention wins over the
+    // metadata there anyway, so naming a picture as well only says something
+    // the page does not do — and twitter would keep the stale one
+    // (The root's own card is named by the home page on purpose, tested above.)
+    if (dirname(file) !== APP_DIR && existsSync(join(dirname(file), "opengraph-image.tsx"))) {
+      const source = stripComments(readFileSync(file, "utf8"));
+      for (const key of ["openGraph", "twitter"]) {
+        for (const block of blocksFor(source, key)) {
+          assert.doesNotMatch(block, /\bimages\b/, `${where} has its own opengraph-image.tsx, so its ${key} block names no picture`);
+        }
+      }
+      continue;
+    }
 
     for (const block of blocksFor(stripComments(readFileSync(file, "utf8")), "openGraph")) {
       assert.match(
@@ -505,7 +637,9 @@ test("every declared picture is the size the file really is", () => {
     measured++;
   }
 
-  assert.ok(measured > 0, "nothing in public/ was actually measured — publicFileIn found no files");
+  // No route names a file in public/ since 07.10.2026 — the atelier's
+  // pictures are drawn — so this only proves the lookup itself still works
+  assert.ok(measured > 0 || publicFileIn("/beautasy-atelier-og.jpg"), "publicFileIn finds nothing in public/");
 });
 
 test("every picture the site serves is the format its name claims", () => {
@@ -527,9 +661,11 @@ test("every picture the site serves is the format its name claims", () => {
       if (file) named.add(file);
     }
   }
-  for (const card of ATELIER_CARD_IMAGES) {
-    const file = publicFileIn(card.url);
-    if (file) named.add(file);
+  // The artwork the atelier's cards are drawn from, read by src/lib/sewnCard.tsx
+  for (const source of ["/beautasy-atelier-og.jpg", "/beautasy-atelier-art.png"]) {
+    const file = publicFileIn(source);
+    assert.ok(file, `${source} is in public/`);
+    named.add(file);
   }
 
   assert.ok(named.size > 0, "no local images were found to check");

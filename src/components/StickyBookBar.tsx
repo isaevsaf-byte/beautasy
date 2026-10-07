@@ -102,7 +102,7 @@ export default function StickyBookBar({
     >
       <a
         href={`#${bookId}`}
-        className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium"
+        className="topstitch flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium"
       >
         Choose a time
         <ArrowRight size={16} aria-hidden="true" />

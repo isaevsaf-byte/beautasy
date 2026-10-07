@@ -23,9 +23,11 @@
   --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
 }
 
-/* Smooth scroll */
-html {
-  scroll-behavior: smooth;
+/* Smooth scroll, unless the visitor has asked for less motion */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 body {
@@ -78,4 +80,334 @@ main:focus {
 @keyframes workFade {
   from { opacity: 0; transform: scale(0.985); }
   to { opacity: 1; transform: none; }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   The first stitch (components/stitch/Stitched.tsx): a needle with gold
+   thread sews the seam under "in Southampton" on a visitor's first page.
+
+   What these rules draw by default is the finished seam with the needle left
+   in the cloth. The movement is only added below, for a visitor who has not
+   asked for less motion and a visit that has not seen it yet (the script in
+   app/layout.tsx marks the page sewn when the needle comes to rest). Every
+   animation therefore ends exactly where the still picture is.
+
+   The needle's point rides on the left edge of .stitched-x, a strip as wide
+   as the words and no height, slid along with translateX: a percentage there
+   is a fraction of the words' width, and a transform moves it without laying
+   the page out again or counting as a layout shift. The cloth hides what goes
+   under it with a clip-path, which paints and never takes room; the page
+   around the heading is clipped sideways at the screen's edges. The
+   positions come from lib/stitchGeometry.ts — the test there holds the two
+   together.
+   ────────────────────────────────────────────────────────────────────────── */
+/* An inline-block keeps "in Southampton" together wherever it fits; where it
+   does not (large text, a zoomed page) it breaks to "in" over "Southampton"
+   inside the block and the seam runs under the last line — never cut off */
+.stitched {
+  position: relative;
+  display: inline-block;
+  --thread: #b08848;
+  --d0: 0.35s;
+  --intro: 0.352s;
+  --sew-at: 0.702s;
+  --sew: 2.86s;
+  --dt: 0.26s;
+  --tug-at: 3.562s;
+  --tug: 0.66s;
+  --park-at: 4.222s;
+  --park: 0.99s;
+}
+.stitched-art,
+.stitched-needle {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.stitched-needle {
+  clip-path: inset(-3em -3em calc(-0.07em - 0.5px) -3em);
+}
+.stitched-seam {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  top: calc(100% + 0.07em - 0.25em);
+  height: 0.5em;
+  overflow: visible;
+}
+.stitched-seam line {
+  stroke: var(--thread);
+  stroke-width: max(2px, 0.062em);
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+}
+.stitched-knot {
+  position: absolute;
+  left: calc(100.113% + 0.07em);
+  top: calc(100% + 0.07em);
+  width: 0.15em;
+  height: 0.15em;
+  margin: -0.075em 0 0 -0.075em;
+  border-radius: 50%;
+  background: var(--thread);
+}
+.stitched-loop {
+  position: absolute;
+  left: calc(100.113% - 0.1em);
+  top: calc(100% + 0.07em - 0.8em);
+  width: 1.4em;
+  height: 0.9em;
+  overflow: visible;
+  fill: none;
+  stroke: var(--thread);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+.stitched-x,
+.stitched-y,
+.stitched-r {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+.stitched-x {
+  top: calc(100% + 0.07em);
+  width: 100%;
+  transform: translateX(calc(100.113% + 0.2em));
+}
+.stitched-y {
+  transform: translateY(0.05em);
+}
+.stitched-r {
+  transform: rotate(128deg);
+  transform-origin: 0 0;
+}
+.stitched-pin {
+  position: absolute;
+  left: -1.3em;
+  top: -0.4em;
+  width: 1.4em;
+  height: 1.6em;
+  overflow: visible;
+}
+.stitched-tail {
+  fill: none;
+  stroke: var(--thread);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+@keyframes bty-stitch {
+  0% { opacity: 0; transform: scaleX(0.02); }
+  10% { opacity: 1; }
+  100% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes bty-gather {
+  from { transform: scaleX(1.015); }
+  to { transform: scaleX(1); }
+}
+@keyframes bty-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bty-fade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes bty-knot {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+@keyframes bty-x-sew {
+  from { transform: translateX(0%); }
+  to { transform: translateX(103.774%); }
+}
+@keyframes bty-x-tug {
+  from { transform: translateX(103.774%); }
+  to { transform: translateX(106.717%); }
+}
+@keyframes bty-x-park {
+  from { transform: translateX(106.717%); }
+  to { transform: translateX(calc(100.113% + 0.2em)); }
+}
+/* One stitch: the point comes up through the cloth, runs along the top,
+   and dives back under at the stitch's end */
+@keyframes bty-y-rock {
+  0% { transform: translateY(0.24em); }
+  18% { transform: translateY(-0.384em); }
+  36.5% { transform: translateY(-0.413em); }
+  55% { transform: translateY(-0.384em); }
+  80%, 100% { transform: translateY(0.24em); }
+}
+@keyframes bty-r-rock {
+  0% { transform: rotate(32deg); }
+  18% { transform: rotate(-18deg); }
+  36.5% { transform: rotate(-13deg); }
+  55% { transform: rotate(-8deg); }
+  80%, 100% { transform: rotate(32deg); }
+}
+@keyframes bty-y-tug {
+  from { transform: translateY(0.24em); }
+  to { transform: translateY(-0.6em); }
+}
+@keyframes bty-r-tug {
+  from { transform: rotate(32deg); }
+  to { transform: rotate(-34deg); }
+}
+@keyframes bty-y-park {
+  from { transform: translateY(-0.6em); }
+  to { transform: translateY(0.05em); }
+}
+@keyframes bty-r-park {
+  from { transform: rotate(-34deg); }
+  to { transform: rotate(128deg); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-sewn]) .stitched-seam line {
+    animation: bty-stitch calc(var(--dt) * 0.48) linear calc(var(--sew-at) + var(--dt) * (var(--i) + 0.12)) both;
+  }
+  html:not([data-sewn]) .stitched-seam {
+    transform-origin: 50% 50%;
+    animation: bty-gather var(--tug) ease-in-out var(--tug-at) both;
+  }
+  html:not([data-sewn]) .stitched-pin {
+    animation: bty-appear var(--intro) ease var(--d0) both;
+  }
+  html:not([data-sewn]) .stitched-tail {
+    animation: bty-fade 0.4s ease var(--park-at) both;
+  }
+  html:not([data-sewn]) .stitched-knot {
+    animation: bty-knot 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) var(--park-at) both;
+  }
+  html:not([data-sewn]) .stitched-loop {
+    animation: bty-appear 0.5s ease calc(var(--park-at) + 0.25s) both;
+  }
+  html:not([data-sewn]) .stitched-x {
+    animation:
+      bty-x-sew var(--sew) linear var(--sew-at) both,
+      bty-x-tug var(--tug) ease-in-out var(--tug-at) forwards,
+      bty-x-park var(--park) cubic-bezier(0.2, 0.8, 0.2, 1) var(--park-at) forwards;
+  }
+  html:not([data-sewn]) .stitched-y {
+    animation:
+      bty-y-rock var(--dt) ease-in-out var(--sew-at) 11 both,
+      bty-y-tug var(--tug) ease-in-out var(--tug-at) forwards,
+      bty-y-park var(--park) cubic-bezier(0.2, 0.8, 0.2, 1) var(--park-at) forwards;
+  }
+  html:not([data-sewn]) .stitched-r {
+    animation:
+      bty-r-rock var(--dt) ease-in-out var(--sew-at) 11 both,
+      bty-r-tug var(--tug) ease-in-out var(--tug-at) forwards,
+      bty-r-park var(--park) cubic-bezier(0.34, 1.56, 0.64, 1) var(--park-at) forwards;
+  }
+}
+
+@media print {
+  .stitched-needle,
+  .stitched-loop {
+    display: none;
+  }
+}
+
+/* Safari before 16 cannot clip sideways, and the needle at rest would make a
+   320px iPhone SE's page scroll: there the seam and knot are left on their own */
+@supports not (overflow-x: clip) {
+  .stitched-needle,
+  .stitched-loop {
+    display: none;
+  }
+}
+
+/* A screen too narrow for the words on one line — a zoomed-in page, mostly:
+   they wrap as plain words, unsewn, rather than run off the edge */
+@media (max-width: 309.98px) {
+  .stitched {
+    display: inline;
+    white-space: normal;
+  }
+  .stitched-art {
+    display: none;
+  }
+}
+
+/* The booking button, top-stitched like a sewn-on label. It never moves. */
+.topstitch {
+  position: relative;
+}
+.topstitch::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: inherit;
+  border: 1.5px dashed rgb(90 45 92 / 0.55);
+  pointer-events: none;
+}
+
+/* The price list's leaders on a service page, as gold running stitch. Where
+   the browser can tie animation to scrolling, each line is sewn as it comes
+   into view; elsewhere it is simply there. */
+.leader-stitch {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, rgb(176 136 72 / 0.6) 0 6px, transparent 6px 10px);
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .leader-stitch {
+      animation: bty-leader linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 35%;
+    }
+  }
+}
+@keyframes bty-leader {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+/* A contrast theme drops backgrounds and printing skips them: a dotted line
+   in the text's own colour there, as the leaders were before */
+@media (forced-colors: active), print {
+  .leader-stitch {
+    background: none;
+    height: 0;
+    border-bottom: 2px dotted CanvasText;
+  }
+}
+
+/* A needle for a cursor, where there is a mouse and no contrast theme: it
+   pricks with its point, which is the cursor's hot spot. Links, buttons and
+   fields keep the cursors people know, unless they name one of their own
+   for good (cursor-not-allowed and the like: these rules are unlayered, so
+   they would otherwise beat it) — one only for a state, as on an enabled
+   Checkout with disabled:cursor-not-allowed, still gets the pointer. The Studio is Kristina's workroom and keeps the
+   ordinary cursor — on the whole page, as its menus and popovers open outside
+   its own box. A browser without :has() leaves all of this out. */
+@media (hover: hover) and (pointer: fine) and (forced-colors: none) and (prefers-contrast: no-preference) {
+  body:not(:has(.studio-root)) {
+    cursor: url("/cursor-needle.png") 2 2, auto;
+    cursor: image-set(url("/cursor-needle.png") 1x, url("/cursor-needle@2x.png") 2x) 2 2, auto;
+  }
+  body:not(:has(.studio-root)) :is(
+    a[href],
+    button:not(:disabled),
+    [role="button"],
+    label[for],
+    select,
+    summary,
+    input:is([type="checkbox"], [type="radio"], [type="range"], [type="submit"], [type="button"], [type="file"])
+  ):not([class^="cursor-"], [class*=" cursor-"]) {
+    cursor: pointer;
+  }
+  body:not(:has(.studio-root)) :is(
+    input:not([type="checkbox"], [type="radio"], [type="range"], [type="submit"], [type="button"], [type="file"]),
+    textarea,
+    [contenteditable="true"]
+  ):not([class^="cursor-"], [class*=" cursor-"]) {
+    cursor: text;
+  }
 }

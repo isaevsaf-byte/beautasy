@@ -1,4 +1,7 @@
 import { SITE_URL } from "@/lib/site";
+import { lowestPrice } from "@/lib/siteCopy";
+import { LOCAL_SERVICES, getLocalService } from "@/lib/localServices";
+import { ATELIER_LEAD, cardVersion, sewnCardAlt, sewnLead } from "@/lib/sewnCardVersion";
 
 /**
  * The one picture a forwarded link shows, and why every page has to ask for it
@@ -61,18 +64,40 @@ export const SOCIAL_CARD_IMAGES = [
 ];
 
 /**
- * The atelier's own picture — scissors, thread and the gold logo — for the
- * links that sell an alteration rather than the shop: a friend's /r/ link, a
- * salon's /p/ card, /refer that hands out the /r/ links, and /reviews, which
- * is nearly all about the atelier's work. The size is the file's real one (socialPreview.test.ts
- * measures it); it is not the 1.91:1 a chat app crops to, which is Kristina's
- * artwork to redraw, see src/app/atelier/layout.tsx.
+ * The atelier's link-preview cards (src/lib/sewnCard.tsx, served by
+ * src/app/cards/[card]/route.tsx): Kristina's artwork on a sewn-on label
+ * beside a heading, sewn, and its lowest price. "atelier" sews the home
+ * page's heading and is the card for the home page, /atelier, and the links
+ * that sell an alteration rather than a page of their own — a friend's /r/,
+ * a salon's /p/, /alterations, /refer, /reviews, /work until it has a photo.
+ * Each alteration page has its own, named by its slug.
  */
-export const ATELIER_CARD_IMAGES = [
-  {
-    url: `${SITE_URL}/beautasy-atelier-og.jpg`,
-    width: 1200,
-    height: 1028,
-    alt: "Beautasy Atelier — alterations and repairs in Southampton",
-  },
-];
+export const SEWN_CARDS = ["atelier", ...LOCAL_SERVICES.map((service) => service.slug)] as const;
+
+/** What a card shows: the words before "in Southampton" and the lowest price */
+export function sewnCardFor(name: string): { lead: string; priceFrom: string | null } | null {
+  if (name === "atelier") return { lead: ATELIER_LEAD, priceFrom: lowestPrice() };
+  const service = getLocalService(name);
+  return service ? { lead: sewnLead(service.h1), priceFrom: lowestPrice(service.prices) } : null;
+}
+
+/**
+ * A card as a page's openGraph (and twitter) images. The address ends in the
+ * card's version (src/lib/sewnCardVersion.ts), which changes with its words,
+ * its price and its look, so a chat app that kept the old picture asks again.
+ */
+export function sewnCardImages(name: string) {
+  const content = sewnCardFor(name);
+  if (!content) throw new Error(`No link-preview card called ${name}`);
+  return [
+    {
+      url: `${SITE_URL}/cards/${name}.png?v=${cardVersion(content.lead, content.priceFrom)}`,
+      width: SOCIAL_CARD_SIZE.width,
+      height: SOCIAL_CARD_SIZE.height,
+      alt: sewnCardAlt(content.lead, content.priceFrom),
+      type: "image/png",
+    },
+  ];
+}
+
+export const ATELIER_CARD_IMAGES = sewnCardImages("atelier");

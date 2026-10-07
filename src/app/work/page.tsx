@@ -9,6 +9,7 @@ import { Cover } from "@/components/work/TileFace";
 import { readWork } from "@/lib/getWork";
 import { showPiece, showShowreel, shareImageFor, workJsonLd, type ShownPiece } from "@/lib/workMedia";
 import { SITE_URL } from "@/lib/site";
+import { ATELIER_CARD_IMAGES } from "@/lib/socialCard";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { BUSINESS, whatsappLink } from "@/lib/business";
 import { CAMPAIGN_HOOK } from "@/lib/localServices";
@@ -29,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const share = shareImageFor(pieces[0]);
   const images = share
     ? [{ url: share, width: 1200, height: 630, alt: "Work from the Beautasy atelier in Southampton" }]
-    : [{ url: `${SITE_URL}/beautasy-atelier-og.jpg`, width: 1200, height: 1028, alt: "Beautasy Atelier" }];
+    : ATELIER_CARD_IMAGES;
   return {
     title: TITLE,
     description: DESCRIPTION,

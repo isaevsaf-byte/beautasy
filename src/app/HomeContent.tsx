@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Stitched from "@/components/stitch/Stitched";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { placeLink } from "@/lib/shelves";
 import { useShelves } from "@/lib/useShelves";
@@ -89,8 +90,11 @@ const WHATSAPP_PHOTO = "Hi Kristina, here's a photo of something that needs alte
 function Hero({ priceFrom }: { priceFrom?: string | null }) {
   return (
     // pt-28, as every other page's <main>: at pt-20 the first line sat under
-    // the fixed header whenever the announcement bar was showing
-    <section className="relative min-h-[100dvh] flex items-center pt-28 pb-12">
+    // the fixed header whenever the announcement bar was showing. Clipped
+    // sideways at the screen's edges: the needle left in the heading's cloth
+    // reaches into the margin, and on a 320px phone its box would otherwise
+    // make the page a little wider than the screen
+    <section className="relative min-h-[100dvh] flex items-center pt-28 pb-12 overflow-x-clip">
       <div className="max-w-6xl mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
         {/* Text — first on a phone, and painted as it is rather than faded
             in: at opacity 0 the heading and both buttons waited for every
@@ -116,7 +120,9 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
           >
             Alterations &amp; repairs
             <br />
-            <span className="italic text-lavender-ink">in Southampton</span>
+            <span className="italic text-lavender-ink">
+              <Stitched>in Southampton</Stitched>
+            </span>
           </motion.h1>
 
           <motion.p
@@ -163,7 +169,7 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
                 off the screen. */}
             <Link
               href="/atelier#book"
-              className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium sm:whitespace-nowrap hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+              className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium sm:whitespace-nowrap hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
             >
               Choose a time
               <ArrowRight

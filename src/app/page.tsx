@@ -8,7 +8,7 @@ import { getReviews } from "@/lib/getReviews";
 import { meetKristina, nextdoorPageUrl } from "@/lib/siteSettings";
 import { showPiece } from "@/lib/workMedia";
 import { SITE_URL } from "@/lib/site";
-import { SOCIAL_CARD_IMAGES } from "@/lib/socialCard";
+import { ATELIER_CARD_IMAGES } from "@/lib/socialCard";
 import { SITE_DESCRIPTION, SITE_TITLE, lowestPrice } from "@/lib/siteCopy";
 
 // A piece Kristina publishes in Our Work, or a review she approves, shows here
@@ -22,7 +22,9 @@ export const revalidate = 300;
  * and Facebook — that it is a copy of the home page.
  *
  * The openGraph block replaces the layout's whole, so the title, description
- * and generated card are named again (see src/lib/socialCard.ts).
+ * and picture are named again (see src/lib/socialCard.ts). The picture is the
+ * atelier's card, which sews this page's own heading: the bare domain is the
+ * link people paste most in a group's comments.
  */
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -33,7 +35,7 @@ export const metadata: Metadata = {
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
-    images: SOCIAL_CARD_IMAGES,
+    images: ATELIER_CARD_IMAGES,
   },
 };
 

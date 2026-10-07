@@ -61,7 +61,7 @@ export default function ContactPage() {
               <motion.div variants={fadeUp} custom={3} className="grid gap-3 sm:grid-cols-3">
                 <Link
                   href="/atelier#book"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-lavender text-charcoal rounded-full text-sm font-medium hover:bg-[#CFC0F0] transition-colors"
+                  className="topstitch inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-lavender text-charcoal rounded-full text-sm font-medium hover:bg-[#CFC0F0] transition-colors"
                 >
                   <CalendarCheck size={16} aria-hidden="true" />
                   Choose a time

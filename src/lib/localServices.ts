@@ -98,7 +98,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     h1: "Wedding Dress Alterations in Southampton",
     metaTitle: "Wedding Dress Alterations Southampton | Beautasy Atelier",
     metaDescription:
-      "Wedding dress alterations in Southampton by an experienced seamstress. Taking in, hemming, bustles, straps and cups — three fittings, from £150. Book a bridal fitting.",
+      "Wedding dress alterations in Southampton by an experienced seamstress. Straps and bustles from £45, the full package with three fittings from £150.",
     eyebrow: "Bridal",
     serviceName: "Wedding Dress Alterations",
     intro: [
@@ -225,7 +225,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     h1: "Prom & Evening Dress Alterations in Southampton",
     metaTitle: "Prom & Evening Dress Alterations Southampton | Beautasy",
     metaDescription:
-      "Prom, ball and evening dress alterations in Southampton. Taken in, hemmed, straps and cups adjusted — from £28. Student rate available. Book a fitting.",
+      "Prom, ball and evening dress alterations in Southampton. Taken in, hemmed, straps and cups adjusted — from £20. Student rate available. Book a fitting.",
     eyebrow: "Prom & balls",
     serviceName: "Prom and Evening Dress Alterations",
     intro: [
@@ -344,7 +344,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     h1: "Zip Replacement & Repairs in Southampton",
     metaTitle: "Zip Replacement Southampton | Coats & Dresses — Beautasy",
     metaDescription:
-      "Broken zip replaced on coats, dresses, jeans and bags in Southampton. From £14, most jobs back within a week. Bring the thing you've stopped wearing.",
+      "Broken zip replaced on coats, dresses, jeans and bags in Southampton. Repairs from £12, zips from £14, most jobs back within a week.",
     eyebrow: "Repairs",
     serviceName: "Zip Replacement and Clothing Repairs",
     intro: [
@@ -403,7 +403,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     h1: "Curtain Alterations & Home Textiles in Southampton",
     metaTitle: "Curtain Hemming & Alterations Southampton | Beautasy",
     metaDescription:
-      "Curtains shortened and re-headed, cushion covers and roman blinds made to measure in Southampton. From £20 per panel. Measuring advice included.",
+      "Curtains shortened and re-headed, cushion covers and roman blinds made to measure in Southampton. From £18; curtain hems from £20 per panel.",
     eyebrow: "Home",
     serviceName: "Curtain Alterations and Home Textiles",
     intro: [

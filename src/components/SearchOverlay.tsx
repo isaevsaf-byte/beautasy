@@ -189,7 +189,7 @@ export default function SearchOverlay({ className = "" }: { className?: string }
                       <Link
                         href="/atelier#book"
                         onClick={close}
-                        className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm font-medium hover:bg-[#CFC0F0] transition-colors"
+                        className="topstitch inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm font-medium hover:bg-[#CFC0F0] transition-colors"
                       >
                         <CalendarCheck size={16} aria-hidden="true" />
                         Choose a time

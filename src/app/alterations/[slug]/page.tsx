@@ -8,6 +8,7 @@ import AtelierBookingForm from "@/components/AtelierBookingForm";
 import MeetKristina from "@/components/MeetKristina";
 import PriceFirst from "@/components/PriceFirst";
 import StickyBookBar from "@/components/StickyBookBar";
+import { stitchSouthampton } from "@/components/stitch/Stitched";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK, getLocalService, seasonalNote } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
 import { getShelves } from "@/lib/getShelves";
@@ -24,6 +25,7 @@ import { reviewsForTopics } from "@/lib/siteReviews";
 import { piecesForService } from "@/lib/work";
 import { showPiece } from "@/lib/workMedia";
 import { lowestPrice } from "@/lib/siteCopy";
+import { sewnCardImages } from "@/lib/socialCard";
 
 export const revalidate = 86400;
 
@@ -55,15 +57,16 @@ export async function generateMetadata({
       siteName: "Beautasy",
       locale: "en_GB",
       type: "website",
-      // 1029 was a typo for the file's real 1200x1028. See atelier/layout.tsx
-      // for why these pages keep their own picture rather than the shop card.
-      images: [{ url: `${SITE_URL}/beautasy-atelier-og.jpg`, width: 1200, height: 1028, alt: service.h1 }],
+      // This page's own card: its heading, sewn, and the price its hero shows
+      // (src/lib/sewnCard.tsx). Until 07.10.2026 every alteration page sent
+      // Kristina's artwork, 1200x1028, and chat apps cut its top off.
+      images: sewnCardImages(service.slug),
     },
     twitter: {
       card: "summary_large_image",
       title: service.metaTitle,
       description: service.metaDescription,
-      images: [`${SITE_URL}/beautasy-atelier-og.jpg`],
+      images: sewnCardImages(service.slug),
     },
   };
 }
@@ -197,7 +200,8 @@ export default async function LocalServicePage({
 
       <HeaderWrapper />
 
-      <main id="main" className="pt-24 pb-24">
+      {/* Clipped sideways at the screen's edges for the needle in the heading (see the home page's hero) */}
+      <main id="main" className="pt-24 pb-24 overflow-x-clip">
         {/* ──── Breadcrumb ──── */}
         <nav aria-label="Breadcrumb" className="max-w-4xl mx-auto px-6 mb-8">
           <ol className="flex flex-wrap items-center gap-2 text-xs text-charcoal-light">
@@ -215,7 +219,7 @@ export default async function LocalServicePage({
             {service.eyebrow} · Southampton
           </p>
           <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl leading-tight mb-5 text-balance">
-            {service.h1}
+            {stitchSouthampton(service.h1)}
           </h1>
 
           {/* What it costs and how to start, straight under the heading: on a
@@ -237,7 +241,7 @@ export default async function LocalServicePage({
             <a
               id={HERO_BOOK_ID}
               href="#book"
-              className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+              className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
             >
               Choose a time
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
@@ -300,7 +304,7 @@ export default async function LocalServicePage({
                 className="flex items-end gap-2 py-3.5 border-b border-charcoal/[0.07] last:border-b-0"
               >
                 <span className="text-[15px] text-charcoal">{p.name}</span>
-                <span className="flex-1 border-b border-dotted border-charcoal/15 mb-1.5" aria-hidden="true" />
+                <span className="leader-stitch flex-1 mb-1.5" aria-hidden="true" />
                 <span className="text-[15px] font-medium text-charcoal whitespace-nowrap tabular-nums">
                   {p.price}
                 </span>

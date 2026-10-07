@@ -6,6 +6,7 @@ import FooterWrapper from "@/components/FooterWrapper";
 import MeetKristina from "@/components/MeetKristina";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
+import { ATELIER_CARD_IMAGES } from "@/lib/socialCard";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { meetKristina } from "@/lib/siteSettings";
 import {
@@ -34,17 +35,8 @@ export const metadata: Metadata = {
     siteName: "Beautasy",
     locale: "en_GB",
     type: "website",
-    // The atelier's own picture stays — it sells alterations, which the shop's
-    // card does not mention. The declared height was 1029; the file is
-    // 1200x1028. Still the wrong shape for a chat card, see atelier/layout.tsx.
-    images: [
-      {
-        url: `${SITE_URL}/beautasy-atelier-og.jpg`,
-        width: 1200,
-        height: 1028,
-        alt: "Beautasy alterations in Southampton",
-      },
-    ],
+    // The atelier's card: it sells alterations, which the shop's card does not mention
+    images: ATELIER_CARD_IMAGES,
   },
 };
 
@@ -111,7 +103,7 @@ export default async function AlterationsHub() {
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-9">
             <Link
               href="/atelier#book"
-              className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+              className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
             >
               Choose a time
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
@@ -206,7 +198,7 @@ export default async function AlterationsHub() {
             </p>
             <Link
               href="/atelier#book"
-              className="inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+              className="topstitch inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
             >
               Choose a time
               <ArrowRight size={16} aria-hidden="true" />
