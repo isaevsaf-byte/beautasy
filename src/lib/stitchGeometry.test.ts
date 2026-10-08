@@ -440,3 +440,86 @@ test("nothing in the chalk or the knot moves for a visitor who asked for less mo
     assert.doesNotMatch(block(CSS, `@keyframes ${name}`), /\b(left|right|top|bottom|width|height|margin[a-z-]*):/, `${name} lays nothing out`);
   }
 });
+
+test("the logo's gold catches the light once: only the gold, after the stitch, as it comes into view", async () => {
+  // The mask is the logo's own frame, at twice the largest size shown, and small
+  // (the logo is a JPEG whatever its name says, so its size comes from sharp)
+  const sharp = (await import("sharp")).default;
+  const maskFile = join(ROOT, "public/beautasy-logo-gold-mask.png");
+  const logoFile = join(ROOT, "public/beautasy-logo-gold.png");
+  const [maskMeta, logoMeta] = await Promise.all([sharp(maskFile).metadata(), sharp(logoFile).metadata()]);
+  const [maskWidth, maskHeight] = [Number(maskMeta.width), Number(maskMeta.height)];
+  assert.ok(Math.abs(maskWidth / maskHeight - Number(logoMeta.width) / Number(logoMeta.height)) < 0.005, "the mask lies exactly over the logo");
+  assert.equal(maskWidth, 600);
+  assert.ok(readFileSync(maskFile).length < 20_000);
+  // It is the letters: a few percent of the logo, all of it in the lower half where "Beautasy" is
+  const { data: alpha } = await sharp(maskFile).ensureAlpha().extractChannel(3).raw().toBuffer({ resolveWithObject: true });
+  let total = 0;
+  let above = 0;
+  for (let i = 0; i < alpha.length; i++) {
+    total += alpha[i];
+    if (i < maskWidth * Math.round(maskHeight * 0.4)) above += alpha[i];
+  }
+  const coverage = total / (alpha.length * 255);
+  assert.ok(coverage > 0.02 && coverage < 0.08, `the gold covers ${(coverage * 100).toFixed(1)}% of the logo`);
+  assert.ok(above / total < 0.02, "nothing over the figure and the wreath lights up");
+
+  // Over the home page's logo, in its own box, once, and hidden from screen readers
+  const home = read("src/app/HomeContent.tsx");
+  assert.match(
+    home,
+    /<div className="relative w-\[250px\] sm:w-\[280px\] lg:w-\[300px\]">\s*<Image\s+src="\/beautasy-logo-gold\.png"[^>]*?\/>\s*<LogoSheen \/>\s*<\/div>/,
+    "the sheen lies in the logo's own box, sized as the logo",
+  );
+  assert.equal((home.match(/<LogoSheen \/>/g) ?? []).length, 1);
+  const html = renderToStaticMarkup(createElement(HomeContent, { priceFrom: "£8" }));
+  assert.match(html, /<div class="relative w-\[250px\][^"]*"><img [^>]*src="[^"]*beautasy-logo-gold[^>]*><span class="logo-sheen" aria-hidden="true"><\/span><\/div>/);
+
+  // At rest nothing shows; it moves only once set going, and only for those who want motion
+  const sheen = rule(".logo-sheen");
+  const masked = /url\("\/beautasy-logo-gold-mask\.png"\) 0 0 \/ 100% 100% no-repeat;/.source;
+  for (const part of [/opacity: 0;/, /pointer-events: none;/, new RegExp(`-webkit-mask: ${masked}`), new RegExp(`(?:^|; )mask: ${masked}`), /mix-blend-mode: screen;/]) {
+    assert.match(sheen, part);
+  }
+  const motion = block(CSS, "@media (prefers-reduced-motion: no-preference)", CSS.indexOf(".logo-sheen {"));
+  assert.match(motion, /^\s*\.logo-sheen\[data-shine\] \{\s*animation: bty-sheen 1\.6s ease-in-out both;\s*\}\s*$/);
+  const part = CSS.slice(CSS.indexOf(".logo-sheen {"), CSS.indexOf("@media (forced-colors: active), print", CSS.indexOf(".logo-sheen {")));
+  assert.doesNotMatch(part.replace(motion, ""), /\b(animation|transition)\s*:/, "an animation outside the reduced-motion guard");
+  assert.equal((CSS.match(/\bbty-sheen\b/g) ?? []).length, 2, "used once, guarded, plus its keyframes");
+  assert.match(block(CSS, "@media (forced-colors: active), print", CSS.indexOf(".logo-sheen {")), /^\s*\.logo-sheen \{\s*display: none;\s*\}\s*$/);
+  // The light band is off the letters where it starts and where it stops, so nothing is left lit
+  const band = /linear-gradient\(\s*(\d+)deg,\s*transparent 0 (\d+)%,[\s\S]*?transparent (\d+)% 100%\s*\)\s*([-\d]+)% 0 \/ (\d+)% 100% no-repeat;/.exec(sheen);
+  assert.ok(band, sheen);
+  const [angle, from, to, , width] = band.slice(1).map(Number);
+  assert.ok(angle >= 90 && angle <= 120, "a band near upright, so its resting place off the side is off the whole logo");
+  const edges = (position: number) => [from, to].map((stop) => ((1 - width / 100) * position) / 100 + (width / 100) * (stop / 100));
+  for (const stop of ["0%", "100%"]) {
+    const position = Number(/background-position: ([-\d]+)% 0;/.exec(frame("bty-sheen", stop))?.[1]);
+    const [left, right] = edges(position);
+    assert.ok(right <= -0.1 || left >= 1.1, `at ${stop} the band runs ${left.toFixed(2)}–${right.toFixed(2)} of the logo`);
+    assert.match(frame("bty-sheen", stop), /opacity: 1;/);
+  }
+
+  // When: most of the logo on screen, and the needle beside it done, on the needle's own clock
+  const { IN_VIEW, SHEEN_AFTER_STITCH, inView, restAfter } = await import("../components/stitch/LogoSheen");
+  assert.equal(inView([{ isIntersecting: true, intersectionRatio: 0.27 }]), false, "a first report of a logo just peeping in");
+  assert.equal(inView([{ isIntersecting: true, intersectionRatio: IN_VIEW }]), true);
+  assert.equal(inView([{ isIntersecting: false, intersectionRatio: 0 }]), false);
+  assert.ok(SHEEN_AFTER_STITCH >= seconds("park-at") + 0.5, "not while the needle is still moving");
+  assert.ok(SHEEN_AFTER_STITCH <= seconds("park-at") + seconds("park") + 0.5, "soon after it rests");
+  assert.equal(restAfter(null), SHEEN_AFTER_STITCH, "a needle not started yet: the whole wait");
+  assert.equal(restAfter(0), SHEEN_AFTER_STITCH);
+  assert.ok(Math.abs(restAfter(2) - (SHEEN_AFTER_STITCH - 2)) < 1e-9);
+  assert.equal(restAfter(seconds("park-at") + seconds("park")), 0, "a needle at rest: no wait");
+  const component = read("src/components/stitch/LogoSheen.tsx");
+  assert.match(component, /\{ threshold: IN_VIEW \}/);
+  // Every report starts over: a logo that leaves before its turn waits for the next showing
+  assert.match(
+    component,
+    /\(entries\) => \{\s*clearTimeout\(timer\);\s*if \(!inView\(entries\)\) return;\s*timer = setTimeout\(\(\) => \{\s*watch\.disconnect\(\);\s*sheen\.setAttribute\("data-shine", ""\);\s*\}, Math\.max\(0\.3, stitchStillSewing\(\)\) \* 1000\);/,
+  );
+  const sewing = component.slice(component.indexOf("function stitchStillSewing()"), component.indexOf("export default function LogoSheen"));
+  assert.match(sewing, /if \(box\.bottom <= header \|\| box\.top >= window\.innerHeight\) return 0;/, "no waiting for a needle out of sight");
+  assert.match(sewing, /animation\.animationName === "bty-x-park"/);
+  assert.ok(CSS.includes("@keyframes bty-x-park"), "the needle's resting movement it times itself by");
+});

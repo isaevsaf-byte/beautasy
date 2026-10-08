@@ -7,6 +7,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Stitched from "@/components/stitch/Stitched";
+import LogoSheen from "@/components/stitch/LogoSheen";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { placeLink } from "@/lib/shelves";
 import { useShelves } from "@/lib/useShelves";
@@ -210,15 +211,20 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
           className="order-2 relative"
         >
           <div className="relative aspect-[5/4] sm:aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF] flex items-center justify-center">
-            <Image
-              src="/beautasy-logo-gold.png"
-              alt="Beautasy - Handmade Lingerie & Alterations Logo"
-              width={600}
-              height={600}
-              className="w-[250px] sm:w-[280px] lg:w-[300px] h-auto object-contain drop-shadow-lg"
-              preload
-              fetchPriority="high"
-            />
+            {/* The gold catches the light once, after the first stitch or as it
+                comes into view (stitch/LogoSheen.tsx); the picture is unchanged */}
+            <div className="relative w-[250px] sm:w-[280px] lg:w-[300px]">
+              <Image
+                src="/beautasy-logo-gold.png"
+                alt="Beautasy - Handmade Lingerie & Alterations Logo"
+                width={600}
+                height={600}
+                className="w-full h-auto object-contain drop-shadow-lg"
+                preload
+                fetchPriority="high"
+              />
+              <LogoSheen />
+            </div>
           </div>
           {/* Decorative floating badge */}
           <motion.div

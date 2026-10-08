@@ -604,6 +604,50 @@ main:focus {
   55%, 100% { transform: rotate(0deg); }
 }
 
+/* The logo's gold catching the light (components/stitch/LogoSheen.tsx): once,
+   a warm light passes over the letters of "Beautasy" on the home page — only
+   the letters, through a mask cut from the logo itself
+   (scripts/logo-gold-mask.mjs, 8.5 KB) — as gold leaf glints when it turns.
+   The light band starts off the left edge and ends off the right, so at rest
+   nothing shows; the logo underneath is untouched and seen at once. The page
+   sets it going (data-shine) when the logo is in view and the needle beside
+   it has finished, and it moves only for a visitor who has not asked for
+   less motion. Screen blending
+   only ever lightens, so the lilac figure under the mask's soft edge stays
+   lilac. */
+.logo-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  -webkit-mask: url("/beautasy-logo-gold-mask.png") 0 0 / 100% 100% no-repeat;
+  mask: url("/beautasy-logo-gold-mask.png") 0 0 / 100% 100% no-repeat;
+  background: linear-gradient(
+      100deg,
+      transparent 0 43%,
+      rgb(255 236 190 / 0.45) 47%,
+      rgb(255 244 214 / 0.9) 50%,
+      rgb(255 236 190 / 0.45) 53%,
+      transparent 57% 100%
+    )
+    125% 0 / 260% 100% no-repeat;
+  mix-blend-mode: screen;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .logo-sheen[data-shine] {
+    animation: bty-sheen 1.6s ease-in-out both;
+  }
+}
+@keyframes bty-sheen {
+  0% { opacity: 1; background-position: 125% 0; }
+  100% { opacity: 1; background-position: -25% 0; }
+}
+@media (forced-colors: active), print {
+  .logo-sheen {
+    display: none;
+  }
+}
+
 /* A needle for a cursor, where there is a mouse and no contrast theme: it
    pricks with its point, which is the cursor's hot spot. Links, buttons and
    fields keep the cursors people know, unless they name one of their own
