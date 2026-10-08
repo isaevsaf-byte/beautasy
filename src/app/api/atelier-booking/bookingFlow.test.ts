@@ -487,6 +487,11 @@ test("somebody not sure yet is written to about a free 10-minute look, never 'no
   assert.match(confirmation.html, /your appointment for free 10-minute look is confirmed/);
   const invite = Buffer.from(confirmation.attachments![0].content, "base64").toString("utf8");
   assert.match(invite.replace(/\r\n /g, ""), /Your free 10-minute look with Kristina/);
+  // Named by the moment the booking was made, as stored — so every later invite updates this event
+  const [stored] = bookings();
+  const made = new Date(String(stored.createdAt)).toISOString().replace(/[-:.]/g, "");
+  assert.match(invite, new RegExp(`\r\nUID:booking-${made}@beautasy\.co\.uk\r\n`));
+  assert.match(invite.replace(/\r\n /g, ""), /\r\nSUMMARY:Beautasy fitting · bring the piece\r\n/);
 
   emails = [];
   assert.equal(
@@ -518,9 +523,14 @@ test("a request is answered with a way to get a price first, and a booked time i
   assert.equal((await POST(request({ ...ANNA, service: "Repairs", preferredDate: "2026-11-02" }))).status, 201);
   const received = emails.find((email) => email.to === ANNA.email)!;
   assert.match(received.subject, /received your Beautasy atelier booking request/);
-  assert.match(received.html, /Want a price first\? <a href="https:\/\/wa\.me\/447729741116\?text=[^"]+"[^>]*>Send Kristina a photo on WhatsApp<\/a>\./);
+  assert.match(
+    received.html,
+    /Want a price first\? <a href="https:\/\/wa\.me\/447729741116\?text=[^"]+"[^>]*>Send Kristina a photo on WhatsApp<\/a> — and one of the label inside\./
+  );
   assert.ok(
-    whatsappTexts(received.html).includes("Hi Kristina, it's Anna. I've just sent a booking request (Repairs). Here's a photo for a price: ")
+    whatsappTexts(received.html).includes(
+      "Hi Kristina, it's Anna. I've just sent a booking request (Repairs). Here's a photo for a price, and the label inside: "
+    )
   );
   assert.doesNotMatch(received.html, /free|£|pay/i, "nothing about what a fitting costs or how it is paid");
 
@@ -533,5 +543,8 @@ test("a request is answered with a way to get a price first, and a booked time i
 test("whatever the customer typed stays text in that line", () => {
   const html = priceFirstHtml(`<img src=x onerror=alert(1)> Smith`, "Repairs");
   assert.doesNotMatch(html, /<img/);
-  assert.equal(whatsappTexts(html)[0], "Hi Kristina, it's <img. I've just sent a booking request (Repairs). Here's a photo for a price: ");
+  assert.equal(
+    whatsappTexts(html)[0],
+    "Hi Kristina, it's <img. I've just sent a booking request (Repairs). Here's a photo for a price, and the label inside: "
+  );
 });

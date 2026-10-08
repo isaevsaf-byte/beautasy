@@ -181,7 +181,7 @@ export default async function LocalServicePage({
   // promise a price the list below doesn't have
   const priceFrom = lowestPrice(service.prices);
   const whatsapp = whatsappLink(
-    `Hi Kristina, I'd like a quote for ${service.serviceName.toLowerCase()} — here's a photo of the garment:`
+    `Hi Kristina, I'd like a quote for ${service.serviceName.toLowerCase()} — here's the garment, and the label inside:`
   );
 
   return (

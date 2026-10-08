@@ -38,7 +38,7 @@ test("a booked customer is told where, what to bring, and how to move it", () =>
   const html = bookingEmailHtml(booked, "confirmed");
   assert.match(html, /Tuesday 6 October at 10:00am/);
   assert.match(html, /will send you the exact address and how to find the door before your visit/);
-  assert.match(html, /the shoes you'll wear with it/);
+  assert.match(html.replace(/&#39;|&#x27;/g, "'"), /<p[^>]*>Bring<\/p>\s*<p[^>]*>The piece you'd like altered, and if we're changing the length, the shoes you'll wear with it\.<\/p>/);
   assert.match(html, /Reply to this email, or WhatsApp Kristina on \+44 7729 741116/);
   assert.match(html, /href="https:\/\/wa\.me\/447729741116\?text=/);
   assert.match(html, /href="tel:\+447729741116"/);
@@ -317,7 +317,7 @@ test("a bride's calendar holds her whole hour", () => {
 test("somebody not sure yet is written to about their look, and a collection about their piece", () => {
   const look = { ...booked, service: "Not sure — free 10-minute look" };
   assert.match(bookingEmailHtml(look, "confirmed"), /your appointment for free 10-minute look is confirmed/);
-  assert.match(fittingOf(look)?.description ?? "", /^Your free 10-minute look with Kristina/);
+  assert.match(fittingOf(look)?.description ?? "", /^Bring: The piece you'd like Kristina to look at\. Your free 10-minute look with Kristina/);
   assert.match(bookingEmailHtml({ ...booked, service: "Other / Not Sure" }, "confirmed"), /your appointment for visit is confirmed/);
 
   const collected = { ...look, collection: { district: "SO17", zone: "Southampton", terms: "Free" }, slotEnd: "2026-10-06T11:00" };

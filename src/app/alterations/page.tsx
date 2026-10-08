@@ -42,7 +42,7 @@ export const metadata: Metadata = {
 
 export default async function AlterationsHub() {
   const kristina = await meetKristina();
-  const whatsapp = whatsappLink("Hi Kristina, I'd like a quote. Here's a photo of the garment:");
+  const whatsapp = whatsappLink("Hi Kristina, I'd like a quote. Here's the garment, and the label inside:");
 
   const localBusinessLd = {
     "@context": "https://schema.org",

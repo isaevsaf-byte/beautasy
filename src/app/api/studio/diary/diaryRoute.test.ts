@@ -231,3 +231,20 @@ test("a bride booked again after cancelling holds her whole hour again, and is t
   assert.match(invite, new RegExp(`DTEND:${end}`));
   assert.equal((await POST(studio({ action: "book", slot: `${day}T14:30`, name: "Bea Jones", service: "Repairs" }))).status, 409);
 });
+
+test("a booking moved in the Studio keeps its calendar event: the new invite updates the old one", async () => {
+  const day = openDiary();
+  const booked = await POST(studio({ action: "book", slot: `${day}T10:00`, name: "Anna Smith", email: "anna@example.com", service: "Bridal fitting" }));
+  assert.equal(booked.status, 200);
+  const uid = (email: (typeof emails)[number]) =>
+    /\r\nUID:(\S+)\r\n/.exec(Buffer.from(email.attachments![0].content, "base64").toString("utf8").replace(/\r\n /g, ""))?.[1];
+  const first = uid(emails.find((email) => email.to === "anna@example.com")!);
+  assert.match(first ?? "", /^booking-\d{8}T\d{9}Z@beautasy\.co\.uk$/, "named by when she booked, not by the slot");
+  emails = [];
+  const moved = await POST(studio({ action: "move", id: slotDocumentId(`${day}T10:00`), slot: `${day}T15:00` }));
+  assert.equal(moved.status, 200, JSON.stringify(await moved.clone().json()));
+  const told = emails.find((email) => email.to === "anna@example.com")!;
+  assert.match(told.html, /has moved/);
+  assert.equal(uid(told), first, "the same event, at its new time");
+  assert.match(Buffer.from(told.attachments![0].content, "base64").toString("utf8").replace(/\r\n /g, ""), /\r\nSUMMARY:Beautasy fitting · bring dress\\, wedding shoes & underwear\r\n/);
+});

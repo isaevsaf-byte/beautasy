@@ -159,7 +159,7 @@ export default function AtelierContent({
 }) {
   const [activeTab, setActiveTab] = useState("denim");
   const whatsappLink = "https://wa.me/447729741116";
-  const photoLink = whatsappWith("Hi Kristina, I'd like a quote. Here's a photo of the garment:");
+  const photoLink = whatsappWith("Hi Kristina, I'd like a quote. Here's the garment, and the label inside:");
   const emailLink = "mailto:hello@beautasy.co.uk";
 
   const activeCategory = pricingCategories.find((c) => c.id === activeTab)!;

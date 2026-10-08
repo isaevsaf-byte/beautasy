@@ -274,7 +274,7 @@ test("beside the first 'Choose a time' on /atelier and each service page: a pric
     assert.ok(from > -1, name);
     const line = /<p\b[^>]*>(?:(?!<\/p>)[\s\S])*Want a price first\?[\s\S]*?<\/p>/.exec(out.slice(from));
     assert.ok(line, `${name}: the line`);
-    assert.equal(visible(line[0]).trim(), "Want a price first? Send Kristina a photo on WhatsApp.", name);
+    assert.equal(visible(line[0]).trim(), "Want a price first? Send Kristina a photo on WhatsApp — and one of the label inside.", name);
     // Right under the button's own row: nothing else to read in between
     assert.match(
       visible(out.slice(from, from + line.index)).replace(/^[^>]*>/, "").trim(),
@@ -283,6 +283,9 @@ test("beside the first 'Choose a time' on /atelier and each service page: a pric
     );
     const link = anchors(line[0])[0];
     assert.ok(link.href.startsWith(`https://wa.me/${BUSINESS.whatsappNumber}?text=`), name);
+    // The message she starts with asks for the label too, as the line does
+    const text = new URL(link.href.replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'")).searchParams.get("text") ?? "";
+    assert.match(text, /, and the label inside:$/, `${name}: ${text}`);
     assert.match(link.attrs, /target="_blank" rel="noopener noreferrer"/, `${name}: WhatsApp opens beside the page, not instead of it`);
     assert.doesNotMatch(line[0], /free|pay|£|cost/i, `${name}: nothing about the fitting's price or paying`);
   }
@@ -335,4 +338,14 @@ test("/atelier's and /alterations' titles fit in 60 characters, the atelier's wo
     assert.match(text, /^(Clothing )?Alterations\b/, `${name}: the work first`);
     assert.match(text, /\| Beautasy Atelier$/, `${name}: the name last`);
   }
+});
+
+test("/alterations' WhatsApp opener asks for the label inside too", async (t) => {
+  stubSanity(t, { photo: false });
+  const out = await html(AlterationsHub());
+  const openers = anchors(out)
+    .filter((a) => a.href.startsWith(`https://wa.me/${BUSINESS.whatsappNumber}?text=`) && /photo/i.test(a.text))
+    .map((a) => new URL(a.href.replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'")).searchParams.get("text") ?? "");
+  assert.ok(openers.length > 0);
+  for (const text of openers) assert.match(text, /, and the label inside:$/, text);
 });

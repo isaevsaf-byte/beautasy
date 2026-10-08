@@ -9,8 +9,9 @@ import type { ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { googleReviewUrl } from "@/lib/siteSettings";
 import { BUSINESS, whatsappLink } from "@/lib/business";
-import { DEFAULT_SCHEDULE, durationLabel, instantOf, slotDocumentId, slotLabel, spanLabel, spanMinutes } from "@/lib/slots";
-import { fittingEvent, googleCalendarLink, icsInvite, type CalendarEvent } from "@/lib/bookingCalendar";
+import { DEFAULT_SCHEDULE, durationLabel, instantOf, slotLabel, spanLabel, spanMinutes } from "@/lib/slots";
+import { calendarUid, eveningBefore, fittingEvent, googleCalendarLink, icsInvite, type CalendarEvent } from "@/lib/bookingCalendar";
+import { whatToBring } from "@/lib/whatToBring";
 import type { EmailMessage } from "@/lib/sendEmail";
 import { pieceInSentence, serviceInSentence } from "@/lib/atelierServices";
 
@@ -86,17 +87,20 @@ export function fittingOf(booking: NotifiableBooking): CalendarEvent | null {
   // Studio will not let her edit. The email prints her words; an invite for
   // the old slot would put the customer in the wrong place in their calendar.
   if (booking.confirmedFor && booking.confirmedFor !== slotLabel(booking.slotStart)) return null;
-  const service = booking.service ?? "Fitting";
+  // What to bring, for the job booked: in the title, which is what the
+  // reminders show, and first in the notes
+  const bring = whatToBring(booking.service);
   return fittingEvent({
     slotStart: booking.slotStart,
     // A bride's fitting holds two slots, and her calendar holds both
     minutes: spanMinutes(booking.slotStart, booking.slotEnd) ?? booking.slotMinutes ?? DEFAULT_SCHEDULE.slotMinutes,
-    service,
+    bring: bring.title,
+    uid: calendarUid(booking.createdAt, booking.slotStart),
     location: `${BUSINESS.atelierName}, ${BUSINESS.address.locality}`,
     description:
+      `Bring: ${bring.sentence} ` +
       `Your ${serviceInSentence(booking.service)} with Kristina at ${BUSINESS.atelierName}. ` +
       `She will send you the exact address before your visit. ` +
-      `Bring the piece, and the shoes you will wear with it if the length is changing. ` +
       `To move it, reply to the confirmation email or WhatsApp ${BUSINESS.telephone}.`,
   });
 }
@@ -118,9 +122,11 @@ export function collectionEventOf(booking: NotifiableBooking): CalendarEvent | n
   if (!(end.getTime() > start.getTime())) return null;
   const piece = pieceInSentence(booking.service);
   return {
-    uid: `${slotDocumentId(booking.slotStart)}@beautasy.co.uk`,
+    uid: calendarUid(booking.createdAt, booking.slotStart),
     start,
     end,
+    // The evening before, as for a fitting: time to have it ready by the door
+    eveningBefore: eveningBefore(booking.slotStart),
     title: "Beautasy: Kristina collects your piece",
     description:
       `Kristina from ${BUSINESS.atelierName} collects your ${piece} from your door, ${span}. ` +
@@ -142,6 +148,8 @@ export function notifiableFromDiary(
   const text = (value: unknown) => (typeof value === "string" ? value : undefined);
   return {
     _id: doc._id,
+    // The calendar event's lasting name — the same through every move (see calendarUid)
+    createdAt: text(doc.createdAt),
     _rev: "",
     status: "confirmed",
     displayName: text(doc.displayName),
@@ -250,13 +258,13 @@ const LINE_STYLE = "margin:0;color:#3d3d3d;line-height:1.6;";
  * atelier, and anything this email says goes to whoever fills in the form, so
  * Kristina sends it herself; her own email about the booking reminds her to.
  */
-function arrivalHtml(): string {
+function arrivalHtml(service: string | undefined): string {
   return `
       <div style="background:#f7f3ff;border-radius:12px;padding:20px 24px;margin:22px 0 0;">
         <p style="${LABEL_STYLE}">Where</p>
         <p style="${LINE_STYLE}margin-bottom:16px;">${BUSINESS.atelierName}, ${BUSINESS.address.locality}. Kristina will send you the exact address and how to find the door before your visit.</p>
         <p style="${LABEL_STYLE}">Bring</p>
-        <p style="${LINE_STYLE}margin-bottom:16px;">The piece you'd like altered, and if we're changing the length, the shoes you'll wear with it.</p>
+        <p style="${LINE_STYLE}margin-bottom:16px;">${escapeHtml(whatToBring(service).sentence)}</p>
         <p style="${LABEL_STYLE}">Need to move it?</p>
         <p style="${LINE_STYLE}">Reply to this email, or WhatsApp Kristina on ${BUSINESS.telephone}.</p>
       </div>`;
@@ -319,6 +327,12 @@ export function bookingEmailHtml(
   );
 
   const moved = status === "confirmed" && booking.movedFrom ? escapeHtml(booking.movedFrom) : null;
+  // A booking with an exact time went into her calendar with alarms, one of
+  // them the evening before; called off, it is taken out by hand — a file
+  // that cancels is read differently by every calendar, and could put back an
+  // event she has already deleted
+  const inCalendar = Boolean(booking.slotStart && SLOT_SHAPE.test(booking.slotStart));
+  const outOfCalendar = inCalendar ? " If it's in your calendar, delete it there too, so its reminders don't go off." : "";
   // " It takes about an hour." — said only of a fitting that holds more than one slot
   const length = status === "confirmed" ? fittingLength(booking) : null;
   const takes = length ? ` It takes ${length}.` : "";
@@ -350,9 +364,9 @@ export function bookingEmailHtml(
       ? `thank you for trusting us with your ${service}. If it fits the way you hoped, a sentence about it${reviewUrl ? " on Google" : ""} helps the next person in Southampton find a small atelier — and means a great deal to the one pair of hands that did the work.`
       : status === "cancelled"
       ? collection
-        ? `your collection${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked. Whenever you're ready, ask for a new collection and Kristina will email you a time.`
-        : `your ${visit}${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked. Whenever you're ready, choosing a new time takes a minute.`
-      : `we're so sorry — we can't take your ${service}${when ? ` on ${when}` : ""} after all.`;
+        ? `your collection${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked.${outOfCalendar} Whenever you're ready, ask for a new collection and Kristina will email you a time.`
+        : `your ${visit}${when ? ` on <strong>${when}</strong>` : ""} is cancelled, as you asked.${outOfCalendar} Whenever you're ready, choosing a new time takes a minute.`
+      : `we're so sorry — we can't take your ${service}${when ? ` on ${when}` : ""} after all.${outOfCalendar}`;
   const button =
     status === "completed"
       ? reviewUrl
@@ -409,7 +423,7 @@ export function bookingEmailHtml(
           ? `<p style="color:#3d3d3d;line-height:1.7;margin:0;">Your <strong>${pounds(booking.referralDiscount)} off</strong>${booking.referredBy ? ` from ${escapeHtml(booking.referredBy)}` : ""} is noted — it comes off when you pay${collection ? "" : " at the atelier"}.</p>`
           : ""
       }
-      ${status === "confirmed" ? (collection ? collectionArrivalHtml(collection) : arrivalHtml()) : ""}
+      ${status === "confirmed" ? (collection ? collectionArrivalHtml(collection) : arrivalHtml(booking.service)) : ""}
       <p style="text-align:center;margin:26px 0 0;">
         <a href="${escapeHtml(button.href)}" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">${button.label}</a>
       </p>

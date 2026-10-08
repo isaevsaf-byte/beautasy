@@ -280,9 +280,9 @@ export function collectionReceivedHtml(
 export function priceFirstHtml(name: string, service: string): string {
   const first = firstNameOf(name);
   const link = whatsappLink(
-    `Hi Kristina, it's ${first ?? "me"}. I've just sent a booking request (${service}). Here's a photo for a price: `
+    `Hi Kristina, it's ${first ?? "me"}. I've just sent a booking request (${service}). Here's a photo for a price, and the label inside: `
   );
-  return `<p style="color:#3d3d3d;line-height:1.8;">Want a price first? <a href="${escapeHtml(link)}" style="color:#5e4b9a;font-weight:bold;">Send Kristina a photo on WhatsApp</a>.</p>`;
+  return `<p style="color:#3d3d3d;line-height:1.8;">Want a price first? <a href="${escapeHtml(link)}" style="color:#5e4b9a;font-weight:bold;">Send Kristina a photo on WhatsApp</a> — and one of the label inside.</p>`;
 }
 
 /**
@@ -475,8 +475,10 @@ export async function POST(req: NextRequest) {
      * than somebody holding it, the request is still kept, as a request.
      */
     let held = false;
+    // The booking's moment, to the millisecond: stored on it, and the name of
+    // its calendar event in every invite it is ever sent (see calendarUid)
+    const createdAt = new Date().toISOString();
     if (process.env.SANITY_API_WRITE_TOKEN && secretsConfigured()) {
-      const createdAt = new Date().toISOString();
       // Who they are and what they want — the same on a booked time and on a request
       const person = {
         _type: "atelierBooking",
@@ -658,6 +660,7 @@ export async function POST(req: NextRequest) {
             slotMinutes,
             referredBy,
             referralDiscount: friend?.discount,
+            createdAt,
           }
         : null;
       const invite = confirmation ? bookingInvite(confirmation) : null;
