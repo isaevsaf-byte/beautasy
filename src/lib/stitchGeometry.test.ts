@@ -523,3 +523,59 @@ test("the logo's gold catches the light once: only the gold, after the stitch, a
   assert.match(sewing, /animation\.animationName === "bty-x-park"/);
   assert.ok(CSS.includes("@keyframes bty-x-park"), "the needle's resting movement it times itself by");
 });
+
+test("under the prices the shears stay closed: the price at the fitting, nothing cut before a yes, no costs nothing", async () => {
+  // No hooks, so it renders by a plain call
+  const ClosedShears = (await import("../components/stitch/ClosedShears")).default;
+  const text = (html: string) => html.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ").trim();
+  // Said only as it is true: pinned at a fitting, or every way a price is given
+  // (Kristina confirmed on 08.10.2026 that saying no at a fitting costs nothing)
+  const pinned = renderToStaticMarkup(ClosedShears({ pinned: true }));
+  assert.equal(
+    text(pinned),
+    "Your price is said while you're pinned. The shears stay closed until you say yes. Saying no costs nothing. Silk, velvet, leather and beading take longer by hand — you'll hear that price first, too.",
+  );
+  const plain = renderToStaticMarkup(ClosedShears({}));
+  assert.equal(
+    text(plain),
+    "You hear your price before anything is cut — at your fitting, or from your photos and measurements. The shears stay closed until you say yes. Saying no at a fitting costs nothing. Silk, velvet, leather and beading take longer by hand — you'll hear that price first, too.",
+  );
+  assert.doesNotMatch(text(plain), /pinned/, "nobody is pinned for curtains, a zip or a collection");
+  assert.match(plain, /<svg class="closed-shears-art" viewBox="0 0 120 40" aria-hidden="true" focusable="false">/);
+  assert.equal((plain.match(/id="closed-shears-gold"/g) ?? []).length, 1);
+  assert.match(rule(".closed-shears-blade"), /fill: url\(#closed-shears-gold\);/, "the blade's gold is the gradient drawn with it");
+  const noted = renderToStaticMarkup(ClosedShears({ note: "Students get 10% off with a valid student card." }));
+  assert.ok(text(noted).endsWith("too. Students get 10% off with a valid student card."), "a service's own word follows");
+
+  // On /atelier in place of "prices are a guide", with a stitch over the list instead of open scissors
+  const atelier = read("src/app/atelier/AtelierContent.tsx");
+  assert.equal((atelier.match(/<ClosedShears\b/g) ?? []).length, 1);
+  assert.match(atelier, /<ClosedShears className="mt-8" \/>/, "every kind of job is under it, curtains too: not 'pinned'");
+  assert.doesNotMatch(atelier, /prices are a guide|Please note/);
+  assert.doesNotMatch(atelier, /<Scissors\b/, "nothing over the prices says cut");
+  assert.match(atelier, /<span className="price-stitch" aria-hidden="true" \/>/);
+
+  // On every service page, carrying the service's own note, and no note repeats the promise
+  const page = read("src/app/alterations/[slug]/page.tsx");
+  assert.equal((page.match(/<ClosedShears\b/g) ?? []).length, 1);
+  assert.match(page, /<ClosedShears pinned=\{service\.pricedPinned\} note=\{service\.priceNote\} className="mt-5" \/>/);
+  // Pinned only where the page itself prices at a fitting: never where it asks for photos or measurements first
+  const pricedPinned = LOCAL_SERVICES.filter((service) => service.pricedPinned).map((service) => service.slug);
+  assert.deepEqual(pricedPinned, ["wedding-dress-southampton", "school-uniform-southampton", "prom-and-evening-dress-southampton", "jeans-and-trousers-southampton"]);
+  for (const service of LOCAL_SERVICES.filter((s) => s.pricedPinned)) {
+    const words = [service.priceNote ?? "", ...service.steps.map((step) => step.text), ...service.faqs.map((faq) => faq.a)].join(" ");
+    assert.doesNotMatch(words, /get a price before|price from (your )?photos?|email the measurements/i, `${service.slug} is priced from afar somewhere on its page`);
+  }
+  assert.equal((page.match(/service\.priceNote/g) ?? []).length, 1, "the note shows only inside the shears");
+  for (const service of LOCAL_SERVICES) {
+    assert.doesNotMatch(service.priceNote ?? "", /firm quote|before any work starts|quoted before/i, `${service.slug}: the shears say it`);
+  }
+
+  // Still, and drawn in the text's colour by a contrast theme
+  const part = CSS.slice(CSS.indexOf(".closed-shears-art {"), CSS.indexOf("@media (forced-colors: active)", CSS.indexOf(".closed-shears-art {")));
+  assert.doesNotMatch(part, /\b(animation|transition)\s*:/, "the shears never move here");
+  const contrast = block(CSS, "@media (forced-colors: active)", CSS.indexOf(".closed-shears-art {"));
+  assert.match(contrast, /\.closed-shears-blade,\s*\.closed-shears-pin \{\s*fill: CanvasText;/);
+  assert.match(contrast, /\.closed-shears-shank,\s*\.closed-shears-ring,\s*\.closed-shears-screw \{\s*stroke: CanvasText;/);
+  assert.match(contrast, /\.price-stitch \{[^}]*border-top: 2px dashed CanvasText;/);
+});

@@ -9,6 +9,7 @@ import MeetKristina from "@/components/MeetKristina";
 import PriceFirst from "@/components/PriceFirst";
 import StickyBookBar from "@/components/StickyBookBar";
 import { stitchSouthampton } from "@/components/stitch/Stitched";
+import ClosedShears from "@/components/stitch/ClosedShears";
 import { LOCAL_SERVICES, CAMPAIGN_HOOK, getLocalService, seasonalNote } from "@/lib/localServices";
 import { SITE_URL } from "@/lib/site";
 import { getShelves } from "@/lib/getShelves";
@@ -312,11 +313,8 @@ export default async function LocalServicePage({
             ))}
           </ul>
 
-          {service.priceNote && (
-            <p className="text-sm text-charcoal-light mt-4 max-w-2xl leading-relaxed">
-              {service.priceNote}
-            </p>
-          )}
+          {/* What the price means, with the service's own word on its prices */}
+          <ClosedShears pinned={service.pricedPinned} note={service.priceNote} className="mt-5" />
         </section>
 
         {/* ──── Done here ──── */}

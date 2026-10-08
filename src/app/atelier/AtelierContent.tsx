@@ -3,13 +3,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Scissors,
   ArrowRight,
   MapPin,
   Clock,
   Phone,
   Mail,
-  Info,
   CalendarCheck,
   Ruler,
   SparkleIcon,
@@ -22,6 +20,7 @@ import Footer from "@/components/Footer";
 import AtelierBookingForm from "@/components/AtelierBookingForm";
 import StickyBookBar from "@/components/StickyBookBar";
 import PriceFirst from "@/components/PriceFirst";
+import ClosedShears from "@/components/stitch/ClosedShears";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { LOCAL_SERVICES } from "@/lib/localServices";
 import { BUSINESS, BY_APPOINTMENT, whatsappLink as whatsappWith } from "@/lib/business";
@@ -449,8 +448,10 @@ export default function AtelierContent({
               >
                 {/* Category header */}
                 <div className="flex items-center gap-3 mb-6 pb-4 border-b border-lavender-soft/30">
+                  {/* A gold stitch, not open scissors: nothing over the prices
+                      says "cut" — the shears below stay closed */}
                   <div className="w-9 h-9 rounded-xl bg-lavender/20 flex items-center justify-center">
-                    <Scissors size={18} className="text-charcoal" />
+                    <span className="price-stitch" aria-hidden="true" />
                   </div>
                   <h3 className="font-serif text-xl">{activeCategory.label}</h3>
                 </div>
@@ -469,26 +470,8 @@ export default function AtelierContent({
               </motion.div>
             </AnimatePresence>
 
-            {/* ──── Disclaimer ──── */}
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeUp}
-              custom={0}
-              className="mt-8 flex gap-3 items-start bg-cream-soft rounded-2xl px-6 py-5"
-            >
-              <Info
-                size={18}
-                className="text-charcoal/30 flex-shrink-0 mt-0.5"
-              />
-              <p className="text-[13px] italic text-charcoal/45 leading-relaxed">
-                Please note: These prices are a guide for standard materials.
-                The final quote will be provided upon inspection, as delicate
-                fabrics (like silk, velvet, or leather) or complex construction
-                may require additional time and care.
-              </p>
-            </motion.div>
+            {/* ──── What the price means ──── */}
+            <ClosedShears className="mt-8" />
           </div>
         </section>
 

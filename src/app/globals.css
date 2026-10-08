@@ -648,6 +648,76 @@ main:focus {
   }
 }
 
+/* Closed shears under the prices (components/stitch/ClosedShears.tsx): the
+   price is said at the fitting, nothing is cut before a yes, and saying no
+   costs nothing. Lines in the brand's gold, still — the only shears that
+   close on the site are the snips after "You're booked in". Over the price
+   list itself a gold stitch stands where open scissors did. A contrast theme
+   draws both in the text's colour. */
+.closed-shears-art {
+  flex: none;
+  width: 84px;
+  height: 28px;
+  margin-top: 2px;
+}
+.closed-shears-blade {
+  fill: url(#closed-shears-gold);
+}
+.closed-shears-edge {
+  fill: none;
+  stroke: #fdfbf7;
+  stroke-opacity: 0.75;
+  stroke-width: 0.9;
+}
+.closed-shears-shank,
+.closed-shears-ring {
+  fill: none;
+  stroke: #b08848;
+  stroke-linecap: round;
+}
+.closed-shears-shank {
+  stroke-width: 3.6;
+}
+.closed-shears-ring {
+  stroke-width: 3;
+}
+.closed-shears-screw {
+  fill: #fdfbf7;
+  stroke: #8a672f;
+  stroke-width: 1.5;
+}
+.closed-shears-pin {
+  fill: #8a672f;
+}
+.price-stitch {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg, #b08848 0 4px, transparent 4px 7px);
+}
+@media (forced-colors: active) {
+  .closed-shears-blade,
+  .closed-shears-pin {
+    fill: CanvasText;
+  }
+  .closed-shears-shank,
+  .closed-shears-ring,
+  .closed-shears-screw {
+    stroke: CanvasText;
+  }
+  .closed-shears-screw {
+    fill: Canvas;
+  }
+  .closed-shears-edge {
+    display: none;
+  }
+  .price-stitch {
+    background: none;
+    height: 0;
+    border-top: 2px dashed CanvasText;
+  }
+}
+
 /* A needle for a cursor, where there is a mouse and no contrast theme: it
    pricks with its point, which is the cursor's hot spot. Links, buttons and
    fields keep the cursors people know, unless they name one of their own

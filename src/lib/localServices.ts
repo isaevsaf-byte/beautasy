@@ -51,6 +51,12 @@ export interface LocalService {
   serviceName: string;
   prices: PriceLine[];
   priceNote?: string;
+  /**
+   * Priced at a fitting, with the piece pinned on her — the shears under the
+   * prices say so. Left out where the price comes from photos or measurements
+   * (curtains, zips and repairs), and the shears name every way.
+   */
+  pricedPinned?: boolean;
   turnaround: string;
   steps: { title: string; text: string }[];
   faqs: Faq[];
@@ -113,7 +119,8 @@ export const LOCAL_SERVICES: LocalService[] = [
       { name: "Full alteration package, 3 fittings", price: "from £150" },
     ],
     priceNote:
-      "Bridal prices depend on the fabric and the number of layers — beaded and lace gowns take longer. You get a firm quote at the first fitting, before any work starts.",
+      "Bridal prices depend on the fabric and the number of layers — beaded and lace gowns take longer.",
+    pricedPinned: true,
     turnaround: "Book 8–12 weeks before the wedding. Rush work possible — ask.",
     steps: [
       {
@@ -179,6 +186,7 @@ export const LOCAL_SERVICES: LocalService[] = [
     ],
     priceNote:
       "Hems let down as a child grows are charged at the same price — the fabric is already there, so the growing room costs nothing extra.",
+    pricedPinned: true,
     turnaround: "3–5 days. Same week during term time.",
     steps: [
       {
@@ -240,6 +248,7 @@ export const LOCAL_SERVICES: LocalService[] = [
       { name: "Take in a lined gown", price: "from £40" },
     ],
     priceNote: "Students get 10% off with a valid student card.",
+    pricedPinned: true,
     turnaround: "5–7 days. Say the date of the event when you book.",
     steps: [
       {
@@ -299,6 +308,7 @@ export const LOCAL_SERVICES: LocalService[] = [
       { name: "Taper legs", price: "from £25.00" },
       { name: "Replace a zip", price: "from £18.00" },
     ],
+    pricedPinned: true,
     turnaround: "3–5 days.",
     steps: [
       {
