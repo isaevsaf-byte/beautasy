@@ -1,0 +1,38 @@
+{
+  "id": "silk-edit",
+  "title": "From the shop — The silk edit",
+  "lines": [
+    { "text": "Morning! Which colour are you?" },
+    { "text": "Kristina's Cloud scrunchie comes in ivory, sage, deep berry and powder blush." },
+    { "text": "Each one holds a full metre of mulberry silk." },
+    { "text": "Prefer a print? Azure Heritage comes in blue paisley or navy polka dots." },
+    { "text": "And the silk sleep mask comes in the same four colours." },
+    { "text": "Tell me your colour in the comments." },
+    { "text": "Find them at beautasy.co.uk.", "say": "Find them at beautasy dot co dot uk.", "caption": false }
+  ],
+  "scenes": [
+    { "type": "wake", "hook": "The silk edit" },
+    {
+      "type": "phone",
+      "at": "line:1-0.3",
+      "pages": [
+        { "src": "bea/site/cloud-scrunchie.jpg", "at": "line:1-0.3", "scroll": [["line:1+0.4", 0], ["line:1+2.6", 900], ["line:2", 900], ["line:2:end", 1020]] },
+        { "src": "bea/site/azure-scrunchie.jpg", "at": "line:3-0.2", "scroll": [["line:3+0.3", 0], ["line:3+2.8", 1000]] },
+        { "src": "bea/site/sleep-mask.jpg", "at": "line:4-0.2", "scroll": [["line:4+0.3", 0], ["line:4+2.2", 900]] }
+      ]
+    },
+    { "type": "print", "at": "line:5-0.3", "src": "bea/kristina-scrunchies.jpg", "label": "Which one are you?", "tilt": -1.2, "zoomTo": 1.06, "origin": "45% 40%" },
+    { "type": "end", "at": "line:6-0.3", "title": "Made by hand.", "subtitle": "Silk scrunchies from £12", "url": "beautasy.co.uk", "subtitleAt": "line:6", "urlAt": "word:6:3" }
+  ],
+  "overlays": [
+    { "type": "tag", "text": "£15", "from": "line:1+0.6", "to": "line:3-0.3" },
+    { "type": "tag", "text": "£12", "from": "line:3+0.4", "to": "line:4-0.3" },
+    { "type": "tag", "text": "£25", "from": "line:4+0.4", "to": "line:5-0.3" }
+  ],
+  "post": {
+    "caption": "Which colour are you? ☁️\n\nThe Cloud scrunchie comes in ivory, sage, deep berry and powder blush, each with a full metre of pure mulberry silk.\n\nPrefer a print? Azure Heritage, in blue paisley or navy polka dots 🤍\n\nTell me yours in the comments 🪡\n\nCloud £15 · Azure Heritage £12 · silk sleep mask £25",
+    "hashtags": "#silkscrunchie #mulberrysilk #silksleepmask #handmade #giftideas #southampton #beautasy",
+    "kind": "product",
+    "cover": 4.5
+  }
+}

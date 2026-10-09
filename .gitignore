@@ -59,6 +59,11 @@ __pycache__/
 /video/node_modules
 /video/out
 
+# Bea's working media: Kristina's photos (one not yet published), her own voice,
+# Lily's takes and site screenshots. The repository is public, so they stay on
+# this Mac; the code and the episode files that make them are committed.
+/video/public/bea/
+
 # Raw photos and videos for the gallery. The repository is public: only the
 # processed, metadata-free copies ever leave this Mac (see scripts/gallery-import.mjs)
 /Gallery/

@@ -1,0 +1,193 @@
+import React from "react";
+import { AbsoluteFill, Audio, CalculateMetadataFunction, OffthreadVideo, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { CREAM, Caption, PLUM, Sewn, ease, serifItalic } from "../BeaReel";
+import { AwakeCameo, Print } from "../BeaCurtains";
+import { BOX, Chip, EndCard, Phone, PhonePage, QuestionCard, Rule, Tag, Tape, clamp, popIn } from "./parts";
+import { frameOf, totalFrames, VOICE_AT } from "./timing";
+import type { EpisodeProps, Scene } from "./types";
+
+/**
+ * Any Bea episode, from its file in video/episodes/.
+ *
+ * Every episode opens the same way — Bea wakes up, the hook above her — and
+ * ends on the logo; between them each scene is sewn on with the gold seam at
+ * the word it is anchored to. Captions come from the lines, timed by the
+ * recording, and each leaves before the next arrives. Bea watches from her
+ * brooch whenever she is not the picture.
+ */
+
+export const calculateEpisodeMetadata: CalculateMetadataFunction<EpisodeProps> = ({ props }) => ({
+  durationInFrames: totalFrames(props.timing),
+});
+
+const WIPE = 22;
+
+export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
+  const frame = useCurrentFrame();
+  const at = (a: Parameters<typeof frameOf>[0]) => frameOf(a, timing);
+  const total = totalFrames(timing);
+
+  const scenes = episode.scenes.map((scene) => ({ scene, start: scene.type === "wake" ? 0 : at(scene.at) }));
+  const wake = scenes.find((s) => s.scene.type === "wake")?.scene as Extract<Scene, { type: "wake" }> | undefined;
+  const firstCut = scenes.find((s) => s.scene.type !== "wake")?.start ?? total;
+  const end = scenes.find((s) => s.scene.type === "end");
+  const endStart = end?.start ?? total;
+  const current = [...scenes].reverse().find((s) => frame >= s.start)?.scene.type ?? "wake";
+
+  // Captions, each gone before the next arrives
+  const captions = timing.lines
+    .map((l, i) => ({ i, text: episode.lines[i].text, show: episode.lines[i].caption !== false, from: at(`line:${i}`), endAt: at(`line:${i}:end`) }))
+    .map((c, i, all) => ({ ...c, to: i + 1 < all.length ? Math.min(c.endAt + 4, all[i + 1].from - 10) : c.endAt + 4 }))
+    .filter((c) => c.show);
+
+  const voiceEnd = VOICE_AT + Math.round(timing.duration * 30);
+  const music = (f: number) => {
+    const fadeIn = interpolate(f, [0, 10], [0, 1], { extrapolateRight: "clamp" });
+    const fadeOut = interpolate(f, [total - 36, total - 2], [1, 0], clamp);
+    return (f >= VOICE_AT - 4 && f <= voiceEnd + 6 ? 0.13 : 0.3) * fadeIn * fadeOut;
+  };
+  const hook = interpolate(frame, [0, 8], [0.35, 1], { ...clamp, easing: ease });
+  const captionTop = current === "wake" ? 1440 : current === "phone" ? 1390 : 1420;
+
+  const sceneBody = (scene: Scene, start: number) => {
+    switch (scene.type) {
+      case "question":
+        return <QuestionCard eyebrow={scene.eyebrow ?? "Ask Kristina"} text={scene.text} reveal={(scene.reveal !== undefined ? at(scene.reveal) : start + 10) - start} />;
+      case "print":
+        return (
+          <Print
+            src={scene.src}
+            label={scene.label}
+            tilt={scene.tilt ?? -1}
+            zoomTo={scene.zoomTo ?? 1.06}
+            origin={scene.origin ?? "50% 60%"}
+            frames={Math.max(1, (scenes.find((s) => s.start > start)?.start ?? total) - start)}
+          />
+        );
+      case "phone": {
+        const pages: PhonePage[] = scene.pages.map((p, i) => {
+          const from = at(p.at) - start;
+          const next = scene.pages[i + 1];
+          const nextFrom = next ? at(next.at) - start : undefined;
+          return {
+            src: p.src,
+            from: i === 0 ? 0 : from,
+            to: nextFrom !== undefined ? nextFrom + 14 : 100000,
+            enter: i > 0,
+            exitAt: nextFrom,
+            scroll: (p.scroll ?? [[p.at, 0]]).map(([a, y]) => [at(a) - start, y] as [number, number]),
+          };
+        });
+        return <Phone pages={pages} />;
+      }
+      case "end": {
+        const rel = (a: Parameters<typeof frameOf>[0] | undefined, fallback: number) => (a !== undefined ? at(a) - start : fallback);
+        return (
+          <EndCard
+            lead={scene.lead}
+            title={scene.title}
+            subtitle={scene.subtitle}
+            url={scene.url}
+            time={frame / 30}
+            at={{
+              lead: rel(scene.leadAt, 8),
+              title: rel(scene.titleAt, scene.lead ? 30 : 8),
+              subtitle: rel(scene.subtitleAt, 26),
+              url: rel(scene.urlAt, 40),
+            }}
+          />
+        );
+      }
+      case "split":
+        return null; // not used yet; Made to fit keeps its own composition until it is
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <AbsoluteFill style={{ background: CREAM }}>
+      <Audio src={staticFile("bea/music.mp3")} volume={music} />
+      <Sequence from={VOICE_AT} layout="none">
+        <Audio src={staticFile(`bea/episodes/${episode.id}/voice.mp3`)} />
+      </Sequence>
+
+      {/* Bea wakes up */}
+      {frame < firstCut + WIPE && (
+        <AbsoluteFill>
+          <OffthreadVideo src={staticFile("bea/wake.mp4")} muted trimBefore={12} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          {wake && (
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 300,
+                textAlign: "center",
+                fontFamily: serifItalic,
+                fontSize: 96,
+                color: PLUM,
+                opacity: hook,
+                transform: `translateY(${(1 - hook) * 18}px)`,
+              }}
+            >
+              {wake.hook}
+            </div>
+          )}
+        </AbsoluteFill>
+      )}
+
+      {scenes
+        .filter((s) => s.scene.type !== "wake")
+        .map(({ scene, start }, i) => (
+          <Sewn key={i} at={start}>
+            {sceneBody(scene, start)}
+          </Sewn>
+        ))}
+
+      {/* Overlays over the scenes */}
+      {(episode.overlays ?? []).map((o, i) => {
+        const from = at(o.from);
+        const to = at(o.to);
+        if (frame < from || frame > to) return null;
+        switch (o.type) {
+          case "chip":
+            return <Chip key={i} text={o.text} x={o.x} y={o.y} k={popIn(frame, from, to)} dark={o.dark} />;
+          case "tag":
+            return <Tag key={i} text={o.text} k={popIn(frame, from, to)} top={o.y ?? 760} />;
+          case "tape": {
+            const [g0, g1] = o.grow;
+            const grow = interpolate(frame, [at(g0), at(g1)], [0, 1], clamp);
+            return (
+              <Tape
+                key={i}
+                x={o.x}
+                top={o.top}
+                bottom={o.bottom}
+                grow={grow}
+                topLabel={o.topLabel}
+                bottomLabel={o.bottomLabel}
+                topK={interpolate(frame, [at(g0), at(g0) + 10], [0, 1], clamp)}
+                bottomK={interpolate(frame, [at(g1) - 4, at(g1) + 6], [0, 1], clamp)}
+              />
+            );
+          }
+          case "rule": {
+            const draw = interpolate(frame, [from, from + 26], [0, 1], { ...clamp, easing: ease });
+            return <Rule key={i} y={o.y} draw={draw} label={o.label} labelK={interpolate(frame, [from + 24, from + 34], [0, 1], clamp)} />;
+          }
+          default:
+            return null;
+        }
+      })}
+
+      {/* Captions and Bea's brooch */}
+      {frame < endStart &&
+        captions.map((c) => <Caption key={c.i} text={c.text} from={c.from} to={c.to} top={captionTop} />)}
+      {firstCut < endStart && <AwakeCameo from={firstCut + 10} to={endStart + 4} />}
+    </AbsoluteFill>
+  );
+};
+
+// Kept for episode files that place a chip by the print's own coordinates
+export const printPoint = (x: number, y: number) => ({ x: BOX.left + BOX.w * x, y: BOX.top + BOX.h * y });

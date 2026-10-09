@@ -1,0 +1,100 @@
+{
+  "id": "friends-give-5",
+  "title": "Give £5, get £5 — Beautasy Friends",
+  "lines": [
+    {
+      "text": "Morning! Kristina has a little thank-you for you."
+    },
+    {
+      "text": "Share your Beautasy Friends link."
+    },
+    {
+      "text": "Your friends get £5 off their first order, or their first alteration.",
+      "say": "Your friends get five pounds off their first order, or their first alteration."
+    },
+    {
+      "text": "And every time one of them buys or books, you get £5 of credit.",
+      "say": "And every time one of them buys or books, you get five pounds of credit."
+    },
+    {
+      "text": "Spend it in the shop, or at the atelier."
+    },
+    {
+      "text": "Get your link on the Beautasy website.",
+      "caption": false
+    }
+  ],
+  "scenes": [
+    {
+      "type": "wake",
+      "hook": "Give £5, get £5"
+    },
+    {
+      "type": "phone",
+      "at": "line:1-0.3",
+      "pages": [
+        {
+          "src": "bea/site/refer.jpg",
+          "at": "line:1-0.3",
+          "scroll": [
+            [
+              "line:1",
+              0
+            ],
+            [
+              "line:2",
+              0
+            ],
+            [
+              "line:2:end",
+              640
+            ],
+            [
+              "line:3+1",
+              640
+            ],
+            [
+              "line:4",
+              980
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "type": "end",
+      "at": "line:5-0.3",
+      "title": "Give £5, get £5.",
+      "subtitle": "Beautasy Friends",
+      "url": "beautasy.co.uk/refer",
+      "subtitleAt": "line:5",
+      "urlAt": "word:5:5"
+    }
+  ],
+  "overlays": [
+    {
+      "type": "chip",
+      "text": "£5 off for your friend",
+      "from": "word:2:3",
+      "to": "line:3-0.2",
+      "x": 540,
+      "y": 1180,
+      "dark": true
+    },
+    {
+      "type": "chip",
+      "text": "£5 credit for you",
+      "from": "word:3:11",
+      "to": "line:4:end",
+      "x": 540,
+      "y": 1180,
+      "dark": true
+    }
+  ],
+  "post": {
+    "caption": "A little thank-you from me 🤍\n\nShare your Beautasy Friends link: your friend gets £5 off their first order, or their first alteration.\n\nAnd every time one of them buys or books, £5 lands on your Beautasy credit, to spend in the shop or here at the atelier ✨\n\nGet your link at beautasy.co.uk/refer 🪡",
+    "hashtags": "#beautasyfriends #referafriend #alterations #handmade #southampton #beautasy",
+    "kind": "seasonal",
+    "cover": 1.6
+  }
+}
