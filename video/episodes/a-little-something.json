@@ -1,0 +1,115 @@
+{
+  "id": "a-little-something",
+  "title": "From the shop — A little something",
+  "lines": [
+    {
+      "text": "Morning! A little something, just for you."
+    },
+    {
+      "text": "Aria: sheer mesh and floral lace, with a full lace back."
+    },
+    {
+      "text": "Pearl Blossom: pointelle cotton, with tiny hand-sewn satin bows."
+    },
+    {
+      "text": "And Amour: low-rise cotton briefs with a vintage print."
+    },
+    {
+      "text": "From £20, every pair sewn in Kristina's studio.",
+      "say": "From twenty pounds, every pair sewn in Kristina's studio."
+    },
+    {
+      "text": "Find them at beautasy.co.uk.",
+      "say": "Find them on the Beautasy website.",
+      "caption": false
+    }
+  ],
+  "scenes": [
+    {
+      "type": "wake",
+      "hook": "A little something"
+    },
+    {
+      "type": "phone",
+      "at": "line:1-0.3",
+      "pages": [
+        {
+          "src": "bea/site/aria-lace.jpg",
+          "at": "line:1-0.3",
+          "scroll": [
+            [
+              "line:1+0.4",
+              0
+            ],
+            [
+              "line:1:end",
+              300
+            ]
+          ]
+        },
+        {
+          "src": "bea/site/pearl-blossom.jpg",
+          "at": "line:2-0.2",
+          "scroll": [
+            [
+              "line:2+0.3",
+              0
+            ],
+            [
+              "line:2:end",
+              300
+            ]
+          ]
+        },
+        {
+          "src": "bea/site/amour-briefs.jpg",
+          "at": "line:3-0.2",
+          "scroll": [
+            [
+              "line:3+0.3",
+              0
+            ],
+            [
+              "line:3:end",
+              300
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "type": "end",
+      "at": "line:5-0.3",
+      "title": "Made by hand.",
+      "subtitle": "Lingerie from £20",
+      "url": "beautasy.co.uk",
+      "urlAt": "line:5+0.6"
+    }
+  ],
+  "overlays": [
+    {
+      "type": "tag",
+      "text": "£25",
+      "from": "line:1+0.6",
+      "to": "line:2-0.3"
+    },
+    {
+      "type": "tag",
+      "text": "£20",
+      "from": "line:2+0.4",
+      "to": "line:3-0.3"
+    },
+    {
+      "type": "tag",
+      "text": "£20",
+      "from": "line:3+0.4",
+      "to": "line:5-0.3"
+    }
+  ],
+  "post": {
+    "caption": "A little something, just for you 🤍\n\nAria in sheer mesh and floral lace, Pearl Blossom in pointelle cotton with tiny hand-sewn satin bows, and Amour, low-rise cotton with a vintage print.\n\nEvery pair sewn in our Southampton studio 🪡\n\nFrom £20 ✨",
+    "hashtags": "#handmadelingerie #lacelingerie #cottonlingerie #treatyourself #southampton #beautasy",
+    "kind": "product",
+    "cover": 3.5
+  }
+}

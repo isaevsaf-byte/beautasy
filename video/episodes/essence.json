@@ -1,0 +1,103 @@
+{
+  "id": "essence",
+  "title": "From the shop — Essence",
+  "lines": [
+    {
+      "text": "Morning! Meet Essence, everyday cotton."
+    },
+    {
+      "text": "The Essence soft bra: premium cotton jersey, no wires, no hardware."
+    },
+    {
+      "text": "Light to medium support, for lounging, sleeping or layering."
+    },
+    {
+      "text": "And Brazilian knickers from the same collection, with a double-layered front."
+    },
+    {
+      "text": "Bra £28, knickers £22.",
+      "say": "Bra twenty-eight pounds, knickers twenty-two."
+    },
+    {
+      "text": "Find them at beautasy.co.uk.",
+      "say": "Find them on the Beautasy website.",
+      "caption": false
+    }
+  ],
+  "scenes": [
+    {
+      "type": "wake",
+      "hook": "Essence"
+    },
+    {
+      "type": "phone",
+      "at": "line:1-0.3",
+      "pages": [
+        {
+          "src": "bea/site/essence-bra.jpg",
+          "at": "line:1-0.3",
+          "scroll": [
+            [
+              "line:1+0.4",
+              0
+            ],
+            [
+              "line:1:end",
+              300
+            ],
+            [
+              "line:2",
+              300
+            ],
+            [
+              "line:2:end",
+              760
+            ]
+          ]
+        },
+        {
+          "src": "bea/site/essence-brazilian.jpg",
+          "at": "line:3-0.2",
+          "scroll": [
+            [
+              "line:3+0.3",
+              0
+            ],
+            [
+              "line:3:end",
+              320
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "type": "end",
+      "at": "line:5-0.3",
+      "title": "Made by hand.",
+      "subtitle": "Essence · cotton jersey",
+      "url": "beautasy.co.uk",
+      "urlAt": "line:5+0.6"
+    }
+  ],
+  "overlays": [
+    {
+      "type": "tag",
+      "text": "£28",
+      "from": "line:1+0.8",
+      "to": "line:3-0.3"
+    },
+    {
+      "type": "tag",
+      "text": "£22",
+      "from": "line:3+0.4",
+      "to": "line:5-0.3"
+    }
+  ],
+  "post": {
+    "caption": "Everyday luxury, in its purest form ☁️\n\nThe Essence soft bra is premium cotton jersey: no wires, no hardware, just light to medium support for lounging, sleeping or layering.\n\nWith Brazilian knickers from the same collection 🤍\n\nLovingly handmade in our Southampton studio 🪡\n\nBra £28 · knickers £22",
+    "hashtags": "#cottonlingerie #softbra #handmadelingerie #comfortfirst #southampton #beautasy",
+    "kind": "product",
+    "cover": 3.5
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "id": "free-look",
+  "title": "Atelier promises — a free 10-minute look",
+  "lines": [
+    {
+      "text": "Morning! Not sure what your piece needs?"
+    },
+    {
+      "text": "Book a free 10-minute look with Kristina.",
+      "say": "Book a free ten-minute look with Kristina."
+    },
+    {
+      "text": "Just bring the piece you'd like her to look at."
+    },
+    {
+      "text": "You hear your price before anything is cut."
+    },
+    {
+      "text": "The shears stay closed until you say yes."
+    },
+    {
+      "text": "And saying no at a fitting costs nothing."
+    },
+    {
+      "text": "Choose a time on the Beautasy website.",
+      "caption": false
+    }
+  ],
+  "scenes": [
+    {
+      "type": "wake",
+      "hook": "Not sure? It's free."
+    },
+    {
+      "type": "print",
+      "at": "line:1-0.3",
+      "src": "bea/kristina-at-work.jpg",
+      "label": "Free 10-minute look",
+      "tilt": -1,
+      "zoomTo": 1.06,
+      "origin": "50% 55%"
+    },
+    {
+      "type": "phone",
+      "at": "line:2-0.3",
+      "pages": [
+        {
+          "src": "bea/site/atelier.jpg",
+          "at": "line:2-0.3",
+          "scroll": [
+            [
+              "line:2",
+              1150
+            ],
+            [
+              "line:2:end",
+              1250
+            ]
+          ]
+        },
+        {
+          "src": "bea/site/atelier-prices.jpg",
+          "at": "line:3-0.3",
+          "scroll": [
+            [
+              "line:3",
+              0
+            ],
+            [
+              "line:3+1",
+              320
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "type": "end",
+      "at": "line:6-0.3",
+      "title": "Made to fit.",
+      "subtitle": "Free 10-minute look · Southampton",
+      "url": "beautasy.co.uk/atelier",
+      "urlAt": "line:6+0.6"
+    }
+  ],
+  "overlays": [
+    {
+      "type": "chip",
+      "text": "Saying no costs nothing",
+      "from": "line:5",
+      "to": "line:6-0.3",
+      "x": 540,
+      "y": 1180,
+      "dark": true
+    }
+  ],
+  "post": {
+    "caption": "Not sure what your piece needs? 🪡\n\nBook a free 10-minute look and bring it along. I'll tell you what can be done, and you hear the price before anything is cut.\n\nThe shears stay closed until you say yes, and saying no at a fitting costs nothing ✨\n\nChoose a time at beautasy.co.uk 🤍",
+    "hashtags": "#alterations #seamstress #dressmaker #tailoring #southampton #beautasy",
+    "kind": "education",
+    "cover": 2.5
+  }
+}

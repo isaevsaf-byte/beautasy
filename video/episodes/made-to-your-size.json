@@ -1,0 +1,95 @@
+{
+  "id": "made-to-your-size",
+  "title": "From the shop — Made to your size",
+  "lines": [
+    {
+      "text": "Morning! Not quite your size?"
+    },
+    {
+      "text": "Some sizes are ready to ship in one to two days."
+    },
+    {
+      "text": "Any other size is made for you in three to five days."
+    },
+    {
+      "text": "Or, for £10 more, Kristina cuts it to your measurements, right here in Southampton.",
+      "say": "Or, for ten pounds more, Kristina cuts it to your measurements, right here in Southampton."
+    },
+    {
+      "text": "Made to fit.",
+      "caption": false
+    }
+  ],
+  "scenes": [
+    {
+      "type": "wake",
+      "hook": "Made to your size"
+    },
+    {
+      "type": "phone",
+      "at": "line:1-0.3",
+      "pages": [
+        {
+          "src": "bea/site/essence-bra.jpg",
+          "at": "line:1-0.3",
+          "scroll": [
+            [
+              "line:1",
+              0
+            ],
+            [
+              "line:1+1",
+              300
+            ],
+            [
+              "line:2",
+              1180
+            ],
+            [
+              "line:3",
+              1180
+            ],
+            [
+              "line:3+1.2",
+              1520
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "type": "end",
+      "at": "line:4-0.3",
+      "title": "Made to fit.",
+      "subtitle": "Ready to ship, or made for you",
+      "url": "beautasy.co.uk",
+      "urlAt": "line:4+0.4"
+    }
+  ],
+  "overlays": [
+    {
+      "type": "chip",
+      "text": "Made for you in 3–5 days",
+      "from": "line:2+0.3",
+      "to": "line:3-0.2",
+      "x": 540,
+      "y": 1180,
+      "dark": true
+    },
+    {
+      "type": "chip",
+      "text": "+£10 · cut to your measurements",
+      "from": "word:3:4",
+      "to": "line:4-0.3",
+      "x": 540,
+      "y": 1180,
+      "dark": true
+    }
+  ],
+  "post": {
+    "caption": "Not quite your size? That's the lovely thing about handmade 🪡\n\nSome sizes are ready to ship in 1–2 days, and any other size is made for you in 3–5 days.\n\nOr, for £10 more, I'll cut it to your own measurements, right here in our Southampton atelier ✨\n\nMade to fit 🤍",
+    "hashtags": "#madetomeasure #handmadelingerie #madetofit #slowfashion #southampton #beautasy",
+    "kind": "product",
+    "cover": 2.5
+  }
+}

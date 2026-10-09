@@ -77,7 +77,11 @@ await send("Page.navigate", { url: SITE + "/" });
 await sleep(4000);
 await evaluate(`localStorage.setItem("beautasy-cookie-consent", "denied"); true`);
 
-for (const path of paths) {
+// "/atelier@4800" shoots that page from 4800 css px down, for the parts of a
+// long page below the ~5,460 css px a single shot can hold at 3x
+for (const arg of paths) {
+  const [path, fromStr] = arg.split("@");
+  const fromY = Number(fromStr ?? 0);
   await send("Page.navigate", { url: SITE + path });
   await sleep(5000);
   // Walk down the page so lazy images load, then back to the top
@@ -105,13 +109,13 @@ for (const path of paths) {
     return true;
   })()`);
   await sleep(600);
-  const height = await evaluate(`Math.min(document.documentElement.scrollHeight, 6000)`);
+  const height = await evaluate(`Math.min(document.documentElement.scrollHeight - ${fromY}, 5400)`);
   const shot = await send("Page.captureScreenshot", {
     format: "png",
     captureBeyondViewport: true,
-    clip: { x: 0, y: 0, width: W, height, scale: 1 },
+    clip: { x: 0, y: fromY, width: W, height, scale: 1 },
   });
-  const name = path.replace(/^\/+|\/+$/g, "").replace(/[^a-z0-9]+/gi, "-") || "home";
+  const name = (path.replace(/^\/+|\/+$/g, "").replace(/[^a-z0-9]+/gi, "-") || "home") + (fromY ? `-from-${fromY}` : "");
   writeFileSync(join(outDir, `${name}.png`), Buffer.from(shot.data, "base64"));
   console.log(`${name}.png  ${W}x${height} css px`);
 }

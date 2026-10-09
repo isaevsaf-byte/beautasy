@@ -1,0 +1,94 @@
+{
+  "id": "silk-road",
+  "title": "From the shop — Silk Road",
+  "lines": [
+    {
+      "text": "Morning! This one has a story."
+    },
+    {
+      "text": "The Silk Road pouch is quilted from Uzbek ikat."
+    },
+    {
+      "text": "The fabric is hand-loomed, so no two patterns sit quite the same."
+    },
+    {
+      "text": "Size S fits lipstick, keys and AirPods."
+    },
+    {
+      "text": "Size M takes full-size skincare and brushes."
+    },
+    {
+      "text": "£22, finished by hand in Kristina's studio.",
+      "say": "Twenty-two pounds, finished by hand in Kristina's studio."
+    },
+    {
+      "text": "Find it at beautasy.co.uk.",
+      "say": "Find it on the Beautasy website.",
+      "caption": false
+    }
+  ],
+  "scenes": [
+    {
+      "type": "wake",
+      "hook": "Silk Road"
+    },
+    {
+      "type": "phone",
+      "at": "line:1-0.3",
+      "pages": [
+        {
+          "src": "bea/site/silk-road-pouch.jpg",
+          "at": "line:1-0.3",
+          "scroll": [
+            [
+              "line:1+0.4",
+              0
+            ],
+            [
+              "line:1:end",
+              300
+            ],
+            [
+              "line:2",
+              300
+            ],
+            [
+              "line:2:end",
+              640
+            ],
+            [
+              "line:3",
+              640
+            ],
+            [
+              "line:3+1.2",
+              1180
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "type": "end",
+      "at": "line:6-0.3",
+      "title": "Made by hand.",
+      "subtitle": "Silk Road pouch · £22",
+      "url": "beautasy.co.uk",
+      "urlAt": "line:6+0.6"
+    }
+  ],
+  "overlays": [
+    {
+      "type": "tag",
+      "text": "£22",
+      "from": "line:1+0.6",
+      "to": "line:6-0.3"
+    }
+  ],
+  "post": {
+    "caption": "Every Silk Road pouch is a little bit different 🪡\n\nIt's quilted from Uzbek ikat, a hand-loomed fabric, so no two patterns ever sit quite the same.\n\nSize S for lipstick, keys and AirPods, size M for your full-size skincare ✨\n\nFinished by hand in our Southampton studio · £22 🤍",
+    "hashtags": "#ikat #uzbekikat #cosmeticbag #handmade #giftideas #southampton #beautasy",
+    "kind": "product",
+    "cover": 3.5
+  }
+}

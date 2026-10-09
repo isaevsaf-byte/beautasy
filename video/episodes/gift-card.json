@@ -1,0 +1,83 @@
+{
+  "id": "gift-card",
+  "title": "From the shop — The easiest gift",
+  "lines": [
+    {
+      "text": "Morning! Can't decide what to give?"
+    },
+    {
+      "text": "A Beautasy gift card lets them pick the piece, and the fit."
+    },
+    {
+      "text": "£25, £50, £100, or any amount you like.",
+      "say": "Twenty-five, fifty, a hundred pounds, or any amount you like."
+    },
+    {
+      "text": "It arrives by email, on the day you choose."
+    },
+    {
+      "text": "And whatever isn't spent stays on it for next time."
+    },
+    {
+      "text": "The easiest gift.",
+      "caption": false
+    }
+  ],
+  "scenes": [
+    {
+      "type": "wake",
+      "hook": "The easiest gift"
+    },
+    {
+      "type": "phone",
+      "at": "line:1-0.3",
+      "pages": [
+        {
+          "src": "bea/site/gift-cards.jpg",
+          "at": "line:1-0.3",
+          "scroll": [
+            [
+              "line:1",
+              0
+            ],
+            [
+              "line:1:end",
+              120
+            ],
+            [
+              "line:2",
+              380
+            ],
+            [
+              "line:3",
+              380
+            ],
+            [
+              "line:3+0.8",
+              560
+            ],
+            [
+              "line:4",
+              900
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "type": "end",
+      "at": "line:5-0.3",
+      "title": "The easiest gift.",
+      "subtitle": "Beautasy gift cards",
+      "url": "beautasy.co.uk/gift-cards",
+      "urlAt": "line:5+0.5"
+    }
+  ],
+  "overlays": [],
+  "post": {
+    "caption": "Can't decide what to give? 🎁\n\nA Beautasy gift card lets them pick the piece, and the fit. £25, £50, £100, or any amount you like.\n\nIt arrives by email on the day you choose, and whatever isn't spent stays on it for next time ✨\n\nbeautasy.co.uk/gift-cards 🤍",
+    "hashtags": "#giftcard #christmasgifts #giftideas #handmade #southampton #beautasy",
+    "kind": "seasonal",
+    "cover": 2.5
+  }
+}

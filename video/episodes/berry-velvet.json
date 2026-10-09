@@ -1,0 +1,99 @@
+{
+  "id": "berry-velvet",
+  "title": "From the shop — Berry Velvet",
+  "lines": [
+    {
+      "text": "Morning! Something soft for your make-up bag."
+    },
+    {
+      "text": "Fine-wale corduroy, quilted in a diamond pattern."
+    },
+    {
+      "text": "In a rich deep berry, with soft padding to keep everything safe."
+    },
+    {
+      "text": "Hand-finished with a matching zip and a cotton lining."
+    },
+    {
+      "text": "£18, in two sizes.",
+      "say": "Eighteen pounds, in two sizes."
+    },
+    {
+      "text": "Find it at beautasy.co.uk.",
+      "say": "Find it on the Beautasy website.",
+      "caption": false
+    }
+  ],
+  "scenes": [
+    {
+      "type": "wake",
+      "hook": "Berry Velvet"
+    },
+    {
+      "type": "phone",
+      "at": "line:1-0.3",
+      "pages": [
+        {
+          "src": "bea/site/berry-velvet-pouch.jpg",
+          "at": "line:1-0.3",
+          "scroll": [
+            [
+              "line:1+0.4",
+              0
+            ],
+            [
+              "line:1:end",
+              0
+            ],
+            [
+              "line:2",
+              300
+            ],
+            [
+              "line:2:end",
+              660
+            ],
+            [
+              "line:3",
+              660
+            ],
+            [
+              "line:3:end",
+              1000
+            ],
+            [
+              "line:4",
+              1000
+            ],
+            [
+              "line:4:end",
+              1400
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "type": "end",
+      "at": "line:5-0.3",
+      "title": "Made by hand.",
+      "subtitle": "Berry Velvet pouch · £18",
+      "url": "beautasy.co.uk",
+      "urlAt": "line:5+0.6"
+    }
+  ],
+  "overlays": [
+    {
+      "type": "tag",
+      "text": "£18",
+      "from": "line:2",
+      "to": "line:5-0.3"
+    }
+  ],
+  "post": {
+    "caption": "Something soft for your make-up bag ✨\n\nFine-wale corduroy, quilted in a diamond pattern, in a rich deep berry. Lightly padded to keep everything safe, with a matching zip and a soft cotton lining.\n\nHand-finished in our Southampton studio 🪡\n\nIn two sizes · £18 🤍",
+    "hashtags": "#corduroy #cosmeticbag #makeupbag #handmade #giftideas #southampton #beautasy",
+    "kind": "product",
+    "cover": 3.5
+  }
+}
