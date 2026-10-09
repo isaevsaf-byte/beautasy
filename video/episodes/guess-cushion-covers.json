@@ -8,7 +8,7 @@
     { "text": "and turned the off-cut into two matching cushion covers." },
     { "text": "So what does a cover like this cost? Comment your guess!" },
     { "text": "From £25.", "say": "From twenty-five pounds.", "pause": 3 },
-    { "text": "Made to measure, so it matches the curtains perfectly.", "pause": 0.6 },
+    { "text": "Cut from the same fabric, so they match the curtains perfectly.", "pause": 0.6 },
     { "text": "Did you guess right?", "caption": false },
     { "text": "Choose a time on the Beautasy website.", "caption": false }
   ],
@@ -90,6 +90,6 @@
     "caption": "Guess the price 👀🪡\n\nThese cushion covers started life as a pair of curtains. They were far too long, so I took them up, and the piece I cut off became two matching cushion covers.\n\nNothing wasted, and they match the curtains perfectly 🤍\n\nPop your guess in the comments before the answer! Made-to-measure cushion covers start from £25 ✨",
     "hashtags": "#guesstheprice #cushioncovers #curtains #nothingwasted #alterations #seamstress #southampton #beautasy",
     "kind": "before-after",
-    "cover": 18.1
+    "cover": 18.9
   }
 }
