@@ -38,6 +38,9 @@ const episode = JSON.parse(readFileSync(episodePath, "utf8"));
 if (episode.id !== id) throw new Error(`episodes/${id}.json says its id is "${episode.id}"`);
 const voiceDir = join(ROOT, "public", "bea", "episodes", id);
 const timingPath = join(voiceDir, "timing.json");
+// Lily's take as recorded; voice.mp3 and timing.json are this with the pauses cut in
+const takePath = join(voiceDir, "take.mp3");
+const takeTimingPath = join(voiceDir, "take.json");
 const out = (name) => join(ROOT, "out", name);
 const run = (bin, args) => execFileSync(bin, args, { cwd: ROOT, stdio: ["ignore", "inherit", "inherit"] });
 
@@ -81,14 +84,79 @@ async function voice() {
     return { start: words[0].start, end: words[words.length - 1].end, words };
   });
   mkdirSync(voiceDir, { recursive: true });
-  writeFileSync(join(voiceDir, "voice.mp3"), Buffer.from(data.audio_base64, "base64"));
+  writeFileSync(takePath, Buffer.from(data.audio_base64, "base64"));
   const timing = { duration: ends[ends.length - 1], lines };
-  writeFileSync(timingPath, JSON.stringify(timing, null, 1));
+  writeFileSync(takeTimingPath, JSON.stringify(timing, null, 1));
   console.log(`voice: ${timing.duration.toFixed(2)} s, ${lines.length} lines, ${text.length} characters`);
   lines.forEach((l, i) => console.log(`  ${i}  ${l.start.toFixed(2)}–${l.end.toFixed(2)}  ${said[i]}`));
+  pace();
+}
+
+// Cut each line's pause into the take as silence, halfway between it and the
+// line before, and move every later word by as much. Runs before every render,
+// so a pause can be changed in the episode file without recording again.
+// Episodes recorded before takes were kept have only voice.mp3: left as they are.
+function pace() {
+  if (!existsSync(takeTimingPath)) return;
+  const take = JSON.parse(readFileSync(takeTimingPath, "utf8"));
+  const cuts = episode.lines
+    .map((l, i) => (l.pause > 0 && i > 0 ? { at: (take.lines[i - 1].end + take.lines[i].start) / 2, pause: l.pause } : null))
+    .filter(Boolean);
+  const shift = (t) => t + cuts.filter((c) => c.at <= t).reduce((sum, c) => sum + c.pause, 0);
+  const timing = {
+    duration: shift(take.duration),
+    lines: take.lines.map((l) => ({
+      start: shift(l.start),
+      end: shift(l.end),
+      words: l.words.map((w) => ({ ...w, start: shift(w.start), end: shift(w.end) })),
+    })),
+  };
+  const voicePath = join(voiceDir, "voice.mp3");
+  if (!cuts.length) {
+    run("ffmpeg", ["-v", "error", "-y", "-i", takePath, "-c", "copy", voicePath]);
+  } else {
+    const bounds = [0, ...cuts.map((c) => c.at)];
+    const parts = [];
+    const graph = [];
+    bounds.forEach((from, k) => {
+      const to = bounds[k + 1];
+      graph.push(`[0]atrim=start=${from}${to !== undefined ? `:end=${to}` : ""},asetpts=PTS-STARTPTS,aformat=sample_rates=44100:channel_layouts=mono[s${k}]`);
+      parts.push(`[s${k}]`);
+      if (to !== undefined) {
+        graph.push(`anullsrc=r=44100:cl=mono,atrim=duration=${cuts[k].pause}[z${k}]`);
+        parts.push(`[z${k}]`);
+      }
+    });
+    graph.push(`${parts.join("")}concat=n=${parts.length}:v=0:a=1[out]`);
+    run("ffmpeg", ["-v", "error", "-y", "-i", takePath, "-filter_complex", graph.join(";"), "-map", "[out]", "-c:a", "libmp3lame", "-b:a", "192k", voicePath]);
+  }
+  writeFileSync(timingPath, JSON.stringify(timing, null, 1));
+  if (cuts.length) console.log(`pace: ${cuts.map((c) => `${c.pause} s at ${c.at.toFixed(2)}`).join(", ")} → ${timing.duration.toFixed(2)} s`);
+}
+
+// The countdown's tick and the answer's bell, made once with ElevenLabs sound effects
+async function sfx() {
+  if (!episode.scenes.some((s) => s.type === "guess")) return;
+  const sounds = {
+    "sfx-tick.mp3": "a single soft wooden clock tick, close and dry, no reverb",
+    "sfx-ding.mp3": "one bright small brass shop bell ding with a light sparkle, short and cheerful",
+  };
+  for (const [name, text] of Object.entries(sounds)) {
+    const path = join(ROOT, "public", "bea", name);
+    if (existsSync(path)) continue;
+    const res = await fetch("https://api.elevenlabs.io/v1/sound-generation", {
+      method: "POST",
+      headers: { "xi-api-key": env.ELEVENLABS_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ text, duration_seconds: name === "sfx-tick.mp3" ? 0.5 : 1.5, prompt_influence: 0.6 }),
+    });
+    if (!res.ok) throw new Error(`ElevenLabs sound ${name}: ${res.status} ${await res.text()}`);
+    writeFileSync(path, Buffer.from(await res.arrayBuffer()));
+    console.log(`sfx: public/bea/${name}`);
+  }
 }
 
 function propsFile() {
+  pace();
   if (!existsSync(timingPath)) throw new Error(`no voice yet: run "node scripts/bea.mjs voice ${id}"`);
   const timing = JSON.parse(readFileSync(timingPath, "utf8"));
   const path = out(`${id}.props.json`);
@@ -165,10 +233,16 @@ async function studio() {
 }
 
 if (cmd === "voice") await voice();
-else if (cmd === "render") render();
-else if (cmd === "stills") stills();
+else if (cmd === "render") {
+  await sfx();
+  render();
+} else if (cmd === "stills") {
+  await sfx();
+  stills();
+}
 else if (cmd === "studio") await studio();
 else if (cmd === "make") {
-  if (!existsSync(timingPath)) await voice();
+  if (!existsSync(timingPath) && !existsSync(takeTimingPath)) await voice();
+  await sfx();
   render();
 } else throw new Error(`unknown command "${cmd}"`);

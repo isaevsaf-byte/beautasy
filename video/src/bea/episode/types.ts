@@ -23,6 +23,8 @@ export type Line = {
   say?: string;
   /** false: said, but no caption (an end card already shows it) */
   caption?: boolean;
+  /** Seconds of silence before this line, cut into Bea's take — the beat before an answer */
+  pause?: number;
 };
 
 export type Page = {
@@ -45,7 +47,40 @@ export type Scene =
       zoomTo?: number;
       origin?: string;
     }
-  | { type: "split"; at: Anchor; before: string; after: string }
+  | {
+      /**
+       * Guess the price: the piece on a print with a price tag that says "£ ?",
+       * a countdown from `countAt` and the tag turning over to the answer at
+       * `answerAt`. Give the line before the answer a `pause` so the
+       * countdown runs in silence.
+       */
+      type: "guess";
+      at: Anchor;
+      src: string;
+      label?: string;
+      zoomTo?: number;
+      origin?: string;
+      /** Under the countdown while it runs */
+      ask?: string;
+      countAt: Anchor;
+      answerAt: Anchor;
+      /** What the tag says once it turns: "From £25" */
+      answer: string;
+      /** A chip under the tag after the answer: "Made to measure · per cover" */
+      note?: string;
+      /** Numbers in the countdown; default 3 */
+      count?: number;
+    }
+  | {
+      /** Before and after side by side; `after` arrives at afterAt (default with the scene) */
+      type: "split";
+      at: Anchor;
+      before: string;
+      after: string;
+      beforeLabel?: string;
+      afterLabel?: string;
+      afterAt?: Anchor;
+    }
   | { type: "phone"; at: Anchor; pages: Page[] }
   | {
       type: "end";

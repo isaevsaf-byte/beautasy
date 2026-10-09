@@ -1,0 +1,95 @@
+{
+  "id": "guess-cushion-covers",
+  "title": "Guess the price — the cushion covers that used to be curtains",
+  "lines": [
+    { "text": "Guess what these cushion covers cost." },
+    { "text": "Here's the twist: they started life as curtains." },
+    { "text": "Far too long, so Kristina took them up," },
+    { "text": "and turned the off-cut into two matching cushion covers." },
+    { "text": "So what does a cover like this cost? Comment your guess!" },
+    { "text": "From £25.", "say": "From twenty-five pounds.", "pause": 3 },
+    { "text": "Made to measure, so it matches the curtains perfectly.", "pause": 0.6 },
+    { "text": "Did you guess right?", "caption": false },
+    { "text": "Choose a time on the Beautasy website.", "caption": false }
+  ],
+  "scenes": [
+    { "type": "wake", "hook": "Guess the price." },
+    {
+      "type": "print",
+      "at": "line:0+0.6",
+      "src": "bea/work/cc-flat.jpg",
+      "label": "Guess the price",
+      "tilt": -1,
+      "zoomTo": 1.06,
+      "origin": "70% 62%"
+    },
+    {
+      "type": "print",
+      "at": "word:1:3-0.15",
+      "src": "bea/work/cc-before.jpg",
+      "label": "Before",
+      "tilt": 1,
+      "zoomTo": 1.08,
+      "origin": "50% 50%"
+    },
+    {
+      "type": "print",
+      "at": "line:2-0.2",
+      "src": "bea/work/cc-cutting.jpg",
+      "label": "Taken up",
+      "tilt": -1.2,
+      "zoomTo": 1.1,
+      "origin": "60% 60%"
+    },
+    {
+      "type": "print",
+      "at": "line:3-0.2",
+      "src": "bea/work/cc-stacks.jpg",
+      "label": "Nothing wasted",
+      "tilt": 1,
+      "zoomTo": 1.06,
+      "origin": "50% 55%"
+    },
+    {
+      "type": "guess",
+      "at": "line:4-0.2",
+      "src": "bea/work/cc-flat.jpg",
+      "label": "Cushion covers",
+      "zoomTo": 1.6,
+      "origin": "85% 72%",
+      "ask": "Comment your guess ↓",
+      "countAt": "line:4:end+0.1",
+      "answerAt": "line:5-0.05",
+      "answer": "From £25",
+      "note": "Made to measure · per cover"
+    },
+    {
+      "type": "split",
+      "at": "line:6-0.2",
+      "before": "bea/work/cc-before.jpg",
+      "after": "bea/work/cc-flat.jpg",
+      "beforeLabel": "Curtains",
+      "afterLabel": "+ 2 covers",
+      "afterAt": "line:6+0.4"
+    },
+    {
+      "type": "end",
+      "at": "line:7-0.2",
+      "lead": "Did you guess right?",
+      "title": "Made to fit.",
+      "subtitle": "Cushion covers from £25",
+      "url": "beautasy.co.uk/atelier",
+      "urlAt": "line:8+0.6"
+    }
+  ],
+  "overlays": [
+    { "type": "chip", "text": "2 cushion covers", "from": "word:0:3", "to": "word:1:3-0.2", "x": 722, "y": 940, "dark": true },
+    { "type": "chip", "text": "Plot twist", "from": "line:1", "to": "line:1:end+0.3", "x": 540, "y": 1250, "dark": true }
+  ],
+  "post": {
+    "caption": "Guess the price 👀🪡\n\nThese cushion covers started life as a pair of curtains. They were far too long, so I took them up, and the piece I cut off became two matching cushion covers.\n\nNothing wasted, and they match the curtains perfectly 🤍\n\nPop your guess in the comments before the answer! Made-to-measure cushion covers start from £25 ✨",
+    "hashtags": "#guesstheprice #cushioncovers #curtains #nothingwasted #alterations #seamstress #southampton #beautasy",
+    "kind": "before-after",
+    "cover": 18.1
+  }
+}

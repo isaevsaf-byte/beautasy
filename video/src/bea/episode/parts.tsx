@@ -286,3 +286,226 @@ export const EndCard: React.FC<{
     </AbsoluteFill>
   );
 };
+
+/** A photo on a print card, pinned; used by the guess and the split */
+const Card: React.FC<{
+  src: string;
+  label?: string;
+  left: number;
+  top: number;
+  w: number;
+  h: number;
+  tilt: number;
+  scale?: number;
+  origin?: string;
+  labelK: number;
+  enter?: number;
+  /** The label along the bottom edge, clear of Bea's brooch in the top corner */
+  labelBottom?: boolean;
+}> = ({ src, label, left, top, w, h, tilt, scale = 1, origin = "50% 50%", labelK, enter = 1, labelBottom }) => (
+  <div
+    style={{
+      position: "absolute",
+      left,
+      top,
+      width: w,
+      height: h,
+      padding: 14,
+      background: "#FFFFFF",
+      boxShadow: "0 28px 64px rgba(70,40,60,0.27), 0 4px 12px rgba(70,40,60,0.12)",
+      transform: `translateY(${(1 - enter) * 60}px) rotate(${tilt}deg)`,
+      opacity: enter,
+    }}
+  >
+    <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
+      <Img src={staticFile(src)} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})`, transformOrigin: origin }} />
+      {label && (
+        <div style={{ position: "absolute", left: 0, right: 0, ...(labelBottom ? { bottom: 20 } : { top: 20 }), display: "flex", justifyContent: "center", opacity: labelK }}>
+          <div
+            style={{
+              fontFamily: sans,
+              fontWeight: 500,
+              fontSize: 30,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: PLUM,
+              background: "rgba(253,251,247,0.94)",
+              padding: "12px 24px",
+              borderRadius: 999,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label}
+          </div>
+        </div>
+      )}
+    </div>
+    <PinMark left={w / 2 - 35} top={-40} />
+  </div>
+);
+
+/**
+ * Guess the price. Frames are counted from the scene's start: the countdown
+ * runs from `countFrom` to `answerAt`, then the tag turns over to the answer
+ * with a burst of gold stitches.
+ */
+export const GuessCard: React.FC<{
+  src: string;
+  label?: string;
+  zoomTo: number;
+  origin: string;
+  ask?: string;
+  answer: string;
+  note?: string;
+  countFrom: number;
+  answerAt: number;
+  count: number;
+  frames: number;
+}> = ({ src, label, zoomTo, origin, ask, answer, note, countFrom, answerAt, count, frames }) => {
+  const f = useCurrentFrame();
+  const zoom = interpolate(f, [0, Math.min(frames, answerAt)], [1, zoomTo], { ...clamp, easing: Easing.inOut(Easing.quad) });
+
+  // The tag swings on its string, turns edge-on just before the answer and comes back showing it
+  const turn = interpolate(f, [answerAt - 6, answerAt, answerAt + 10], [0, 90, 0], clamp);
+  const shown = f >= answerAt;
+  const pop = shown ? interpolate(f, [answerAt, answerAt + 6, answerAt + 16], [1, 1.18, 1], clamp) : 1;
+  const swing = (shown ? 2.5 : 5) * Math.sin(f / 9) * interpolate(f, [answerAt, answerAt + 30], [1, 0.4], clamp);
+  const tagIn = interpolate(f, [8, 22], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.5)) });
+  const wobble = shown ? 1 : 0.55 + 0.45 * Math.abs(Math.sin(f / 6));
+
+  // Countdown: a gold ring running down, one number per beat
+  const span = Math.max(1, answerAt - countFrom);
+  const ringK = Math.min(
+    interpolate(f, [countFrom - 6, countFrom + 6], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.6)) }),
+    interpolate(f, [answerAt - 4, answerAt + 4], [1, 0], clamp),
+  );
+  const left = interpolate(f, [countFrom, answerAt], [1, 0], clamp);
+  const beat = Math.min(count - 1, Math.max(0, Math.floor(((f - countFrom) / span) * count)));
+  const beatStart = countFrom + (beat * span) / count;
+  const numberPop = interpolate(f, [beatStart, beatStart + 7], [1.35, 1], { ...clamp, easing: ease });
+  const R = 108;
+  const C = 2 * Math.PI * R;
+
+  const burst = interpolate(f, [answerAt, answerAt + 22], [0, 1], { ...clamp, easing: ease });
+  const noteK = interpolate(f, [answerAt + 14, answerAt + 26], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.5)) });
+  const TAG = { x: 340, y: 1010 };
+
+  return (
+    <AbsoluteFill style={{ background: BOARD }}>
+      <Card src={src} label={label} left={150} top={170} w={780} h={1000} tilt={-1.2} scale={zoom} origin={origin} labelK={interpolate(f, [10, 20], [0, 1], clamp)} />
+
+      {/* Gold stitches flying out of the tag as it turns */}
+      {burst > 0 && burst < 1 &&
+        Array.from({ length: 14 }, (_, i) => {
+          const a = (i / 14) * Math.PI * 2;
+          const r0 = 120 + 260 * burst;
+          return (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                left: TAG.x + Math.cos(a) * r0 - 22,
+                top: TAG.y + Math.sin(a) * r0 * 0.8 - 3,
+                width: 44,
+                height: 6,
+                borderRadius: 3,
+                background: GOLD,
+                transform: `rotate(${a}rad)`,
+                opacity: 1 - burst,
+                boxShadow: "0 0 12px rgba(233,209,143,0.9)",
+              }}
+            />
+          );
+        })}
+
+      {/* The swing tag */}
+      <div
+        style={{
+          position: "absolute",
+          left: TAG.x,
+          top: TAG.y,
+          transform: `translate(-50%, -50%) rotate(${-6 + swing}deg) rotateY(${turn}deg) scale(${tagIn * pop})`,
+          transformOrigin: "50% 0%",
+          opacity: tagIn,
+        }}
+      >
+        <div
+          style={{
+            position: "relative",
+            minWidth: 300,
+            padding: "40px 46px 30px",
+            background: PLUM,
+            border: `4px solid ${GOLD}`,
+            borderRadius: "26px 26px 26px 26px",
+            boxShadow: "0 22px 50px rgba(60,30,60,0.38)",
+            textAlign: "center",
+            color: CREAM,
+            fontFamily: serifItalic,
+            fontSize: shown ? 92 : 110,
+            lineHeight: 1,
+            whiteSpace: "nowrap",
+          }}
+        >
+          <div style={{ position: "absolute", left: "50%", top: 12, width: 20, height: 20, marginLeft: -10, borderRadius: "50%", background: CREAM, border: `3px solid ${GOLD}` }} />
+          {shown ? answer : <span>£ <span style={{ opacity: wobble }}>?</span></span>}
+        </div>
+      </div>
+
+      {/* Countdown */}
+      {ringK > 0 && (
+        <div style={{ position: "absolute", left: 540 - 130, top: 1290 - 130, width: 260, height: 260, transform: `scale(${ringK})`, opacity: ringK }}>
+          <svg width={260} height={260} viewBox="0 0 260 260" style={{ position: "absolute", inset: 0 }}>
+            <circle cx={130} cy={130} r={R + 14} fill="rgba(253,251,247,0.96)" />
+            <circle cx={130} cy={130} r={R} fill="none" stroke="rgba(233,209,143,0.3)" strokeWidth={14} />
+            <circle
+              cx={130}
+              cy={130}
+              r={R}
+              fill="none"
+              stroke={GOLD}
+              strokeWidth={14}
+              strokeLinecap="round"
+              strokeDasharray={`${C * left} ${C}`}
+              transform="rotate(-90 130 130)"
+            />
+          </svg>
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: serifItalic,
+              fontSize: 140,
+              color: PLUM,
+              transform: `scale(${numberPop})`,
+            }}
+          >
+            {count - beat}
+          </div>
+        </div>
+      )}
+      {ask && ringK > 0 && <Chip text={ask} x={540} y={1490} k={ringK} dark />}
+      {note && noteK > 0 && <Chip text={note} x={540} y={1290} k={noteK} />}
+    </AbsoluteFill>
+  );
+};
+
+/** Before and after, side by side; frames from the scene's start */
+export const SplitPrints: React.FC<{ before: string; after: string; beforeLabel: string; afterLabel: string; afterFrom: number }> = ({
+  before,
+  after,
+  beforeLabel,
+  afterLabel,
+  afterFrom,
+}) => {
+  const f = useCurrentFrame();
+  const afterIn = interpolate(f, [afterFrom, afterFrom + 14], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.3)) });
+  return (
+    <AbsoluteFill style={{ background: BOARD }}>
+      <Card src={before} label={beforeLabel} left={55} top={250} w={470} h={940} tilt={-1.5} labelK={interpolate(f, [8, 18], [0, 1], clamp)} labelBottom />
+      <Card src={after} label={afterLabel} left={555} top={250} w={470} h={940} tilt={1.5} labelK={interpolate(f, [afterFrom + 8, afterFrom + 18], [0, 1], clamp)} enter={afterIn} labelBottom />
+    </AbsoluteFill>
+  );
+};

@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, Audio, CalculateMetadataFunction, OffthreadVideo, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { CREAM, Caption, PLUM, Sewn, ease, serifItalic } from "../BeaReel";
 import { AwakeCameo, Print } from "../BeaCurtains";
-import { BOX, Chip, EndCard, Phone, PhonePage, QuestionCard, Rule, Tag, Tape, clamp, popIn } from "./parts";
+import { BOX, Chip, EndCard, GuessCard, Phone, PhonePage, QuestionCard, Rule, SplitPrints, Tag, Tape, clamp, popIn } from "./parts";
 import { frameOf, totalFrames, VOICE_AT } from "./timing";
 import type { EpisodeProps, Scene } from "./types";
 
@@ -41,13 +41,19 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
     .filter((c) => c.show);
 
   const voiceEnd = VOICE_AT + Math.round(timing.duration * 30);
+  // Where Bea holds her breath (a line with a pause): the music comes up under the silence
+  const hushes = episode.lines
+    .map((l, i) => (l.pause && i > 0 ? [at(`line:${i - 1}:end`) + 4, at(`line:${i}`) - 4] : null))
+    .filter((w): w is number[] => w !== null && w[1] - w[0] > 16);
   const music = (f: number) => {
     const fadeIn = interpolate(f, [0, 10], [0, 1], { extrapolateRight: "clamp" });
     const fadeOut = interpolate(f, [total - 36, total - 2], [1, 0], clamp);
-    return (f >= VOICE_AT - 4 && f <= voiceEnd + 6 ? 0.13 : 0.3) * fadeIn * fadeOut;
+    const hush = Math.max(0, ...hushes.map(([a, b]) => Math.min(interpolate(f, [a, a + 10], [0, 1], clamp), interpolate(f, [b - 8, b], [1, 0], clamp))));
+    const base = f >= VOICE_AT - 4 && f <= voiceEnd + 6 ? 0.13 + 0.12 * hush : 0.3;
+    return base * fadeIn * fadeOut;
   };
   const hook = interpolate(frame, [0, 8], [0.35, 1], { ...clamp, easing: ease });
-  const captionTop = current === "wake" ? 1440 : current === "phone" ? 1390 : 1420;
+  const captionTop = current === "wake" || current === "guess" ? 1440 : current === "phone" ? 1390 : 1420;
 
   const sceneBody = (scene: Scene, start: number) => {
     switch (scene.type) {
@@ -98,8 +104,32 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
           />
         );
       }
+      case "guess":
+        return (
+          <GuessCard
+            src={scene.src}
+            label={scene.label}
+            zoomTo={scene.zoomTo ?? 1.12}
+            origin={scene.origin ?? "50% 50%"}
+            ask={scene.ask}
+            answer={scene.answer}
+            note={scene.note}
+            countFrom={at(scene.countAt) - start}
+            answerAt={at(scene.answerAt) - start}
+            count={scene.count ?? 3}
+            frames={Math.max(1, (scenes.find((s) => s.start > start)?.start ?? total) - start)}
+          />
+        );
       case "split":
-        return null; // not used yet; Made to fit keeps its own composition until it is
+        return (
+          <SplitPrints
+            before={scene.before}
+            after={scene.after}
+            beforeLabel={scene.beforeLabel ?? "Before"}
+            afterLabel={scene.afterLabel ?? "After"}
+            afterFrom={scene.afterAt !== undefined ? at(scene.afterAt) - start : 0}
+          />
+        );
       default:
         return null;
     }
@@ -111,6 +141,24 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
       <Sequence from={VOICE_AT} layout="none">
         <Audio src={staticFile(`bea/episodes/${episode.id}/voice.mp3`)} />
       </Sequence>
+
+      {/* A tick for every number of a countdown, a bell for the answer */}
+      {scenes.flatMap(({ scene }, i) => {
+        if (scene.type !== "guess") return [];
+        const from = at(scene.countAt);
+        const answer = at(scene.answerAt);
+        const n = scene.count ?? 3;
+        return [
+          ...Array.from({ length: n }, (_, k) => (
+            <Sequence key={`tick${i}-${k}`} from={Math.round(from + (k * (answer - from)) / n)} durationInFrames={20} layout="none">
+              <Audio src={staticFile("bea/sfx-tick.mp3")} volume={0.55} />
+            </Sequence>
+          )),
+          <Sequence key={`ding${i}`} from={answer - 1} layout="none">
+            <Audio src={staticFile("bea/sfx-ding.mp3")} volume={0.6} />
+          </Sequence>,
+        ];
+      })}
 
       {/* Bea wakes up */}
       {frame < firstCut + WIPE && (
