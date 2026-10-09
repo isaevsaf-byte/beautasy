@@ -28,7 +28,7 @@ export const K = {
 };
 
 const LINES: [number, number, string][] = [
-  [0.0, 3.75, "Morning! I'm Bea. Let me introduce my boss."],
+  [0.86, 3.75, "I'm Bea. Let me introduce my boss."],
   [4.08, 5.16, "This is Kristina."],
   [5.31, 7.8, "She alters, mends and makes clothes by hand,"],
   [7.92, 10.19, "in her quiet workroom in Southampton."],
@@ -63,8 +63,9 @@ export const BeaKristina: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: CREAM }}>
       <Audio src={staticFile("bea/music.mp3")} volume={music} />
-      <Sequence from={K.voice} layout="none">
-        <Audio src={staticFile("bea/voice-kristina.mp3")} trimAfter={Math.round(CUT * 30)} />
+      {/* Bea's take opens with "Morning!", which is cut so a film can go out at any hour */}
+      <Sequence from={K.voice + 24} layout="none">
+        <Audio src={staticFile("bea/voice-kristina.mp3")} trimBefore={24} trimAfter={Math.round(CUT * 30)} />
       </Sequence>
       <Sequence from={KRISTINA_SAYS} layout="none">
         <Audio src={staticFile("bea/voice-kristina-real.mp3")} volume={0.85} />

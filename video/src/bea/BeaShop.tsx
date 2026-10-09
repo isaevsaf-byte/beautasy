@@ -22,7 +22,7 @@ export const S = {
 };
 
 const LINES: [number, number, string][] = [
-  [0.0, 2.58, "Morning! Come and see Kristina's shop."],
+  [0.99, 2.58, "Come and see Kristina's shop."],
   [2.86, 6.47, "Mulberry silk scrunchies, with a full metre of silk in every one."],
   [6.79, 8.81, "A silk sleep mask, to match."],
   [9.25, 11.94, "And a quilted pouch in real Uzbek ikat,"],
@@ -160,8 +160,9 @@ export const BeaShop: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: CREAM }}>
       <Audio src={staticFile("bea/music.mp3")} volume={music} />
-      <Sequence from={S.voice} layout="none">
-        <Audio src={staticFile("bea/voice-shop.mp3")} />
+      {/* Bea's take opens with "Morning!", which is cut so a film can go out at any hour */}
+      <Sequence from={S.voice + 25} layout="none">
+        <Audio src={staticFile("bea/voice-shop.mp3")} trimBefore={25} />
       </Sequence>
 
       {/* 1 — Bea wakes up */}

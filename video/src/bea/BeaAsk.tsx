@@ -24,7 +24,7 @@ export const Q = {
 };
 
 const LINES: [number, number, string][] = [
-  [0.0, 2.82, "Morning! Here's this week's question for Kristina."],
+  [0.89, 2.82, "Here's this week's question for Kristina."],
   [3.42, 5.04, "How do I measure my curtains?"],
   [5.36, 8.21, "Kristina says: measure from the top of the pole,"],
   [8.45, 10.04, "down to where you want the hem."],
@@ -209,8 +209,9 @@ export const BeaAsk: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: CREAM }}>
       <Audio src={staticFile("bea/music.mp3")} volume={music} />
-      <Sequence from={Q.voice} layout="none">
-        <Audio src={staticFile("bea/voice-ask-curtains.mp3")} />
+      {/* Bea's take opens with "Morning!", which is cut so a film can go out at any hour */}
+      <Sequence from={Q.voice + 24} layout="none">
+        <Audio src={staticFile("bea/voice-ask-curtains.mp3")} trimBefore={24} />
       </Sequence>
 
       {/* 1 — Bea wakes up */}

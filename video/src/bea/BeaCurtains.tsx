@@ -37,7 +37,7 @@ export const C = {
 
 /** Phrases with Lily's own word timings (ElevenLabs with-timestamps), seconds from the start of her take. */
 const LINES: [number, number, string][] = [
-  [0.0, 2.66, "Morning! I'm Bea, Kristina's assistant."],
+  [0.81, 2.66, "I'm Bea, Kristina's assistant."],
   [2.81, 4.9, "These curtains were puddling on the floor."],
   [5.11, 7.94, "Kristina measured them, took them up, and rehung them…"],
   [8.32, 10.28, "…and now they just kiss the floor."],
@@ -297,8 +297,9 @@ export const BeaCurtains: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: CREAM }}>
       <Audio src={staticFile("bea/music.mp3")} volume={music} />
-      <Sequence from={C.voice} layout="none">
-        <Audio src={staticFile("bea/voice-curtains.mp3")} />
+      {/* Bea's take opens with "Morning!", which is cut so a film can go out at any hour */}
+      <Sequence from={C.voice + 22} layout="none">
+        <Audio src={staticFile("bea/voice-curtains.mp3")} trimBefore={22} />
       </Sequence>
 
       {/* 1 — Bea wakes up */}
