@@ -452,6 +452,18 @@ export interface ReelStart {
 }
 
 /**
+ * The "AI info" label, as Instagram takes it when a container is created.
+ *
+ * Instagram asks for it on posts with a realistic AI-made voice or picture —
+ * every Reel with Bea's voice — and only accepts it at this moment: a post
+ * that went out without it cannot be labelled afterwards through the API.
+ * Sent only when the post says so, never as an explicit "false".
+ */
+export function aiDisclosure(aiGenerated: boolean | undefined): { is_ai_generated?: "true" } {
+  return aiGenerated === true ? { is_ai_generated: "true" } : {};
+}
+
+/**
  * Begins a Reel, and finishes it only if Instagram is quick about it.
  *
  * Video is the one thing here that does not fit inside a request. Instagram
@@ -468,7 +480,8 @@ export async function startReel(
   videoUrl: string,
   caption: string,
   coverUrl?: string,
-  budgetMs = 35_000
+  budgetMs = 35_000,
+  aiGenerated = false
 ): Promise<ReelStart> {
   const creds = credentials();
   if (!creds) return { ok: false, skipped: "not-configured", error: "Instagram is not connected" };
@@ -484,6 +497,7 @@ export async function startReel(
     // already follow the shop never see it in their feed.
     share_to_feed: "true",
     ...(coverUrl ? { cover_url: coverUrl } : {}),
+    ...aiDisclosure(aiGenerated),
     access_token: creds.token,
   });
   if (!container.ok) return { ok: false, error: container.error };
@@ -538,7 +552,8 @@ export async function finishReel(creationId: string): Promise<PublishResult> {
  */
 export async function publishToInstagram(
   imageUrl: string,
-  caption: string
+  caption: string,
+  aiGenerated = false
 ): Promise<PublishResult> {
   const creds = credentials();
   if (!creds) return { ok: false, skipped: "not-configured", error: "Instagram is not connected" };
@@ -549,6 +564,7 @@ export async function publishToInstagram(
   const container = await graphPost(account.base, `${account.id}/media`, {
     image_url: imageUrl,
     caption,
+    ...aiDisclosure(aiGenerated),
     access_token: creds.token,
   });
   if (!container.ok) return { ok: false, error: container.error };

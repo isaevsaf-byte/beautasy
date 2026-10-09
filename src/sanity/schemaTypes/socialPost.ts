@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity";
+import { VideoPreviewInput } from "../VideoPreviewInput";
 
 /**
  * A post waiting to go out.
@@ -61,7 +62,8 @@ export const socialPost = defineType({
       type: "file",
       options: { accept: "video/mp4" },
       description:
-        "MP4, вертикальное (9:16), от 3 секунд до 15 минут, меньше 300 МБ. Ролик из папки video/ собирается ровно таким.",
+        "MP4, вертикальное (9:16), от 3 секунд до 15 минут, меньше 300 МБ. Ролик из папки video/ собирается ровно таким. Посмотреть его можно прямо здесь, в плеере ниже.",
+      components: { input: VideoPreviewInput },
       hidden: ({ parent }) => parent?.format !== "reel",
       validation: (Rule) =>
         Rule.custom((value, context) => {
@@ -69,6 +71,14 @@ export const socialPost = defineType({
           if (parent?.format === "reel" && !value) return "Для Reels нужно видео.";
           return true;
         }),
+    }),
+    defineField({
+      name: "aiGenerated",
+      title: "Сделано с ИИ — метка «AI info»",
+      type: "boolean",
+      description:
+        "Отметьте, если в ролике голос Беи или картинка сделаны ИИ: Instagram покажет под постом пометку «AI info». Метка ставится только в момент публикации — потом её не добавить, поэтому решите до «Одобрить».",
+      initialValue: false,
     }),
     defineField({
       name: "caption",

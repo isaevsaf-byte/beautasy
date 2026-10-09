@@ -213,6 +213,8 @@ interface DuePost {
   videoUrl?: string;
   /** An upload Instagram was still transcoding when the last run ended */
   igCreationId?: string;
+  /** Bea's voice or another AI-made part: Instagram shows "AI info" on it */
+  aiGenerated?: boolean;
 }
 
 /**
@@ -235,7 +237,8 @@ const DUE_POSTS = `*[
   "productSlug": product->slug.current,
   "productName": product->name,
   "productCategory": product->category,
-  igCreationId
+  igCreationId,
+  aiGenerated
 }`;
 
 const ONE_POST = `*[_type == "socialPost" && !(_id in path("drafts.**")) && _id == $id && status == "approved" && !defined(publishedAt)][0]{
@@ -244,7 +247,8 @@ const ONE_POST = `*[_type == "socialPost" && !(_id in path("drafts.**")) && _id 
   "productSlug": product->slug.current,
   "productName": product->name,
   "productCategory": product->category,
-  igCreationId
+  igCreationId,
+  aiGenerated
 }`;
 
 /**
@@ -379,7 +383,7 @@ async function publishOne(post: DuePost) {
 
   if (isReel) return await publishReel(post, caption, imageUrl);
 
-  const result = await publishToInstagram(imageUrl, caption);
+  const result = await publishToInstagram(imageUrl, caption, post.aiGenerated === true);
 
   const recorded = result.ok
     ? await record(
@@ -465,7 +469,7 @@ async function pinIfWanted(post: DuePost): Promise<Record<string, unknown>> {
  * film twice.
  */
 async function publishReel(post: DuePost, caption: string, coverUrl: string) {
-  const started = await startReel(post.videoUrl!, caption, coverUrl);
+  const started = await startReel(post.videoUrl!, caption, coverUrl, undefined, post.aiGenerated === true);
 
   if (!started.ok || !started.creationId) {
     await record(post._id, { status: "failed", lastError: started.error ?? "Unknown error" });
