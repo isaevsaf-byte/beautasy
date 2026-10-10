@@ -275,6 +275,7 @@ export default function WorkViewer({
   pieces,
   index,
   startAtEnd,
+  arriving,
   onMove,
   onClose,
 }: {
@@ -282,6 +283,12 @@ export default function WorkViewer({
   index: number;
   /** Open on the piece's last picture: arriving from the piece after it with "previous" */
   startAtEnd?: boolean;
+  /**
+   * Opened from a tile on the page, so the dark viewer fades in over the cream
+   * rather than slamming down. Not when moving to the next piece: the viewer
+   * is drawn afresh for each piece, and the fade would blink the whole screen.
+   */
+  arriving?: boolean;
   onMove: (index: number, fromEnd: boolean) => void;
   onClose: () => void;
 }) {
@@ -353,7 +360,14 @@ export default function WorkViewer({
       role="dialog"
       aria-modal="true"
       aria-labelledby="work-viewer-title"
-      className="fixed inset-0 z-[9999] flex flex-col lg:flex-row bg-[#1f1b24] text-white"
+      // @starting-style (Tailwind's starting:) gives the first frame it is
+      // drawn in; from there it transitions to fully shown. Browsers without it
+      // simply show the viewer at once. Closing stays instant: it is the back
+      // button, and the page underneath should be there the moment it's asked for.
+      className={`fixed inset-0 z-[9999] flex flex-col lg:flex-row bg-[#1f1b24] text-white ${
+        arriving ? "transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:duration-[120ms]" : ""
+      }`}
+      data-arriving={arriving ? "" : undefined}
     >
       <button
         ref={closeRef}

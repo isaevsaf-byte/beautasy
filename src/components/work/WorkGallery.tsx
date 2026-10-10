@@ -53,6 +53,8 @@ const SIZES = "(min-width: 1024px) 31vw, 48vw";
 export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
   const [filter, setFilter] = useState<WorkCategory | "all">("all");
   const [fromEnd, setFromEnd] = useState(false);
+  // Opened from a tile, so the viewer fades in; moving piece to piece, it doesn't
+  const [arriving, setArriving] = useState(false);
   const pushed = useRef(false);
   // The piece whose tile gets the keyboard back when the viewer closes
   const returnTo = useRef<string | null>(null);
@@ -77,6 +79,7 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
   const open = (anchor: string) => {
     pushed.current = true;
     setFromEnd(false);
+    setArriving(true);
     writeHash(anchor, true);
   };
 
@@ -111,6 +114,8 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
 
   const move = (index: number, end: boolean) => {
     setFromEnd(end);
+    // Before the address changes, so the next piece is never drawn still "arriving"
+    setArriving(false);
     writeHash(browsing[index].anchor, false);
   };
 
@@ -181,6 +186,7 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
           pieces={browsing}
           index={openIndex}
           startAtEnd={fromEnd}
+          arriving={arriving}
           onMove={move}
           onClose={close}
         />

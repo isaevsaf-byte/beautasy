@@ -117,6 +117,21 @@ test("the viewer's links lead where they say, and a swipe is only a swipe", () =
   assert.match(viewer, /if \(e\.touches\.length > 1\) touch\.current = null;/);
 });
 
+test("the viewer fades in when opened from a tile, never between pieces, and the before-and-after can turn back mid-wipe", () => {
+  const gallery = read("src/components/work/WorkGallery.tsx");
+  // The viewer is drawn afresh for each piece (key={piece.id}): an entrance
+  // that played every time would blink the screen on each "next"
+  assert.match(gallery, /setArriving\(true\);\s+writeHash\(anchor, true\);/, "a tile opens it arriving");
+  assert.match(gallery, /setArriving\(false\);\s+writeHash\(browsing\[index\]\.anchor, false\);/, "moving on doesn't");
+  assert.match(gallery, /arriving=\{arriving\}/);
+  const viewer = read("src/components/work/WorkViewer.tsx");
+  assert.match(viewer, /arriving \? "transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:duration-\[120ms\]" : ""/);
+  // A transition, not an animation: a second tap reverses from where it is
+  assert.match(viewer, /const SHUTTER = "duration-\[450ms\] ease-in-out motion-reduce:duration-150";/);
+  assert.match(viewer, /\[clip-path:inset\(0_100%_0_0\)\]/);
+  assert.match(viewer, /sameFraming\(before, after\) \?/);
+});
+
 test("the showreel waits to be allowed, and can always be stopped", () => {
   const reel = read("src/components/work/Showreel.tsx");
   assert.doesNotMatch(reel, /autoPlay/, "the server's page must not start a film");
