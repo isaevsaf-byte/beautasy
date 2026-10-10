@@ -8,7 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Stitched from "@/components/stitch/Stitched";
 import LogoSheen from "@/components/stitch/LogoSheen";
-import { fadeUp, fadeIn, stagger } from "@/components/animations";
+import { EASE_OUT, fadeUp, fadeIn, stagger } from "@/components/animations";
 import { placeLink } from "@/lib/shelves";
 import { useShelves } from "@/lib/useShelves";
 import { BUSINESS, whatsappLink } from "@/lib/business";
@@ -279,11 +279,13 @@ function Hero({ priceFrom, heroPhoto }: { priceFrom?: string | null; heroPhoto?:
                 <LogoSheen />
               </div>
             </div>
-            {/* Decorative floating badge */}
+            {/* Decorative floating badge, shown only when there is no hero
+                photo. It waited a full second and then took 0.6s, so it was
+                still drifting in after the visitor had read the heading. */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 1 }}
+              transition={{ duration: 0.3, ease: EASE_OUT, delay: 0.4 }}
               className="absolute -bottom-4 -left-4 bg-white/90 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-lg shadow-lavender/10 border border-lavender-soft/50"
             >
               <p className="text-xs tracking-eyebrow uppercase text-charcoal-light">
@@ -340,7 +342,9 @@ function CategoryGrid() {
             // The lift on hover is CSS on the link inside, not framer on the
             // card: the card's own transition is the entrance's (fadeUp, with
             // its delay), so a card the pointer had left waited out that
-            // delay and hung in the air before it came down
+            // delay and hung in the air before it came down. The lift and the
+            // logo's zoom inside it share 300ms, so one hover is one movement:
+            // at 200ms against 300 the card stopped while the logo still grew.
             <motion.div
               key={cat.title}
               variants={fadeUp}
@@ -349,7 +353,7 @@ function CategoryGrid() {
             >
               <Link
                 href={cat.href || "/shop"}
-                className="block transition-transform duration-200 ease-out group-hover:-translate-y-1.5"
+                className="block transition-transform duration-300 ease-out group-hover:-translate-y-1.5"
               >
                 {/* Each logo is drawn on its own near-white square; multiplied
                     into the tile, the square takes the tile's colour (see the
