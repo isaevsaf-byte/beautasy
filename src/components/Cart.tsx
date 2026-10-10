@@ -471,8 +471,12 @@ export function CartDrawer({
 
             {/* Items — the one part of the bag that scrolls. It used to scroll
                 inside a drawer that scrolled too, so a swipe on the list
-                moved one or the other depending on where it started. */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-4">
+                moved one or the other depending on where it started.
+                layoutScroll: the lines inside animate their layout, and
+                framer measures them against the page unless told this box
+                scrolls; scrolled down, a removed line's neighbours would
+                close the gap from where they sat before the scroll. */}
+            <motion.div layoutScroll className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-4">
               {/* Empty and full swap at once. They used to cross with a fade
                   that waited for one to leave before the other came — and the
                   footer, outside it, jumped in or out straight away — so Clear
@@ -660,7 +664,7 @@ export function CartDrawer({
                   </AnimatePresence>
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {/* Footer */}
             {/* Never taller than 70% of the drawer: on a 320x460 screen it
@@ -703,7 +707,7 @@ export function CartDrawer({
                       <div className="relative h-1.5 w-full flex items-center" aria-hidden="true">
                         <div className="h-0.5 w-full bg-lavender-bg rounded-full">
                           <div
-                            className="h-full w-full transition-[clip-path] duration-400 ease-out motion-reduce:transition-none"
+                            className="h-full w-full transition-[clip-path] duration-300 ease-out motion-reduce:transition-none"
                             style={{
                               background: `repeating-linear-gradient(90deg, rgb(176 136 72 / 0.6) 0 6px, transparent 6px 10px)`,
                               clipPath: `inset(0 ${100 - pct}% 0 0)`,
@@ -714,8 +718,8 @@ export function CartDrawer({
                           <span
                             className={`absolute right-0 top-0 size-1.5 rounded-full ${
                               tyingKnot
-                                ? // after the 0.4s the stitches take to reach the end
-                                  "animate-[bty-knot_0.3s_cubic-bezier(0.34,1.56,0.64,1)_0.35s_both] motion-reduce:animate-none"
+                                ? // as the stitches reach the end: their 0.3s ease-out is all but there by 0.25s
+                                  "animate-[bty-knot_0.3s_cubic-bezier(0.34,1.56,0.64,1)_0.25s_both] motion-reduce:animate-none"
                                 : ""
                             }`}
                             style={{ background: STITCH_GOLD }}
