@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,6 +18,7 @@ import Footer from "@/components/Footer";
 import WishlistButton from "@/components/WishlistButton";
 import { useCart } from "@/store/useCart";
 import { fadeUp, stagger } from "@/components/animations";
+import { formatPence } from "@/lib/money";
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -43,6 +44,12 @@ interface GiftBoxProps {
   contents: ContentProduct[];
 }
 
+/** One label of the add button: quick to cross over, and it barely grows */
+const addedLabel = (shown: boolean) =>
+  `col-start-1 row-start-1 flex items-center justify-center gap-2 transition-[opacity,transform] duration-150 ease-out ${
+    shown ? "opacity-100 scale-100" : "opacity-0 scale-95"
+  }`;
+
 /* ─── Main Component ─── */
 export default function GiftBoxDetail({
   giftBox,
@@ -55,6 +62,15 @@ export default function GiftBoxDetail({
   const [giftMessage, setGiftMessage] = useState("");
   const addItem = useCart((state) => state.addItem);
   const GIFT_MESSAGE_MAX = 200;
+  // "Added to Bag!" goes back after a moment; a second tap starts the moment
+  // again, and leaving the page takes the timer with it
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (addedTimer.current) clearTimeout(addedTimer.current);
+    },
+    []
+  );
 
   const images = giftBox.images;
   const activeImage = images[activeImageIndex] ?? images[0];
@@ -77,7 +93,8 @@ export default function GiftBoxDetail({
       ...(trimmedMessage ? { giftMessage: trimmedMessage } : {}),
     });
     setAdded(true);
-    setTimeout(() => setAdded(false), 1500);
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setAdded(false), 1500);
   }
 
   // Calculate total value of individual products
@@ -93,29 +110,37 @@ export default function GiftBoxDetail({
       <main className="pt-28">
         {/* ── Breadcrumb ── */}
         <div className="max-w-6xl mx-auto px-6 py-6">
+          {/* On one line however long the name: the links keep their words
+              and the name gives way, ending in "…" with the whole of it on hover */}
           <nav className="flex items-center gap-2 text-sm text-charcoal-light">
             <Link
               href="/"
-              className="hover:text-charcoal transition-colors"
+              className="shrink-0 whitespace-nowrap hover:text-charcoal transition-colors"
             >
               Home
             </Link>
-            <span>/</span>
+            <span aria-hidden="true">/</span>
             <Link
               href="/gift-boxes"
-              className="hover:text-charcoal transition-colors"
+              className="shrink-0 whitespace-nowrap hover:text-charcoal transition-colors"
             >
               Gift Boxes
             </Link>
-            <span>/</span>
-            <span className="text-charcoal">{giftBox.name}</span>
+            <span aria-hidden="true">/</span>
+            <span className="min-w-0 truncate text-charcoal" title={giftBox.name}>
+              {giftBox.name}
+            </span>
           </nav>
         </div>
 
         {/* ── Product Layout ── */}
         <section className="max-w-6xl mx-auto px-6 pb-16">
+          {/* initial={false}, as on the product page: the photo is the page's
+              largest paint, and faded in from opacity 0 it stayed invisible
+              until every script had loaded. The name, price and Add button
+              beside it waited the same way; the children inherit it. */}
           <motion.div
-            initial="hidden"
+            initial={false}
             animate="visible"
             variants={stagger}
             className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16"
@@ -164,15 +189,17 @@ export default function GiftBoxDetail({
 
               {/* Thumbnails */}
               {images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                // p-1: room inside the scrolling strip for the chosen one's ring
+                <div className="flex gap-2 overflow-x-auto snap-x snap-proximity overscroll-x-contain p-1 -m-1">
                   {images.map((image, i) => (
                     <button
                       key={`thumb-${i}`}
                       type="button"
                       onClick={() => setActiveImageIndex(i)}
-                      className={`relative w-16 h-16 shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                      aria-current={i === activeImageIndex ? "true" : undefined}
+                      className={`relative w-16 h-16 shrink-0 snap-start rounded-lg overflow-hidden border-2 transition-[border-color,box-shadow] duration-200 ${
                         i === activeImageIndex
-                          ? "border-lavender shadow-md"
+                          ? "border-transparent ring-2 ring-lavender-ink ring-offset-2 ring-offset-cream"
                           : "border-transparent hover:border-lavender/40"
                       }`}
                       aria-label={`Show image ${i + 1}`}
@@ -212,12 +239,12 @@ export default function GiftBoxDetail({
                 {giftBox.name}
               </h1>
               <div className="flex items-baseline gap-3 mb-6">
-                <p className="font-serif text-2xl text-charcoal">
-                  £{(giftBox.price / 100).toFixed(2)}
+                <p className="font-serif text-2xl text-charcoal tabular-nums">
+                  {formatPence(giftBox.price)}
                 </p>
                 {savings > 0 && totalIndividualValue > 0 && (
-                  <p className="text-sm text-green-600 font-medium">
-                    Save £{(savings / 100).toFixed(2)}
+                  <p className="text-sm text-green-600 font-medium tabular-nums">
+                    Save {formatPence(savings)}
                   </p>
                 )}
               </div>
@@ -256,7 +283,7 @@ export default function GiftBoxDetail({
                   placeholder="Write a short note to include with the gift card…"
                   className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20 resize-none"
                 />
-                <p className="text-[11px] text-charcoal-light mt-1.5 text-right">
+                <p className="text-[11px] text-charcoal-light mt-1.5 text-right tabular-nums">
                   {giftMessage.length} / {GIFT_MESSAGE_MAX}
                 </p>
               </div>
@@ -264,34 +291,23 @@ export default function GiftBoxDetail({
               {/* Add to Cart + Wishlist */}
               <div className="flex items-center gap-3 mb-8">
                 <button
+                  type="button"
                   onClick={handleAddToCart}
-                  className="flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                  className="press flex-1 group inline-flex items-center justify-center px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
                 >
-                  <AnimatePresence mode="wait">
-                    {added ? (
-                      <motion.span
-                        key="added"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        className="flex items-center gap-2"
-                      >
-                        <Gift size={16} />
-                        Added to Bag!
-                      </motion.span>
-                    ) : (
-                      <motion.span
-                        key="add"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        className="flex items-center gap-2"
-                      >
-                        <Gift size={16} />
-                        Add Gift Box — £{(giftBox.price / 100).toFixed(2)}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
+                  {/* Both labels always there, in one cell of a grid, as in
+                      AddToCartButton: the button keeps its width, and the label
+                      is in the server's HTML instead of fading in after scripts */}
+                  <span className="grid" aria-live="polite">
+                    <span className={addedLabel(!added)} aria-hidden={added}>
+                      <Gift size={16} aria-hidden="true" />
+                      Add Gift Box — {formatPence(giftBox.price)}
+                    </span>
+                    <span className={addedLabel(added)} aria-hidden={!added}>
+                      <Gift size={16} aria-hidden="true" />
+                      Added to Bag!
+                    </span>
+                  </span>
                 </button>
                 <WishlistButton
                   product={{
@@ -353,7 +369,7 @@ export default function GiftBoxDetail({
                         <img
                           src={product.image}
                           alt={product.name}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                         />
                         <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300" />
                         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-0.5">
@@ -365,8 +381,8 @@ export default function GiftBoxDetail({
                       <h4 className="font-serif text-sm mb-1 group-hover:text-charcoal/70 transition-colors line-clamp-2">
                         {product.name}
                       </h4>
-                      <p className="text-xs text-charcoal-light">
-                        £{(product.price / 100).toFixed(2)}
+                      <p className="text-xs text-charcoal-light tabular-nums">
+                        {formatPence(product.price)}
                       </p>
                     </Link>
                   </motion.div>
@@ -380,17 +396,17 @@ export default function GiftBoxDetail({
                   custom={giftBox.contents.length + 1}
                   className="mt-10 p-6 rounded-2xl bg-lavender-bg/50 border border-lavender-soft/30 text-center"
                 >
-                  <p className="text-sm text-charcoal-light mb-1">
+                  <p className="text-sm text-charcoal-light mb-1 tabular-nums">
                     Total individual value:{" "}
                     <span className="line-through">
-                      £{(totalIndividualValue / 100).toFixed(2)}
+                      {formatPence(totalIndividualValue)}
                     </span>
                   </p>
-                  <p className="font-serif text-xl text-charcoal">
-                    Gift Box Price: £{(giftBox.price / 100).toFixed(2)}
+                  <p className="font-serif text-xl text-charcoal tabular-nums">
+                    Gift Box Price: {formatPence(giftBox.price)}
                     {savings > 0 && (
                       <span className="text-green-600 text-sm font-sans font-medium ml-2">
-                        You save £{(savings / 100).toFixed(2)}
+                        You save {formatPence(savings)}
                       </span>
                     )}
                   </p>
@@ -404,7 +420,7 @@ export default function GiftBoxDetail({
         <section className="max-w-6xl mx-auto px-6 pb-24 text-center">
           <Link
             href="/gift-boxes"
-            className="group inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender hover:border-lavender transition-all duration-300"
+            className="group inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender hover:border-lavender transition-colors duration-300"
           >
             Browse All Gift Boxes
             <ArrowRight
