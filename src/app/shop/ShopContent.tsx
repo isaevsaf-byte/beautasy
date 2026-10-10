@@ -310,7 +310,7 @@ export default function ShopContent({
                 {isCollection
                   ? `Collection${activeCollection.season ? ` — ${activeCollection.season}` : ""}`
                   : activeSubcategory
-                  ? `${categoryLabels[activeCategory ?? ""] || "Collection"} — ${subcategoryLabels[activeSubcategory] || activeSubcategory}`
+                  ? `${categoryLabels[activeCategory ?? ""] || "Collection"} — ${subcategoryLabels[activeSubcategory] || "Collection"}`
                   : activeCategory
                   ? categoryLabels[activeCategory] || "Collection"
                   : "Our Collections"}
@@ -323,7 +323,7 @@ export default function ShopContent({
                 {isCollection
                   ? activeCollection.name
                   : activeSubcategory
-                  ? subcategoryLabels[activeSubcategory] || activeSubcategory
+                  ? subcategoryLabels[activeSubcategory] || "Collection"
                   : activeCategory
                   ? categoryLabels[activeCategory] || "Shop"
                   : "Browse the shelves"}
@@ -609,7 +609,7 @@ export default function ShopContent({
                   {activeSize || readyOnly
                     ? "Nothing matches those filters"
                     : activeSubcategory
-                    ? `${subcategoryLabels[activeSubcategory] || activeSubcategory} coming soon`
+                    ? `${subcategoryLabels[activeSubcategory] || "This collection"} coming soon`
                     : activeCategory
                     ? `${categoryLabels[activeCategory] || "This"} collection coming soon`
                     : "New collection coming soon"}
