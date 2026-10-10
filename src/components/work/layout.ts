@@ -40,3 +40,16 @@ export function columnsFor<T>(items: readonly T[], count: number, ratio: (item: 
   }
   return columns;
 }
+
+/**
+ * Whether a before-and-after pair was photographed the same way round — the
+ * same shape to within 3% — so the "after" can be wiped across the "before"
+ * like a shutter. A portrait laid over a landscape would show the edges of
+ * one photo sticking out past the other, so those swap with a fade instead.
+ */
+export function sameFraming(a: { width: number; height: number }, b: { width: number; height: number }): boolean {
+  const ratioA = a.width / a.height;
+  const ratioB = b.width / b.height;
+  if (!(ratioA > 0 && ratioB > 0) || !Number.isFinite(ratioA) || !Number.isFinite(ratioB)) return false;
+  return Math.abs(ratioA / ratioB - 1) <= 0.03;
+}

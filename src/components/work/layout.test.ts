@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clampRatio, columnsFor, tileRatio } from "./layout";
+import { clampRatio, columnsFor, sameFraming, tileRatio } from "./layout";
 
 const ids = (columns: { id: string }[][]) => columns.map((column) => column.map((item) => item.id));
 
@@ -40,4 +40,14 @@ test("a tile keeps its picture's shape, within a wide landscape and a tall phone
   assert.equal(tileRatio({ media: [] }), 1.25);
   assert.equal(clampRatio(Number.NaN), 1.25);
   assert.equal(clampRatio(0), 1.25);
+});
+
+test("a before and an after wipe across each other only when they were framed alike", () => {
+  assert.equal(sameFraming({ width: 960, height: 1280 }, { width: 960, height: 1280 }), true);
+  assert.equal(sameFraming({ width: 960, height: 1280 }, { width: 1920, height: 2560 }), true, "the same shape at another size");
+  assert.equal(sameFraming({ width: 1000, height: 1000 }, { width: 1029, height: 1000 }), true, "2.9% apart");
+  assert.equal(sameFraming({ width: 1000, height: 1000 }, { width: 1040, height: 1000 }), false, "4% apart");
+  assert.equal(sameFraming({ width: 960, height: 1280 }, { width: 1280, height: 960 }), false, "portrait over landscape");
+  assert.equal(sameFraming({ width: 0, height: 1280 }, { width: 960, height: 1280 }), false, "a photo with no size");
+  assert.equal(sameFraming({ width: 960, height: 0 }, { width: 960, height: 1280 }), false);
 });
