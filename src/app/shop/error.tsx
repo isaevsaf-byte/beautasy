@@ -7,7 +7,7 @@ export default function ShopError({
   reset: () => void;
 }) {
   return (
-    <main className="pt-28 min-h-screen flex flex-col items-center justify-center px-6 text-center">
+    <main className="pt-28 min-h-svh flex flex-col items-center justify-center px-6 text-center">
       <div className="w-16 h-16 rounded-full bg-lavender/15 flex items-center justify-center mx-auto mb-6">
         <span className="text-2xl">✨</span>
       </div>
@@ -16,7 +16,7 @@ export default function ShopError({
       <button
         type="button"
         onClick={reset}
-        className="inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+        className="press inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
       >
         Try Again
       </button>

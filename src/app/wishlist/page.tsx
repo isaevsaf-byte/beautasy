@@ -8,14 +8,17 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useWishlist } from "@/store/useWishlist";
 import { useCart } from "@/store/useCart";
+import { useCartUI } from "@/store/useCartUI";
 import { cardAction } from "@/lib/shopCard";
 import { fadeUp, stagger } from "@/components/animations";
+import { formatPence } from "@/lib/money";
 
 /* eslint-disable @next/next/no-img-element */
 
 export default function WishlistPage() {
   const { items, removeItem, clearWishlist } = useWishlist();
   const addToCart = useCart((s) => s.addItem);
+  const openCart = useCartUI((s) => s.openCart);
   const hydrated = useIsClient();
 
   const wishlistItems = hydrated ? items : [];
@@ -27,16 +30,23 @@ export default function WishlistPage() {
       price: item.price,
       image: item.image,
     });
+    // Show what just happened, as the product page does: the bag icon is far
+    // up the page here, so a silent add read as a button that did nothing
+    openCart();
   }
 
   return (
     <>
       <Header />
-      <main className="pt-28 min-h-screen">
+      {/* svh: a phone's full screen counted with its address bar showing, so
+          the page does not grow under the bar and jump as it hides */}
+      <main className="pt-28 min-h-svh">
         <section className="py-16 md:py-24">
           <div className="max-w-6xl mx-auto px-6">
+            {/* initial={false}: the heading is the first thing on the page, so
+                it is painted as it is, not faded in once scripts arrive */}
             <motion.div
-              initial="hidden"
+              initial={false}
               animate="visible"
               variants={stagger}
               className="text-center mb-16"
@@ -99,9 +109,9 @@ export default function WishlistPage() {
                         <img
                           src={item.image}
                           alt={item.name}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                         />
-                        <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
+                        <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300 ease-out" />
                       </Link>
 
                       <h4 className="font-serif text-lg mb-1">
@@ -112,8 +122,8 @@ export default function WishlistPage() {
                           {item.name}
                         </Link>
                       </h4>
-                      <p className="text-charcoal-light text-sm mb-4">
-                        £{(item.price / 100).toFixed(2)}
+                      <p className="text-charcoal-light text-sm mb-4 tabular-nums">
+                        {formatPence(item.price)}
                       </p>
 
                       <div className="flex gap-2">
@@ -121,7 +131,7 @@ export default function WishlistPage() {
                           /* Something to choose — send to the PDP */
                           <Link
                             href={itemHref}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+                            className="press flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
                           >
                             <ShoppingBag size={14} />
                             {action.label}
@@ -129,14 +139,16 @@ export default function WishlistPage() {
                         ) : (
                           /* Nothing to choose — add directly to cart */
                           <button
+                            type="button"
                             onClick={() => handleAddToCart(item)}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+                            className="press flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
                           >
                             <ShoppingBag size={14} />
                             Add to Bag
                           </button>
                         )}
                         <button
+                          type="button"
                           onClick={() => removeItem(item.id)}
                           className="p-2.5 rounded-full border border-charcoal/15 text-charcoal-light hover:text-red-500 hover:border-red-200 transition-colors"
                           aria-label="Remove from wishlist"
@@ -151,6 +163,7 @@ export default function WishlistPage() {
 
                 <div className="text-center mt-12">
                   <button
+                    type="button"
                     onClick={clearWishlist}
                     className="text-xs tracking-wider uppercase text-charcoal-light hover:text-charcoal transition-colors"
                   >
@@ -178,7 +191,7 @@ export default function WishlistPage() {
                 </p>
                 <Link
                   href="/shop"
-                  className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                  className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
                 >
                   Browse Shop
                   <ArrowRight

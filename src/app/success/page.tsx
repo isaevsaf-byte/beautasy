@@ -14,6 +14,7 @@ import { trackPurchase } from "@/lib/analytics";
 import { pounds } from "@/lib/friendsLink";
 import { clerkEnabled } from "@/lib/clerk";
 import FriendsShare from "@/components/FriendsShare";
+import TiedOff from "@/components/stitch/TiedOff";
 
 const ADS_PURCHASE_CONVERSION = "AW-18152477897/AdUTCNCJjKscEMmp489D";
 
@@ -174,7 +175,7 @@ function ReceiptWhere({ giftCard }: { giftCard: boolean }) {
       <SignedIn>
         <Link
           href="/orders"
-          className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+          className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-colors duration-300"
         >
           View My Orders
         </Link>
@@ -192,15 +193,21 @@ function SuccessContent({ sessionId, giftCardHint }: { sessionId: string | null;
 
   return (
     <>
-      {/* Heading */}
+      {/* Heading. A paid order holds, so it is tied off under its last words,
+          as a booking that holds its time is (stitch/TiedOff.tsx); mb-6 leaves
+          the seam its room above the message. initial={false}: the seam is
+          sewn as the page appears, so the heading is not faded in over it. */}
       <motion.h2
         variants={fadeUp}
         custom={1}
-        className="font-serif text-3xl sm:text-4xl mb-4"
+        initial={false}
+        className="font-serif text-3xl sm:text-4xl mb-6"
       >
         Thank you for
         <br />
-        <span className="italic text-lavender">{giftCard ? "your gift!" : "your order!"}</span>
+        <span className="italic text-lavender">
+          <TiedOff>{giftCard ? "your gift!" : "your order!"}</TiedOff>
+        </span>
       </motion.h2>
 
       {/* Message */}
@@ -252,7 +259,7 @@ function SuccessContent({ sessionId, giftCardHint }: { sessionId: string | null;
       >
         <Link
           href="/shop"
-          className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+          className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
         >
           Continue Shopping
           <ArrowRight
@@ -284,8 +291,10 @@ export default function SuccessPage() {
       <main className="pt-28">
         <section className="min-h-[70vh] flex items-center justify-center py-16 md:py-24">
           <div className="max-w-lg mx-auto px-6 text-center">
+            {/* initial={false}: the thank-you is the whole point of the page,
+                painted as it is rather than faded in once scripts arrive */}
             <motion.div
-              initial="hidden"
+              initial={false}
               animate="visible"
               variants={stagger}
             >

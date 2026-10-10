@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Loader2, Gift } from "lucide-react";
 import { fadeUp, stagger } from "@/components/animations";
 import TermsNote from "@/components/TermsNote";
+import { formatPence } from "@/lib/money";
 
 const PRESETS = [2500, 5000, 10000];
 const MIN = 1000;
@@ -73,8 +74,10 @@ export default function GiftCardPurchase() {
   }
 
   return (
+    // initial={false}: the form is the page's reason to exist, so it is painted
+    // as it is. Faded in from opacity 0, the whole of it waited for scripts.
     <motion.form
-      initial="hidden"
+      initial={false}
       animate="visible"
       variants={stagger}
       onSubmit={handleSubmit}
@@ -108,7 +111,7 @@ export default function GiftCardPurchase() {
                   setAmount(preset);
                 }}
                 aria-pressed={active}
-                className={`py-3 rounded-xl border text-sm font-medium transition-all ${
+                className={`py-3 rounded-xl border text-sm font-medium tabular-nums transition-[background-color,border-color,box-shadow] duration-200 ${
                   active
                     ? "bg-lavender border-lavender text-charcoal shadow-sm"
                     : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender"
@@ -122,7 +125,7 @@ export default function GiftCardPurchase() {
             type="button"
             onClick={() => setUseCustom(true)}
             aria-pressed={useCustom}
-            className={`py-3 rounded-xl border text-sm font-medium transition-all ${
+            className={`py-3 rounded-xl border text-sm font-medium tabular-nums transition-[background-color,border-color,box-shadow] duration-200 ${
               useCustom
                 ? "bg-lavender border-lavender text-charcoal shadow-sm"
                 : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender"
@@ -148,7 +151,8 @@ export default function GiftCardPurchase() {
               />
             </label>
             {!customValid && custom !== "" && (
-              <p className="text-xs text-rose-500 mt-1.5">Between £10 and £500, please</p>
+              // rose-700: the lighter rose read at under 4.5:1 on the cream page
+              <p role="alert" className="text-xs text-rose-700 mt-1.5">Between £10 and £500, please</p>
             )}
           </div>
         )}
@@ -212,27 +216,30 @@ export default function GiftCardPurchase() {
         </label>
       </motion.div>
 
-      {error && <p className="text-sm text-rose-500 mb-4">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-rose-700 mb-4">
+          {error}
+        </p>
+      )}
 
-      <motion.button
-        variants={fadeUp}
-        custom={2}
+      {/* A plain button with .press: as a motion.button its inline transform
+          would win over the press, and transition-all fought framer's own */}
+      <button
         type="submit"
         disabled={loading}
         aria-describedby={termsId}
-        className="w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 flex items-center justify-center gap-2"
+        className="press w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {loading ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
         {customValid && chosenAmount > 0
-          ? `Buy gift card — £${(chosenAmount / 100).toFixed(2)}`
+          ? `Buy gift card — ${formatPence(chosenAmount)}`
           : "Buy gift card"}
-      </motion.button>
+      </button>
 
-      {/* What paying agrees to, said before Stripe's page. It rises with the
-          button (the same step of the fade), so it never shows up on its own. */}
-      <motion.div variants={fadeUp} custom={2} className="mt-3 text-center">
+      {/* What paying agrees to, said before Stripe's page, right under the button */}
+      <div className="mt-3 text-center">
         <TermsNote id={termsId} doing="paying" privacy />
-      </motion.div>
+      </div>
 
       <motion.p
         variants={fadeUp}

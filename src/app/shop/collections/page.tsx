@@ -78,7 +78,7 @@ export default async function CollectionsPage() {
                 </p>
                 <Link
                   href="/shop"
-                  className="inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+                  className="press inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
                 >
                   Browse the Shop
                 </Link>
@@ -100,7 +100,7 @@ export default async function CollectionsPage() {
                             src={imgUrl}
                             alt={col.name}
                             fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-500"
+                            className="object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           />
                         ) : (
