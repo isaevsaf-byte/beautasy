@@ -458,17 +458,14 @@ export function CartDrawer({
                 inside a drawer that scrolled too, so a swipe on the list
                 moved one or the other depending on where it started. */}
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-4">
-              {/* Empty and full swap with a short fade rather than a jump */}
-              <AnimatePresence mode="wait" initial={false}>
+              {/* Empty and full swap at once. They used to cross with a fade
+                  that waited for one to leave before the other came — and the
+                  footer, outside it, jumped in or out straight away — so Clear
+                  bag and its Undo blinked: list, nothing, footer, list. A swap
+                  the visitor just asked for is answered at once; the fades are
+                  kept for a single line leaving or arriving. */}
               {items.length === 0 ? (
-                <motion.div
-                  key="empty"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15, ease: EASE_OUT }}
-                  className="flex flex-col items-center justify-center h-full text-center"
-                >
+                <div className="flex flex-col items-center justify-center h-full text-center">
                   <ShoppingBag
                     size={48}
                     className="text-lavender-soft mb-4"
@@ -504,16 +501,9 @@ export function CartDrawer({
                       </button>
                     </p>
                   )}
-                </motion.div>
+                </div>
               ) : (
-                <motion.div
-                  key="list"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15, ease: EASE_OUT }}
-                  className="relative flex flex-col gap-4"
-                >
+                <div className="relative flex flex-col gap-4">
                   {/* Lines already in the bag are simply there when it opens;
                       one added while it is open rises in, one taken out fades
                       and the rest close the gap. The exit only ever ran with
@@ -653,9 +643,8 @@ export function CartDrawer({
                     );
                   }))}
                   </AnimatePresence>
-                </motion.div>
+                </div>
               )}
-              </AnimatePresence>
             </div>
 
             {/* Footer */}
