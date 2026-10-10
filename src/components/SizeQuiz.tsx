@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Ruler, X, Sparkles } from "lucide-react";
 import { useIsClient } from "@/lib/useIsClient";
+import { useDialog, useScrollLock } from "@/lib/useDialog";
 import {
   availableMeasures,
   suggestSize,
@@ -33,6 +34,15 @@ export default function SizeQuiz({
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Partial<Record<Measure, string>>>({});
 
+  const close = () => {
+    setOpen(false);
+    setValues({});
+  };
+  // A real dialog: Escape closes it, Tab stays inside, focus returns to
+  // "Find my size", and the product page behind it holds still
+  const panelRef = useDialog<HTMLDivElement>(open, close);
+  useScrollLock(open);
+
   const measures = availableMeasures(rows);
   if (measures.length === 0) return null;
 
@@ -44,11 +54,6 @@ export default function SizeQuiz({
 
   const result = suggestSize(rows, numeric);
   const inStock = result.size ? availableSizes.includes(result.size) : false;
-
-  const close = () => {
-    setOpen(false);
-    setValues({});
-  };
 
   const modal = (
     <AnimatePresence>
@@ -65,6 +70,7 @@ export default function SizeQuiz({
             role="dialog"
             aria-modal="true"
             aria-label="Find your size"
+            ref={panelRef}
             initial={{ opacity: 0, y: 30, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.97 }}
@@ -110,7 +116,7 @@ export default function SizeQuiz({
                           setValues((v) => ({ ...v, [measure]: e.target.value.slice(0, 6) }))
                         }
                         placeholder="e.g. 70"
-                        className="w-full text-sm px-3 py-2.5 rounded-lg border border-lavender-soft/40 bg-white text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                        className="w-full text-sm px-3 py-2.5 rounded-lg border border-lavender-soft/40 bg-white text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                       />
                     </label>
                   ))}

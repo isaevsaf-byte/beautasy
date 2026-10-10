@@ -76,6 +76,7 @@ const CATEGORY_PRODUCTS_QUERY = `*[_type == "product" && category == $cat] | ord
   subcategory,
   stock,
   availableSizes,
+  "sizePrices": sizePrices[]{ size, price },
   productionTime,
   "colorCount": count(availableColors),
   "collection": collection->{ name, "slug": slug.current }
@@ -256,6 +257,7 @@ export default async function ShopParamPage({
       subcategory?: string;
       stock?: number;
       availableSizes: string[];
+      sizePrices?: { size: string; price: number }[];
       productionTime?: string | null;
       colorCount?: number | null;
       collection?: { name: string; slug: string } | null;
@@ -282,6 +284,7 @@ export default async function ShopParamPage({
             subcategory?: string;
             stock?: number;
             availableSizes?: string[];
+            sizePrices?: { size: string; price: number }[] | null;
             productionTime?: string | null;
             colorCount?: number | null;
             collection?: { name: string; slug: string } | null;
@@ -302,12 +305,13 @@ export default async function ShopParamPage({
                 resolvedImages.length > 0
                   ? resolvedImages
                   : [
-                      "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product",
+                      "https://placehold.co/400x500/E6E6FA/4A4A4A.png?text=Product",
                     ],
               category: p.category,
               subcategory: p.subcategory,
               stock: p.stock ?? 0,
               availableSizes: p.availableSizes || [],
+              sizePrices: p.sizePrices ?? [],
               productionTime: p.productionTime ?? null,
               colorCount: p.colorCount ?? 0,
               collection: p.collection ?? null,
@@ -350,7 +354,7 @@ export default async function ShopParamPage({
       ? product.images
           .map((img: unknown) => safeImageUrl(img))
           .filter((url: string | null): url is string => url !== null)
-      : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"];
+      : ["https://placehold.co/400x500/E6E6FA/4A4A4A.png?text=Product"];
 
   /* ── Related products: same collection first, falls back to same category ── */
   let relatedProducts: {
@@ -390,8 +394,8 @@ export default async function ShopParamPage({
       price: p.price,
       image:
         p.images && p.images.length > 0
-          ? safeImageUrl(p.images[0]) || "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"
-          : "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product",
+          ? safeImageUrl(p.images[0]) || "https://placehold.co/400x500/E6E6FA/4A4A4A.png?text=Product"
+          : "https://placehold.co/400x500/E6E6FA/4A4A4A.png?text=Product",
       category: p.category,
     }));
   } catch (error) {

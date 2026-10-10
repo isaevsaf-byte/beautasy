@@ -92,7 +92,7 @@ export default async function GiftBoxesPage() {
               resolvedImages.length > 0
                 ? resolvedImages
                 : [
-                    "https://placehold.co/400x500/E6E6FA/4A4A4A?text=Gift+Box",
+                    "https://placehold.co/400x500/E6E6FA/4A4A4A.png?text=Gift+Box",
                   ],
             stock: gb.stock ?? 0,
             productCount: gb.productCount ?? 0,

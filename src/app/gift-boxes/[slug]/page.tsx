@@ -107,7 +107,7 @@ export default async function GiftBoxPage({
       ? giftBox.images
           .map((img: unknown) => safeImageUrl(img))
           .filter((url: string | null): url is string => url !== null)
-      : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Gift+Box"];
+      : ["https://placehold.co/400x500/E6E6FA/4A4A4A.png?text=Gift+Box"];
 
   // Resolve included product images
   const resolvedContents = (giftBox.contents || []).map(

@@ -44,15 +44,13 @@ import { useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
 import { trackViewItem, trackAddToCart } from "@/lib/analytics";
 import { fadeUp, stagger } from "@/components/animations";
+import { formatPence } from "@/lib/money";
+import { useDialog, useScrollLock } from "@/lib/useDialog";
+import { startingPrice, type SizePrice } from "../startingPrice";
 
 /* eslint-disable @next/next/no-img-element */
 
 /* ─── Types ─── */
-interface SizePrice {
-  size: string;
-  price: number;
-}
-
 interface SizeStock {
   size: string;
   quantity: number;
@@ -153,6 +151,8 @@ function StockAlertForm({ productId, size }: { productId: string; size?: string 
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Your email"
+        autoComplete="email"
+        enterKeyHint="send"
         className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
       />
       <button
@@ -230,6 +230,39 @@ function Accordion({
   );
 }
 
+/* ─── Chalk under a choice still to make ─── */
+/**
+ * The booking form's tailor's chalk (components/AtelierBookingForm.tsx, .chalk
+ * in globals.css), drawn under "Size" or "Colour" when Add to Bag finds it
+ * empty, with "choose one first" at the end of the stroke. Its parent must be
+ * positioned. Each press draws a fresh stroke (the key); a choice brushes it
+ * off. `late` holds the stroke back while the page is still scrolling up to
+ * it from the sticky bar, so it is drawn where the visitor can see it.
+ */
+function Chalk({ mark, late }: { mark: number; late: boolean }) {
+  return (
+    <AnimatePresence>
+      {mark > 0 && (
+        <motion.span
+          key={mark}
+          className="chalk"
+          aria-hidden="true"
+          exit={{ opacity: 0, filter: "blur(1px)" }}
+          transition={{ duration: 0.25 }}
+        >
+          <span className="chalk-mark" style={late ? { animationDelay: "0.3s" } : undefined} />
+          <span
+            className="chalk-note font-serif italic normal-case tracking-normal text-sm text-lavender-ink"
+            style={late ? { animationDelay: "0.6s" } : undefined}
+          >
+            choose one<span className="chalk-note-tail"> first</span>
+          </span>
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
 /* ─── Category label mapping ─── */
 const categorySlugMap: Record<string, string> = {
   Lingerie: "lingerie",
@@ -272,15 +305,27 @@ export default function ProductDetail({
   const [giftMessage, setGiftMessage] = useState("");
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [sizeError, setSizeError] = useState(false);
-  const [colorError, setColorError] = useState(false);
+  // Add to Bag pressed with no size (or colour) chosen: a stroke of tailor's
+  // chalk under "Size", as in the booking form (.chalk in globals.css), one
+  // more for each press, brushed off when one is picked. It used to be red
+  // words that rubbed themselves out after 2.5 seconds — often before a
+  // visitor sent up from the sticky bar had even scrolled to them.
+  const [sizeChalk, setSizeChalk] = useState(0);
+  const [colorChalk, setColorChalk] = useState(0);
+  // Sent up from far below, the stroke waits for the page to arrive
+  const [chalkLate, setChalkLate] = useState(false);
   const addItem = useCart((state) => state.addItem);
   const openCart = useCartUI((state) => state.openCart);
   // Lets the sticky mobile bar send the customer back up to the size/colour picker
   const optionsRef = useRef<HTMLDivElement | null>(null);
   // …and to the measurement fields, when one of those is what's missing
   const measurementsRef = useRef<HTMLDivElement | null>(null);
-  const touchStartX = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  // The size guide is a real dialog: Escape closes it, Tab stays inside,
+  // focus goes back to "Size Guide", and the page behind it holds still
+  const closeSizeGuide = useCallback(() => setSizeGuideOpen(false), []);
+  const sizeGuideRef = useDialog<HTMLDivElement>(sizeGuideOpen, closeSizeGuide);
+  useScrollLock(sizeGuideOpen);
 
   const hasSizes = product.availableSizes && product.availableSizes.length > 0;
   const hasColors =
@@ -294,6 +339,11 @@ export default function ProductDetail({
     selectedSize != null && sizePriceMap[selectedSize] != null
       ? sizePriceMap[selectedSize]
       : product.price;
+  // Until a size is chosen, a piece whose sizes cost different amounts is
+  // priced "from" its cheapest size, as on its card in the shop
+  const start = startingPrice(product);
+  const fromPrice = selectedSize == null && start.varies;
+  const shownPrice = fromPrice ? start.pence : currentPrice;
 
   // Per-size stock is optional — when tracked, a sold-out size is disabled
   // even while the product's overall stock (or other sizes) remain available.
@@ -374,15 +424,11 @@ export default function ProductDetail({
   function handleAddToCart() {
     if (blockers.size || blockers.colour) {
       // On a phone this is pressed from the sticky bar, far below the choices
+      const top = optionsRef.current?.getBoundingClientRect().top;
+      setChalkLate(top !== undefined && (top < 0 || top > window.innerHeight - 120));
       optionsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      if (blockers.size) {
-        setSizeError(true);
-        setTimeout(() => setSizeError(false), 2500);
-      }
-      if (blockers.colour) {
-        setColorError(true);
-        setTimeout(() => setColorError(false), 2500);
-      }
+      if (blockers.size) setSizeChalk((n) => n + 1);
+      if (blockers.colour) setColorChalk((n) => n + 1);
       return;
     }
     if (blockers.measurements) {
@@ -433,22 +479,26 @@ export default function ProductDetail({
       <main className="pt-28 pb-24 md:pb-0">
         {/* ── Breadcrumb ── */}
         <div className="max-w-6xl mx-auto px-6 py-6">
+          {/* On one line however long the name: the links keep their words
+              and the name gives way, ending in "…" with the whole of it on hover */}
           <nav className="flex items-center gap-2 text-sm text-charcoal-light">
             <Link
               href="/shop"
-              className="hover:text-charcoal transition-colors"
+              className="shrink-0 whitespace-nowrap hover:text-charcoal transition-colors"
             >
               Shop
             </Link>
-            <span>/</span>
+            <span aria-hidden="true">/</span>
             <Link
               href={`/shop/${categorySlug}`}
-              className="hover:text-charcoal transition-colors"
+              className="shrink-0 whitespace-nowrap hover:text-charcoal transition-colors"
             >
               {product.category}
             </Link>
-            <span>/</span>
-            <span className="text-charcoal">{product.name}</span>
+            <span aria-hidden="true">/</span>
+            <span className="min-w-0 truncate text-charcoal" title={product.name}>
+              {product.name}
+            </span>
           </nav>
         </div>
 
@@ -471,17 +521,26 @@ export default function ProductDetail({
             <motion.div variants={fadeUp} custom={0}>
               {/* Main Image */}
               <div
-                className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white/60 mb-4"
+                className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white/60 mb-4 touch-pan-y select-none [-webkit-touch-callout:none]"
                 onTouchStart={(e) => {
-                  touchStartX.current = e.changedTouches[0].clientX;
+                  // One finger only: two are a pinch, not a swipe
+                  touchStart.current =
+                    e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+                }}
+                onTouchMove={(e) => {
+                  if (e.touches.length > 1) touchStart.current = null;
                 }}
                 onTouchEnd={(e) => {
                   // Swipe through the gallery on touch devices; the arrows are
-                  // fiddly on a phone and everyone expects a swipe here.
-                  if (touchStartX.current == null || images.length < 2) return;
-                  const dx = e.changedTouches[0].clientX - touchStartX.current;
-                  if (Math.abs(dx) > 45) (dx < 0 ? goNext : goPrev)();
-                  touchStartX.current = null;
+                  // fiddly on a phone and everyone expects a swipe here. Only a
+                  // clearly sideways stroke turns the photo: a scroll down the
+                  // page that drifted 50px sideways used to turn it too.
+                  const start = touchStart.current;
+                  touchStart.current = null;
+                  if (!start || images.length < 2) return;
+                  const dx = e.changedTouches[0].clientX - start.x;
+                  const dy = e.changedTouches[0].clientY - start.y;
+                  if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) (dx < 0 ? goNext : goPrev)();
                 }}
               >
                 {/* The LCP element on a product page: sized per device and
@@ -530,15 +589,17 @@ export default function ProductDetail({
 
               {/* Thumbnails */}
               {images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                // p-1: room inside the scrolling strip for the chosen one's ring
+                <div className="flex gap-2 overflow-x-auto snap-x snap-proximity overscroll-x-contain p-1 -m-1">
                   {images.map((image, i) => (
                     <button
                       key={`thumb-${i}`}
                       type="button"
                       onClick={() => setActiveImageIndex(i)}
-                      className={`relative w-16 h-16 shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                      aria-current={i === activeImageIndex ? "true" : undefined}
+                      className={`relative w-16 h-16 shrink-0 snap-start rounded-lg overflow-hidden border-2 transition-[border-color,box-shadow] duration-200 ${
                         i === activeImageIndex
-                          ? "border-lavender shadow-md"
+                          ? "border-transparent ring-2 ring-lavender-ink ring-offset-2 ring-offset-cream"
                           : "border-transparent hover:border-lavender/40"
                       }`}
                       aria-label={`Show image ${i + 1}`}
@@ -611,8 +672,9 @@ export default function ProductDetail({
               <h1 className="font-serif text-3xl sm:text-4xl mb-2">
                 {product.name}
               </h1>
-              <p className="font-serif text-2xl text-charcoal mb-6">
-                £{(currentPrice / 100).toFixed(2)}
+              <p className="font-serif text-2xl text-charcoal mb-6 tabular-nums">
+                {fromPrice && "from "}
+                {formatPence(shownPrice)}
               </p>
 
               {/* Description */}
@@ -626,23 +688,27 @@ export default function ProductDetail({
               <div ref={optionsRef} />
               {hasSizes && (
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm tracking-wider uppercase font-medium text-charcoal">
+                  <div className="flex items-center justify-between gap-x-3 mb-3">
+                    {/* flex-1, so the chalk runs from "Size" to the links and
+                        its note sits at the end of the stroke, by the links */}
+                    <p className="relative flex-1 text-sm tracking-wider uppercase font-medium text-charcoal">
                       Size
                       {selectedSize && (
                         <span className="ml-2 font-normal text-charcoal-light normal-case tracking-normal">
                           — {selectedSize}
                         </span>
                       )}
+                      <Chalk mark={sizeChalk} late={chalkLate} />
                     </p>
-                    <div className="flex items-center gap-3">
+                    {/* Wraps under itself rather than squeezing "Size" on a 320px phone */}
+                    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
                       {product.sizeGuide?.rows && product.sizeGuide.rows.length > 0 && (
                         <SizeQuiz
                           rows={product.sizeGuide.rows}
                           availableSizes={product.availableSizes}
                           onPick={(size) => {
                             setSelectedSize(size);
-                            setSizeError(false);
+                            setSizeChalk(0);
                           }}
                         />
                       )}
@@ -656,18 +722,16 @@ export default function ProductDetail({
                           Size Guide
                         </button>
                       )}
-                      {sizeError && (
-                        <motion.p
-                          initial={{ opacity: 0, x: 6 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0 }}
-                          className="text-xs text-rose-500 font-medium"
-                        >
-                          Please select a size
-                        </motion.p>
-                      )}
                     </div>
                   </div>
+                  {/* The chalk's words, for a screen reader; a new press says them again */}
+                  {sizeChalk > 0 && (
+                    <span key={sizeChalk} role="alert" className="sr-only">
+                      Please select a size
+                    </span>
+                  )}
+                  {/* The chosen size is filled and ringed, not grown: grown, it
+                      nudged its neighbours and blurred its own letters */}
                   <div className="flex flex-wrap gap-2">
                     {product.availableSizes.map((size) => (
                       <button
@@ -675,13 +739,11 @@ export default function ProductDetail({
                         type="button"
                         onClick={() => {
                           setSelectedSize(size);
-                          setSizeError(false);
+                          setSizeChalk(0);
                         }}
-                        className={`min-w-[52px] px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                        className={`min-w-[52px] min-h-11 px-3 py-2 rounded-lg border text-sm font-medium transition-[background-color,border-color,box-shadow] duration-200 ${
                           selectedSize === size
-                            ? "bg-lavender border-lavender text-charcoal shadow-sm scale-105"
-                            : sizeError
-                            ? "bg-white border-rose-300 text-charcoal hover:border-lavender"
+                            ? "bg-lavender border-lavender text-charcoal ring-2 ring-lavender-ink ring-offset-2 ring-offset-cream"
                             : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
                         }`}
                         aria-pressed={selectedSize === size}
@@ -697,26 +759,22 @@ export default function ProductDetail({
               {/* ── Colour Selector ── */}
               {hasColors && (
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm tracking-wider uppercase font-medium text-charcoal">
+                  <div className="flex items-center mb-3">
+                    <p className="relative flex-1 text-sm tracking-wider uppercase font-medium text-charcoal">
                       Colour
                       {selectedColor && (
                         <span className="ml-2 font-normal text-charcoal-light normal-case tracking-normal">
                           — {selectedColor}
                         </span>
                       )}
+                      <Chalk mark={colorChalk} late={chalkLate} />
                     </p>
-                    {colorError && (
-                      <motion.p
-                        initial={{ opacity: 0, x: 6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="text-xs text-rose-500 font-medium"
-                      >
-                        Please select a colour
-                      </motion.p>
-                    )}
                   </div>
+                  {colorChalk > 0 && (
+                    <span key={colorChalk} role="alert" className="sr-only">
+                      Please select a colour
+                    </span>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {product.availableColors.map((color) => {
                       const active = selectedColor === color.name;
@@ -726,13 +784,11 @@ export default function ProductDetail({
                           type="button"
                           onClick={() => {
                             setSelectedColor(color.name);
-                            setColorError(false);
+                            setColorChalk(0);
                           }}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-full border text-sm font-medium transition-all duration-200 ${
+                          className={`flex items-center gap-2 min-h-11 px-3 py-2 rounded-full border text-sm font-medium transition-[background-color,border-color,box-shadow] duration-200 ${
                             active
-                              ? "bg-lavender border-lavender text-charcoal shadow-sm scale-105"
-                              : colorError
-                              ? "bg-white border-rose-300 text-charcoal hover:border-lavender"
+                              ? "bg-lavender border-lavender text-charcoal ring-2 ring-lavender-ink ring-offset-2 ring-offset-cream"
                               : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
                           }`}
                           aria-pressed={active}
@@ -778,8 +834,8 @@ export default function ProductDetail({
                           : "Cut for you in our Southampton atelier"}
                       </p>
                     </div>
-                    <span className="text-sm font-medium text-charcoal">
-                      +£{(mtmPrice / 100).toFixed(2)}
+                    <span className="text-sm font-medium text-charcoal tabular-nums">
+                      +{formatPence(mtmPrice)}
                     </span>
                   </label>
 
@@ -871,8 +927,8 @@ export default function ProductDetail({
                         Beautifully wrapped in a Beautasy gift box
                       </p>
                     </div>
-                    <span className="text-sm font-medium text-charcoal">
-                      +£{(product.giftBoxPrice / 100).toFixed(2)}
+                    <span className="text-sm font-medium text-charcoal tabular-nums">
+                      +{formatPence(product.giftBoxPrice)}
                     </span>
                   </label>
 
@@ -907,7 +963,7 @@ export default function ProductDetail({
                             placeholder={product.giftCardPlaceholder || "Write a short note to include with the gift card…"}
                             className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20 resize-none"
                           />
-                          <p className="text-[11px] text-charcoal-light mt-1.5 text-right">
+                          <p className="text-[11px] text-charcoal-light mt-1.5 text-right tabular-nums">
                             {giftMessage.length} / {GIFT_MESSAGE_MAX}
                           </p>
                         </div>
@@ -921,14 +977,16 @@ export default function ProductDetail({
               <div className="flex items-center gap-3 mb-8">
                 {/* aria-disabled rather than disabled: a disabled button
                     swallows the tap, and the tap is what shows the customer
-                    what is still missing. handleAddToCart refuses the add. */}
+                    what is still missing. handleAddToCart refuses the add. So
+                    it keeps the pointer and readable words — paler, not
+                    greyed out as if nothing would happen. */}
                 <button
                   type="button"
                   onClick={handleAddToCart}
                   aria-disabled={isBlocked(blockers)}
-                  className={`flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm tracking-wider uppercase font-medium transition-all duration-300 ${
+                  className={`press flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm tracking-wider uppercase font-medium ${
                     isBlocked(blockers)
-                      ? "bg-lavender/40 text-charcoal/50 cursor-not-allowed"
+                      ? "bg-lavender/50 text-charcoal"
                       : "bg-lavender text-charcoal hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
                   }`}
                 >
@@ -1025,7 +1083,7 @@ export default function ProductDetail({
                           height={CARD.height}
                           loading="lazy"
                           decoding="async"
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
                         />
                         <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300" />
                       </div>
@@ -1033,7 +1091,7 @@ export default function ProductDetail({
                         {rp.name}
                       </h4>
                       <p className="text-xs text-charcoal-light">
-                        £{(rp.price / 100).toFixed(2)}
+                        {formatPence(rp.price)}
                       </p>
                     </Link>
                   </motion.div>
@@ -1068,13 +1126,20 @@ export default function ProductDetail({
           main call to action was off-screen for most of the page. It asks the
           same questions as the main button, through the same handler: it once
           skipped the measurements and added a standard size instead. */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 py-3 flex items-center gap-3">
-        <div className="min-w-0">
+      {/* The name takes the room and gives way ("…"); the button keeps its
+          words on one line. With the button as flex-1, a long name squeezed it
+          down to its longest word. The bottom padding clears the iPhone's
+          home bar now that the page runs edge to edge. */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3">
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] text-charcoal-light truncate">{product.name}</p>
-          <p className="font-serif text-lg leading-tight">£{(bagTotal / 100).toFixed(2)}</p>
+          <p className="font-serif text-lg leading-tight tabular-nums">
+            {fromPrice && "from "}
+            {formatPence(bagTotal - currentPrice + shownPrice)}
+          </p>
           {measuring && (
             <p className="text-[11px] text-charcoal-light truncate">
-              incl. +£{(mtmPrice / 100).toFixed(2)} made to measure
+              incl. +{formatPence(mtmPrice)} made to measure
             </p>
           )}
         </div>
@@ -1082,7 +1147,7 @@ export default function ProductDetail({
           type="button"
           onClick={handleAddToCart}
           aria-disabled={isBlocked(blockers)}
-          className="flex-1 py-3 rounded-full bg-lavender text-charcoal text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors"
+          className="press shrink-0 px-5 py-3 whitespace-nowrap rounded-full bg-lavender text-charcoal text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
         >
           {bagButtonLabel(blockers)}
         </button>
@@ -1119,8 +1184,14 @@ export default function ProductDetail({
               className="fixed inset-0 flex items-end sm:items-center justify-center z-[9999] p-4"
               onClick={() => setSizeGuideOpen(false)}
             >
+              {/* dvh, not vh: on a phone 85vh counts the address bar's room
+                  too, and the foot of the table went under it */}
               <div
-                className="bg-[#FDFBF7] rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+                ref={sizeGuideRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label={product.sizeGuide.name}
+                className="bg-[#FDFBF7] rounded-3xl shadow-2xl w-full max-w-lg max-h-[85dvh] pb-[env(safe-area-inset-bottom,0px)] flex flex-col overflow-hidden outline-none"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
@@ -1140,7 +1211,9 @@ export default function ProductDetail({
                 </div>
 
                 {/* Table */}
-                <div className="overflow-auto flex-1 px-6 py-5">
+                {/* overscroll-contain: reaching the end of the table does not
+                    start scrolling the page behind it */}
+                <div className="overflow-auto overscroll-contain flex-1 px-6 py-5">
                   {product.sizeGuide.rows && product.sizeGuide.rows.length > 0 ? (() => {
                     const rows = product.sizeGuide!.rows!;
                     // Only show columns that have at least one non-empty value

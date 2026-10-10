@@ -15,6 +15,7 @@ import WishlistButton from "@/components/WishlistButton";
 import { wishlistEntry } from "@/store/useWishlist";
 import Lightbox from "@/components/Lightbox";
 import { fadeUp, stagger } from "@/components/animations";
+import { startingPriceLabel, type SizePrice } from "./startingPrice";
 
 interface Product {
   _id: string;
@@ -25,6 +26,8 @@ interface Product {
   category: string;
   subcategory?: string;
   availableSizes: string[];
+  /** Prices of their own for some sizes, so the card can say "from £18.00" */
+  sizePrices?: SizePrice[] | null;
   /** Ready-made pieces on the shelf; 0 means made to order, not unavailable */
   stock?: number;
   /** Kristina's making time ("3-5"), so a card can say how long made to order takes */
@@ -389,7 +392,7 @@ export default function ShopContent({
                             alt={cat.title}
                             width={600}
                             height={600}
-                            className="w-[60%] h-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-700 ease-out"
+                            className="w-[60%] h-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-300 ease-out"
                             {...(i === 0 ? { preload: true, fetchPriority: "high" as const } : {})}
                           />
                         </div>
@@ -427,7 +430,7 @@ export default function ShopContent({
 
                       <Link
                         href={cat.href}
-                        className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                        className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
                       >
                         Explore {cat.title}
                         <ArrowRight
@@ -459,13 +462,13 @@ export default function ShopContent({
               >
                 Handmade with Love
               </motion.p>
-              <motion.h3
+              <motion.h2
                 variants={fadeUp}
                 custom={1}
                 className="font-serif text-3xl sm:text-4xl"
               >
                 Featured Products
-              </motion.h3>
+              </motion.h2>
             </motion.div>
 
             {/* Sort + filter controls */}
@@ -607,7 +610,7 @@ export default function ShopContent({
                 </p>
                 <Link
                   href="/contact"
-                  className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                  className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
                 >
                   Request Custom Order
                   <ArrowRight
@@ -631,7 +634,8 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
   const availableImages =
     product.images.length > 0
       ? product.images
-      : ["https://placehold.co/400x500/E6E6FA/4A4A4A?text=Product"];
+      : // .png: without it placehold.co sends an SVG, which next/image refuses
+        ["https://placehold.co/400x500/E6E6FA/4A4A4A.png?text=Product"];
 
   const activeImage = availableImages[activeImageIndex] ?? availableImages[0];
   // Straight into the bag only when there is nothing to choose (@/lib/shopCard)
@@ -639,121 +643,130 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
 
   return (
     <>
-      <motion.div
-        variants={fadeUp}
-        custom={index}
-        whileHover={{ y: -6 }}
-        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        className="group"
-      >
-        {/* Main product image — click to go to PDP */}
-        <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 w-full">
-          <Link href={`/shop/${product.slug}`} className="absolute inset-0 block">
-            {/* next/image serves a phone-sized crop to phones — the plain <img>
-                was shipping the 800px desktop file to every device. */}
-            <Image
-              src={activeImage}
-              alt={product.name}
-              fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-              priority={index < 3}
-            />
-            <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
-          </Link>
-          {/* Badges — siblings of the PDP link, not nested inside it */}
-          <div className="absolute top-4 left-4 flex flex-col gap-1.5 pointer-events-none">
-            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 pointer-events-auto">
-              <p className="text-xs text-charcoal-light">{product.category}</p>
+      {/* The lift on hover is CSS on the inner card. As whileHover on this
+          motion.div it came back down on the entrance's own transition —
+          delayed by the card's place in the grid, so the ninth card hung in
+          the air for over a second after the pointer left it. */}
+      <motion.div variants={fadeUp} custom={index} className="group h-full">
+        <div className="flex flex-col h-full transition-transform duration-200 ease-out group-hover:-translate-y-1.5">
+          {/* Main product image — click to go to PDP */}
+          <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 w-full">
+            <Link href={`/shop/${product.slug}`} className="absolute inset-0 block">
+              {/* next/image serves a phone-sized crop to phones — the plain <img>
+                  was shipping the 800px desktop file to every device. */}
+              <Image
+                src={activeImage}
+                alt={product.name}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
+                priority={index < 3}
+              />
+              <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300 ease-out" />
+            </Link>
+            {/* Badges — siblings of the PDP link, not nested inside it. They stop
+                short of the heart (right-16): a long collection name used to
+                slide underneath it, and now ends in "…" with the full name on
+                hover. */}
+            <div className="absolute top-4 left-4 right-16 flex flex-col items-start gap-1.5 pointer-events-none">
+              <div className="max-w-full bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 pointer-events-auto">
+                <p className="text-xs text-charcoal-light truncate" title={product.category}>{product.category}</p>
+              </div>
+              {product.collection && (
+                <Link
+                  href={`/shop/collection/${product.collection.slug}`}
+                  title={product.collection.name}
+                  className="max-w-full bg-lavender/90 backdrop-blur-sm rounded-full px-3 py-1 hover:bg-lavender transition-colors pointer-events-auto"
+                >
+                  <p className="text-xs text-charcoal font-medium truncate">{product.collection.name}</p>
+                </Link>
+              )}
             </div>
-            {product.collection && (
-              <Link
-                href={`/shop/collection/${product.collection.slug}`}
-                className="bg-lavender/90 backdrop-blur-sm rounded-full px-3 py-1 hover:bg-lavender transition-colors pointer-events-auto"
-              >
-                <p className="text-xs text-charcoal font-medium">{product.collection.name}</p>
-              </Link>
-            )}
+            {/* Wishlist heart */}
+            <div className="absolute top-4 right-4 z-10">
+              <WishlistButton
+                product={wishlistEntry(product, activeImage)}
+                className="bg-white/80 backdrop-blur-sm shadow-sm"
+              />
+            </div>
+            {/* Zoom icon — waits for the hover where there is a pointer to hover
+                with; on a phone, where hidden still meant tappable, it shows */}
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              className="absolute bottom-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-[background-color,opacity] duration-200 ease-out shadow-sm opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              aria-label="Quick view"
+            >
+              <Search size={16} />
+            </button>
           </div>
-          {/* Wishlist heart */}
-          <div className="absolute top-4 right-4 z-10">
-            <WishlistButton
-              product={wishlistEntry(product, activeImage)}
-              className="bg-white/80 backdrop-blur-sm shadow-sm"
-            />
-          </div>
-          {/* Zoom icon */}
-          <button
-            type="button"
-            onClick={() => setLightboxOpen(true)}
-            className="absolute bottom-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100"
-            aria-label="Quick view"
-          >
-            <Search size={16} />
-          </button>
-        </div>
 
-        {availableImages.length > 1 && (
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-            {availableImages.map((image, i) => (
-              <button
-                key={`${product._id}-image-${i}`}
-                type="button"
-                onClick={() => setActiveImageIndex(i)}
-                className={`relative w-14 h-14 shrink-0 rounded-lg overflow-hidden border transition-colors ${
-                  i === activeImageIndex
-                    ? "border-lavender"
-                    : "border-transparent hover:border-lavender/40"
-                }`}
-                aria-label={`Show image ${i + 1} for ${product.name}`}
-              >
-                {/* A 160px copy, not the 800px photo, and only once it is
-                    near the screen — lazy also keeps React from turning it
-                    into an early download in <head> (see @/lib/shopImages) */}
-                <img
-                  src={sizedImageUrl(image, THUMB)}
-                  alt={`${product.name} thumbnail ${i + 1}`}
-                  width={56}
-                  height={56}
-                  loading="lazy"
-                  decoding="async"
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-              </button>
-            ))}
-          </div>
-        )}
+          {availableImages.length > 1 && (
+            <div className="flex gap-2 mb-4 overflow-x-auto snap-x snap-proximity overscroll-x-contain pb-1">
+              {availableImages.map((image, i) => (
+                <button
+                  key={`${product._id}-image-${i}`}
+                  type="button"
+                  onClick={() => setActiveImageIndex(i)}
+                  className={`relative w-14 h-14 shrink-0 snap-start rounded-lg overflow-hidden border transition-colors ${
+                    i === activeImageIndex
+                      ? "border-lavender"
+                      : "border-transparent hover:border-lavender/40"
+                  }`}
+                  aria-label={`Show image ${i + 1} for ${product.name}`}
+                >
+                  {/* A 160px copy, not the 800px photo, and only once it is
+                      near the screen — lazy also keeps React from turning it
+                      into an early download in <head> (see @/lib/shopImages) */}
+                  <img
+                    src={sizedImageUrl(image, THUMB)}
+                    alt={`${product.name} thumbnail ${i + 1}`}
+                    width={56}
+                    height={56}
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
 
-        <Link href={`/shop/${product.slug}`} className="block">
-          <h4 className="font-serif text-lg mb-1 hover:text-charcoal/70 transition-colors">{product.name}</h4>
-        </Link>
-        <p className="text-charcoal-light text-sm mb-1">
-          £{(product.price / 100).toFixed(2)}
-        </p>
-        {/* The same words the product page uses (@/lib/availability). Full
-            charcoal-light, not 80% of it: at 11px the faded grey was about
-            3.2:1 on the lavender shelf, under the 4.5:1 small text needs. */}
-        <p className="text-[11px] text-charcoal-light mb-4">{availability(product).label}</p>
-
-        {action.kind === "page" ? (
-          /* A size or colour to choose → the product page asks for it */
-          <Link
-            href={`/shop/${product.slug}`}
-            className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
-          >
-            {action.label}
-            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+          <Link href={`/shop/${product.slug}`} className="block">
+            {/* Two lines at most, so a long name does not push its card's
+                button below its neighbours'; the whole name is in the title */}
+            <h4 className="font-serif text-lg mb-1 line-clamp-2 hover:text-charcoal/70 transition-colors" title={product.name}>
+              {product.name}
+            </h4>
           </Link>
-        ) : (
-          /* Nothing to choose → add directly */
-          <AddToCartButton
-            id={product._id}
-            name={product.name}
-            slug={product.slug}
-            price={product.price}
-            image={activeImage}
-          />
-        )}
+          {/* "from" the cheapest size when the sizes cost different amounts */}
+          <p className="text-charcoal-light text-sm mb-1 tabular-nums">{startingPriceLabel(product)}</p>
+          {/* The same words the product page uses (@/lib/availability). Full
+              charcoal-light, not 80% of it: at 11px the faded grey was about
+              3.2:1 on the lavender shelf, under the 4.5:1 small text needs. */}
+          <p className="text-[11px] text-charcoal-light mb-4">{availability(product).label}</p>
+
+          {action.kind === "page" ? (
+            /* A size or colour to choose → the product page asks for it */
+            <Link
+              href={`/shop/${product.slug}`}
+              className="press mt-auto w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+            >
+              {action.label}
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform duration-200 ease-out" />
+            </Link>
+          ) : (
+            /* Nothing to choose → add directly, as wide as its neighbours' links */
+            <AddToCartButton
+              id={product._id}
+              name={product.name}
+              slug={product.slug}
+              price={product.price}
+              image={activeImage}
+              className="mt-auto w-full"
+            />
+          )}
+        </div>
       </motion.div>
 
       <Lightbox

@@ -122,14 +122,25 @@ test("the phone's sticky bar asks the main button's questions", () => {
   const html = detail();
   const bar = html.slice(html.indexOf('class="md:hidden fixed bottom-0'));
   assert.match(bar, /aria-disabled="true"[^>]*>Select a Size<\/button>/);
-  assert.match(bar, /£<!-- -->20\.00/);
+  assert.match(bar, />£20\.00</);
 
   const source = read("src/app/shop/[param]/ProductDetail.tsx");
   const sticky = source.slice(source.indexOf("Sticky mobile buy bar"));
   assert.match(sticky, /onClick=\{handleAddToCart\}/, "the same handler, with its measurement check");
-  assert.match(sticky, /£\{\(bagTotal \/ 100\)\.toFixed\(2\)\}/, "the price includes the +£10");
+  // The bag's total, the +£10 included, with "from" the cheapest size until one is chosen
+  assert.match(sticky, /formatPence\(bagTotal - currentPrice \+ shownPrice\)/, "the price includes the +£10");
   assert.match(sticky, /\{measuring && \(/, "and says so");
   assert.match(sticky, /\{bagButtonLabel\(blockers\)\}/);
+});
+
+test("a missing size is said in chalk that stays until one is picked", () => {
+  const source = read("src/app/shop/[param]/ProductDetail.tsx");
+  assert.match(source, /className="chalk"/);
+  assert.match(source, /choose one<span className="chalk-note-tail"> first<\/span>/);
+  assert.match(source, /role="alert" className="sr-only">\s*Please select a size/);
+  // No timer rubs it out; picking a size does
+  assert.doesNotMatch(source, /setTimeout\(\(\) => set(Size|Color)/);
+  assert.match(source, /setSelectedSize\(size\);\s*setSizeChalk\(0\);/);
 });
 
 test("Add to Bag refuses a made-to-measure piece until its measurements are in", () => {
@@ -226,6 +237,19 @@ test("a card with a colour to choose sends the customer to choose it", () => {
   assert.match(html, /Add to Bag — £<!-- -->10\.02/);
   assert.match(html, /href="\/shop\/piece-3"[^>]*>View Options/);
   assert.doesNotMatch(html, /Add to Bag — £<!-- -->10\.0[13]/);
+});
+
+test("a piece priced per size says 'from' its cheapest size until one is chosen", () => {
+  const sizePrices = [
+    { size: "S", price: 1800 },
+    { size: "M", price: 2500 },
+  ];
+  const page = detail({ name: "Berry Velvet", price: 1800, availableSizes: ["S", "M"], sizePrices });
+  assert.match(page, /from <!-- -->£18\.00<\/p>/);
+  const card = shop([piece(1, { sizePrices: [{ size: "2-3", price: 1800 }, { size: "4-5", price: 2500 }] })]);
+  assert.match(card, />from £18\.00</);
+  // One price for every size: just the price
+  assert.doesNotMatch(detail(), /from <!-- -->£/);
 });
 
 /* ─── The bag ─── */
