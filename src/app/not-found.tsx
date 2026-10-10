@@ -32,7 +32,7 @@ export default function NotFound() {
               <Search size={32} aria-hidden="true" className="text-lavender" />
             </div>
 
-            <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-3">
+            <p className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-3">
               404 — Not Found
             </p>
             <h1 className="font-serif text-3xl sm:text-4xl mb-4 text-charcoal">

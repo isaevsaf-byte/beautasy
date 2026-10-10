@@ -121,7 +121,7 @@ export default async function WorkPage() {
 
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 px-6 py-14 md:py-20 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="max-w-xl">
-              <p className="mb-4 text-sm tracking-[0.25em] uppercase text-charcoal-light">Our work · Southampton</p>
+              <p className="mb-4 text-sm tracking-eyebrow uppercase text-charcoal-light">Our work · Southampton</p>
               <h1 className="mb-6 font-serif text-5xl leading-[1.04] sm:text-6xl lg:text-7xl">
                 {/* The darker lavender: the pale #b3a1e8 was 2.2:1 on the cream */}
                 Made <span className="italic text-lavender-ink">&amp;</span>

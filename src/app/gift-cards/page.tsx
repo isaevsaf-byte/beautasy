@@ -44,7 +44,7 @@ export default function GiftCardsPage() {
         <section className="py-16 md:py-24">
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-14">
-              <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4">
+              <p className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-4">
                 For when you can&apos;t choose the size
               </p>
               <h1 className="font-serif text-4xl sm:text-5xl mb-6">Gift cards</h1>

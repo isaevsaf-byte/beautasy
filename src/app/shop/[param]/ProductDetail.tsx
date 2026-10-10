@@ -754,7 +754,7 @@ export default function ProductDetail({
             <motion.div variants={fadeUp} custom={1} className="flex flex-col">
               {/* Category + Stock + Badges */}
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="px-3 py-1 bg-lavender-bg rounded-full text-xs tracking-wider uppercase text-charcoal-light">
+                <span className="px-3 py-1 bg-lavender-bg rounded-full text-xs tracking-eyebrow uppercase text-charcoal-light">
                   {product.category}
                 </span>
                 {product.collection && (
@@ -821,7 +821,7 @@ export default function ProductDetail({
                   <div className="flex items-center justify-between gap-x-3 mb-3">
                     {/* flex-1, so the chalk runs from "Size" to the links and
                         its note sits at the end of the stroke, by the links */}
-                    <p className="relative flex-1 text-sm tracking-wider uppercase font-medium text-charcoal">
+                    <p className="relative flex-1 text-sm tracking-eyebrow uppercase font-medium text-charcoal">
                       Size
                       {selectedSize && (
                         <span className="ml-2 font-normal text-charcoal-light normal-case tracking-normal">
@@ -915,7 +915,7 @@ export default function ProductDetail({
               {hasColors && (
                 <div className="mb-6">
                   <div className="flex items-center mb-3">
-                    <p className="relative flex-1 text-sm tracking-wider uppercase font-medium text-charcoal">
+                    <p className="relative flex-1 text-sm tracking-eyebrow uppercase font-medium text-charcoal">
                       Colour
                       {selectedColor && (
                         <span className="ml-2 font-normal text-charcoal-light normal-case tracking-normal">
@@ -1007,7 +1007,7 @@ export default function ProductDetail({
                           <div className="grid grid-cols-2 gap-3">
                             {measurementFields.map(([field, label]) => (
                               <label key={field} className="block">
-                                <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+                                <span className="block text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1">
                                   {label}
                                   {requiredMeasurements.includes(field) && (
                                     <span className="text-rose-700" aria-hidden="true"> *</span>
@@ -1030,7 +1030,7 @@ export default function ProductDetail({
                             ))}
                           </div>
                           <label className="block">
-                            <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+                            <span className="block text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1">
                               Anything else we should know?
                             </span>
                             <textarea
@@ -1099,7 +1099,7 @@ export default function ProductDetail({
                         <div className="mt-3 p-4 rounded-xl bg-white border border-lavender-soft/40">
                           <label
                             htmlFor="gift-message"
-                            className="block text-xs tracking-wider uppercase font-medium text-charcoal mb-2"
+                            className="block text-xs tracking-eyebrow uppercase font-medium text-charcoal mb-2"
                           >
                             Gift card message{" "}
                             <span className="text-charcoal-light normal-case tracking-normal font-normal">
@@ -1172,7 +1172,7 @@ export default function ProductDetail({
                   aren't stock-tracked individually) */}
               {(hasSizeStock ? selectedSize && currentStock === 0 : currentStock === 0) && (
                 <div className="mb-6 p-4 rounded-xl bg-lavender-bg/40 border border-lavender-soft/30">
-                  <p className="flex items-center gap-1.5 text-xs tracking-wider uppercase font-medium text-charcoal">
+                  <p className="flex items-center gap-1.5 text-xs tracking-eyebrow uppercase font-medium text-charcoal">
                     <Bell size={13} className="text-lavender" />
                     Prefer ready-made stock{selectedSize ? ` in size ${selectedSize}` : ""}?
                   </p>
@@ -1387,12 +1387,12 @@ export default function ProductDetail({
                       <table className="w-full text-sm border-collapse">
                         <thead>
                           <tr className="text-left">
-                            <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">Size</th>
-                            {hasUk    && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">UK</th>}
-                            {hasEu    && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">EU</th>}
-                            {hasBust  && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">Bust</th>}
-                            {hasWaist && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">Waist</th>}
-                            {hasHips  && <th className="pb-3 pr-4 text-xs tracking-wider uppercase text-charcoal-light font-medium">Hips</th>}
+                            <th className="pb-3 pr-4 text-xs tracking-eyebrow uppercase text-charcoal-light font-medium">Size</th>
+                            {hasUk    && <th className="pb-3 pr-4 text-xs tracking-eyebrow uppercase text-charcoal-light font-medium">UK</th>}
+                            {hasEu    && <th className="pb-3 pr-4 text-xs tracking-eyebrow uppercase text-charcoal-light font-medium">EU</th>}
+                            {hasBust  && <th className="pb-3 pr-4 text-xs tracking-eyebrow uppercase text-charcoal-light font-medium">Bust</th>}
+                            {hasWaist && <th className="pb-3 pr-4 text-xs tracking-eyebrow uppercase text-charcoal-light font-medium">Waist</th>}
+                            {hasHips  && <th className="pb-3 pr-4 text-xs tracking-eyebrow uppercase text-charcoal-light font-medium">Hips</th>}
                           </tr>
                         </thead>
                         <tbody>

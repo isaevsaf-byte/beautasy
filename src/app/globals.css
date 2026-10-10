@@ -49,6 +49,15 @@
      field and button make one pill-shaped bar together, so it stays full. */
   --radius-field: 0.75rem;
   --radius-chip: 9999px;
+
+  /* Small capitals need air between the letters, and it should be the same
+     air everywhere: they were set seven ways, from 0.05em to 0.3em. Two
+     widths by size. tracking-eyebrow for 12-14px caps (eyebrows, section and
+     form labels, footer headings); tracking-caps-sm for 10-11px ones (badges,
+     tiny labels), where 0.2em would pull the letters apart. Button labels
+     keep tracking-wider. */
+  --tracking-eyebrow: 0.2em;
+  --tracking-caps-sm: 0.1em;
 }
 
 /* A button that answers the finger. On a phone there is no hover, so until

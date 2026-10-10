@@ -83,7 +83,7 @@ export default function ReferForm() {
             />
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="refer-name" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+                <label htmlFor="refer-name" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">
                   First name
                 </label>
                 <input
@@ -98,7 +98,7 @@ export default function ReferForm() {
                 />
               </div>
               <div>
-                <label htmlFor="refer-email" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+                <label htmlFor="refer-email" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">
                   Email
                 </label>
                 <input

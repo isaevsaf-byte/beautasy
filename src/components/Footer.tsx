@@ -251,7 +251,7 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
 
           {/* Quick Links */}
           <div>
-            <h2 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
+            <h2 className="text-sm tracking-eyebrow uppercase font-medium mb-4">
               Quick links
             </h2>
             <ul className="space-y-3">
@@ -273,7 +273,7 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
               no hours, for a business whose money comes from people nearby
               asking about a hem. */}
           <div>
-            <h2 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
+            <h2 className="text-sm tracking-eyebrow uppercase font-medium mb-4">
               Atelier
             </h2>
             <ul className="space-y-3 text-sm text-charcoal-light">
@@ -327,7 +327,7 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
 
           {/* Legal */}
           <div>
-            <h2 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
+            <h2 className="text-sm tracking-eyebrow uppercase font-medium mb-4">
               Information
             </h2>
             <ul className="space-y-3">

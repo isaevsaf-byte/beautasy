@@ -97,7 +97,7 @@ export default function GiftCardPurchase() {
       />
 
       <motion.fieldset variants={fadeUp} custom={0} className="mb-8">
-        <legend className="text-sm tracking-[0.2em] uppercase text-charcoal-light mb-4">
+        <legend className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-4">
           Amount
         </legend>
         <div className="grid grid-cols-4 gap-2">
@@ -139,7 +139,7 @@ export default function GiftCardPurchase() {
         {useCustom && (
           <div className="mt-3">
             <label className="block">
-              <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+              <span className="block text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1">
                 Your amount (£10–£500)
               </span>
               <input
@@ -161,7 +161,7 @@ export default function GiftCardPurchase() {
 
       <motion.div variants={fadeUp} custom={1} className="space-y-4 mb-8">
         <label className="block">
-          <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+          <span className="block text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1">
             Send it to <span className="text-rose-400">*</span>
           </span>
           <input
@@ -175,7 +175,7 @@ export default function GiftCardPurchase() {
         </label>
 
         <label className="block">
-          <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+          <span className="block text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1">
             Their name
           </span>
           <input
@@ -188,7 +188,7 @@ export default function GiftCardPurchase() {
         </label>
 
         <label className="block">
-          <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+          <span className="block text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1">
             Your message
           </span>
           <textarea
@@ -201,7 +201,7 @@ export default function GiftCardPurchase() {
         </label>
 
         <label className="block">
-          <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+          <span className="block text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1">
             Deliver on
           </span>
           <input

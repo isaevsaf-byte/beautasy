@@ -103,7 +103,7 @@ function OrderDetails({ order, giftCard }: { order: OrderSummary; giftCard: bool
         custom={4}
         className="bg-lavender-bg rounded-2xl p-6 mb-8 text-left"
       >
-        <p className="text-xs tracking-[0.2em] uppercase text-charcoal-light mb-2">Give {give}, get {get}</p>
+        <p className="text-xs tracking-eyebrow uppercase text-charcoal-light mb-2">Give {give}, get {get}</p>
         <p className="text-sm text-charcoal-light leading-relaxed mb-4">
           Know someone who&apos;d love a piece made for them, or has a dress that never quite fitted? Send them
           your link: they get {give} off their first order or first alteration, and {get} of Beautasy credit lands
@@ -118,7 +118,7 @@ function OrderDetails({ order, giftCard }: { order: OrderSummary; giftCard: bool
       className="bg-white/70 border border-lavender-soft/40 rounded-2xl p-6 mb-8 text-left"
     >
       <div className="flex items-baseline justify-between mb-4">
-        <h3 className="text-xs tracking-[0.2em] uppercase text-charcoal-light">
+        <h3 className="text-xs tracking-eyebrow uppercase text-charcoal-light">
           {giftCard ? "Your gift card" : "Your order"}
         </h3>
         {order.reference && (

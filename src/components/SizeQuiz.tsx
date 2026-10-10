@@ -107,7 +107,7 @@ export default function SizeQuiz({
                 <div className="grid grid-cols-2 gap-3">
                   {measures.map((measure) => (
                     <label key={measure} className="block">
-                      <span className="block text-[11px] tracking-wider uppercase text-charcoal-light mb-1">
+                      <span className="block text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1">
                         {MEASURE_LABELS[measure]} (cm)
                       </span>
                       <input

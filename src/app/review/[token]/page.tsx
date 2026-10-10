@@ -45,7 +45,7 @@ export default async function ReviewPage({
             </div>
           ) : (
             <>
-              <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-3">
+              <p className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-3">
                 Your order
               </p>
               <h1 className="font-serif text-3xl sm:text-4xl mb-4">

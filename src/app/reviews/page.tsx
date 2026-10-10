@@ -106,7 +106,7 @@ export default async function ReviewsPage() {
             className="absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-lavender-bg to-transparent pointer-events-none"
           />
           <div className="relative max-w-5xl mx-auto px-6 text-center">
-            <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4">Reviews</p>
+            <p className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-4">Reviews</p>
             <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl mb-6 text-balance">
               In their <span className="italic text-lavender">own words.</span>
             </h1>
@@ -196,12 +196,12 @@ export default async function ReviewsPage() {
         <section className="pb-24">
           <div className="max-w-5xl mx-auto px-6">
             <div className="text-center mb-10">
-              <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-3">Your turn</p>
+              <p className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-3">Your turn</p>
               <h2 className="font-serif text-3xl sm:text-4xl">Worked with Kristina?</h2>
             </div>
             <div id="write" className="scroll-mt-28 grid gap-5 md:grid-cols-[1fr_1.5fr] items-start max-w-4xl mx-auto">
               <div className="bg-white/70 rounded-3xl p-7 sm:p-9 border border-lavender-soft/30">
-                <p className="text-xs tracking-wider uppercase text-charcoal-light mb-2">Helps the most</p>
+                <p className="text-xs tracking-eyebrow uppercase text-charcoal-light mb-2">Helps the most</p>
                 <h2 className="font-serif text-2xl mb-2">Review us on Google</h2>
                 <p className="text-sm text-charcoal-light leading-relaxed mb-6">
                   A review on Google is what helps neighbours in Southampton find Kristina. It takes a minute with a

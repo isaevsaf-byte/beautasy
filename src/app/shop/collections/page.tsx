@@ -56,7 +56,7 @@ export default async function CollectionsPage() {
         {/* Hero */}
         <section className="py-16 md:py-24 text-center">
           <div className="max-w-3xl mx-auto px-6">
-            <p className="text-xs tracking-[0.3em] uppercase text-charcoal/50 mb-4">
+            <p className="text-xs tracking-eyebrow uppercase text-charcoal/50 mb-4">
               Curated Edits
             </p>
             <h1 className="font-serif text-4xl md:text-5xl mb-6">Collections</h1>

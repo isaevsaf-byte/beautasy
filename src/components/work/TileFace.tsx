@@ -117,7 +117,7 @@ export default function TileFace({
                 <Photo photo={photo} sizes={sizes} eager={eager} className={PICTURE} />
                 {/* At the top: the difference is usually at the bottom — a hem, a floor */}
                 <span
-                  className={`absolute top-2.5 left-2.5 rounded-full px-2.5 py-1 text-[10px] font-medium tracking-[0.18em] uppercase shadow-sm ${tone}`}
+                  className={`absolute top-2.5 left-2.5 rounded-full px-2.5 py-1 text-[10px] font-medium tracking-caps-sm uppercase shadow-sm ${tone}`}
                 >
                   {label}
                 </span>
@@ -144,7 +144,7 @@ export default function TileFace({
         )}
       </span>
       <span className="block px-1 pt-3">
-        <span className="block text-[10px] tracking-[0.22em] uppercase text-charcoal-light mb-1">{piece.categoryLabel}</span>
+        <span className="block text-[10px] tracking-caps-sm uppercase text-charcoal-light mb-1">{piece.categoryLabel}</span>
         {/* Not a heading: the tile is a button or a link, and neither may hold one */}
         <span className="block font-serif text-[17px] leading-snug text-charcoal group-hover:text-[#8f7fc0] transition-colors">
           {piece.title}

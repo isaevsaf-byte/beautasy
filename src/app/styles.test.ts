@@ -153,3 +153,24 @@ test("a typed field and a pick-one chip each have one shape across the site", ()
   assert.match(read("src/app/shop/[param]/ProductDetail.tsx"), /min-w-\[52px\] min-h-11 px-3 py-2 rounded-chip\b/, "size chips");
   assert.match(read("src/components/Cart.tsx"), /rounded-field border border-lavender-soft\/50 bg-white/, "the bag's code field");
 });
+
+test("small capitals are spaced one of two ways, by size", () => {
+  // They were set seven ways; a hand-picked em on one label is how that began
+  assert.match(css, /--tracking-eyebrow:\s*0\.2em;/);
+  assert.match(css, /--tracking-caps-sm:\s*0\.1em;/);
+  const files = [
+    "src/app/HomeContent.tsx",
+    "src/app/alterations/[slug]/page.tsx",
+    "src/app/shop/ShopContent.tsx",
+    "src/components/Footer.tsx",
+    "src/components/AtelierBookingForm.tsx",
+    "src/components/Cart.tsx",
+    "src/components/work/TileFace.tsx",
+  ];
+  for (const file of files) {
+    for (const line of read(file).split("\n").filter((l) => /\buppercase\b/.test(l) && /\btext-(xs|sm|\[1[01]px\])\b/.test(l))) {
+      if (/\b(inline-flex|press|topstitch|px-[5-8])\b/.test(line)) continue; // buttons and links keep tracking-wider
+      assert.doesNotMatch(line, /tracking-\[|tracking-wider|tracking-widest/, `${file}: ${line.trim()}`);
+    }
+  }
+});

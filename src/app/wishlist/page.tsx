@@ -54,7 +54,7 @@ export default function WishlistPage() {
               <motion.p
                 variants={fadeUp}
                 custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
+                className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-4"
               >
                 Your Wishlist
               </motion.p>

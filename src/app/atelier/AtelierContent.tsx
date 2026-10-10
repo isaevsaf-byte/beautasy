@@ -139,7 +139,7 @@ export default function AtelierContent({
                 <motion.p
                   variants={fadeUp}
                   custom={0}
-                  className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
+                  className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-4"
                 >
                   The Atelier
                 </motion.p>
@@ -453,7 +453,7 @@ export default function AtelierContent({
                   href={`/alterations/${s.slug}`}
                   className="group bg-white rounded-2xl border border-lavender-soft/40 p-6 hover:border-lavender transition-colors"
                 >
-                  <span className="block text-xs tracking-[0.18em] uppercase text-charcoal-light mb-2">
+                  <span className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-2">
                     {s.eyebrow}
                   </span>
                   <span className="font-serif text-lg leading-snug block mb-3 group-hover:text-lavender-ink transition-colors">

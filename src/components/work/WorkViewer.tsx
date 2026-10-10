@@ -38,7 +38,7 @@ const VIEWER_SIZES = "(min-width: 1024px) calc(100vw - 400px), 100vw";
 
 function Label({ children, tone }: { children: React.ReactNode; tone: string }) {
   return (
-    <span className={`absolute top-3 left-3 rounded-full px-3 py-1 text-[11px] font-medium tracking-[0.18em] uppercase ${tone}`}>
+    <span className={`absolute top-3 left-3 rounded-full px-3 py-1 text-[11px] font-medium tracking-caps-sm uppercase ${tone}`}>
       {children}
     </span>
   );
@@ -441,7 +441,7 @@ export default function WorkViewer({
           phone used to carry on scrolling the page behind the viewer */}
       <aside className="flex-1 overflow-y-auto overscroll-contain border-t border-white/10 px-6 py-6 sm:px-8 lg:h-full lg:w-[400px] lg:flex-none lg:border-t-0 lg:border-l lg:py-16">
         {/* Not text-lavender: that is repainted dark for cream pages (globals.css) and is 3:1 here */}
-        <p className="mb-2 text-[11px] tracking-[0.25em] uppercase text-lavender-on-dark">{piece.categoryLabel}</p>
+        <p className="mb-2 text-[11px] tracking-caps-sm uppercase text-lavender-on-dark">{piece.categoryLabel}</p>
         <h2 id="work-viewer-title" className="mb-3 font-serif text-2xl leading-snug sm:text-3xl">
           {piece.title}
         </h2>
@@ -475,7 +475,7 @@ export default function WorkViewer({
                     <span className="absolute inset-0 bg-white/10" />
                   )}
                   {s.kind === "video" && (
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/30 text-[10px] tracking-wider uppercase">
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/30 text-[10px] tracking-caps-sm uppercase">
                       Play
                     </span>
                   )}
@@ -534,7 +534,7 @@ export default function WorkViewer({
         </div>
 
         {pieces.length > 1 && (
-          <p className="mt-8 text-xs tracking-[0.2em] uppercase text-white/40 tabular-nums">
+          <p className="mt-8 text-xs tracking-eyebrow uppercase text-white/40 tabular-nums">
             {index + 1} of {pieces.length}
           </p>
         )}

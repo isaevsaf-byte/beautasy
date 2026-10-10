@@ -57,7 +57,7 @@ export default function ReviewList({
             <StarRating rating={review.rating} size={14} />
             <span className="font-medium text-sm text-charcoal">{review.userName}</span>
             {review.verifiedPurchase && (
-              <span className="whitespace-nowrap shrink-0 text-[10px] tracking-wider uppercase text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+              <span className="whitespace-nowrap shrink-0 text-[10px] tracking-caps-sm uppercase text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
                 Verified purchase
               </span>
             )}

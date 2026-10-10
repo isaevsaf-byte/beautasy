@@ -67,7 +67,7 @@ export default function ReviewCard({
           <span className="text-xs text-charcoal-light">{review.neighbourhood}</span>
         )}
         {review.source === "site" && review.verifiedPurchase && (
-          <span className="text-[10px] tracking-wider uppercase text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+          <span className="text-[10px] tracking-caps-sm uppercase text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
             Verified purchase
           </span>
         )}
@@ -130,7 +130,7 @@ const ELSEWHERE = {
 } as const;
 
 const MARK_CLASS =
-  "inline-flex items-center gap-1.5 text-[10px] tracking-wider uppercase text-charcoal bg-lavender-bg border border-lavender-soft/60 rounded-full px-2.5 py-0.5";
+  "inline-flex items-center gap-1.5 text-[10px] tracking-caps-sm uppercase text-charcoal bg-lavender-bg border border-lavender-soft/60 rounded-full px-2.5 py-0.5";
 
 function SourceMark({ label, href }: { label: string; href: string }) {
   return (

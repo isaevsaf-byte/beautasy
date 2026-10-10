@@ -85,7 +85,7 @@ export default async function FriendLandingPage({
 
         <section className="py-16 md:py-24">
           <div className="max-w-3xl mx-auto px-6 text-center">
-            <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4">Beautasy Friends</p>
+            <p className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-4">Beautasy Friends</p>
             <h1 className="font-serif text-4xl sm:text-5xl mb-6 leading-tight">
               {live ? (
                 <>

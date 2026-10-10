@@ -388,7 +388,7 @@ export default function AtelierBookingForm({
       {/* ── Fitting, or Collect & return ── */}
       {collection && (
         <fieldset className="sm:col-span-2 min-w-0 border-0 p-0 m-0">
-          <legend className="text-xs tracking-wider uppercase text-charcoal-light mb-3">How should it reach Kristina?</legend>
+          <legend className="text-xs tracking-eyebrow uppercase text-charcoal-light mb-3">How should it reach Kristina?</legend>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {(
               [
@@ -428,7 +428,7 @@ export default function AtelierBookingForm({
         <fieldset className="sm:col-span-2 min-w-0 border-0 p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <legend className="sr-only">Collection</legend>
           <div>
-            <label htmlFor="booking-postcode" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+            <label htmlFor="booking-postcode" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">
               Your postcode
             </label>
             <input
@@ -454,7 +454,7 @@ export default function AtelierBookingForm({
             />
           </div>
           <div>
-            <label htmlFor="booking-when" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+            <label htmlFor="booking-when" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">
               When are you usually in? <span className="normal-case tracking-normal">(optional)</span>
             </label>
             <input
@@ -508,7 +508,7 @@ export default function AtelierBookingForm({
           form instead of scrolling inside it, and takes the page sideways. */}
       {bookable && !collecting && (
         <fieldset ref={timesRef} className="sm:col-span-2 min-w-0 border-0 p-0 m-0">
-          <legend className="relative w-full flex items-center gap-2 text-xs tracking-wider uppercase text-charcoal-light mb-3">
+          <legend className="relative w-full flex items-center gap-2 text-xs tracking-eyebrow uppercase text-charcoal-light mb-3">
             <CalendarClock size={14} aria-hidden="true" />
             Choose a time
             {/* Book pressed with no time: a stroke of tailor's chalk under
@@ -612,7 +612,7 @@ export default function AtelierBookingForm({
       )}
 
       <div className="sm:col-span-1">
-        <label htmlFor="booking-name" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">Name</label>
+        <label htmlFor="booking-name" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">Name</label>
         <input
           id="booking-name"
           name="name"
@@ -625,7 +625,7 @@ export default function AtelierBookingForm({
         />
       </div>
       <div className="sm:col-span-1">
-        <label htmlFor="booking-email" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">Email</label>
+        <label htmlFor="booking-email" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">Email</label>
         <input
           id="booking-email"
           name="email"
@@ -639,7 +639,7 @@ export default function AtelierBookingForm({
         />
       </div>
       <div className="sm:col-span-1">
-        <label htmlFor="booking-phone" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+        <label htmlFor="booking-phone" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">
           Phone <span className="normal-case text-charcoal-light">(optional)</span>
         </label>
         <input
@@ -654,7 +654,7 @@ export default function AtelierBookingForm({
         />
       </div>
       <div className="sm:col-span-1">
-        <label htmlFor="booking-service" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">Service</label>
+        <label htmlFor="booking-service" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">Service</label>
         <select
           id="booking-service"
           name="service"
@@ -671,7 +671,7 @@ export default function AtelierBookingForm({
       {/* Only worth asking when there is no diary to pick from, and nothing to collect */}
       {!bookable && !collecting && (
         <div className="sm:col-span-1">
-          <label htmlFor="booking-date" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+          <label htmlFor="booking-date" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">
             Preferred Date <span className="normal-case text-charcoal-light">(optional)</span>
           </label>
           <input
@@ -686,7 +686,7 @@ export default function AtelierBookingForm({
       )}
 
       <div className="sm:col-span-2">
-        <label htmlFor="booking-notes" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+        <label htmlFor="booking-notes" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">
           Notes <span className="normal-case text-charcoal-light">(optional)</span>
         </label>
         <textarea
@@ -704,7 +704,7 @@ export default function AtelierBookingForm({
       {/* Asked last and asked lightly: nothing is chosen for them, and a
           booking without an answer goes through the same */}
       <div className="sm:col-span-1">
-        <label htmlFor="booking-found-us" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+        <label htmlFor="booking-found-us" className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5">
           How did you find us? <span className="normal-case text-charcoal-light">(optional)</span>
         </label>
         <select

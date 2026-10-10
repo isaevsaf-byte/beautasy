@@ -29,7 +29,7 @@ export default function FriendsShare({ code }: { code: string }) {
 
   return (
     <div className="text-left">
-      <p className="text-[11px] tracking-wider uppercase text-charcoal-light mb-1.5">Your link</p>
+      <p className="text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1.5">Your link</p>
       <p className="font-mono text-sm text-charcoal break-all select-all bg-white/70 border border-lavender-soft/40 rounded-xl px-4 py-3">
         {shown}
       </p>

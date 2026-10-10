@@ -227,7 +227,7 @@ export default async function LocalServicePage({
 
         {/* ──── Hero ──── */}
         <section className="max-w-4xl mx-auto px-6">
-          <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-5">
+          <p className="text-xs tracking-eyebrow uppercase text-charcoal-light mb-5">
             {service.eyebrow} · Southampton
           </p>
           <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl leading-tight mb-5 text-balance">
@@ -362,7 +362,7 @@ export default async function LocalServicePage({
           <ol className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {service.steps.map((step, i) => (
               <li key={step.title} className="bg-white rounded-2xl border border-lavender-soft/40 p-6">
-                <span className="block text-xs tracking-[0.2em] uppercase text-lavender mb-3 tabular-nums">
+                <span className="block text-xs tracking-eyebrow uppercase text-lavender mb-3 tabular-nums">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <h3 className="font-serif text-lg mb-2">{step.title}</h3>
@@ -433,7 +433,7 @@ export default async function LocalServicePage({
             says why the piece belongs next to this job. */}
         {fromTheShop.length > 0 && (
         <section className="max-w-4xl mx-auto px-6 mt-14">
-          <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-2">Made in the same room</p>
+          <p className="text-xs tracking-eyebrow uppercase text-charcoal-light mb-2">Made in the same room</p>
           <h2 className="font-serif text-2xl mb-6">While you&apos;re here</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {fromTheShop.map((item) => (
@@ -462,7 +462,7 @@ export default async function LocalServicePage({
                 href={`/alterations/${r.slug}`}
                 className="group bg-white rounded-2xl border border-lavender-soft/40 p-5 hover:border-lavender transition-colors"
               >
-                <span className="block text-xs tracking-[0.18em] uppercase text-charcoal-light mb-2">
+                <span className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-2">
                   {r.eyebrow}
                 </span>
                 <span className="font-serif text-lg leading-snug block group-hover:text-lavender-ink transition-colors">
@@ -474,7 +474,7 @@ export default async function LocalServicePage({
               href="/atelier"
               className="group bg-white rounded-2xl border border-lavender-soft/40 p-5 hover:border-lavender transition-colors"
             >
-              <span className="block text-xs tracking-[0.18em] uppercase text-charcoal-light mb-2">
+              <span className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-2">
                 Everything
               </span>
               <span className="font-serif text-lg leading-snug block group-hover:text-lavender-ink transition-colors">

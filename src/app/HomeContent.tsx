@@ -118,7 +118,7 @@ function Hero({ priceFrom, heroPhoto }: { priceFrom?: string | null; heroPhoto?:
           <motion.p
             variants={fadeUp}
             custom={0}
-            className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-6"
+            className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-6"
           >
             Made to feel, not just wear.
           </motion.p>
@@ -286,7 +286,7 @@ function Hero({ priceFrom, heroPhoto }: { priceFrom?: string | null; heroPhoto?:
               transition={{ duration: 0.6, delay: 1 }}
               className="absolute -bottom-4 -left-4 bg-white/90 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-lg shadow-lavender/10 border border-lavender-soft/50"
             >
-              <p className="text-xs tracking-wider uppercase text-charcoal-light">
+              <p className="text-xs tracking-eyebrow uppercase text-charcoal-light">
                 ✨ 100% Handmade
               </p>
             </motion.div>

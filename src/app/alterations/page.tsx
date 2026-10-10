@@ -82,7 +82,7 @@ export default async function AlterationsHub() {
           announcement bar was showing */}
       <main id="main" className="pt-28 pb-24">
         <section className="max-w-4xl mx-auto px-6">
-          <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-5">
+          <p className="text-xs tracking-eyebrow uppercase text-charcoal-light mb-5">
             Alterations · Southampton
           </p>
           <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl leading-tight mb-7 text-balance">
@@ -145,7 +145,7 @@ export default async function AlterationsHub() {
                 href={`/alterations/${s.slug}`}
                 className="group bg-white rounded-2xl border border-lavender-soft/40 p-6 hover:border-lavender transition-colors"
               >
-                <span className="block text-xs tracking-[0.18em] uppercase text-charcoal-light mb-2">
+                <span className="block text-xs tracking-eyebrow uppercase text-charcoal-light mb-2">
                   {s.eyebrow}
                 </span>
                 <h3 className="font-serif text-xl leading-snug mb-2 group-hover:text-lavender-ink transition-colors">

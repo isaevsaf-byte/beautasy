@@ -10,7 +10,7 @@ type Status = "idle" | "loading" | "done" | "error";
 
 const FIELD_CLASS =
   "w-full px-4 py-3 rounded-field border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25";
-const LABEL_CLASS = "block text-xs tracking-wider uppercase text-charcoal-light mb-1.5";
+const LABEL_CLASS = "block text-xs tracking-eyebrow uppercase text-charcoal-light mb-1.5";
 
 /**
  * "Write it here": a first name, what it was about, stars and a few words.

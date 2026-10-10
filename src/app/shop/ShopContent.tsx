@@ -305,7 +305,7 @@ export default function ShopContent({
               <motion.p
                 variants={fadeUp}
                 custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
+                className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-4"
               >
                 {isCollection
                   ? `Collection${activeCollection.season ? ` — ${activeCollection.season}` : ""}`
@@ -464,7 +464,7 @@ export default function ShopContent({
               <motion.p
                 variants={fadeUp}
                 custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
+                className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-4"
               >
                 Handmade with Love
               </motion.p>
@@ -481,7 +481,7 @@ export default function ShopContent({
             {products.length > 0 && (
               <div className="flex flex-col gap-4 mb-10">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs tracking-wider uppercase text-charcoal-light">
+                  <p className="text-xs tracking-eyebrow uppercase text-charcoal-light">
                     {displayedProducts.length}{" "}
                     {displayedProducts.length === 1 ? "piece" : "pieces"}
                   </p>
@@ -493,7 +493,7 @@ export default function ShopContent({
                       pills' text is darker too — at 60% it was faint enough
                       to read as missing. */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="sr-only min-[360px]:not-sr-only text-xs tracking-wider uppercase text-charcoal-light min-[360px]:mr-1">
+                    <span className="sr-only min-[360px]:not-sr-only text-xs tracking-eyebrow uppercase text-charcoal-light min-[360px]:mr-1">
                       Sort
                     </span>
                     {[
@@ -529,7 +529,7 @@ export default function ShopContent({
                   <div className="flex flex-wrap items-center gap-2">
                     {sizeOptions.length > 0 && (
                       <>
-                        <span className="text-xs tracking-wider uppercase text-charcoal-light mr-1">
+                        <span className="text-xs tracking-eyebrow uppercase text-charcoal-light mr-1">
                           Size
                         </span>
                         {sizeOptions.map((size) => {

@@ -219,7 +219,7 @@ export default function GiftBoxDetail({
             <motion.div variants={fadeUp} custom={1} className="flex flex-col">
               {/* Badge + Stock */}
               <div className="flex items-center gap-3 mb-3">
-                <span className="px-3 py-1 bg-lavender-bg rounded-full text-xs tracking-wider uppercase text-charcoal-light flex items-center gap-1.5">
+                <span className="px-3 py-1 bg-lavender-bg rounded-full text-xs tracking-eyebrow uppercase text-charcoal-light flex items-center gap-1.5">
                   <Gift size={12} />
                   Gift Set
                 </span>
@@ -266,7 +266,7 @@ export default function GiftBoxDetail({
               <div className="mb-4 p-4 rounded-xl bg-white border border-lavender-soft/40">
                 <label
                   htmlFor="giftbox-message"
-                  className="block text-xs tracking-wider uppercase font-medium text-charcoal mb-2"
+                  className="block text-xs tracking-eyebrow uppercase font-medium text-charcoal mb-2"
                 >
                   Gift card message{" "}
                   <span className="text-charcoal-light normal-case tracking-normal font-normal">
@@ -323,7 +323,7 @@ export default function GiftBoxDetail({
               {/* Contents Note */}
               {giftBox.contentsNote && (
                 <div className="p-4 rounded-xl bg-lavender-bg/50 border border-lavender-soft/30 mb-6">
-                  <p className="text-xs tracking-wider uppercase text-charcoal-light mb-2 flex items-center gap-1.5">
+                  <p className="text-xs tracking-eyebrow uppercase text-charcoal-light mb-2 flex items-center gap-1.5">
                     <Package size={12} />
                     Also Includes
                   </p>
@@ -346,7 +346,7 @@ export default function GiftBoxDetail({
               variants={stagger}
             >
               <motion.div variants={fadeUp} custom={0} className="mb-10">
-                <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-2">
+                <p className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-2">
                   Curated Selection
                 </p>
                 <h2 className="font-serif text-2xl sm:text-3xl">

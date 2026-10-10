@@ -54,7 +54,7 @@ export default function NewsletterSignup({ source = "footer" }: { source?: strin
 
   return (
     <div>
-      <p className="text-sm tracking-[0.2em] uppercase text-charcoal-light mb-3">
+      <p className="text-sm tracking-eyebrow uppercase text-charcoal-light mb-3">
         10% off your first order
       </p>
       <p className="text-sm text-charcoal-light leading-relaxed mb-4 max-w-xs">

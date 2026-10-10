@@ -41,7 +41,7 @@ export default function ReviewStrip({
     <section className={className}>
       <div className="mb-7 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
-          {eyebrow && <p className="mb-2 text-xs tracking-[0.25em] uppercase text-charcoal-light">{eyebrow}</p>}
+          {eyebrow && <p className="mb-2 text-xs tracking-eyebrow uppercase text-charcoal-light">{eyebrow}</p>}
           <h2 className="font-serif text-2xl sm:text-3xl">{heading}</h2>
         </div>
         <Link

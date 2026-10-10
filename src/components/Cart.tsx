@@ -554,7 +554,7 @@ export function CartDrawer({
                         )}
                         {item.measurements && (
                           <div className="mt-1.5 px-2 py-1.5 rounded-lg bg-lavender-bg/60 border border-lavender-soft/40">
-                            <p className="text-[10px] tracking-wider uppercase text-charcoal-light mb-0.5">
+                            <p className="text-[10px] tracking-caps-sm uppercase text-charcoal-light mb-0.5">
                               Your measurements
                             </p>
                             <p className="text-xs text-charcoal break-words">{item.measurements}</p>
@@ -562,7 +562,7 @@ export function CartDrawer({
                         )}
                         {item.giftMessage && (
                           <div className="mt-1.5 px-2 py-1.5 rounded-lg bg-lavender-bg/60 border border-lavender-soft/40">
-                            <p className="text-[10px] tracking-wider uppercase text-charcoal-light mb-0.5">
+                            <p className="text-[10px] tracking-caps-sm uppercase text-charcoal-light mb-0.5">
                               Gift card
                             </p>
                             <p className="text-xs text-charcoal italic break-words">
@@ -713,7 +713,7 @@ export function CartDrawer({
 
                 {/* Delivery region — decides which rate Stripe offers */}
                 <div>
-                  <p className="text-[11px] tracking-wider uppercase text-charcoal-light mb-1.5">
+                  <p className="text-[11px] tracking-caps-sm uppercase text-charcoal-light mb-1.5">
                     Delivering to
                   </p>
                   <div className="grid grid-cols-2 gap-2">
