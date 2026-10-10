@@ -19,6 +19,13 @@
   --color-lavender-on-dark: #DCD0FF;
   --color-lavender-soft: #E6E6FA;
   --color-lavender-bg: #F5F0FF;
+  /* A filled lavender button under the pointer: a shade deeper, so the hover
+     reads without the colour leaving the family. It was pasted as #CFC0F0 on
+     every button; one name keeps them all the same shade. */
+  --color-lavender-hover: #CFC0F0;
+  /* The plum of the pin's pearl head and the stitching on the booking
+     buttons, for anything else that needs the brand's darkest colour */
+  --color-plum: #5A2D5C;
   --font-serif: var(--font-playfair), "Playfair Display", Georgia, serif;
   --font-sans: var(--font-geist), "Geist", system-ui, sans-serif;
 }
@@ -40,8 +47,8 @@
    next page arrived. Pressed, the button gives a little, the way a real one
    does; let go and it springs back fast. Only the transform is quick — the
    colour change keeps its own pace. Unlayered, so it wins over the transition
-   utilities on the same button. The topstitched "Choose a time" buttons do
-   not carry it: their stitching is meant to stay still. */
+   utilities on the same button. The topstitched "Choose a time" buttons give
+   the same way through their own rule below (.topstitch), stitching and all. */
 .press {
   transition:
     transform 160ms var(--ease-out),
@@ -57,6 +64,26 @@
   .press:active:not([aria-disabled="true"], :disabled) {
     transform: scale(0.99);
   }
+}
+
+/* The lavender wash behind the logos on the home page and the shop: pale
+   lilac into the brand lavender, corner to corner. It was the same three
+   colours pasted into six class lists; one name keeps them the same. A
+   Tailwind utility rather than a plain class, so it sits in the utilities
+   layer with the rest and variants work on it. Drawn as bg-gradient-to-br
+   drew it — towards the bottom right, mixed in oklab — so nothing moves. */
+@utility bg-lavender-wash {
+  background-image: linear-gradient(to bottom right in oklab, #F3ECFF 0%, #E8DEFF 50%, #DCD0FF 100%);
+}
+
+/* Playfair set large runs a touch loose: at 30px and over its capitals stand
+   apart and a two-line heading reads as separate words. A hundredth of an em
+   closer pulls them into one line of type without crowding. Only the large
+   display headings — small Playfair is set tight enough already. Unlayered
+   like the rules around it, so it would beat a tracking utility whatever its
+   specificity: a heading that names its own tracking is left out instead. */
+:where(h1, h2).font-serif:is(.text-3xl, .text-4xl, .text-5xl, .text-6xl, .text-\[3\.5rem\]):not([class*="tracking-"]) {
+  letter-spacing: -0.01em;
 }
 
 /* Long headings break in balanced lines instead of leaving one word alone at
@@ -394,9 +421,28 @@ main:focus {
   }
 }
 
-/* The booking button, top-stitched like a sewn-on label. It never moves. */
+/* The booking button, top-stitched like a sewn-on label. Its stitching never
+   moves on its own; the button gives under a finger as every other filled
+   button does (.press, above), and the stitching, inside it, gives with it.
+   The transition is written out whole here, unlayered, because it beats the
+   transition utilities on the buttons: the colour and the shadow keep the
+   300ms they had there, and only the press is quick. */
 .topstitch {
   position: relative;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.topstitch:active:not([aria-disabled="true"], :disabled) {
+  transform: scale(0.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  .topstitch:active:not([aria-disabled="true"], :disabled) {
+    transform: scale(0.99);
+  }
 }
 .topstitch::after {
   content: "";
