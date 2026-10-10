@@ -31,6 +31,7 @@ import {
   Bell,
   Loader2,
   CheckCircle2,
+  Lightbulb,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -1415,9 +1416,12 @@ export default function ProductDetail({
                     <p className="text-sm text-charcoal-light">No size data available.</p>
                   )}
 
+                  {/* The tip's bulb is drawn in the brand's colour rather than
+                      the emoji, which each phone's font draws its own way */}
                   {product.sizeGuide.notes && (
-                    <p className="mt-5 text-xs text-charcoal-light leading-relaxed bg-lavender-bg/50 rounded-xl px-4 py-3 border border-lavender-soft/40">
-                      💡 {product.sizeGuide.notes}
+                    <p className="mt-5 flex items-start gap-2 text-xs text-charcoal-light leading-relaxed bg-lavender-bg/50 rounded-xl px-4 py-3 border border-lavender-soft/40">
+                      <Lightbulb size={14} aria-hidden="true" className="text-lavender-ink shrink-0 mt-px" />
+                      <span>{product.sizeGuide.notes}</span>
                     </p>
                   )}
                 </div>

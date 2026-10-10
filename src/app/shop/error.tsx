@@ -1,5 +1,7 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
+
 export default function ShopError({
   reset,
 }: {
@@ -8,8 +10,10 @@ export default function ShopError({
 }) {
   return (
     <main className="pt-28 min-h-svh flex flex-col items-center justify-center px-6 text-center">
+      {/* A drawn sparkle in the brand's colour, as on the empty shop, not an
+          emoji the phone's own font would draw its own way */}
       <div className="w-16 h-16 rounded-full bg-lavender/15 flex items-center justify-center mx-auto mb-6">
-        <span className="text-2xl">✨</span>
+        <Sparkles size={26} aria-hidden="true" className="text-lavender-ink" />
       </div>
       <h2 className="font-serif text-2xl mb-3">Couldn&apos;t load products.</h2>
       <p className="text-charcoal-light mb-8">Please try again.</p>

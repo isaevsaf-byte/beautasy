@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { placeLink, shelvesFrom, stockedLinks } from "@/lib/shelves";
 import { availability } from "@/lib/availability";
@@ -601,8 +601,12 @@ export default function ShopContent({
                 custom={0}
                 className="text-center py-16"
               >
+                {/* A drawn sparkle, not the emoji: an emoji is whatever the
+                    phone's own font makes of it — yellow on one, flat on
+                    another — where an icon is the brand's colour everywhere,
+                    as on the wishlist and gift boxes */}
                 <div className="w-20 h-20 rounded-full bg-lavender/15 flex items-center justify-center mx-auto mb-6">
-                  <span className="text-3xl">✨</span>
+                  <Sparkles size={32} aria-hidden="true" className="text-lavender-ink" />
                 </div>
                 <h3 className="font-serif text-2xl mb-3">
                   {activeSize || readyOnly
