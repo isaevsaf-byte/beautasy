@@ -30,6 +30,40 @@ export const FIELD_LIMITS = {
  */
 export const HONEYPOT_FIELD = "website";
 
+/* ─── How they found us ─── */
+
+/**
+ * "How did you find us?" — the choices on the form, word for word, and the
+ * only answers the route keeps. Kristina pays for Google, posts on Nextdoor,
+ * Instagram and the Facebook groups, and gives out Friends links; until now
+ * nothing said which of those brought a fitting in. Optional, nothing chosen
+ * to start with, and stored as the plain label: it says where a booking came
+ * from, not who made it.
+ */
+export const FOUND_US_OPTIONS = [
+  "Google",
+  "Nextdoor",
+  "Instagram",
+  "Facebook group",
+  "A friend",
+  "Walked past / local",
+  "Other",
+] as const;
+
+export type FoundUs = (typeof FOUND_US_OPTIONS)[number];
+
+/**
+ * The answer, if it is one of the choices. Anything else — a page from before
+ * the question, the empty choice, something a script made up — is no answer,
+ * and never a reason to turn a booking away: it is our question, not a field
+ * the customer has to get right.
+ */
+export function foundUsOf(value: unknown): FoundUs | undefined {
+  return typeof value === "string" && (FOUND_US_OPTIONS as readonly string[]).includes(value)
+    ? (value as FoundUs)
+    : undefined;
+}
+
 /* ─── The same form, sending again ─── */
 
 /**
@@ -67,6 +101,8 @@ export function bookingBody(form: {
   slot: string | null;
   preferredDate: string;
   referralCode: string | null;
+  /** "How did you find us?" — empty until they pick one, and then not sent */
+  foundUs?: string;
 }): Record<string, unknown> {
   return {
     name: form.name,
@@ -82,6 +118,7 @@ export function bookingBody(form: {
       ? { slot: form.slot }
       : { preferredDate: form.preferredDate }),
     ...(form.referralCode ? { referralCode: form.referralCode } : {}),
+    ...(form.foundUs ? { foundUs: form.foundUs } : {}),
   };
 }
 

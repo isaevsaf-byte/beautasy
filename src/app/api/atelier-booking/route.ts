@@ -497,6 +497,10 @@ export async function POST(req: NextRequest) {
         // What recognises this form's request when it is sent again
         ...(asker ? { requestFingerprint: asker.request } : {}),
         service,
+        // "How did you find us?" — one of the form's own labels, read in the
+        // Studio. Plain, not sealed: it says where the booking came from, not
+        // who made it (see FOUND_US_OPTIONS in @/lib/bookingForm)
+        ...(read.fields.foundUs ? { foundUs: read.fields.foundUs } : {}),
         // The district and the terms they saw: never the street
         ...(collection ? { collection: collection.request } : {}),
         ...(friend

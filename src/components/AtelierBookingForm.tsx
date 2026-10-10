@@ -11,6 +11,7 @@ import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/at
 import { durationLabel, pinnedLabel, slotIsOffered } from "@/lib/slots";
 import {
   FIELD_LIMITS,
+  FOUND_US_OPTIONS,
   HONEYPOT_FIELD,
   NO_ANSWER,
   bookingBody,
@@ -114,6 +115,8 @@ export default function AtelierBookingForm({
   const [service, setService] = useState(defaultService ?? SERVICES[0]);
   const [preferredDate, setPreferredDate] = useState("");
   const [notes, setNotes] = useState("");
+  // "How did you find us?" — empty, so nothing is said for them unless they choose
+  const [foundUs, setFoundUs] = useState("");
   // Only a bot fills this in — see HONEYPOT_FIELD
   const [trap, setTrap] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -274,6 +277,7 @@ export default function AtelierBookingForm({
           slot,
           preferredDate,
           referralCode: friend?.code ?? null,
+          foundUs,
         })
       );
 
@@ -695,6 +699,26 @@ export default function AtelierBookingForm({
           placeholder="Tell us about the garment and what you need done..."
           className={`${FIELD_CLASS} resize-none`}
         />
+      </div>
+
+      {/* Asked last and asked lightly: nothing is chosen for them, and a
+          booking without an answer goes through the same */}
+      <div className="sm:col-span-1">
+        <label htmlFor="booking-found-us" className="block text-xs tracking-wider uppercase text-charcoal-light mb-1.5">
+          How did you find us? <span className="normal-case text-charcoal-light">(optional)</span>
+        </label>
+        <select
+          id="booking-found-us"
+          name="foundUs"
+          value={foundUs}
+          onChange={(e) => setFoundUs(e.target.value)}
+          className={FIELD_CLASS}
+        >
+          <option value="">Choose one…</option>
+          {FOUND_US_OPTIONS.map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
       </div>
 
       {friend && friend.discount > 0 && (

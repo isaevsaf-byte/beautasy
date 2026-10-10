@@ -86,6 +86,16 @@ export const atelierBooking = defineType({
     // Keyed and one-way, like the email's: how the site knows the same form sent again when its answer was lost
     defineField({ name: "requestFingerprint", title: "Отпечаток заявки", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "service", title: "Услуга", type: "string", readOnly: true }),
+    // What the customer picked under "How did you find us?" on the form — one
+    // of FOUND_US_OPTIONS in @/lib/bookingForm, stored as its English label
+    defineField({
+      name: "foundUs",
+      title: "Как нашли нас",
+      type: "string",
+      readOnly: true,
+      hidden: ({ document }) => !document?.foundUs,
+      description: "Что клиент выбрал в форме записи в вопросе «How did you find us?». Необязательный вопрос — у многих записей его нет.",
+    }),
     defineField({
       name: "referredBy",
       title: "Кто порекомендовал",

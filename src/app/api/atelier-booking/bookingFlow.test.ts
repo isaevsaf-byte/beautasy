@@ -144,6 +144,25 @@ const ANNAS_FORM = "6f1c2b9e-3d4a-4c5b-8e7f-0a1b2c3d4e5f";
 
 const bookings = () => [...docs.values()].filter((doc) => doc._type === "atelierBooking");
 
+/* ─── How they found us ─── */
+
+test("'How did you find us?' is kept on a booked time and on a request, plain, and a made-up answer is not", async () => {
+  const day = openDiary();
+  const booked = await POST(request({ ...ANNA, service: "Alterations", slot: `${day}T11:00`, foundUs: "Nextdoor" }));
+  assert.equal(booked.status, 201);
+  assert.equal(docs.get(slotDocumentId(`${day}T11:00`))?.foundUs, "Nextdoor");
+
+  const asked = await POST(request({ ...ANNA, email: "bea@example.com", service: "Repairs", foundUs: "A friend" }));
+  assert.equal(asked.status, 201);
+  assert.equal(bookings().find((doc) => doc.status === "new")?.foundUs, "A friend");
+
+  const odd = await POST(request({ ...ANNA, email: "cat@example.com", service: "Repairs", foundUs: "<script>" }));
+  assert.equal(odd.status, 201, "a booking was refused over an answer it does not need");
+  assert.equal(bookings().filter((doc) => "foundUs" in doc).length, 2);
+  // Nothing about it goes in either email
+  for (const email of emails) assert.doesNotMatch(email.html, /Nextdoor|A friend/);
+});
+
 /* ─── A bride's two slots ─── */
 
 test("a bride who books online holds both slots, is told it takes about an hour, and Kristina sees the whole hour", async () => {

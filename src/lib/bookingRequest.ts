@@ -1,5 +1,5 @@
 import { ATELIER_SERVICES, LEGACY_SERVICES } from "@/lib/atelierServices";
-import { FIELD_LIMITS, HONEYPOT_FIELD, REQUEST_KEY_FIELD } from "@/lib/bookingForm";
+import { FIELD_LIMITS, HONEYPOT_FIELD, REQUEST_KEY_FIELD, foundUsOf, type FoundUs } from "@/lib/bookingForm";
 import { HOLDING_STATUSES, releasesItsTime } from "@/lib/diary";
 import { LOCAL_SERVICES } from "@/lib/localServices";
 import { fingerprint } from "@/lib/secrets";
@@ -49,6 +49,8 @@ export interface BookingFields {
   preferredDate?: string;
   /** A friend's link code, left on the device by /r/CODE */
   referralCode?: string;
+  /** "How did you find us?", when they picked one of the form's choices */
+  foundUs?: FoundUs;
 }
 
 /** A string, trimmed, or nothing. Anything that is not a string is nothing. */
@@ -101,6 +103,7 @@ export function readBookingFields(body: unknown): { ok: true; fields: BookingFie
   }
 
   const code = typed(raw.referralCode);
+  const foundUs = foundUsOf(raw.foundUs);
   return {
     ok: true,
     fields: {
@@ -113,6 +116,9 @@ export function readBookingFields(body: unknown): { ok: true; fields: BookingFie
       // A code is never typed — it comes from a link — so one too long to be
       // real is simply not a code, rather than something to bother them about
       ...(code && code.length <= 40 ? { referralCode: code } : {}),
+      // Only one of the form's own choices is kept; anything else is dropped
+      // without a word, since the booking does not depend on it (see foundUsOf)
+      ...(foundUs ? { foundUs } : {}),
     },
   };
 }

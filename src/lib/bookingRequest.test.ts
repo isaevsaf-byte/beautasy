@@ -17,6 +17,7 @@ import {
   type BookingFields,
 } from "./bookingRequest";
 import { LOCAL_SERVICES } from "./localServices";
+import { FOUND_US_OPTIONS, bookingBody, foundUsOf } from "./bookingForm";
 
 /**
  * What the public booking route takes from anyone, and how it tells the same
@@ -84,6 +85,44 @@ test("what is not text is not a field, and a friend code too long to be one is n
   const coded = readBookingFields({ ...GOOD, referralCode: "ANNA-K7P2" });
   assert.ok(coded.ok);
   assert.equal(coded.fields.referralCode, "ANNA-K7P2");
+});
+
+test("'How did you find us?' keeps only the form's own answers, and never refuses a booking over it", () => {
+  for (const answer of FOUND_US_OPTIONS) {
+    const read = readBookingFields({ ...GOOD, foundUs: answer });
+    assert.ok(read.ok);
+    assert.equal(read.fields.foundUs, answer);
+  }
+  // Case, spaces, a made-up source, the empty choice, not text, a page from before the question
+  for (const odd of ["google", " Google", "TikTok", "", "x".repeat(5000), 3, { source: "Google" }, null, undefined]) {
+    const read = readBookingFields({ ...GOOD, foundUs: odd });
+    assert.ok(read.ok, `a booking with foundUs ${JSON.stringify(odd)} was refused`);
+    assert.equal("foundUs" in read.fields, false, `${JSON.stringify(odd)} was kept`);
+  }
+  assert.equal(foundUsOf("Walked past / local"), "Walked past / local");
+  assert.equal(foundUsOf("Walked past"), undefined);
+});
+
+test("what the form sends carries 'How did you find us?' only once something is chosen", () => {
+  const form = {
+    name: "Anna",
+    email: "anna@example.com",
+    phone: "",
+    service: "Alterations",
+    notes: "",
+    trap: "",
+    requestKey: "6f1c2b9e-3d4a-4c5b-8e7f-0a1b2c3d4e5f",
+    collection: null,
+    slot: "2026-10-06T14:00",
+    preferredDate: "",
+    referralCode: null,
+  };
+  assert.equal("foundUs" in bookingBody(form), false);
+  assert.equal("foundUs" in bookingBody({ ...form, foundUs: "" }), false);
+  const sent = bookingBody({ ...form, foundUs: "Nextdoor" });
+  assert.equal(sent.foundUs, "Nextdoor");
+  const read = readBookingFields(sent);
+  assert.ok(read.ok && read.fields.foundUs === "Nextdoor", "what the form sends is what the route keeps");
 });
 
 test("only the hidden field filled in marks a bot", () => {

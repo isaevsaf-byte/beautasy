@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createElement, type FC } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import AtelierBookingForm, { NoAnswer } from "./AtelierBookingForm";
-import { FIELD_LIMITS, HONEYPOT_FIELD, NO_ANSWER } from "../lib/bookingForm";
+import { FIELD_LIMITS, FOUND_US_OPTIONS, HONEYPOT_FIELD, NO_ANSWER } from "../lib/bookingForm";
 import { readBookingFields } from "../lib/bookingRequest";
 import { PRIVACY_HREF, TERMS_HREF } from "./TermsNote";
 
@@ -38,8 +38,15 @@ test("nobody can type past what the route accepts", () => {
   assert.match(tagOf("id", "booking-notes"), new RegExp(`maxLength="${FIELD_LIMITS.notes}"`, "i"));
 });
 
+/** The options of one select, by its id, with "&amp;" read back as "&" */
+function optionsOf(id: string): string[] {
+  const select = html.match(new RegExp(`<select\\b[^>]*\\bid="${id}"[\\s\\S]*?</select>`))?.[0] ?? "";
+  return [...select.matchAll(/<option value="([^"]*)"/g)].map((m) => m[1].replace(/&amp;/g, "&"));
+}
+
 test("every service the form offers is one the route takes", () => {
-  const offered = [...html.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, "&"));
+  // Read from the service select alone: "How did you find us?" has options too
+  const offered = optionsOf("booking-service");
   assert.ok(offered.includes("Bridal fitting"));
   assert.ok(offered.includes("Not sure — free 10-minute look"));
   for (const service of offered) {
@@ -92,7 +99,7 @@ test("'(optional)' is as readable as the label it sits in", () => {
   assert.ok(contrastOnWhite(grey) >= 4.5, `${grey} is ${contrastOnWhite(grey).toFixed(2)}:1`);
 
   const optional = [...html.matchAll(/<span class="([^"]*)">\(optional\)<\/span>/g)].map((m) => m[1]);
-  assert.equal(optional.length, 3, "phone, preferred date and notes");
+  assert.equal(optional.length, 4, "phone, preferred date, notes and how they found us");
   for (const classes of optional) {
     assert.ok(classes.split(" ").includes("text-charcoal-light"), classes);
     assert.doesNotMatch(classes, /text-charcoal-light\/\d+/, "faded again");
@@ -148,4 +155,19 @@ test("under the booking button: what booking agrees to, both pages linked, and t
   const classes = line.match(/class="([^"]*)"/)?.[1].split(" ") ?? [];
   assert.ok(classes.includes("sm:col-span-2"), classes.join(" "));
   assert.ok(classes.includes("text-charcoal-light"), classes.join(" "));
+});
+
+test("'How did you find us?' starts with nothing chosen, offers the agreed list, and every answer reaches the booking", () => {
+  assert.deepEqual(optionsOf("booking-found-us"), ["", ...FOUND_US_OPTIONS], "an empty first choice, then the list as agreed");
+  const select = html.match(/<select\b[^>]*\bid="booking-found-us"[\s\S]*?<\/select>/)?.[0] ?? "";
+  assert.doesNotMatch(select, /\brequired\b/, "a booking does not depend on it");
+  assert.equal((select.match(/selected=""/g) ?? []).length, 1, "only the empty choice is selected");
+  assert.match(select, /<option value="" selected="">/);
+  for (const answer of FOUND_US_OPTIONS) {
+    const read = readBookingFields({ name: "Anna", email: "anna@example.com", service: "Alterations", foundUs: answer });
+    assert.ok(read.ok && read.fields.foundUs === answer, `the form offers "${answer}" and the route drops it`);
+  }
+  // And it goes out with the rest of the form
+  const sent = source.slice(source.indexOf("const reply = await sendBooking("), source.indexOf("if (!reply.reached)"));
+  assert.match(sent, /\bfoundUs,/);
 });
