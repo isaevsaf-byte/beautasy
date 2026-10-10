@@ -99,6 +99,21 @@
   touch-action: manipulation;
 }
 
+/* A long press on a button is a press held down, not a request to select its
+   label: on a phone it used to light the words up in blue with the copy
+   handles. Buttons only — never the body or the words on the page, which
+   stay selectable. Links styled as buttons (.topstitch, .press) are still
+   links, so their words may be selected, but a held press on them should not
+   open iOS's link preview over the page. Unlayered like the rules around it,
+   :where() for zero specificity, so a class that asks otherwise still wins. */
+:where(button, [role="button"]) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+:where(a[href].topstitch, a[href].press) {
+  -webkit-touch-callout: none;
+}
+
 /* Smooth scroll, unless the visitor has asked for less motion */
 @media (prefers-reduced-motion: no-preference) {
   html {
