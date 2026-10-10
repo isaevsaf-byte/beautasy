@@ -84,7 +84,7 @@ const steps = [
   {
     icon: CalendarCheck,
     step: "01",
-    title: "Choose a Time",
+    title: "Choose a time",
     subtitle: "Southampton",
     // The workroom is in Kristina's home: there is no door to drop by, and
     // the address goes to each customer once a time is agreed
@@ -93,7 +93,7 @@ const steps = [
   {
     icon: Ruler,
     step: "02",
-    title: "Fitting & Pinning",
+    title: "Fitting & pinning",
     description:
       "We take precise measurements and pin your garment to visualise the perfect result together.",
   },
@@ -101,7 +101,7 @@ const steps = [
     icon: SparkleIcon,
     step: "03",
     title: "Collection",
-    subtitle: "Perfect Fit",
+    subtitle: "Perfect fit",
     description:
       "Your beautifully altered piece is ready. Try it on, smile, and take it home.",
   },
@@ -200,9 +200,11 @@ export default function AtelierContent({
                   custom={1}
                   className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] leading-tight mb-6"
                 >
-                  The Perfect Fit,
-                  <br />
-                  <span className="italic text-lavender">Tailored Just For You.</span>
+                  {/* Two lines on a laptop; on a phone the browser balances
+                      them, where a fixed break left a word alone */}
+                  The perfect fit,{" "}
+                  <br className="hidden md:inline" />
+                  <span className="italic text-lavender">tailored just for you.</span>
                 </motion.h1>
                 <motion.p
                   variants={fadeUp}
@@ -314,7 +316,7 @@ export default function AtelierContent({
                 custom={1}
                 className="font-serif text-3xl sm:text-4xl"
               >
-                How It Works
+                How it works
               </motion.h2>
             </motion.div>
 
@@ -410,7 +412,7 @@ export default function AtelierContent({
                 custom={1}
                 className="font-serif text-3xl sm:text-4xl"
               >
-                Our Price Guide
+                Our price guide
               </motion.h2>
             </motion.div>
 
@@ -549,7 +551,7 @@ export default function AtelierContent({
                 custom={1}
                 className="font-serif text-3xl sm:text-4xl"
               >
-                Full Atelier Services
+                Full atelier services
               </motion.h2>
             </motion.div>
 
@@ -562,7 +564,7 @@ export default function AtelierContent({
             >
               {[
                 {
-                  title: "Custom Sewing",
+                  title: "Custom sewing",
                   description:
                     "Bespoke pieces tailored exactly to your measurements and desires. From lingerie to dresses, we bring your vision to life.",
                   details: [
@@ -646,7 +648,7 @@ export default function AtelierContent({
                 custom={1}
                 className="font-serif text-3xl sm:text-4xl"
               >
-                Request a Fitting
+                Request a fitting
               </motion.h2>
               {collection && (
                 <motion.p variants={fadeUp} custom={2} className="text-sm text-charcoal-light mt-4">

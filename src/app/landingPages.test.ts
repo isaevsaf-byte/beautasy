@@ -109,11 +109,11 @@ test("each page puts her where she belongs: after the atelier, and before the bo
   };
 
   const home = await html(HomePage());
-  assert.ok(at(home, "Local Services") < at(home, 'id="meet-kristina"'), "home: after the atelier section");
-  assert.ok(at(home, 'id="meet-kristina"') < at(home, "Browse the Shelves"), "home: before the shop");
+  assert.ok(at(home, "Local services") < at(home, 'id="meet-kristina"'), "home: after the atelier section");
+  assert.ok(at(home, 'id="meet-kristina"') < at(home, "Browse the shelves"), "home: before the shop");
 
   const atelier = await html(AtelierPage());
-  assert.ok(at(atelier, "How It Works") < at(atelier, 'id="meet-kristina"'));
+  assert.ok(at(atelier, "How it works") < at(atelier, 'id="meet-kristina"'));
   assert.ok(at(atelier, 'id="meet-kristina"') < at(atelier, 'id="book"'));
 
   for (const s of LOCAL_SERVICES) {

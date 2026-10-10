@@ -46,7 +46,7 @@ export default function ContactPage() {
                 custom={1}
                 className="font-serif text-4xl sm:text-5xl mb-6"
               >
-                Get in Touch
+                Get in touch
               </motion.h1>
               <motion.p
                 variants={fadeUp}
@@ -149,7 +149,7 @@ export default function ContactPage() {
                   <Mail size={22} className="text-charcoal" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-serif text-lg mb-0.5">Email Us</p>
+                  <p className="font-serif text-lg mb-0.5">Email us</p>
                   <p className="text-sm text-charcoal-light break-all">{BUSINESS.email}</p>
                 </div>
                 <ArrowRight
@@ -182,7 +182,7 @@ export default function ContactPage() {
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-serif text-lg">Message Us</p>
+                    <p className="font-serif text-lg">Message us</p>
                     <p className="text-sm text-charcoal-light">
                       WhatsApp or Telegram — a photo of the job is the quickest way to a price
                     </p>

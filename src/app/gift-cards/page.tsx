@@ -47,7 +47,7 @@ export default function GiftCardsPage() {
               <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4">
                 For when you can&apos;t choose the size
               </p>
-              <h1 className="font-serif text-4xl sm:text-5xl mb-6">Gift Cards</h1>
+              <h1 className="font-serif text-4xl sm:text-5xl mb-6">Gift cards</h1>
               <p className="text-lg text-charcoal-light max-w-lg mx-auto leading-relaxed">
                 Let them pick the piece and the fit. The card arrives by email on the day you
                 choose, and whatever isn&apos;t spent stays on it for next time.

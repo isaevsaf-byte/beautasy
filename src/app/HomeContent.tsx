@@ -61,7 +61,7 @@ const WIDE_COLUMNS: Record<number, string> = {
 const services = [
   {
     icon: Scissors,
-    title: "Custom Sewing",
+    title: "Custom sewing",
     description: "Bespoke pieces tailored exactly to your measurements and desires.",
   },
   {
@@ -123,8 +123,11 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
             custom={1}
             className="font-serif text-4xl sm:text-5xl lg:text-6xl leading-tight mb-6"
           >
-            Alterations &amp; repairs
-            <br />
+            {/* The break is for a laptop, where the two lines are the design;
+                on a phone the browser balances the words itself, and a fixed
+                break there left "repairs" alone on a line at some widths */}
+            Alterations &amp; repairs{" "}
+            <br className="hidden md:inline" />
             <span className="italic text-lavender-ink">
               <Stitched>in Southampton</Stitched>
             </span>
@@ -280,7 +283,7 @@ function CategoryGrid() {
             custom={1}
             className="font-serif text-3xl sm:text-4xl"
           >
-            Browse the Shelves
+            Browse the shelves
           </motion.h2>
         </motion.div>
 
@@ -379,8 +382,9 @@ function AtelierSection() {
               custom={1}
               className="font-serif text-3xl sm:text-4xl mb-6"
             >
-              Local Services
-              <br />
+              {/* A break on a laptop only, as in the hero */}
+              Local services{" "}
+              <br className="hidden md:inline" />
               in Southampton
             </motion.h2>
             <motion.p

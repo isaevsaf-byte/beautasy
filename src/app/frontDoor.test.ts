@@ -58,9 +58,9 @@ test("on the home page the atelier, its work and its reviews come before the sho
     }),
   );
   const at = (text: string) => html.indexOf(text);
-  assert.ok(at("Local Services") < at("WORK-STRIP"));
+  assert.ok(at("Local services") < at("WORK-STRIP"));
   assert.ok(at("WORK-STRIP") < at("REVIEW-STRIP"));
-  assert.ok(at("REVIEW-STRIP") < at("Browse the Shelves"));
+  assert.ok(at("REVIEW-STRIP") < at("Browse the shelves"));
 });
 
 test("the home page's headings go down one level at a time", () => {

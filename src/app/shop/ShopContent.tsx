@@ -314,7 +314,7 @@ export default function ShopContent({
                   ? subcategoryLabels[activeSubcategory] || activeSubcategory
                   : activeCategory
                   ? categoryLabels[activeCategory] || "Shop"
-                  : "Browse the Shelves"}
+                  : "Browse the shelves"}
               </motion.h1>
               <motion.p
                 variants={fadeUp}
@@ -472,7 +472,7 @@ export default function ShopContent({
                 custom={1}
                 className="font-serif text-3xl sm:text-4xl"
               >
-                Featured Products
+                Featured products
               </motion.h2>
             </motion.div>
 
@@ -604,10 +604,10 @@ export default function ShopContent({
                   {activeSize || readyOnly
                     ? "Nothing matches those filters"
                     : activeSubcategory
-                    ? `${subcategoryLabels[activeSubcategory] || activeSubcategory} Coming Soon`
+                    ? `${subcategoryLabels[activeSubcategory] || activeSubcategory} coming soon`
                     : activeCategory
-                    ? `${categoryLabels[activeCategory] || "This"} Collection Coming Soon`
-                    : "New Collection Coming Soon"}
+                    ? `${categoryLabels[activeCategory] || "This"} collection coming soon`
+                    : "New collection coming soon"}
                 </h4>
                 <p className="text-charcoal-light max-w-md mx-auto leading-relaxed mb-8">
                   We&apos;re handcrafting new pieces for this collection. Check

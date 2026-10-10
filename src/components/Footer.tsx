@@ -255,7 +255,7 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
           {/* Quick Links */}
           <div>
             <h2 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">
-              Quick Links
+              Quick links
             </h2>
             <ul className="space-y-3">
               {stockedLinks(navLinks, settings?.shelves).map((link) => (
