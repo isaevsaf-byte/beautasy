@@ -1,11 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Playfair_Display, Geist } from "next/font/google";
 import Script from "next/script";
 import CookieConsent from "@/components/CookieConsent";
 import MetaPixel from "@/components/MetaPixel";
 import SiteAnalytics from "@/components/SiteAnalytics";
 import SkipLink from "@/components/SkipLink";
+import MotionPrefs from "@/components/MotionPrefs";
 import { CONSENT_KEY } from "@/lib/consent";
 import { clerkEnabled } from "@/lib/clerk";
 import "./globals.css";
@@ -38,11 +39,30 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
-const inter = Inter({
-  variable: "--font-inter",
+// The words between the headings. Geist, the face the link previews are drawn
+// in (src/app/cards), so a page and its card in a Facebook feed read as one
+// hand. Until 10.10 this was Inter, downloaded on every visit and never shown:
+// the body asked for a variable the theme did not define, and each phone fell
+// back to its own system font.
+const geist = Geist({
+  variable: "--font-geist",
   subsets: ["latin"],
   display: "swap",
 });
+
+/**
+ * The page may run edge to edge on an iPhone, under the home bar and beside
+ * the notch, so that env(safe-area-inset-*) means something: without
+ * viewport-fit=cover every inset is 0, and the phone's "Choose a time" bar sat
+ * on the home indicator. Each bar fixed to an edge pads itself by its inset;
+ * the body pads its sides for a phone turned on its side. No maximum-scale:
+ * pinch-zoom stays allowed (styles.test.ts).
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 /**
  * What every page says about the site unless it says something of its own.
@@ -105,10 +125,10 @@ export default function RootLayout({
         variables: { colorPrimary: "#DCD0FF" },
       }}
     >
-      {children}
+      <MotionPrefs>{children}</MotionPrefs>
     </ClerkProvider>
   ) : (
-    children
+    <MotionPrefs>{children}</MotionPrefs>
   );
 
   return (
@@ -150,7 +170,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body
-        className={`${playfair.variable} ${inter.variable} antialiased bg-[#FDFBF7] text-[#4A4A4A]`}
+        className={`${playfair.variable} ${geist.variable} antialiased bg-[#FDFBF7] text-[#4A4A4A]`}
       >
         <SkipLink />
         {content}

@@ -20,7 +20,56 @@
   --color-lavender-soft: #E6E6FA;
   --color-lavender-bg: #F5F0FF;
   --font-serif: var(--font-playfair), "Playfair Display", Georgia, serif;
-  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-sans: var(--font-geist), "Geist", system-ui, sans-serif;
+}
+
+/* The site's two motion curves, and the drawer's. Tailwind's own ease-out and
+   ease-in-out are too soft to read as deliberate: a menu that eases out on
+   them still feels like it is arriving late. Declared over Tailwind's names,
+   so every ease-out class on the site takes the stronger curve at once, and
+   as plain variables for the CSS and the motion props that need them
+   (src/components/animations.ts holds the same numbers for framer-motion). */
+@theme {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* A button that answers the finger. On a phone there is no hover, so until
+   now a tap on Add to Bag or Checkout did nothing you could see until the
+   next page arrived. Pressed, the button gives a little, the way a real one
+   does; let go and it springs back fast. Only the transform is quick — the
+   colour change keeps its own pace. Unlayered, so it wins over the transition
+   utilities on the same button. The topstitched "Choose a time" buttons do
+   not carry it: their stitching is meant to stay still. */
+.press {
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 200ms ease,
+    box-shadow 200ms ease,
+    color 200ms ease,
+    opacity 200ms ease;
+}
+.press:active:not([aria-disabled="true"], :disabled) {
+  transform: scale(0.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  .press:active:not([aria-disabled="true"], :disabled) {
+    transform: scale(0.99);
+  }
+}
+
+/* Long headings break in balanced lines instead of leaving one word alone at
+   the end — product names and collection titles come from the Studio, and
+   nobody can hand-break those */
+:where(h1, h2, h3) {
+  text-wrap: balance;
+}
+
+/* A double tap on a button is two taps, not a zoom: without this, pressing
+   + twice in the bag could zoom the page instead of adding two */
+:where(button, a[href], [role="button"], label, summary) {
+  touch-action: manipulation;
 }
 
 /* Smooth scroll, unless the visitor has asked for less motion */
@@ -30,10 +79,16 @@
   }
 }
 
+/* Spelled out rather than var(--font-sans): @theme inline writes its values
+   into the utilities and defines no variable, so var(--font-sans) here was
+   empty and every page fell back to the phone's own font */
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-geist), "Geist", system-ui, sans-serif;
   background-color: var(--color-cream);
   color: var(--color-charcoal);
+  /* An iPhone on its side puts the notch beside the page; the viewport runs
+     edge to edge (layout.tsx), so the body keeps its words out of it */
+  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
 }
 
 /* Custom selection color */
@@ -59,8 +114,10 @@ body {
    the fields' own text-sm would still win. :where() keeps it at zero
    specificity, so the Studio's and Clerk's own field styles are left alone.
    Search is left out: its field is already larger. Pinch-zoom itself stays
-   allowed — the viewport has no maximum-scale, and must not get one. */
-@media (max-width: 639.98px) {
+   allowed — the viewport has no maximum-scale, and must not get one.
+   A phone turned on its side, or an iPad, is wider than 640px and zooms
+   just the same, so any touch screen gets the rule too. */
+@media (max-width: 639.98px), (pointer: coarse) {
   :where(
     input:not([type="checkbox"], [type="radio"], [type="search"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"], [type="hidden"]),
     select,

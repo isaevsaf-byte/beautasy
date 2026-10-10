@@ -106,7 +106,10 @@ test("pinch-zoom stays allowed", () => {
   for (const [file, source] of [["src/app/layout.tsx", layout], ["src/app/globals.css", css]]) {
     assert.doesNotMatch(source, /maximum-?scale|maximumScale|userScalable|user-scalable/i, file);
   }
-  assert.doesNotMatch(layout, /export const viewport/, "Next's default viewport is width=device-width, initial-scale=1");
+  // The viewport runs edge to edge (so the safe-area insets are real) and
+  // says nothing about scale beyond the starting one
+  assert.match(layout, /viewportFit: "cover"/);
+  assert.match(layout, /initialScale: 1,/);
 });
 
 test("the pages written for this fix use the ink, not the brand lavender, for words", () => {
