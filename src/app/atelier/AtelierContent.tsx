@@ -122,8 +122,6 @@ export default function AtelierContent({
               which the logo's multiply could not see through to the wash */}
           <div className="absolute inset-0">
             <div className="absolute inset-0 bg-gradient-to-br from-[#FDFBF7] via-[#F3ECFF] to-[#E8DEFF]" />
-            <div className="absolute -top-28 -right-24 w-[420px] h-[420px] rounded-full bg-white/45 blur-3xl" />
-            <div className="absolute -bottom-24 -left-24 w-[340px] h-[340px] rounded-full bg-[#FFFFFF]/35 blur-3xl" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#FDFBF7]/96 via-[#FDFBF7]/84 to-[#FDFBF7]/30" />
           </div>
 
