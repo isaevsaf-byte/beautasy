@@ -50,7 +50,9 @@ export default function ReviewCard({
           })}
         </time>
       </div>
-      <p className={`text-sm text-charcoal leading-relaxed whitespace-pre-line ${clamp ? "line-clamp-6" : ""}`}>
+      {/* A long link or a run of !!!!!! breaks anywhere rather than pushing
+          the card, and the page, wider than a phone */}
+      <p className={`text-sm text-charcoal leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] ${clamp ? "line-clamp-6" : ""}`}>
         {review.comment}
       </p>
       {subject && (

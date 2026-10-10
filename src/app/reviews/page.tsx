@@ -150,13 +150,16 @@ export default async function ReviewsPage() {
 
             <a
               href="#write"
-              className="inline-flex items-center gap-2 mt-8 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+              className="press inline-flex items-center gap-2 mt-8 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
             >
               Write a review
             </a>
           </div>
 
           {/* ──── The fullest word about the atelier ──── */}
+          {/* The fullest that still fits as a quote: featuredReview keeps it to
+              FEATURED_REVIEW_MAX, so it never fills a phone's screen many
+              times over before the page's own button */}
           {featured && (
             <figure className="relative max-w-3xl mt-14 mx-6 sm:mx-auto rounded-3xl bg-white/80 border border-lavender-soft/60 px-7 pt-12 pb-9 sm:px-14 text-center shadow-[0_20px_60px_-30px_rgba(74,74,74,0.25)]">
               <span
@@ -165,7 +168,7 @@ export default async function ReviewsPage() {
               >
                 &ldquo;
               </span>
-              <blockquote className="font-serif text-xl sm:text-2xl leading-relaxed text-charcoal whitespace-pre-line">
+              <blockquote className="font-serif text-xl sm:text-2xl leading-relaxed text-charcoal whitespace-pre-line [overflow-wrap:anywhere]">
                 {featured.comment}
               </blockquote>
               <figcaption className="mt-7 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-charcoal-light">
@@ -206,7 +209,7 @@ export default async function ReviewsPage() {
                   href={googleUrl ?? BUSINESS.googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+                  className="press inline-flex items-center gap-2 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
                 >
                   Write it on Google
                 </a>

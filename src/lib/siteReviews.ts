@@ -271,21 +271,31 @@ export function atelierReviews<T extends Placeable>(reviews: readonly T[]): T[] 
 }
 
 /**
+ * The longest review that still reads as a quote at the top of /reviews. It
+ * is set large, in the serif, and a review can be 2,000 characters: the
+ * longest one filled some sixty lines of a phone before anything else on the
+ * page, the button to write one included.
+ */
+export const FEATURED_REVIEW_MAX = 600;
+
+/**
  * The review at the top of /reviews: the fullest word from someone Kristina
- * sewed for — about the atelier, five stars or a recommendation (which has
- * none), and long enough to say something. Null when nothing qualifies; the
- * page then simply starts with the wall.
+ * sewed for that still fits as a quote — about the atelier, five stars or a
+ * recommendation (which has none), long enough to say something and no longer
+ * than FEATURED_REVIEW_MAX. When every one that qualifies is longer, the
+ * shortest of them. Null when nothing qualifies; the page then simply starts
+ * with the wall.
  */
 export function featuredReview<T extends Placeable & Pick<PublishedReview, "rating" | "comment">>(
   reviews: readonly T[]
 ): T | null {
-  const candidates = atelierReviews(reviews).filter(
-    (review) => (review.rating ?? 5) >= 5 && review.comment.trim().length >= 120
-  );
-  return candidates.reduce<T | null>(
-    (best, review) => (!best || review.comment.length > best.comment.length ? review : best),
-    null
-  );
+  const length = (review: T) => review.comment.trim().length;
+  const candidates = atelierReviews(reviews).filter((review) => (review.rating ?? 5) >= 5 && length(review) >= 120);
+  const fitting = candidates.filter((review) => length(review) <= FEATURED_REVIEW_MAX);
+  if (fitting.length > 0) {
+    return fitting.reduce((best, review) => (length(review) > length(best) ? review : best));
+  }
+  return candidates.reduce<T | null>((best, review) => (!best || length(review) < length(best) ? review : best), null);
 }
 
 /**

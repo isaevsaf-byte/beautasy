@@ -12,6 +12,7 @@ import {
   REVIEW_TOPICS,
   atelierReviews,
   featuredReview,
+  FEATURED_REVIEW_MAX,
   checkSiteReview,
   isNextdoorUrl,
   nextdoorRecommendUrl,
@@ -372,4 +373,19 @@ test("the review at the top is the fullest five-star word about the atelier", ()
   assert.equal(featuredReview(reviews)?._id, "google", "Etsy's is the shop's, and four stars don't lead the page");
   assert.equal(featuredReview(reviews.filter((review) => review._id !== "google"))?._id, "nextdoor", "a recommendation counts as full marks");
   assert.equal(featuredReview(reviews.slice(0, 3)), null, "nothing long enough about the atelier: no quote at the top");
+});
+
+test("the review at the top still fits as a quote: never the 2,000-character one when a shorter will do", () => {
+  const ofLength = (chars: number) => "a".repeat(chars);
+  const review = (_id: string, chars: number) =>
+    ({ _id, source: "site" as const, about: "alterations", product: null, rating: 5, comment: ofLength(chars) });
+  const essay = review("essay", 2000);
+  const full = review("full", FEATURED_REVIEW_MAX);
+  const middling = review("middling", 300);
+  assert.equal(featuredReview([essay, middling, full])?._id, "full", "the longest that fits, up to and including the limit");
+  assert.equal(featuredReview([essay, middling])?._id, "middling", "a shorter one leads rather than the essay");
+  const long = review("long", 900);
+  assert.equal(featuredReview([essay, long])?._id, "long", "all too long: the shortest of them, not none");
+  assert.equal(featuredReview([essay])?._id, "essay", "the only one still leads");
+  assert.equal(featuredReview([review("brief", 100), essay])?._id, "essay", "too short to say something never leads");
 });

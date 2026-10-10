@@ -46,7 +46,10 @@ export default function ReviewStrip({
           <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
         </Link>
       </div>
-      <ul className={`grid gap-4 ${columns}`}>
+      {/* One column on a phone is grid-cols-1, not just "grid": an unsized
+          column grows to fit its widest word, and one long one made the
+          page scroll sideways */}
+      <ul className={`grid grid-cols-1 gap-4 ${columns}`}>
         {reviews.map((review) => (
           <ReviewCard key={review._id} review={review} nextdoorUrl={nextdoorUrl} clamp />
         ))}

@@ -51,17 +51,19 @@ export default function ReviewList({
           key={review._id}
           className="py-4 border-b border-lavender-soft/20 last:border-b-0"
         >
-          <div className="flex items-center gap-3 mb-2">
+          {/* Wraps on a narrow phone rather than squeezing the name: the
+              badge and the date stay whole and go to the next line */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
             <StarRating rating={review.rating} size={14} />
             <span className="font-medium text-sm text-charcoal">{review.userName}</span>
             {review.verifiedPurchase && (
-              <span className="text-[10px] tracking-wider uppercase text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+              <span className="whitespace-nowrap shrink-0 text-[10px] tracking-wider uppercase text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
                 Verified purchase
               </span>
             )}
             <time
               dateTime={review.createdAt}
-              className="text-xs text-charcoal-light"
+              className="whitespace-nowrap shrink-0 text-xs text-charcoal-light"
             >
               {new Date(review.createdAt).toLocaleDateString("en-GB", {
                 day: "numeric",
@@ -70,7 +72,10 @@ export default function ReviewList({
               })}
             </time>
           </div>
-          <p className="text-sm text-charcoal-light leading-relaxed">{review.comment}</p>
+          {/* The paragraphs kept as the customer wrote them, and a long link
+              or a run of !!!!!! breaks rather than pushing the page wider
+              than a phone */}
+          <p className="text-sm text-charcoal-light leading-relaxed whitespace-pre-line [overflow-wrap:anywhere]">{review.comment}</p>
           {review.images && review.images.length > 0 && (
             <div className="flex gap-2 mt-3">
               {review.images.map((url, i) => (
