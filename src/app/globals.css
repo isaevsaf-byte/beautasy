@@ -473,6 +473,67 @@ main:focus {
   from { clip-path: inset(0 100% 0 0); }
   to { clip-path: inset(0 0 0 0); }
 }
+
+/* The three steps on /atelier, joined by the same gold running stitch: on a
+   laptop across the seam between two cards, from the end of one title's line
+   to the start of the next; on a phone down from one card into the one below.
+   The order is in where the cards stand and the thread running from one to
+   the next — the 01 02 03 badges and the grey arrows said it a second time.
+   Each card is drawn over the next (a z-index from the page), so the thread
+   lies on top of both cards it joins. */
+.step-stitch-across,
+.step-stitch-down {
+  position: absolute;
+  pointer-events: none;
+}
+.step-stitch-across {
+  display: none;
+}
+/* A child of the card: from 1.25rem above its bottom edge, across the 2rem
+   between the cards, to 1.25rem into the next — both inside the cards' empty
+   padding */
+.step-stitch-down {
+  left: 50%;
+  top: calc(100% - 1.25rem);
+  width: 2px;
+  height: 4.5rem;
+  margin-left: -1px;
+  background: repeating-linear-gradient(180deg, rgb(176 136 72 / 0.6) 0 6px, transparent 6px 10px);
+}
+@media (min-width: 48rem) {
+  .step-stitch-down {
+    display: none;
+  }
+  /* A child of the title, which runs the card's width inside its px-8: across
+     that padding, the gap-6 and the next card's padding to the next title */
+  .step-stitch-across {
+    display: block;
+    left: 100%;
+    top: 50%;
+    width: 5.5rem;
+    height: 2px;
+    margin-top: -1px;
+    background: repeating-linear-gradient(90deg, rgb(176 136 72 / 0.6) 0 6px, transparent 6px 10px);
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .step-stitch-across {
+      animation: bty-leader linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 35%;
+    }
+    .step-stitch-down {
+      animation: bty-leader-down linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 35%;
+    }
+  }
+}
+@keyframes bty-leader-down {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
 /* A contrast theme drops backgrounds and printing skips them: a dotted line
    in the text's own colour there, as the leaders were before */
 @media (forced-colors: active), print {
@@ -480,6 +541,16 @@ main:focus {
     background: none;
     height: 0;
     border-bottom: 2px dotted CanvasText;
+  }
+  .step-stitch-across {
+    background: none;
+    height: 0;
+    border-bottom: 2px dotted CanvasText;
+  }
+  .step-stitch-down {
+    background: none;
+    width: 0;
+    border-left: 2px dotted CanvasText;
   }
 }
 

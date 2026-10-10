@@ -80,10 +80,10 @@ const pricingCategories: ServiceCategory[] = [
   },
 ];
 
+/** In order: the page shows the order by where each stands, joined by a stitch */
 const steps = [
   {
     icon: CalendarCheck,
-    step: "01",
     title: "Choose a time",
     subtitle: "Southampton",
     // The workroom is in Kristina's home: there is no door to drop by, and
@@ -92,14 +92,12 @@ const steps = [
   },
   {
     icon: Ruler,
-    step: "02",
     title: "Fitting & pinning",
     description:
       "We take precise measurements and pin your garment to visualise the perfect result together.",
   },
   {
     icon: SparkleIcon,
-    step: "03",
     title: "Collection",
     subtitle: "Perfect fit",
     description:
@@ -327,24 +325,26 @@ export default function AtelierContent({
             >
               {steps.map((s, i) => (
                 <motion.div
-                  key={s.step}
+                  key={s.title}
                   variants={fadeUp}
                   custom={i}
                   // Only the shadow eases on hover: transition-all also caught the
                   // opacity and transform framer moves on the entrance, and the
                   // two fought every frame. No backdrop blur — the section
                   // behind is one flat colour, so it blurred nothing at a cost.
+                  // Each card is drawn over the next, so the stitch leaving it
+                  // lies on top of the card it runs into (see .step-stitch-*).
+                  style={{ zIndex: steps.length - i }}
                   className="relative text-center bg-white/70 rounded-3xl px-8 py-10 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-[box-shadow,background-color] duration-300"
                 >
-                  {/* Step number */}
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-lavender text-charcoal w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold tracking-wide">
-                    {s.step}
-                  </div>
-
                   <div className="w-14 h-14 rounded-2xl bg-lavender/15 flex items-center justify-center mx-auto mb-5">
                     <s.icon size={26} className="text-charcoal" />
                   </div>
-                  <h3 className="font-serif text-xl mb-1">{s.title}</h3>
+                  <h3 className="relative font-serif text-xl mb-1">
+                    {s.title}
+                    {/* To the next title, on a laptop */}
+                    {i < steps.length - 1 && <span className="step-stitch-across" aria-hidden="true" />}
+                  </h3>
                   {s.subtitle && (
                     <p className="text-sm text-lavender font-medium mb-3">
                       {s.subtitle}
@@ -354,12 +354,8 @@ export default function AtelierContent({
                     {s.description}
                   </p>
 
-                  {/* Connector arrow (desktop only) */}
-                  {i < steps.length - 1 && (
-                    <div className="hidden md:block absolute top-1/2 -right-4 -translate-y-1/2 text-lavender/30">
-                      <ArrowRight size={20} />
-                    </div>
-                  )}
+                  {/* Down into the next card, on a phone */}
+                  {i < steps.length - 1 && <span className="step-stitch-down" aria-hidden="true" />}
                 </motion.div>
               ))}
             </motion.div>
