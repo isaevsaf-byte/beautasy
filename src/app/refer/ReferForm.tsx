@@ -63,7 +63,9 @@ export default function ReferForm() {
             <FriendsShare code={code} />
           </motion.div>
         ) : (
-          <motion.form key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} onSubmit={handleSubmit}>
+          // Painted as it is on arrival (initial={false}): faded in, the form
+          // sat invisible until every script had loaded
+          <motion.form key="form" initial={false} animate={{ opacity: 1 }} onSubmit={handleSubmit}>
             <h2 className="font-serif text-2xl mb-2">Get your link</h2>
             <p className="text-sm text-charcoal-light leading-relaxed mb-6">
               Your first name goes on the link, so friends see who sent it.
@@ -115,13 +117,14 @@ export default function ReferForm() {
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 disabled:opacity-60"
+                className="press inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] disabled:opacity-60"
               >
                 {status === "loading" && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
                 {status === "loading" ? "One moment…" : "Get my link"}
               </button>
               {error && (
-                <p role="alert" className="text-xs text-red-500">
+                // rose-700: the red-500 was about 3.3:1 on the lavender card
+                <p role="alert" className="text-xs text-rose-700">
                   {error}
                 </p>
               )}

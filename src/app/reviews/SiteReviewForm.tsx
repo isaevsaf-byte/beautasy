@@ -3,6 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Star, X } from "lucide-react";
+import TiedOff from "@/components/stitch/TiedOff";
 import { COMMENT_MAX, COMMENT_MIN, NAME_MAX, REVIEW_TOPICS } from "@/lib/siteReviews";
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -101,7 +102,11 @@ export default function SiteReviewForm({ googleUrl }: { googleUrl: string | null
       <AnimatePresence mode="wait">
         {status === "done" ? (
           <motion.div key="done" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <h2 className="font-serif text-2xl mb-2">Thank you, {name.trim()}</h2>
+            {/* Only tacked, like a booking request: the review is not up yet,
+                Kristina reads it first (stitch/TiedOff.tsx) */}
+            <h2 className="font-serif text-2xl mb-2">
+              <TiedOff tacked>Thank you</TiedOff>, {name.trim()}
+            </h2>
             <p className="text-sm text-charcoal-light leading-relaxed">
               Kristina reads every review before it goes up. Yours will appear on this page once she has.
             </p>
@@ -116,7 +121,7 @@ export default function SiteReviewForm({ googleUrl }: { googleUrl: string | null
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={copyForGoogle}
-                  className="inline-flex items-center gap-2 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+                  className="press inline-flex items-center gap-2 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
                 >
                   Copy my review &amp; open Google
                 </a>
@@ -129,7 +134,9 @@ export default function SiteReviewForm({ googleUrl }: { googleUrl: string | null
             )}
           </motion.div>
         ) : (
-          <motion.form key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} onSubmit={handleSubmit}>
+          // Painted as it is on arrival (initial={false}): faded in, the form
+          // sat invisible until every script had loaded
+          <motion.form key="form" initial={false} animate={{ opacity: 1 }} onSubmit={handleSubmit}>
             <h2 className="font-serif text-2xl mb-2">Or write it here</h2>
             <p className="text-sm text-charcoal-light leading-relaxed mb-6">
               No account needed. Your first name, stars and words appear on this page once Kristina has read them.
@@ -261,13 +268,14 @@ export default function SiteReviewForm({ googleUrl }: { googleUrl: string | null
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 disabled:opacity-60"
+                className="press inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] disabled:opacity-60"
               >
                 {status === "loading" && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
                 {status === "loading" ? "Sending…" : "Send my review"}
               </button>
               {error && (
-                <p role="alert" className="text-xs text-red-600">
+                // rose-700: the red-600 was under 4.5:1 on the lavender card
+                <p role="alert" className="text-xs text-rose-700">
                   {error}
                 </p>
               )}

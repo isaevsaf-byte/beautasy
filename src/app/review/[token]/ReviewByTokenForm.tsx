@@ -110,8 +110,9 @@ export default function ReviewByTokenForm({
 
   if (status === "done") {
     return (
-      <div className="bg-lavender-bg/50 rounded-2xl p-6 border border-lavender-soft/30 flex items-start gap-3">
-        <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
+      // green-700: the green-600 tick was under 3:1 on the lavender card
+      <div role="status" className="bg-lavender-bg/50 rounded-2xl p-6 border border-lavender-soft/30 flex items-start gap-3">
+        <CheckCircle2 size={18} aria-hidden="true" className="text-green-700 shrink-0 mt-0.5" />
         <p className="text-sm text-charcoal-light leading-relaxed">
           Thank you — your review of <strong className="text-charcoal">{productName}</strong> is
           in. It appears on the product page once we&apos;ve read it.
@@ -189,7 +190,7 @@ export default function ReviewByTokenForm({
         <button
           type="submit"
           disabled={status === "sending" || rating === 0 || comment.length < 10}
-          className="px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="press px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {status === "sending" && <Loader2 size={14} className="animate-spin" />}
           Send review
@@ -201,11 +202,14 @@ export default function ReviewByTokenForm({
 
       <AnimatePresence>
         {error && (
+          // Said aloud when it appears (role="alert"), and rose-700: the
+          // red-500 was about 3.3:1 on the lavender card
           <motion.p
+            role="alert"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="text-xs text-red-500 mt-3"
+            className="text-xs text-rose-700 mt-3"
           >
             {error}
           </motion.p>
