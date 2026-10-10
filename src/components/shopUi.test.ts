@@ -120,6 +120,20 @@ test("the main photo arrives in place: not slid, not faded, and draggable sidewa
   assert.match(source, /transition=\{turn === 0 \|\| reduceMotion \? \{ duration: 0 \} : \{ duration: 0\.22, ease: EASE_OUT \}\}/);
 });
 
+test("the image viewer closes on a pull down, its dark thinning with the pull", () => {
+  const source = read("src/components/Lightbox.tsx");
+  assert.match(source, /const backdropOpacity = useTransform\(dragY, \[0, 320\], \[1, 0\.25\]\);/);
+  assert.match(source, /style=\{\{ opacity: backdropOpacity \}\}/);
+  assert.match(source, /style=\{\{ y: dragY \}\}\s*drag\s*dragDirectionLock/);
+  assert.match(source, /if \(offset\.y > 120 \|\| velocity\.y > 500\) \{[^]*?onClose\(\);/);
+  // Sideways is still a page turn, and the photo itself does not slide that way
+  assert.match(source, /dragElastic=\{\{ top: 0\.1, bottom: 1, left: 0, right: 0 \}\}/);
+  assert.match(source, /if \(Math\.abs\(offset\.x\) > 45 \|\| flicked\) \(offset\.x < 0 \? goNext : goPrev\)\(\);/);
+  // The dark is no longer on the dialog itself, where a fade would take the photo with it
+  assert.doesNotMatch(source, /className="fixed inset-0[^"]*bg-black\/80/);
+  assert.match(source, /<AnimatePresence onExitComplete=\{\(\) => dragY\.jump\(0\)\}>/);
+});
+
 test("a product page says once whether it ships now or is made for you", () => {
   // Three sizes and a product-wide count: it cannot promise the size picked
   const some = detail();

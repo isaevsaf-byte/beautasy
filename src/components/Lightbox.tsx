@@ -2,10 +2,18 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  animate,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useIsClient } from "@/lib/useIsClient";
 import { useDialog, useScrollLock } from "@/lib/useDialog";
+import { EASE_OUT } from "@/components/animations";
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -53,12 +61,19 @@ export default function Lightbox({
     return () => window.removeEventListener("keydown", handleKey);
   }, [open, goNext, goPrev]);
 
-  // A swipe on a phone turns the page, as in the work viewer: only a clearly
-  // sideways stroke with one finger, so scrolling and pinching stay what they are
-  const touch = useRef<{ x: number; y: number } | null>(null);
+  // The photo is held by the finger. A sideways swipe turns the page, as in
+  // the work viewer; pulled down past 120px (or flicked down) it lets go and
+  // the viewer closes, the dark behind it thinning as it is pulled, so the
+  // page underneath shows what letting go will lead back to. Direction lock:
+  // a stroke is one or the other, never both.
+  const dragY = useMotionValue(0);
+  const backdropOpacity = useTransform(dragY, [0, 320], [1, 0.25]);
+  const axis = useRef<"x" | "y" | null>(null);
+  const reduceMotion = useReducedMotion() ?? false;
 
   const content = (
-    <AnimatePresence>
+    // Back at rest for the next opening, once this one has gone
+    <AnimatePresence onExitComplete={() => dragY.jump(0)}>
       {open && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -69,9 +84,16 @@ export default function Lightbox({
           aria-modal="true"
           aria-label={`${alt} — image viewer`}
           ref={panelRef}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm outline-none"
+          className="fixed inset-0 z-[9999] flex items-center justify-center outline-none"
           onClick={onClose}
         >
+          {/* The dark behind the photo, on its own layer so it can thin
+              under a pull without the photo and buttons thinning with it */}
+          <motion.div
+            aria-hidden="true"
+            style={{ opacity: backdropOpacity }}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+          />
           <button
             type="button"
             onClick={onClose}
@@ -98,24 +120,41 @@ export default function Lightbox({
           {/* The next photo is simply there. Each one used to be remounted and
               zoomed up from 92%, so paging through five photos was five small
               entrances for something the visitor had already asked to see. */}
-          <div
-            className="relative max-w-[90vw] max-h-[85dvh] touch-pan-y"
+          <motion.div
+            className="relative max-w-[90vw] max-h-[85dvh]"
             onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => {
-              const zoomed = (window.visualViewport?.scale ?? 1) > 1.01;
-              touch.current =
-                e.touches.length === 1 && !zoomed ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+            style={{ y: dragY }}
+            drag
+            dragDirectionLock
+            onDirectionLock={(locked) => {
+              axis.current = locked;
             }}
-            onTouchMove={(e) => {
-              if (e.touches.length > 1) touch.current = null;
+            // Sideways the photo stays put (the swipe turns the page, as it
+            // did); down it follows the finger fully, up only a little
+            dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
+            dragElastic={{ top: 0.1, bottom: 1, left: 0, right: 0 }}
+            dragMomentum={false}
+            onDragStart={() => {
+              axis.current = null;
             }}
-            onTouchEnd={(e) => {
-              const start = touch.current;
-              touch.current = null;
-              if (!start || images.length < 2) return;
-              const dx = e.changedTouches[0].clientX - start.x;
-              const dy = e.changedTouches[0].clientY - start.y;
-              if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) (dx < 0 ? goNext : goPrev)();
+            onDragEnd={(_, info) => {
+              const locked = axis.current;
+              axis.current = null;
+              // A pinched-in page is being looked around, not swiped
+              if ((window.visualViewport?.scale ?? 1) > 1.01) return;
+              const { offset, velocity } = info;
+              if (locked === "y") {
+                if (offset.y > 120 || velocity.y > 500) {
+                  // On its way down as the viewer fades, not sprung back up
+                  if (!reduceMotion) animate(dragY, dragY.get() + 160, { duration: 0.2, ease: EASE_OUT });
+                  onClose();
+                }
+                return;
+              }
+              if (locked === "x" && images.length > 1) {
+                const flicked = Math.abs(velocity.x) > 400 && Math.sign(velocity.x) === Math.sign(offset.x);
+                if (Math.abs(offset.x) > 45 || flicked) (offset.x < 0 ? goNext : goPrev)();
+              }
             }}
           >
             <img
@@ -124,7 +163,7 @@ export default function Lightbox({
               draggable={false}
               className="max-w-full max-h-[85dvh] object-contain rounded-xl shadow-2xl select-none"
             />
-          </div>
+          </motion.div>
 
           {/* Which photo this is, up by the close button: at the foot of the
               photo it sat on top of the thumbnails on a phone */}
