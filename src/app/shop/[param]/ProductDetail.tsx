@@ -249,7 +249,7 @@ function Chalk({ mark, late, className }: { mark: number; late: boolean; classNa
           className={className ? `chalk ${className}` : "chalk"}
           aria-hidden="true"
           exit={{ opacity: 0, filter: "blur(1px)" }}
-          transition={{ duration: 0.25 }}
+          transition={{ duration: 0.25, ease: EASE_OUT }}
         >
           <span className="chalk-mark" style={late ? { animationDelay: "0.3s" } : undefined} />
           <span
@@ -904,7 +904,7 @@ export default function ProductDetail({
                         <motion.div
                           key="chalk-line"
                           exit={{ opacity: 0 }}
-                          transition={{ duration: 0.25 }}
+                          transition={{ duration: 0.25, ease: EASE_OUT }}
                           className="sm:hidden relative h-5 -mt-1 mb-3 text-sm"
                         >
                           <Chalk mark={sizeChalk} late={chalkLate} />
