@@ -239,13 +239,13 @@ function Accordion({
  * off. `late` holds the stroke back while the page is still scrolling up to
  * it from the sticky bar, so it is drawn where the visitor can see it.
  */
-function Chalk({ mark, late }: { mark: number; late: boolean }) {
+function Chalk({ mark, late, className }: { mark: number; late: boolean; className?: string }) {
   return (
     <AnimatePresence>
       {mark > 0 && (
         <motion.span
           key={mark}
-          className="chalk"
+          className={className ? `chalk ${className}` : "chalk"}
           aria-hidden="true"
           exit={{ opacity: 0, filter: "blur(1px)" }}
           transition={{ duration: 0.25 }}
@@ -432,6 +432,9 @@ export default function ProductDetail({
   useScrollLock(sizeGuideOpen);
 
   const hasSizes = product.availableSizes && product.availableSizes.length > 0;
+  // "Find my size" (the quiz, which needs the guide's rows) and "Size Guide"
+  // both sit beside "Size"
+  const bothSizeHelpers = !!product.sizeGuide?.rows && product.sizeGuide.rows.length > 0;
   const hasColors =
     product.availableColors && product.availableColors.length > 0;
 
@@ -820,7 +823,11 @@ export default function ProductDetail({
                           — {selectedSize}
                         </span>
                       )}
-                      <Chalk mark={sizeChalk} late={chalkLate} />
+                      <Chalk
+                        mark={sizeChalk}
+                        late={chalkLate}
+                        className={bothSizeHelpers ? "max-sm:hidden" : undefined}
+                      />
                     </p>
                     {/* Wraps under itself rather than squeezing "Size" on a 320px phone */}
                     <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
@@ -846,6 +853,27 @@ export default function ProductDetail({
                       )}
                     </div>
                   </div>
+                  {/* With "Find my size" and "Size Guide" both beside it, "Size"
+                      is left about 130px on a 320–375px phone, and the chalk's
+                      container query rightly drops its words there. On those
+                      phones the chalk takes a line of its own under the row,
+                      the full width, so "choose one first" is still written;
+                      from sm up it stays beside "Size". text-sm, as the label:
+                      the note's widths are measured in its em. */}
+                  {bothSizeHelpers && (
+                    <AnimatePresence>
+                      {sizeChalk > 0 && (
+                        <motion.div
+                          key="chalk-line"
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className="sm:hidden relative h-5 -mt-1 mb-3 text-sm"
+                        >
+                          <Chalk mark={sizeChalk} late={chalkLate} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  )}
                   {/* The chalk's words, for a screen reader; a new press says them again */}
                   {sizeChalk > 0 && (
                     <span key={sizeChalk} role="alert" className="sr-only">

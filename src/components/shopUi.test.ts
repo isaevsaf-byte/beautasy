@@ -168,12 +168,23 @@ test("the phone's sticky bar asks the main button's questions", () => {
 
 test("a missing size is said in chalk that stays until one is picked", () => {
   const source = read("src/app/shop/[param]/ProductDetail.tsx");
-  assert.match(source, /className="chalk"/);
+  assert.match(source, /className=\{className \? `chalk \$\{className\}` : "chalk"\}/);
   assert.match(source, /choose one<span className="chalk-note-tail"> first<\/span>/);
   assert.match(source, /role="alert" className="sr-only">\s*Please select a size/);
   // No timer rubs it out; picking a size does
   assert.doesNotMatch(source, /setTimeout\(\(\) => set(Size|Color)/);
   assert.match(source, /setSelectedSize\(size\);\s*setSizeChalk\(0\);/);
+});
+
+test("on a narrow phone with both size helpers, the chalk's words get a line of their own", () => {
+  const source = read("src/app/shop/[param]/ProductDetail.tsx");
+  // Beside "Size" from sm up, only when both helpers squeeze it on a phone
+  assert.match(source, /<Chalk\s+mark=\{sizeChalk\}\s+late=\{chalkLate\}\s+className=\{bothSizeHelpers \? "max-sm:hidden" : undefined\}/);
+  // …and under the row, full width, below sm
+  assert.match(source, /\{bothSizeHelpers && \(\s*<AnimatePresence>\s*\{sizeChalk > 0 && \([^]*?className="sm:hidden relative h-5 -mt-1 mb-3 text-sm"\s*>\s*<Chalk mark=\{sizeChalk\} late=\{chalkLate\} \/>/);
+  // The quiz shows exactly when the guide has rows: the same condition
+  assert.match(source, /const bothSizeHelpers = !!product\.sizeGuide\?\.rows && product\.sizeGuide\.rows\.length > 0;/);
+  assert.match(source, /\{product\.sizeGuide\?\.rows && product\.sizeGuide\.rows\.length > 0 && \(\s*<SizeQuiz/);
 });
 
 test("Add to Bag refuses a made-to-measure piece until its measurements are in", () => {
