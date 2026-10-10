@@ -387,6 +387,9 @@ export default function ShopContent({
                   >
                     {/* Image */}
                     <div className={`${i % 2 === 1 ? "lg:order-2" : ""}`}>
+                      {/* The logos are drawn on near-white squares; multiplied
+                          into the tile, the square takes its colour and the
+                          drop shadow it cast is gone with it */}
                       <Link href={cat.href}>
                         <div className={`relative aspect-[4/5] rounded-3xl overflow-hidden flex items-center justify-center cursor-pointer ${cat.bgClass || "bg-cream-soft"}`}>
                           <Image
@@ -394,7 +397,7 @@ export default function ShopContent({
                             alt={cat.title}
                             width={600}
                             height={600}
-                            className="w-[60%] h-auto object-contain drop-shadow-lg hover:scale-105 transition-transform duration-300 ease-out"
+                            className="w-[60%] h-auto object-contain mix-blend-multiply hover:scale-105 transition-transform duration-300 ease-out"
                             {...(i === 0 ? { preload: true, fetchPriority: "high" as const } : {})}
                           />
                         </div>

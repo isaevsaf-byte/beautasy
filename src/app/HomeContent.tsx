@@ -213,14 +213,18 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
         <div className="order-2 relative">
           <div className="relative aspect-[5/4] sm:aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-wash flex items-center justify-center">
             {/* The gold catches the light once, after the first stitch or as it
-                comes into view (stitch/LogoSheen.tsx); the picture is unchanged */}
+                comes into view (stitch/LogoSheen.tsx); the picture is unchanged.
+                The logo file has no transparency — it is gold on a white square
+                — so it is multiplied into the lavender: white takes the card's
+                colour and the gold stays gold, a shade warmer. No drop shadow:
+                on an opaque picture it shadows the square, not the letters. */}
             <div className="relative w-[250px] sm:w-[280px] lg:w-[300px]">
               <Image
                 src="/beautasy-logo-gold.png"
                 alt="Beautasy - Handmade Lingerie & Alterations Logo"
                 width={600}
                 height={600}
-                className="w-full h-auto object-contain drop-shadow-lg"
+                className="w-full h-auto object-contain mix-blend-multiply"
                 preload
                 fetchPriority="high"
               />
@@ -303,13 +307,16 @@ function CategoryGrid() {
                 href={cat.href || "/shop"}
                 className="block transition-transform duration-200 ease-out group-hover:-translate-y-1.5"
               >
+                {/* Each logo is drawn on its own near-white square; multiplied
+                    into the tile, the square takes the tile's colour (see the
+                    hero) */}
                 <div className={`relative aspect-[6/7] rounded-2xl overflow-hidden mb-4 flex items-center justify-center ${cat.bgClass || "bg-cream-soft"}`}>
                   <Image
                     src={cat.image}
                     alt={cat.title}
                     width={600}
                     height={600}
-                    className="w-[65%] h-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300 ease-out"
+                    className="w-[65%] h-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300 ease-out"
                   />
                   {/* Overlay on hover */}
                   <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300 ease-out" />
@@ -432,7 +439,8 @@ function AtelierSection() {
                 alt="Beautasy Atelier — Custom Sewing & Alterations"
                 width={800}
                 height={686}
-                className="w-[65%] h-auto object-contain drop-shadow-lg"
+                // Multiplied into the wash, so its near-white square goes (see the hero)
+                className="w-[65%] h-auto object-contain mix-blend-multiply"
               />
             </div>
             {/* Decorative badge */}

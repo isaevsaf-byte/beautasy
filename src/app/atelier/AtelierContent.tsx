@@ -167,14 +167,17 @@ export default function AtelierContent({
         {/* ──── Hero ──── */}
         <section className="relative py-20 md:py-28 overflow-hidden">
           {/* Background (no placeholder text overlay) */}
-          <div className="absolute inset-0 z-0">
+          {/* No z-index on either layer: they paint in their order anyway,
+              and a z-index would make the text and logo a group of their own,
+              which the logo's multiply could not see through to the wash */}
+          <div className="absolute inset-0">
             <div className="absolute inset-0 bg-gradient-to-br from-[#FDFBF7] via-[#F3ECFF] to-[#E8DEFF]" />
             <div className="absolute -top-28 -right-24 w-[420px] h-[420px] rounded-full bg-white/45 blur-3xl" />
             <div className="absolute -bottom-24 -left-24 w-[340px] h-[340px] rounded-full bg-[#FFFFFF]/35 blur-3xl" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#FDFBF7]/96 via-[#FDFBF7]/84 to-[#FDFBF7]/30" />
           </div>
 
-          <div className="relative z-10 max-w-6xl mx-auto px-6">
+          <div className="relative max-w-6xl mx-auto px-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               {/* Left — Text. Painted as it is, not faded in: at opacity 0 the
                   heading waits for every script to load, and it is what a
@@ -279,7 +282,9 @@ export default function AtelierContent({
                   alt="Beautasy Alterations — Scissors, needle and measuring tape"
                   width={800}
                   height={686}
-                  className="w-[340px] xl:w-[400px] h-auto object-contain drop-shadow-xl"
+                  // Multiplied into the wash behind it: the logo is drawn on a
+                  // near-white square, and its drop shadow shadowed the square
+                  className="w-[340px] xl:w-[400px] h-auto object-contain mix-blend-multiply"
                   priority
                 />
               </div>
