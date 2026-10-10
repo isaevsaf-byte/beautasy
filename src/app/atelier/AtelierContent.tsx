@@ -395,13 +395,16 @@ export default function AtelierContent({
                 It used to wait for the old list to leave, fade the new one in
                 and then bring the lines in one by one — about two and a half
                 seconds a tab — and the prices were served at opacity 0 until
-                every script had loaded. */}
+                every script had loaded. The list going out softens with a
+                2px blur, as the work viewer's crossfade does, so for those
+                150ms two sets of prices never sit sharp on top of each other
+                (reduced motion: a plain fade). */}
             <div className="grid bg-white/60 border border-lavender-soft/30 rounded-3xl px-8 sm:px-10 py-8">
               {pricingCategories.map((cat) => (
                 <div
                   key={cat.id}
-                  className={`[grid-area:1/1] transition-[opacity,visibility] duration-150 ease-out ${
-                    activeTab === cat.id ? "visible opacity-100" : "invisible opacity-0"
+                  className={`[grid-area:1/1] transition-[opacity,visibility,filter] duration-150 ease-out motion-reduce:filter-none ${
+                    activeTab === cat.id ? "visible opacity-100" : "invisible opacity-0 blur-[2px]"
                   }`}
                 >
                   {/* Category header */}
