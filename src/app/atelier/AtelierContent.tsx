@@ -217,7 +217,7 @@ export default function AtelierContent({
                   <a
                     id={HERO_BOOK_ID}
                     href="#book"
-                    className="topstitch group flex w-full sm:inline-flex sm:w-auto items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                    className="topstitch group flex w-full sm:inline-flex sm:w-auto items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
                   >
                     Choose a time
                     <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -674,7 +674,7 @@ export default function AtelierContent({
             >
               {/* Decorative blobs */}
               <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-lavender/10 blur-3xl" />
-              <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-[#FFF0F5]/40 blur-3xl" />
+              <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-lavender-bg/40 blur-3xl" />
 
               <motion.div className="relative z-10" variants={fadeIn}>
                 <motion.h2
@@ -699,7 +699,7 @@ export default function AtelierContent({
                 >
                   <Link
                     href="#book"
-                    className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                    className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
                   >
                     Choose a time
                     <ArrowRight

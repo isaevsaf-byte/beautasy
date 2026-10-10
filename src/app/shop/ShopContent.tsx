@@ -47,7 +47,7 @@ const categories = [
     slug: "lingerie",
     title: "Lingerie",
     image: "/beautasy-logo-gold.png",
-    bgClass: "bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF]",
+    bgClass: "bg-lavender-wash",
     description: "Delicate pieces crafted with love",
     href: "/shop/lingerie",
     items: [
@@ -64,7 +64,9 @@ const categories = [
     title: "Mini Beautasy",
     subtitle: "Kids",
     image: "/beautasy-kids-logo.png",
-    bgClass: "bg-gradient-to-br from-[#FFF5F8] via-[#FFF0F5] to-[#FFE8EF]",
+    // The palest of the lavenders, not the pink it was: pink is nowhere else
+    // in the brand, and beside the lilac tiles it read as another shop's
+    bgClass: "bg-gradient-to-br from-[#FBF9FF] via-[#F5F0FF] to-[#EEE7FF]",
     description: "Gentle comfort for little ones",
     href: "/shop/kids",
     items: [
@@ -430,7 +432,7 @@ export default function ShopContent({
 
                       <Link
                         href={cat.href}
-                        className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                        className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
                       >
                         Explore {cat.title}
                         <ArrowRight
@@ -610,7 +612,7 @@ export default function ShopContent({
                 </p>
                 <Link
                   href="/contact"
-                  className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                  className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
                 >
                   Request Custom Order
                   <ArrowRight
@@ -750,7 +752,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
             /* A size or colour to choose → the product page asks for it */
             <Link
               href={`/shop/${product.slug}`}
-              className="press mt-auto w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+              className="press mt-auto w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
             >
               {action.label}
               <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform duration-200 ease-out" />

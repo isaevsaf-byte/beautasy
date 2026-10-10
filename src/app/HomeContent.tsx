@@ -20,7 +20,7 @@ const categories = [
   {
     title: "Lingerie",
     image: "/beautasy-logo-gold.png",
-    bgClass: "bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF]",
+    bgClass: "bg-lavender-wash",
     description: "Delicate pieces crafted with love",
     href: "/shop/lingerie",
   },
@@ -28,7 +28,9 @@ const categories = [
     title: "Mini Beautasy",
     subtitle: "Kids",
     image: "/beautasy-kids-logo.png",
-    bgClass: "bg-gradient-to-br from-[#FFF5F8] via-[#FFF0F5] to-[#FFE8EF]",
+    // The palest of the lavenders, not the pink it was: pink is nowhere else
+    // in the brand, and beside the lilac tiles it read as another shop's
+    bgClass: "bg-gradient-to-br from-[#FBF9FF] via-[#F5F0FF] to-[#EEE7FF]",
     description: "Gentle comfort for little ones",
     href: "/shop/kids",
   },
@@ -172,7 +174,7 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
                 off the screen. */}
             <Link
               href="/atelier#book"
-              className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium sm:whitespace-nowrap hover:bg-[#CFC0F0] transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
+              className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium sm:whitespace-nowrap hover:bg-lavender-hover transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
             >
               Choose a time
               <ArrowRight
@@ -209,7 +211,7 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
             ran on the main thread while the page was still waking up, just
             when a first tap needs it. */}
         <div className="order-2 relative">
-          <div className="relative aspect-[5/4] sm:aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF] flex items-center justify-center">
+          <div className="relative aspect-[5/4] sm:aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-wash flex items-center justify-center">
             {/* The gold catches the light once, after the first stitch or as it
                 comes into view (stitch/LogoSheen.tsx); the picture is unchanged */}
             <div className="relative w-[250px] sm:w-[280px] lg:w-[300px]">
@@ -408,7 +410,7 @@ function AtelierSection() {
             <motion.div variants={fadeUp} custom={6}>
               <Link
                 href="/atelier"
-                className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
               >
                 Atelier Services
                 <ArrowRight
@@ -424,7 +426,7 @@ function AtelierSection() {
             variants={fadeIn}
             className="relative"
           >
-            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF] flex items-center justify-center">
+            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-wash flex items-center justify-center">
               <Image
                 src="/beautasy-atelier-logo.png"
                 alt="Beautasy Atelier — Custom Sewing & Alterations"

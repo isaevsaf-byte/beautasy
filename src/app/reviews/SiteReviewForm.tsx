@@ -121,7 +121,7 @@ export default function SiteReviewForm({ googleUrl }: { googleUrl: string | null
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={copyForGoogle}
-                  className="press inline-flex items-center gap-2 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
+                  className="press inline-flex items-center gap-2 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover"
                 >
                   Copy my review &amp; open Google
                 </a>
@@ -268,7 +268,7 @@ export default function SiteReviewForm({ googleUrl }: { googleUrl: string | null
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="press inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] disabled:opacity-60"
+                className="press inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover disabled:opacity-60"
               >
                 {status === "loading" && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
                 {status === "loading" ? "Sending…" : "Send my review"}

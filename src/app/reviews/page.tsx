@@ -150,7 +150,7 @@ export default async function ReviewsPage() {
 
             <a
               href="#write"
-              className="press inline-flex items-center gap-2 mt-8 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
+              className="press inline-flex items-center gap-2 mt-8 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover"
             >
               Write a review
             </a>
@@ -209,7 +209,7 @@ export default async function ReviewsPage() {
                   href={googleUrl ?? BUSINESS.googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="press inline-flex items-center gap-2 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
+                  className="press inline-flex items-center gap-2 px-7 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover"
                 >
                   Write it on Google
                 </a>
