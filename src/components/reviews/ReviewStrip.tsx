@@ -19,6 +19,7 @@ export default function ReviewStrip({
   nextdoorUrl,
   eyebrow,
   heading = "What clients say",
+  featured = false,
   className = "",
 }: {
   reviews: PublishedReview[];
@@ -27,6 +28,9 @@ export default function ReviewStrip({
    *  words" over "What clients say" said it twice, so by default there is none */
   eyebrow?: string;
   heading?: string;
+  /** One quote large and the others small beside it, rather than a row of
+   *  equal cards — the home page's way (see FeaturedReviews) */
+  featured?: boolean;
   className?: string;
 }) {
   if (reviews.length === 0) return null;
@@ -51,11 +55,51 @@ export default function ReviewStrip({
       {/* One column on a phone is grid-cols-1, not just "grid": an unsized
           column grows to fit its widest word, and one long one made the
           page scroll sideways */}
-      <ul className={`grid grid-cols-1 gap-4 ${columns}`}>
-        {reviews.map((review) => (
-          <ReviewCard key={review._id} review={review} nextdoorUrl={nextdoorUrl} clamp />
-        ))}
-      </ul>
+      {featured && reviews.length > 1 ? (
+        <FeaturedReviews reviews={reviews} nextdoorUrl={nextdoorUrl} />
+      ) : (
+        <ul className={`grid grid-cols-1 gap-4 ${columns}`}>
+          {reviews.map((review) => (
+            <ReviewCard key={review._id} review={review} nextdoorUrl={nextdoorUrl} clamp />
+          ))}
+        </ul>
+      )}
     </section>
+  );
+}
+
+/**
+ * Three equal cards in a row is the layout every template has, and it gives a
+ * two-word review the same weight as a paragraph. Here the fullest review is
+ * the quote, set large in the heading face and stopped at six lines, and the
+ * others stand beside it as small cards of three lines. Every card leads to
+ * /reviews, where each is whole. The others keep their order: newest first.
+ */
+function FeaturedReviews({ reviews, nextdoorUrl }: { reviews: PublishedReview[]; nextdoorUrl: string | null }) {
+  const lead = reviews.reduce((longest, review) => (review.comment.length > longest.comment.length ? review : longest));
+  const rest = reviews.filter((review) => review !== lead);
+  return (
+    // Five columns from a tablet up: the quote takes three, the small cards
+    // two, stacked. One column on a phone, as grid-cols-1 (see above).
+    <ul className="grid grid-cols-1 gap-4 md:grid-cols-5">
+      <ReviewCard
+        review={lead}
+        nextdoorUrl={nextdoorUrl}
+        featured
+        clamp={6}
+        href="/reviews"
+        className={`md:col-span-3 ${rest.length > 1 ? "md:row-span-2" : ""}`}
+      />
+      {rest.map((review) => (
+        <ReviewCard
+          key={review._id}
+          review={review}
+          nextdoorUrl={nextdoorUrl}
+          clamp={3}
+          href="/reviews"
+          className="md:col-span-2"
+        />
+      ))}
+    </ul>
   );
 }

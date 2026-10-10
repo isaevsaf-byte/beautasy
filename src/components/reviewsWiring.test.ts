@@ -184,10 +184,44 @@ test("a row of reviews leads to /reviews and keeps long ones to six lines", () =
   assert.match(strip([{}, {}, {}]), /md:grid-cols-3/);
 });
 
+test("the home page's row leads with the fullest review, large, and two small cards that each lead to /reviews", () => {
+  const long = "Took in my wedding dress and hemmed the lace by hand. ".repeat(4).trim();
+  const html = renderToStaticMarkup(
+    createElement(ReviewStrip, {
+      reviews: [
+        { _id: "a", source: "site", userName: "Ann", rating: 5, comment: "Quick and neat.", createdAt: "2026-09-22T10:00:00Z" },
+        { _id: "b", source: "nextdoor", userName: "Bea", rating: null, comment: long, createdAt: "2026-09-21T10:00:00Z" },
+        { _id: "c", source: "site", userName: "Cat", rating: 5, comment: "Lovely zip.", createdAt: "2026-09-20T10:00:00Z" },
+      ],
+      nextdoorUrl: PAGE,
+      featured: true,
+    })
+  );
+  const cards = html.split("<li ").slice(1);
+  assert.equal(cards.length, 3);
+  // The longest first, set large and kept to six lines; the others in their order, at three
+  assert.match(cards[0], />Bea</);
+  assert.match(cards[0], /md:col-span-3 md:row-span-2/);
+  assert.match(cards[0], /font-serif text-lg sm:text-xl[^"]*line-clamp-6/);
+  assert.match(cards[1], />Ann</);
+  assert.match(cards[2], />Cat</);
+  for (const small of cards.slice(1)) {
+    assert.match(small, /md:col-span-2/);
+    assert.match(small, /text-sm leading-relaxed line-clamp-3/);
+  }
+  // Every card leads to /reviews, and Nextdoor's own link still works over it
+  for (const card of cards) assert.match(card, /<a aria-label="Read [^"]*review in full" class="absolute inset-0[^"]*" href="\/reviews"><\/a>/);
+  assert.match(cards[0], new RegExp(`<span class="relative z-10"><a href="${PAGE}"`));
+  assert.doesNotMatch(html, /md:grid-cols-3/, "not three equal cards");
+  // Elsewhere the row is as it was
+  assert.doesNotMatch(strip([{}, {}, {}]), /absolute inset-0|line-clamp-3/);
+});
+
 test("the home page, /atelier and every service page show reviews, and none of them marks them up", () => {
   const home = read("src/app/page.tsx");
   assert.match(home, /const kindWords = reviews\.slice\(0, 3\);/);
-  assert.match(home, /reviews=\{kindWords\.length > 0 \? <ReviewStrip reviews=\{kindWords\} nextdoorUrl=\{nextdoorUrl\} \/> : null\}/);
+  // The home page's row leads with one quote (see the test below)
+  assert.match(home, /reviews=\{kindWords\.length > 0 \? <ReviewStrip reviews=\{kindWords\} nextdoorUrl=\{nextdoorUrl\} featured \/> : null\}/);
   assert.match(read("src/app/HomeContent.tsx"), /\{reviews && \(/);
 
   const atelier = read("src/app/atelier/page.tsx");

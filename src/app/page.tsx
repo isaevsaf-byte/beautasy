@@ -58,7 +58,7 @@ export default async function Home() {
           <WorkStrip pieces={recent} eyebrow="Made & Mended" heading="Latest from the atelier" />
         ) : null
       }
-      reviews={kindWords.length > 0 ? <ReviewStrip reviews={kindWords} nextdoorUrl={nextdoorUrl} /> : null}
+      reviews={kindWords.length > 0 ? <ReviewStrip reviews={kindWords} nextdoorUrl={nextdoorUrl} featured /> : null}
       priceFrom={priceFrom}
       meetKristina={kristina ? <MeetKristina content={kristina} /> : null}
     />
