@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useDialog, useScrollLock } from "@/lib/useDialog";
+import { formatPence } from "@/lib/money";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, Loader2, Scissors, CalendarCheck, MessageCircle } from "lucide-react";
@@ -46,21 +48,16 @@ export default function SearchOverlay({ className = "" }: { className?: string }
     setSearched(false);
   }, []);
 
-  // Escape closes; focus lands in the field when it opens
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    const t = setTimeout(() => inputRef.current?.focus(), 60);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-      clearTimeout(t);
-    };
-  }, [isOpen, close]);
+  // The page behind stays still (the shared, counted lock: closing the search
+  // over the open phone menu no longer unfreezes the page under the menu).
+  // Focus lands in the field a frame after it opens, Tab stays in the panel,
+  // Escape closes it and focus goes back to the search button.
+  // On an iPhone that frame-later focus puts the caret in the field but does
+  // not raise the keyboard — iOS only does that for a focus made inside the
+  // tap itself, and the field does not exist yet at the tap. The 60ms timer
+  // this replaces was no different; a visitor taps the field once.
+  useScrollLock(isOpen);
+  const panelRef = useDialog(isOpen, close, inputRef);
 
   // Debounced lookup — one request per pause in typing, not per keystroke
   useEffect(() => {
@@ -105,6 +102,7 @@ export default function SearchOverlay({ className = "" }: { className?: string }
             className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9998]"
           />
           <motion.div
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label="Search Beautasy"
@@ -115,11 +113,22 @@ export default function SearchOverlay({ className = "" }: { className?: string }
             className="fixed top-0 left-0 right-0 z-[9999] bg-[#FDFBF7] shadow-xl"
           >
             <div className="max-w-2xl mx-auto px-6 py-6">
-              <div className="flex items-center gap-3 border-b border-lavender-soft/60 pb-3">
+              {/* A search landmark, and a form so the keyboard's Search key
+                  does something: results arrive as you type, so it puts the
+                  keyboard away to show them instead of reloading the page */}
+              <form
+                role="search"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  inputRef.current?.blur();
+                }}
+                className="flex items-center gap-3 border-b border-lavender-soft/60 pb-3"
+              >
                 <Search size={20} className="text-charcoal-light shrink-0" />
                 <input
                   ref={inputRef}
                   type="search"
+                  enterKeyHint="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="hem, zip, wedding dress, scrunchie…"
@@ -127,17 +136,20 @@ export default function SearchOverlay({ className = "" }: { className?: string }
                   className="flex-1 min-w-0 bg-transparent text-lg text-charcoal placeholder:text-charcoal-light/60 focus:outline-none"
                 />
                 {loading && <Loader2 size={16} className="animate-spin text-lavender shrink-0" />}
+                {/* A 44px target round the same cross; -m-2 keeps it in place */}
                 <button
                   type="button"
                   onClick={close}
                   aria-label="Close search"
-                  className="p-1 text-charcoal-light hover:text-charcoal transition-colors shrink-0"
+                  className="size-11 -m-2 grid place-items-center text-charcoal-light hover:text-charcoal transition-colors shrink-0"
                 >
                   <X size={20} />
                 </button>
-              </div>
+              </form>
 
-              <div className="max-h-[60vh] overflow-y-auto mt-3">
+              {/* svh, the screen with the browser's bars showing: with vh the
+                  last results sat under Safari's toolbar */}
+              <div className="max-h-[60svh] overflow-y-auto overscroll-contain mt-3">
                 {results.length > 0 ? (
                   <ul className="divide-y divide-lavender-soft/30">
                     {results.map((item) => (
@@ -167,8 +179,8 @@ export default function SearchOverlay({ className = "" }: { className?: string }
                           {item.priceLabel ? (
                             <p className="text-sm font-medium shrink-0 whitespace-nowrap">{item.priceLabel}</p>
                           ) : typeof item.price === "number" ? (
-                            <p className="text-sm font-medium shrink-0">
-                              £{(item.price / 100).toFixed(2)}
+                            <p className="text-sm font-medium shrink-0 tabular-nums">
+                              {formatPence(item.price)}
                             </p>
                           ) : null}
                         </Link>
@@ -225,7 +237,7 @@ export default function SearchOverlay({ className = "" }: { className?: string }
         type="button"
         onClick={() => setIsOpen(true)}
         aria-label="Search"
-        className={`p-1 text-charcoal/70 hover:text-charcoal transition-colors duration-300 ${className}`}
+        className={`size-11 -m-2 grid place-items-center text-charcoal/70 hover:text-charcoal transition-colors duration-300 ${className}`}
       >
         <Search size={20} />
       </button>

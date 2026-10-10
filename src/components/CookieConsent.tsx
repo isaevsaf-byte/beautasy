@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useIsClient } from "@/lib/useIsClient";
+import { EASE_OUT } from "@/components/animations";
 import {
   CONSENT_REOPEN_EVENT,
   clearTrackingCookies,
@@ -59,18 +60,23 @@ export default function CookieConsent() {
     }
   };
 
-  if (!isClient || choice !== null) return null;
-
+  // AnimatePresence stays on the page and the banner comes and goes inside
+  // it: returning null before it, as this did, took AnimatePresence away
+  // too, so the banner vanished at once and its exit never played.
+  // The bottom padding is the iPhone's home bar, now that the page runs
+  // under it (viewport-fit=cover).
   return (
     <AnimatePresence>
+      {isClient && choice === null && (
       <motion.div
+        key="consent"
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 24 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
+        exit={{ opacity: 0, y: 24, transition: { duration: 0.2, ease: EASE_OUT } }}
+        transition={{ duration: 0.25, ease: EASE_OUT }}
         role="dialog"
         aria-label="Cookie preferences"
-        className="fixed bottom-0 left-0 right-0 z-[9997] md:bottom-4 md:left-4 md:right-auto md:max-w-sm"
+        className="fixed bottom-0 left-0 right-0 z-[9997] pb-[env(safe-area-inset-bottom,0px)] md:pb-0 md:bottom-4 md:left-4 md:right-auto md:max-w-sm"
       >
         {/* Short on a phone: it used to stand 249px tall over a 812px screen,
             on top of the page's heading. Both choices stay the same size. */}
@@ -86,22 +92,25 @@ export default function CookieConsent() {
               Privacy policy
             </Link>
           </p>
+          {/* 44px tall each, and the same press, so neither choice is the
+              easier one to hit */}
           <div className="flex gap-2">
             <button
               onClick={() => decide("granted")}
-              className="flex-1 px-3 py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors"
+              className="press flex-1 min-h-11 px-3 py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
             >
               Accept all
             </button>
             <button
               onClick={() => decide("denied")}
-              className="flex-1 px-3 py-2.5 rounded-full border border-charcoal/20 text-charcoal text-xs tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-colors"
+              className="press flex-1 min-h-11 px-3 py-2.5 rounded-full border border-charcoal/20 text-charcoal text-xs tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10"
             >
               Essential only
             </button>
           </div>
         </div>
       </motion.div>
+      )}
     </AnimatePresence>
   );
 }

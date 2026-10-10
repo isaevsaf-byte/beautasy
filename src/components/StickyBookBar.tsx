@@ -93,16 +93,21 @@ export default function StickyBookBar({
   useEffect(() => followBookBar(window, heroId, bookId, setShown), [heroId, bookId]);
 
   return (
-    // Phones only: the way to the booking form, while it is still below
+    // Phones only: the way to the booking form, while it is still below.
+    // The inset has a 0px fallback, so a browser without it keeps the 0.75rem
+    // rather than dropping the whole padding. With less motion asked for, the
+    // bar appears and goes without sliding.
     <div
       inert={!shown}
-      className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center gap-3 transition-transform duration-300 ${
+      className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3 transition-transform duration-300 motion-reduce:transition-none ${
         shown ? "translate-y-0" : "translate-y-full"
       }`}
     >
+      {/* A long press on the button is a press, not a text selection or
+          iOS's link preview. Top-stitched, so no .press. */}
       <a
         href={`#${bookId}`}
-        className="topstitch flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium"
+        className="topstitch flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium select-none [-webkit-touch-callout:none]"
       >
         Choose a time
         <ArrowRight size={16} aria-hidden="true" />
