@@ -18,10 +18,17 @@ interface AddToCartButtonProps {
   className?: string;
 }
 
-/** One label in the shared cell: quick to cross over, and it barely grows, so it reads as one button changing its mind */
+/**
+ * One label in the shared cell: quick to cross over, and it barely grows, so
+ * it reads as one button changing its mind. Tailwind 4's scale-95 sets the
+ * `scale` property, not `transform`, so the transition names `scale` — under
+ * `transform` the size jumped while only the fade ran. The label going out
+ * softens with a 2px blur, as WorkViewer's crossfade does, so the two words
+ * never sit sharp on top of each other. Reduced motion: a plain fade.
+ */
 const label = (shown: boolean) =>
-  `col-start-1 row-start-1 flex items-center justify-center gap-2 transition-[opacity,transform] duration-150 ease-out ${
-    shown ? "opacity-100 scale-100" : "opacity-0 scale-95"
+  `col-start-1 row-start-1 flex items-center justify-center gap-2 transition-[opacity,scale,filter] duration-150 ease-out motion-reduce:scale-100 motion-reduce:filter-none ${
+    shown ? "opacity-100 scale-100" : "opacity-0 scale-95 blur-[2px]"
   }`;
 
 export default function AddToCartButton({
