@@ -330,7 +330,11 @@ function GallerySlide({
       // still scrolls under a vertical stroke
       drag={draggable ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.2}
+      // 1: the photo moves exactly with the finger. With both constraints at
+      // 0 every pixel of a drag is "past the edge", so 0.2 let it travel a
+      // fifth of the way and it felt like pulling against a rope. The gallery
+      // wraps round, so there is always a next photo to pull towards.
+      dragElastic={1}
       dragMomentum={false}
       onDragEnd={(_, info) => {
         const width = ref.current?.offsetWidth ?? 1;

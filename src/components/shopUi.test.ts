@@ -113,7 +113,7 @@ test("the main photo arrives in place: not slid, not faded, and draggable sidewa
 
   const source = read("src/app/shop/[param]/ProductDetail.tsx");
   assert.match(source, /<AnimatePresence initial=\{false\} custom=\{turn\}>/);
-  assert.match(source, /drag=\{draggable \? "x" : false\}\s*dragConstraints=\{\{ left: 0, right: 0 \}\}\s*dragElastic=\{0\.2\}\s*dragMomentum=\{false\}/);
+  assert.match(source, /drag=\{draggable \? "x" : false\}\s*dragConstraints=\{\{ left: 0, right: 0 \}\}[\s\S]{0,400}?dragElastic=\{1\}\s*dragMomentum=\{false\}/);
   assert.match(source, /const SETTLE_BACK = \{ type: "spring", duration: 0\.4, bounce: 0\.15 \} as const;/);
   // Arrows and thumbnails turn without a slide
   assert.match(source, /const turn: Turn = swipe\?\.to === photoKey \? swipe\.turn : 0;/);
