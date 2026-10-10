@@ -1320,14 +1320,16 @@ export default function ProductDetail({
       <AnimatePresence>
         {sizeGuideOpen && product.sizeGuide && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop: a plain tint, a shade darker than it was blurred.
+                A blur behind a fading layer is redrawn over the whole page
+                on every frame of the fade. */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               onClick={() => setSizeGuideOpen(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998]"
+              className="fixed inset-0 bg-black/45 z-[9998]"
             />
             {/* Modal */}
             <motion.div

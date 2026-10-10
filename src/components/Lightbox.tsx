@@ -88,17 +88,20 @@ export default function Lightbox({
           onClick={onClose}
         >
           {/* The dark behind the photo, on its own layer so it can thin
-              under a pull without the photo and buttons thinning with it */}
+              under a pull without the photo and buttons thinning with it.
+              A plain tint, no blur: at this depth a blur barely shows, and it
+              would be redrawn over the whole page on every frame of the fade
+              and of every pull. The buttons below are plain fills too. */}
           <motion.div
             aria-hidden="true"
             style={{ opacity: backdropOpacity }}
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/85"
           />
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute top-5 right-5 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+            className="absolute top-5 right-5 z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
           >
             <X size={22} />
           </button>
@@ -111,7 +114,7 @@ export default function Lightbox({
                 goPrev();
               }}
               aria-label="Previous image"
-              className="absolute left-4 sm:left-6 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+              className="absolute left-4 sm:left-6 z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
             >
               <ChevronLeft size={22} />
             </button>
@@ -168,7 +171,7 @@ export default function Lightbox({
           {/* Which photo this is, up by the close button: at the foot of the
               photo it sat on top of the thumbnails on a phone */}
           {images.length > 1 && (
-            <div className="absolute top-6 left-5 z-10 bg-black/50 backdrop-blur-sm rounded-full px-4 py-1.5 pointer-events-none">
+            <div className="absolute top-6 left-5 z-10 bg-black/60 rounded-full px-4 py-1.5 pointer-events-none">
               <p className="text-white text-xs tracking-wider tabular-nums">
                 {index + 1} / {images.length}
               </p>
@@ -183,7 +186,7 @@ export default function Lightbox({
                 goNext();
               }}
               aria-label="Next image"
-              className="absolute right-4 sm:right-6 z-10 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+              className="absolute right-4 sm:right-6 z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
             >
               <ChevronRight size={22} />
             </button>

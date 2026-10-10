@@ -412,13 +412,15 @@ export function CartDrawer({
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop: a plain tint, a shade darker than it was blurred.
+              A blur behind a fading layer is worked out again over the whole
+              page on every frame of the fade, which a phone feels. */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeCart}
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9998]"
+            className="fixed inset-0 bg-black/35 z-[9998]"
           />
 
           {/* Drawer. The slide is a full transform string on the drawer

@@ -59,12 +59,14 @@ export default function SizeQuiz({
     <AnimatePresence>
       {open && (
         <>
+          {/* A plain tint, no blur: a blur behind a fading layer is redrawn
+              over the whole page on every frame of the fade */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={close}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998]"
+            className="fixed inset-0 bg-black/45 z-[9998]"
           />
           <motion.div
             role="dialog"
