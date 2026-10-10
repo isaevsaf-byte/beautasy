@@ -8,6 +8,9 @@ import { usePathname } from "next/navigation";
 import Cart, { CartDrawer } from "@/components/Cart";
 import SearchOverlay from "@/components/SearchOverlay";
 import { useIsClient } from "@/lib/useIsClient";
+import { useScrollLock } from "@/lib/useDialog";
+import { EASE_OUT } from "@/components/animations";
+import CountBadge from "@/components/CountBadge";
 import { useWishlist } from "@/store/useWishlist";
 import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { clerkEnabled } from "@/lib/clerk";
@@ -41,6 +44,13 @@ const navLinks: NavLink[] = [
   { label: "Gift Cards", href: "/gift-cards", side: "right" },
   { label: "Contact", href: "/contact", side: "right" },
 ];
+
+/**
+ * The wishlist count, over the heart's top-right corner. The heart sits in
+ * the middle of a 44px target now, so the badge is placed from that box's
+ * corner where it used to hang off a 28px one; "99+" widens it to the left.
+ */
+const WISHLIST_BADGE = "top-0.5 right-1.5 min-w-[18px] h-[18px] px-1 text-[10px]";
 
 /** Where the menu's WhatsApp button opens the chat, with the first line typed */
 const WHATSAPP_HELLO = "Hi Kristina! I'd love to ask about an alteration.";
@@ -131,13 +141,16 @@ export default function Header({
   }, [mobileOpen]);
 
   // While the phone menu is open the page behind it stays still, so a swipe
-  // moves the menu and not the page under it. The menu is hidden from lg up:
-  // if the screen grows that wide (a tablet turned on its side) the menu
-  // closes, rather than leave a page that looks normal but will not scroll.
+  // moves the menu and not the page under it. The lock is the shared, counted
+  // one: opening the search or the bag over the menu and closing it again no
+  // longer unfreezes the page under the menu.
+  useScrollLock(mobileOpen);
+
+  // The menu is hidden from lg up: if the screen grows that wide (a tablet
+  // turned on its side) the menu closes, rather than leave a page that looks
+  // normal but will not scroll.
   useEffect(() => {
     if (!mobileOpen) return;
-    const before = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const wide = window.matchMedia("(min-width: 64rem)");
     const onWide = () => {
       if (wide.matches) setMobileOpen(false);
@@ -145,7 +158,6 @@ export default function Header({
     wide.addEventListener("change", onWide);
     return () => {
       wide.removeEventListener("change", onWide);
-      document.body.style.overflow = before;
     };
   }, [mobileOpen]);
 
@@ -165,13 +177,16 @@ export default function Header({
       {/* ── Announcement bar — lives inside the fixed header so it never
            bleeds through the header's glass background as a ghost ── */}
       {activeBar && (
+        // Two lines at most: the text comes from the Studio, and a long promo
+        // made the fixed header taller than the space the page leaves for it,
+        // so the page's own heading slid underneath
         <div className={`${barBgMap[activeBar.bgColor ?? "lavender"]} flex items-center justify-center py-2`}>
           {activeBar.link ? (
             <a href={activeBar.link} className="block w-full text-center hover:opacity-80 transition-opacity">
-              <p className="text-xs sm:text-sm tracking-wide font-medium px-4">{activeBar.text}</p>
+              <p className="text-xs sm:text-sm tracking-wide font-medium px-4 line-clamp-2">{activeBar.text}</p>
             </a>
           ) : (
-            <p className="text-xs sm:text-sm tracking-wide font-medium px-4 text-center">{activeBar.text}</p>
+            <p className="text-xs sm:text-sm tracking-wide font-medium px-4 text-center line-clamp-2">{activeBar.text}</p>
           )}
         </div>
       )}
@@ -189,7 +204,13 @@ export default function Header({
           the phone's menu rather than a row that collides with itself. */}
       {/* w-full because the header is a flex column, where mx-auto alone
           would shrink the row to its content and bunch it in the middle. */}
-      <div className="w-full max-w-6xl mx-auto px-4 min-[360px]:px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 lg:gap-4">
+      {/* The sides take the larger of the usual gap and the phone's safe
+          area: the page now runs under the notch (viewport-fit=cover), and on
+          an iPhone on its side the menu button sat behind it. */}
+      {/* Every icon is a 44px target round the same 20px glyph, as a thumb
+          needs; -m-2 keeps the glyphs where the old 28px buttons put them,
+          so the row is no wider on a 320px phone than it was. */}
+      <div className="w-full max-w-6xl mx-auto pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] min-[360px]:pl-[max(1.5rem,env(safe-area-inset-left,0px))] min-[360px]:pr-[max(1.5rem,env(safe-area-inset-right,0px))] py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 lg:gap-4">
         {/* Mobile menu button, with search beside it: two icons on each side
             of the logo keep it in the middle of a phone screen, where one on
             the left and three on the right pushed it well off centre. */}
@@ -198,12 +219,12 @@ export default function Header({
             ref={toggleRef}
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="text-charcoal p-1"
+            className="size-11 -m-2 grid place-items-center text-charcoal/70 hover:text-charcoal transition-colors duration-300"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
             aria-controls="mobile-nav"
           >
-            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <SearchOverlay />
         </div>
@@ -262,7 +283,7 @@ export default function Header({
                   <button
                     type="button"
                     aria-label="Sign in"
-                    className="p-1 text-charcoal/70 hover:text-charcoal transition-colors duration-300"
+                    className="size-11 -m-2 grid place-items-center text-charcoal/70 hover:text-charcoal transition-colors duration-300"
                   >
                     <User size={20} />
                   </button>
@@ -273,19 +294,11 @@ export default function Header({
           <SearchOverlay />
           <Link
             href="/wishlist"
-            className="relative p-1 text-charcoal/70 hover:text-charcoal transition-colors duration-300"
+            className="relative size-11 -m-2 grid place-items-center text-charcoal/70 hover:text-charcoal transition-colors duration-300"
             aria-label="Wishlist"
           >
             <Heart size={20} />
-            {hydrated && wishlistCount > 0 && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 bg-lavender text-charcoal text-[10px] font-medium rounded-full flex items-center justify-center"
-              >
-                {wishlistCount}
-              </motion.span>
-            )}
+            <CountBadge count={hydrated ? wishlistCount : 0} className={WISHLIST_BADGE} />
           </Link>
           <Cart />
         </nav>
@@ -294,19 +307,11 @@ export default function Header({
         <div className="lg:hidden justify-self-end flex items-center gap-2">
           <Link
             href="/wishlist"
-            className="relative p-1 text-charcoal/70 hover:text-charcoal transition-colors"
+            className="relative size-11 -m-2 grid place-items-center text-charcoal/70 hover:text-charcoal transition-colors duration-300"
             aria-label="Wishlist"
           >
-            <Heart size={18} />
-            {hydrated && wishlistCount > 0 && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-lavender text-charcoal text-[9px] font-medium rounded-full flex items-center justify-center"
-              >
-                {wishlistCount}
-              </motion.span>
-            )}
+            <Heart size={20} />
+            <CountBadge count={hydrated ? wishlistCount : 0} className={WISHLIST_BADGE} />
           </Link>
           <Cart />
         </div>
@@ -321,10 +326,15 @@ export default function Header({
           <motion.nav
             id="mobile-nav"
             aria-label="Menu"
+            // Height, not a clip: the header's glass grows with the menu, and
+            // a clipped menu would leave the glass already full height and
+            // empty for a moment. Quick, on the site's curve — it used to
+            // take framer's default, a soft third of a second.
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden flex min-h-0 flex-col bg-cream border-t border-lavender-soft/40 px-6 overflow-hidden"
+            transition={{ duration: 0.25, ease: EASE_OUT }}
+            className="lg:hidden flex min-h-0 flex-col bg-cream border-t border-lavender-soft/40 pl-[max(1.5rem,env(safe-area-inset-left,0px))] pr-[max(1.5rem,env(safe-area-inset-right,0px))] overflow-hidden"
           >
             <div className="w-full max-w-xl mx-auto min-h-0 overflow-y-auto overscroll-contain pb-6">
               {navLinks.map((link) => (

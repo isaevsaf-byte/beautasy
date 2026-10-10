@@ -88,12 +88,15 @@ test("the open phone menu scrolls inside the screen, so its last buttons can be 
 
 test("while the phone menu is open the page behind it stays still, and a screen that grows past the phone layout closes it", () => {
   const source = read("src/components/Header.tsx");
-  const start = source.indexOf("const before = document.body.style.overflow;");
-  assert.ok(start >= 0, "the menu remembers how the page scrolled before it opened");
+  // The shared, counted lock (@/lib/useDialog): it keeps how the page
+  // scrolled before, and closing the search or the bag over the open menu
+  // no longer lets the page under the menu scroll
+  assert.match(source, /useScrollLock\(mobileOpen\);/, "only while the menu is open");
+  assert.doesNotMatch(source, /document\.body\.style\.overflow/, "no second lock of its own to fight the shared one");
+  const start = source.indexOf('window.matchMedia("(min-width: 64rem)")');
+  assert.ok(start >= 0, "the menu closes when the screen grows past the phone layout");
   const effect = source.slice(source.lastIndexOf("useEffect(", start), source.indexOf("}, [mobileOpen]);", start));
   assert.match(effect, /if \(!mobileOpen\) return;/, "only while the menu is open");
-  assert.match(effect, /document\.body\.style\.overflow = "hidden";/);
-  assert.match(effect, /document\.body\.style\.overflow = before;/, "and puts it back as it was, not blank");
   // The menu is hidden from lg up: a tablet turned on its side must not be
   // left with a closed-looking page that won't scroll
   assert.match(effect, /window\.matchMedia\("\(min-width: 64rem\)"\)/);
