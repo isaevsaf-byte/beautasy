@@ -360,13 +360,12 @@ export default function WorkViewer({
       role="dialog"
       aria-modal="true"
       aria-labelledby="work-viewer-title"
-      // @starting-style (Tailwind's starting:) gives the first frame it is
-      // drawn in; from there it transitions to fully shown. Browsers without it
-      // simply show the viewer at once. Closing stays instant: it is the back
-      // button, and the page underneath should be there the moment it's asked for.
-      className={`fixed inset-0 z-[9999] flex flex-col lg:flex-row bg-[#1f1b24] text-white ${
-        arriving ? "transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:duration-[120ms]" : ""
-      }`}
+      // The fade is switched on by data-arriving. @starting-style (Tailwind's
+      // starting:) gives the first frame it is drawn in; from there it
+      // transitions to fully shown. Browsers without it simply show the viewer
+      // at once. Closing stays instant: it is the back button, and the page
+      // underneath should be there the moment it's asked for.
+      className="fixed inset-0 z-[9999] flex flex-col lg:flex-row bg-[#1f1b24] text-white data-arriving:transition-opacity data-arriving:duration-200 data-arriving:ease-out data-arriving:starting:opacity-0 motion-reduce:data-arriving:duration-[120ms]"
       data-arriving={arriving ? "" : undefined}
     >
       <button

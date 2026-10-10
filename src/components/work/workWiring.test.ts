@@ -125,7 +125,8 @@ test("the viewer fades in when opened from a tile, never between pieces, and the
   assert.match(gallery, /setArriving\(false\);\s+writeHash\(browsing\[index\]\.anchor, false\);/, "moving on doesn't");
   assert.match(gallery, /arriving=\{arriving\}/);
   const viewer = read("src/components/work/WorkViewer.tsx");
-  assert.match(viewer, /arriving \? "transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:duration-\[120ms\]" : ""/);
+  assert.match(viewer, /data-arriving:duration-200 data-arriving:ease-out data-arriving:starting:opacity-0 motion-reduce:data-arriving:duration-\[120ms\]/);
+  assert.match(viewer, /data-arriving=\{arriving \? "" : undefined\}/);
   // A transition, not an animation: a second tap reverses from where it is
   assert.match(viewer, /const SHUTTER = "duration-\[450ms\] ease-in-out motion-reduce:duration-150";/);
   assert.match(viewer, /\[clip-path:inset\(0_100%_0_0\)\]/);
