@@ -388,7 +388,16 @@ export default function ShopContent({
             <div className="max-w-6xl mx-auto px-6">
               <ul className={`mx-auto grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-5 ${TILE_ROW[stockedCategories.length] ?? "lg:grid-cols-4"}`}>
                 {stockedCategories.map((cat, i) => (
-                  <li key={cat.title}>
+                  // An odd last tile on the two-up phone row sits centred at
+                  // its usual width, rather than alone at the left of its row
+                  <li
+                    key={cat.title}
+                    className={
+                      stockedCategories.length % 2 === 1 && i === stockedCategories.length - 1
+                        ? "col-span-2 justify-self-center w-[calc(50%-0.5rem)] sm:w-[calc(50%-0.625rem)] lg:col-span-1 lg:w-auto lg:justify-self-stretch"
+                        : undefined
+                    }
+                  >
                     <Link href={cat.href} className="group block">
                       {/* The logos are drawn on near-white squares; multiplied
                           into the tile, the square takes its colour and the
