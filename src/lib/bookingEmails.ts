@@ -9,7 +9,7 @@ import type { ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { googleReviewUrl } from "@/lib/siteSettings";
 import { BUSINESS, whatsappLink } from "@/lib/business";
-import { DEFAULT_SCHEDULE, durationLabel, instantOf, slotLabel, spanLabel, spanMinutes } from "@/lib/slots";
+import { DEFAULT_SCHEDULE, durationLabel, instantOf, slotLabel, spanLabel, spanMinutes, timeLabel } from "@/lib/slots";
 import { calendarUid, eveningBefore, fittingEvent, googleCalendarLink, icsInvite, type CalendarEvent } from "@/lib/bookingCalendar";
 import { whatToBring } from "@/lib/whatToBring";
 import type { EmailMessage } from "@/lib/sendEmail";
@@ -436,6 +436,65 @@ export function bookingEmailHtml(
   </div>
 </body>
 </html>`;
+}
+
+/**
+ * The day-before reminder of a fitting: the time, the job, and the same
+ * three things the confirmation said under it — where (Southampton; the
+ * address comes from Kristina, as the confirmation promised), what to bring
+ * for this job, and how to move it. The words are `arrivalHtml`'s own, so the
+ * two emails can never tell a customer different things.
+ *
+ * No calendar file: the confirmation carried one, and a second copy of the
+ * same event is a second event in Outlook (see bookingCalendar). Fittings
+ * only — a collection is at the customer's own door, and its confirmation
+ * already set an alarm the evening before.
+ */
+export function reminderEmailHtml(
+  booking: Pick<NotifiableBooking, "displayName" | "service" | "slotStart" | "slotEnd" | "collection">
+): string {
+  const firstName = escapeHtml(booking.displayName ?? "there");
+  const when = booking.slotStart ? escapeHtml(slotLabel(booking.slotStart)) : "tomorrow";
+  const length = fittingLength(booking);
+  const whatsappKristina = whatsappLink(
+    `Hi Kristina, it's ${booking.displayName ?? ""}, about my appointment tomorrow${
+      booking.slotStart ? ` (${slotLabel(booking.slotStart)})` : ""
+    }: `
+  );
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#faf9f7;font-family:Georgia,serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,0.06);">
+    <div style="background:#e8dff5;padding:34px 40px;text-align:center;">
+      <p style="margin:0 0 8px;font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#7a6d9a;">Beautasy Atelier</p>
+      <h1 style="margin:0;font-size:25px;font-weight:400;color:#2d2d2d;font-style:italic;">See you tomorrow</h1>
+    </div>
+    <div style="padding:32px 40px;">
+      <p style="color:#3d3d3d;line-height:1.7;margin-top:0;">${firstName}, a little reminder: your appointment for ${escapeHtml(
+        serviceInSentence(booking.service)
+      )} is tomorrow, <strong>${when}</strong>.${length ? ` It takes ${escapeHtml(length)}.` : ""}</p>
+      ${arrivalHtml(booking.service)}
+      <p style="text-align:center;margin:26px 0 0;">
+        <a href="${escapeHtml(whatsappKristina)}" style="display:inline-block;padding:13px 30px;background:#DCD0FF;color:#2d2d2d;border-radius:999px;text-decoration:none;font-size:13px;letter-spacing:1px;text-transform:uppercase;">WhatsApp Kristina</a>
+      </p>
+      <p style="text-align:center;margin:18px 0 0;font-size:13px;">
+        <a href="${BUSINESS.telephoneHref}" style="color:#6c5a96;">Call ${BUSINESS.telephone}</a>
+      </p>
+    </div>
+    <div style="padding:20px 40px;border-top:1px solid #f0eaf8;text-align:center;">
+      <p style="margin:0;font-size:11px;color:#aaa;">Made with 💜 in Southampton</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/** The reminder's subject: the day and the time, readable in the inbox without opening it. */
+export function reminderEmailSubject(booking: Pick<NotifiableBooking, "slotStart">): string {
+  const time = booking.slotStart?.split("T")[1];
+  return time ? `See you tomorrow at ${timeLabel(time)} 💜` : "See you tomorrow at the Beautasy atelier 💜";
 }
 
 /** The subject line, from the same facts as the email itself. */

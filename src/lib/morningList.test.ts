@@ -96,10 +96,11 @@ function store(docs: Doc[]) {
 }
 
 test("today's and tomorrow's confirmed visits, in time order, and nothing else", async () => {
-  const bookings = (await evaluate(parse(MORNING_LIST_QUERY), {
+  const result = await evaluate(parse(MORNING_LIST_QUERY), {
     dataset: diary(),
     params: { from: "2026-10-24", until: "2026-10-26" },
-  }).then((r) => r.get())) as DiaryBooking[];
+  });
+  const bookings = (await result.get()) as DiaryBooking[];
   const visits = visitsFrom(bookings, { today: "2026-10-24", tomorrow: "2026-10-25" });
   assert.deepEqual(
     visits.map((visit) => [visit.day, visit.time, visit.name]),
