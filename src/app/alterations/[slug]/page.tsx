@@ -206,6 +206,14 @@ export default async function LocalServicePage({
           hero) — at pt-24 the breadcrumb slipped under the fixed header
           whenever the announcement bar was showing */}
       <main id="main" className="pt-28 pb-24 overflow-x-clip">
+        {/* The page in three bands, so it reads as three steps rather than
+            eleven sections at one spacing: deciding (what it is, what it
+            costs), proof (jobs like it, what clients said) on a full-width
+            lavender band, then booking (how it goes, questions, Kristina, the
+            form). Between bands mt-16/md:mt-20 or the band's own padding of
+            the same; inside a band mt-14, so what belongs together sits closer. */}
+
+        {/* ═══ Decide ═══ */}
         {/* ──── Breadcrumb ──── */}
         <nav aria-label="Breadcrumb" className="max-w-4xl mx-auto px-6 mb-8">
           <ol className="flex flex-wrap items-center gap-2 text-xs text-charcoal-light">
@@ -294,7 +302,7 @@ export default async function LocalServicePage({
         </section>
 
         {/* ──── Prices ──── */}
-        <section id="prices" className="max-w-4xl mx-auto px-6 mt-20 scroll-mt-24">
+        <section id="prices" className="max-w-4xl mx-auto px-6 mt-14 scroll-mt-24">
           <h2 className="font-serif text-2xl sm:text-3xl mb-2">Prices</h2>
           <p className="text-sm text-charcoal-light mb-7 flex items-center gap-2">
             <Clock size={14} aria-hidden="true" />
@@ -324,21 +332,32 @@ export default async function LocalServicePage({
           <ClosedShears pinned={service.pricedPinned} note={service.priceNote} className="mt-5" />
         </section>
 
-        {/* ──── Done here ──── */}
-        <WorkStrip
-          pieces={doneHere}
-          eyebrow="From our workroom"
-          heading="Recent jobs like this"
-          className="max-w-4xl mx-auto px-6 mt-20"
-        />
+        {/* ═══ Proof ═══ */}
+        {/* Only when there is something to show: each strip is nothing when
+            empty, and an empty band would be a lavender gap */}
+        {(doneHere.length > 0 || kindWords.length > 0) && (
+          <div className="mt-16 md:mt-20 bg-lavender-bg py-16 md:py-20">
+            {/* ──── Done here ──── */}
+            <WorkStrip
+              pieces={doneHere}
+              eyebrow="From our workroom"
+              heading="Recent jobs like this"
+              className="max-w-4xl mx-auto px-6"
+            />
 
-        {/* ──── What clients said ──── */}
-        {/* Shown, never marked up: the Service and LocalBusiness blocks above
-            carry no reviews — see ReviewStrip */}
-        <ReviewStrip reviews={kindWords} nextdoorUrl={nextdoorUrl} className="max-w-4xl mx-auto px-6 mt-20" />
+            {/* ──── What clients said ──── */}
+            {/* Shown, never marked up: the Service and LocalBusiness blocks above
+                carry no reviews — see ReviewStrip */}
+            <ReviewStrip reviews={kindWords} nextdoorUrl={nextdoorUrl}
+              className={`max-w-4xl mx-auto px-6 ${doneHere.length > 0 ? "mt-14" : ""}`}
+            />
+          </div>
+        )}
+
+        {/* ═══ Book ═══ */}
 
         {/* ──── How it works ──── */}
-        <section className="max-w-4xl mx-auto px-6 mt-20">
+        <section className="max-w-4xl mx-auto px-6 mt-16 md:mt-20">
           <h2 className="font-serif text-2xl sm:text-3xl mb-8">How it works</h2>
           <ol className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {service.steps.map((step, i) => (
@@ -354,7 +373,7 @@ export default async function LocalServicePage({
         </section>
 
         {/* ──── FAQ ──── */}
-        <section className="max-w-4xl mx-auto px-6 mt-20">
+        <section className="max-w-4xl mx-auto px-6 mt-14">
           <h2 className="font-serif text-2xl sm:text-3xl mb-8">Questions people ask</h2>
           <div className="max-w-2xl">
             {service.faqs.map((faq) => (
@@ -379,10 +398,10 @@ export default async function LocalServicePage({
 
         {/* ──── Meet Kristina ──── */}
         {/* Who they will meet, just before they choose a time with her */}
-        <MeetKristina content={kristina} bookHref="#book" narrow className="max-w-4xl mx-auto px-6 mt-20" />
+        <MeetKristina content={kristina} bookHref="#book" narrow className="max-w-4xl mx-auto px-6 mt-14" />
 
         {/* ──── Booking ──── */}
-        <section id="book" className="max-w-4xl mx-auto px-6 mt-20 scroll-mt-24">
+        <section id="book" className="max-w-4xl mx-auto px-6 mt-14 scroll-mt-24">
           <div className="bg-lavender-bg rounded-3xl p-7 sm:p-10">
             <h2 className="font-serif text-2xl sm:text-3xl mb-2">Book a fitting</h2>
             <p className="text-sm text-charcoal-light mb-8 max-w-lg">
@@ -413,7 +432,7 @@ export default async function LocalServicePage({
             should leave knowing about. Nothing here is a sale pitch — each link
             says why the piece belongs next to this job. */}
         {fromTheShop.length > 0 && (
-        <section className="max-w-4xl mx-auto px-6 mt-20">
+        <section className="max-w-4xl mx-auto px-6 mt-14">
           <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-2">Made in the same room</p>
           <h2 className="font-serif text-2xl mb-6">While you&apos;re here</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -434,7 +453,7 @@ export default async function LocalServicePage({
         )}
 
         {/* ──── Related ──── */}
-        <section className="max-w-4xl mx-auto px-6 mt-20">
+        <section className="max-w-4xl mx-auto px-6 mt-14">
           <h2 className="font-serif text-2xl mb-6">Also done here</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {related.map((r) => (
