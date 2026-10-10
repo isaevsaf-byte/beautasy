@@ -90,7 +90,8 @@ export default function MeetKristina({
         )}
 
         <div>
-          <p className="mb-2 text-xs tracking-[0.25em] uppercase text-charcoal-light">The hands behind Beautasy</p>
+          {/* No small line over her name: "The hands behind Beautasy" said
+              what the photo and "Meet Kristina" already do */}
           <h2 id="meet-kristina" className="font-serif text-2xl sm:text-3xl mb-6">
             Meet Kristina
           </h2>

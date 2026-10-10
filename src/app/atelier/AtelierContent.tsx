@@ -304,16 +304,14 @@ export default function AtelierContent({
               variants={stagger}
               className="text-center mb-14"
             >
-              <motion.p
-                variants={fadeUp}
-                custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-              >
-                Simple & Personal
-              </motion.p>
+              {/* The page keeps two of the small uppercase lines over its
+                  headings: the hero's, and the gallery's name in the row of
+                  work. "Simple & Personal", "Services & Pricing", "Most asked
+                  for", "Beyond Alterations" and "Book an Appointment" each
+                  said again what the heading under it says. */}
               <motion.h2
                 variants={fadeUp}
-                custom={1}
+                custom={0}
                 className="font-serif text-3xl sm:text-4xl"
               >
                 How it works
@@ -400,16 +398,9 @@ export default function AtelierContent({
               variants={stagger}
               className="text-center mb-12"
             >
-              <motion.p
-                variants={fadeUp}
-                custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-              >
-                Services & Pricing
-              </motion.p>
               <motion.h2
                 variants={fadeUp}
-                custom={1}
+                custom={0}
                 className="font-serif text-3xl sm:text-4xl"
               >
                 Our price guide
@@ -497,14 +488,7 @@ export default function AtelierContent({
               variants={stagger}
               className="mb-10"
             >
-              <motion.p
-                variants={fadeUp}
-                custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-              >
-                Most asked for
-              </motion.p>
-              <motion.h2 variants={fadeUp} custom={1} className="font-serif text-3xl sm:text-4xl">
+              <motion.h2 variants={fadeUp} custom={0} className="font-serif text-3xl sm:text-4xl">
                 Popular jobs, with prices
               </motion.h2>
             </motion.div>
@@ -539,16 +523,9 @@ export default function AtelierContent({
               variants={stagger}
               className="text-center mb-14"
             >
-              <motion.p
-                variants={fadeUp}
-                custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-              >
-                Beyond Alterations
-              </motion.p>
               <motion.h2
                 variants={fadeUp}
-                custom={1}
+                custom={0}
                 className="font-serif text-3xl sm:text-4xl"
               >
                 Full atelier services
@@ -636,22 +613,15 @@ export default function AtelierContent({
               variants={stagger}
               className="text-center mb-12"
             >
-              <motion.p
-                variants={fadeUp}
-                custom={0}
-                className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-              >
-                Book an Appointment
-              </motion.p>
               <motion.h2
                 variants={fadeUp}
-                custom={1}
+                custom={0}
                 className="font-serif text-3xl sm:text-4xl"
               >
                 Request a fitting
               </motion.h2>
               {collection && (
-                <motion.p variants={fadeUp} custom={2} className="text-sm text-charcoal-light mt-4">
+                <motion.p variants={fadeUp} custom={1} className="text-sm text-charcoal-light mt-4">
                   Can&apos;t bring it in? {collection.headline} — choose Collect &amp; return below.
                 </motion.p>
               )}

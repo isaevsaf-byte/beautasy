@@ -263,7 +263,9 @@ function CategoryGrid() {
   return (
     <section className="py-24 md:py-32">
       <div className="max-w-6xl mx-auto px-6">
-        {/* Section heading */}
+        {/* Section heading. No small line over it: "Our Collections" said
+            what "Browse the shelves" says. The page keeps two of those lines,
+            the hero's and the gallery's name, where they add something. */}
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -271,16 +273,9 @@ function CategoryGrid() {
           variants={stagger}
           className="text-center mb-16"
         >
-          <motion.p
-            variants={fadeUp}
-            custom={0}
-            className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-          >
-            Our Collections
-          </motion.p>
           <motion.h2
             variants={fadeUp}
-            custom={1}
+            custom={0}
             className="font-serif text-3xl sm:text-4xl"
           >
             Browse the shelves
@@ -368,18 +363,12 @@ function AtelierSection() {
           variants={stagger}
           className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"
         >
-          {/* Left — text */}
+          {/* Left — text, with no small line over the heading: "The Atelier"
+              repeated what the heading and the button under it say */}
           <div>
-            <motion.p
-              variants={fadeUp}
-              custom={0}
-              className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-4"
-            >
-              The Atelier
-            </motion.p>
             <motion.h2
               variants={fadeUp}
-              custom={1}
+              custom={0}
               className="font-serif text-3xl sm:text-4xl mb-6"
             >
               {/* A break on a laptop only, as in the hero */}
@@ -389,7 +378,7 @@ function AtelierSection() {
             </motion.h2>
             <motion.p
               variants={fadeUp}
-              custom={2}
+              custom={1}
               className="text-charcoal-light leading-relaxed mb-10 max-w-md"
             >
               From custom sewing to careful repairs and perfect-fit alterations — our atelier is
@@ -402,7 +391,7 @@ function AtelierSection() {
                 <motion.div
                   key={service.title}
                   variants={fadeUp}
-                  custom={i + 3}
+                  custom={i + 2}
                   className="flex items-start gap-4"
                 >
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-lavender/30 flex items-center justify-center">
@@ -418,7 +407,7 @@ function AtelierSection() {
               ))}
             </div>
 
-            <motion.div variants={fadeUp} custom={6}>
+            <motion.div variants={fadeUp} custom={5}>
               <Link
                 href="/atelier"
                 className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"

@@ -17,12 +17,14 @@ import ReviewCard from "./ReviewCard";
 export default function ReviewStrip({
   reviews,
   nextdoorUrl,
-  eyebrow = "Kind words",
+  eyebrow,
   heading = "What clients say",
   className = "",
 }: {
   reviews: PublishedReview[];
   nextdoorUrl: string | null;
+  /** A small line over the heading, only where it adds something: "Kind
+   *  words" over "What clients say" said it twice, so by default there is none */
   eyebrow?: string;
   heading?: string;
   className?: string;
@@ -35,7 +37,7 @@ export default function ReviewStrip({
     <section className={className}>
       <div className="mb-7 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
-          <p className="mb-2 text-xs tracking-[0.25em] uppercase text-charcoal-light">{eyebrow}</p>
+          {eyebrow && <p className="mb-2 text-xs tracking-[0.25em] uppercase text-charcoal-light">{eyebrow}</p>}
           <h2 className="font-serif text-2xl sm:text-3xl">{heading}</h2>
         </div>
         <Link
