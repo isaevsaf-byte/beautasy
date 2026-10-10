@@ -41,10 +41,12 @@ export default function WishlistButton({
       } ${className}`}
       aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
     >
+      {/* One small beat: to 115% and back in a quarter of a second. At 130%
+          over 0.3s the heart swelled past its ring and lagged the tap. */}
       <motion.div
         key={saves}
-        animate={saves > 0 && wishlisted ? { scale: [1, 1.3, 1] } : undefined}
-        transition={{ duration: 0.3, ease: EASE_OUT }}
+        animate={saves > 0 && wishlisted ? { scale: [1, 1.15, 1] } : undefined}
+        transition={{ duration: 0.25, ease: EASE_OUT }}
       >
         <Heart size={18} className={wishlisted ? "fill-lavender" : ""} />
       </motion.div>
