@@ -37,7 +37,8 @@ test("every price on the site is a starting price — 'from £20', never a bare 
     }
   }
   const { readFile } = await import("node:fs/promises");
-  const atelier = await readFile(new URL("../app/atelier/AtelierContent.tsx", import.meta.url), "utf8");
+  // /atelier's guide, which the home page also shows a few lines of (since 10.10)
+  const atelier = await readFile(new URL("./atelierPrices.ts", import.meta.url), "utf8");
   const prices = [...atelier.matchAll(/price: "([^"]*)"/g)].map((m) => m[1]);
   assert.ok(prices.length >= 10, "the /atelier price list has moved — point this test at it");
   for (const price of prices) assert.match(price, /^from £\d/, `/atelier says ${price}`);
