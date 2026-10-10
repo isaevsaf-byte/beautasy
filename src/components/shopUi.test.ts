@@ -318,6 +318,19 @@ test("a piece priced per size says 'from' its cheapest size until one is chosen"
   assert.doesNotMatch(detail(), /from <!-- -->£/);
 });
 
+test("a gift box card's heart and Quick view are beside its link, not inside it", () => {
+  const source = read("src/app/gift-boxes/GiftBoxesContent.tsx");
+  const frame = between(source, '<div className="relative aspect-[4/5]', "{/* Thumbnails */}");
+  const link = between(frame, "<Link", "</Link>");
+  assert.ok(link.length > 0, "the photo's link was found");
+  assert.doesNotMatch(link, /<button|<WishlistButton/, "no control inside the link");
+  // The link covers the photo through its ::after; the buttons are raised above it
+  assert.match(link, /className="after:absolute after:inset-0/);
+  const after = frame.slice(frame.indexOf("</Link>"));
+  assert.match(after, /<div className="absolute top-4 right-4 z-10">\s*<WishlistButton/);
+  assert.match(after, /className="absolute z-10 bottom-4 right-4[^"]*"\s*aria-label="Quick view"/);
+});
+
 /* ─── The bag ─── */
 
 test("under a friend's minimum the bag neither asks for the email nor sends the code", () => {

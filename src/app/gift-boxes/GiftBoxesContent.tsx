@@ -166,33 +166,41 @@ function GiftBoxCard({ giftBox, index }: { giftBox: GiftBox; index: number }) {
           motion.div it came back down on the entrance's delayed transition */}
       <motion.div variants={fadeUp} custom={index} className="group h-full">
         <div className="flex flex-col h-full transition-transform duration-200 ease-out group-hover:-translate-y-1.5">
-          {/* Main image — click to go to detail */}
-          <Link
-            href={`/gift-boxes/${giftBox.slug}`}
-            className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 w-full block"
-          >
-            <img
-              src={activeImage}
-              alt={giftBox.name}
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
-            />
-            <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300 ease-out" />
+          {/* Main image — click to go to detail. The heart and Quick view
+              used to sit inside the link: a button in a link is invalid HTML,
+              and a screen reader or keyboard met one control inside another.
+              Now the link covers the photo through its ::after (a stretched
+              link) and the buttons are its siblings, raised above it. The
+              link's static, so the photo and badges inside it are laid out
+              against this frame just as before. */}
+          <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4 bg-white/60 w-full">
+            <Link
+              href={`/gift-boxes/${giftBox.slug}`}
+              className="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-lavender-ink"
+            >
+              <img
+                src={activeImage}
+                alt={giftBox.name}
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
+              />
+              <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300 ease-out" />
 
-            {/* Gift Box badge */}
-            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 flex items-center gap-1.5">
-              <Gift size={12} className="text-lavender" />
-              <p className="text-xs text-charcoal-light">Gift Set</p>
-            </div>
-
-            {/* Product count badge */}
-            {giftBox.productCount > 0 && (
-              <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 flex items-center gap-1.5">
-                <Package size={12} className="text-charcoal-light" />
-                <p className="text-xs text-charcoal-light tabular-nums">
-                  {giftBox.productCount} item{giftBox.productCount !== 1 ? "s" : ""}
-                </p>
+              {/* Gift Box badge */}
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 flex items-center gap-1.5">
+                <Gift size={12} className="text-lavender" />
+                <p className="text-xs text-charcoal-light">Gift Set</p>
               </div>
-            )}
+
+              {/* Product count badge */}
+              {giftBox.productCount > 0 && (
+                <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 flex items-center gap-1.5">
+                  <Package size={12} className="text-charcoal-light" />
+                  <p className="text-xs text-charcoal-light tabular-nums">
+                    {giftBox.productCount} item{giftBox.productCount !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              )}
+            </Link>
 
             {/* Wishlist heart */}
             <div className="absolute top-4 right-4 z-10">
@@ -212,17 +220,13 @@ function GiftBoxCard({ giftBox, index }: { giftBox: GiftBox; index: number }) {
                 hover with; on a phone, where hidden still meant tappable, it shows */}
             <button
               type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setLightboxOpen(true);
-              }}
-              className="absolute bottom-4 right-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-[background-color,opacity] duration-200 ease-out shadow-sm opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              onClick={() => setLightboxOpen(true)}
+              className="absolute z-10 bottom-4 right-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-charcoal hover:bg-white transition-[background-color,opacity] duration-200 ease-out shadow-sm opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
               aria-label="Quick view"
             >
               <Search size={16} />
             </button>
-          </Link>
+          </div>
 
           {/* Thumbnails */}
           {availableImages.length > 1 && (
