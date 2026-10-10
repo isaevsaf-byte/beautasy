@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ShoppingBag, Check } from "lucide-react";
 import { useCart } from "@/store/useCart";
 import { trackAddToCart } from "@/lib/analytics";
+import { formatPence } from "@/lib/money";
 
 interface AddToCartButtonProps {
   id: string;
@@ -65,7 +66,7 @@ export default function AddToCartButton({
       <span className="grid" aria-live="polite">
         <span className={label(!added)} aria-hidden={added}>
           <ShoppingBag size={16} aria-hidden="true" />
-          Add to Bag — £{(price / 100).toFixed(2)}
+          Add to Bag — {formatPence(price)}
         </span>
         <span className={label(added)} aria-hidden={!added}>
           <Check size={16} aria-hidden="true" />

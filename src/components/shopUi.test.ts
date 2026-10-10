@@ -300,9 +300,9 @@ test("a card with a colour to choose sends the customer to choose it", () => {
     piece(3, { availableSizes: [] }),
   ]);
   assert.match(html, /href="\/shop\/piece-1"[^>]*>Choose Colour/);
-  assert.match(html, /Add to Bag — £<!-- -->10\.02/);
+  assert.match(html, /Add to Bag — (?:<!-- -->)?£10\.02/);
   assert.match(html, /href="\/shop\/piece-3"[^>]*>View Options/);
-  assert.doesNotMatch(html, /Add to Bag — £<!-- -->10\.0[13]/);
+  assert.doesNotMatch(html, /Add to Bag — (?:<!-- -->)?£10\.0[13]/);
 });
 
 test("a piece priced per size says 'from' its cheapest size until one is chosen", () => {

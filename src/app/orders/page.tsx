@@ -6,6 +6,7 @@ import { Package, ArrowRight } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { sanityClient } from "@/lib/sanity";
+import { formatPence } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +92,7 @@ export default async function OrdersPage() {
                           year: "numeric",
                         })}
                       </p>
-                      <p className="font-serif text-lg">£{(order.total / 100).toFixed(2)}</p>
+                      <p className="font-serif text-lg">{formatPence(order.total)}</p>
                     </div>
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-lavender/20 text-charcoal">
                       {STATUS_LABELS[order.status] ?? order.status}
@@ -101,7 +102,7 @@ export default async function OrdersPage() {
                     {order.items.map((item, i) => (
                       <li key={i} className="text-sm text-charcoal-light flex justify-between">
                         <span>{item.name} × {item.quantity}</span>
-                        <span>£{(item.amountTotal / 100).toFixed(2)}</span>
+                        <span>{formatPence(item.amountTotal)}</span>
                       </li>
                     ))}
                   </ul>

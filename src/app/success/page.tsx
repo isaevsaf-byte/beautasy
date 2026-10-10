@@ -15,6 +15,7 @@ import { pounds } from "@/lib/friendsLink";
 import { clerkEnabled } from "@/lib/clerk";
 import FriendsShare from "@/components/FriendsShare";
 import TiedOff from "@/components/stitch/TiedOff";
+import { formatPence } from "@/lib/money";
 
 const ADS_PURCHASE_CONVERSION = "AW-18152477897/AdUTCNCJjKscEMmp489D";
 
@@ -41,7 +42,7 @@ interface OrderSummary {
   friendsOffer?: { give: number; get: number } | null;
 }
 
-const money = (pence: number) => `£${(pence / 100).toFixed(2)}`;
+const money = formatPence;
 
 /* ── Clears the bag, reports the purchase, and fetches what was bought. ── */
 function useReceipt(sessionId: string | null): OrderSummary | null {
