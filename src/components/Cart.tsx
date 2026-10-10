@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package, Sparkles } from "lucide-react";
 /* eslint-disable @next/next/no-img-element */
 import { usePathname } from "next/navigation";
@@ -37,6 +37,13 @@ const UNDO_MS = 5000;
 
 /** The drawer's slide, in ms: the bag's own requests wait for it to finish */
 const OPEN_SETTLE_MS = 350;
+
+/**
+ * Its slide away, in ms: quicker than the way in. Opening, the eye follows the
+ * bag onto the screen; closing, the visitor has already moved on, and a drawer
+ * that takes as long to leave as to arrive feels like it is lingering.
+ */
+const CLOSE_MS = 250;
 
 /** The free-delivery bar's thread: the gold of the site's stitched leaders (.leader-stitch) */
 const STITCH_GOLD = "rgb(176 136 72)";
@@ -145,6 +152,10 @@ export function CartDrawer({
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
   const hydrated = useIsClient();
+  // The drawer slides with a transform string (see the drawer below), which
+  // MotionConfig reducedMotion="user" does not strip the way it strips `x`:
+  // with reduced motion asked for, it fades in place instead
+  const reduceMotion = useReducedMotion() ?? false;
 
   // ── Close cart on every navigation ────────────────────────────────────
   // In Next.js App Router, concurrent rendering keeps the old page's DOM
@@ -427,15 +438,19 @@ export function CartDrawer({
               curve, not framer's `x` shorthand: a transform string runs on
               the compositor, so it stays smooth while the bag's contents
               render. The drawer itself does not scroll: the list does, and
-              the footer only when it alone would fill most of the screen. */}
+              the footer only when it alone would fill most of the screen.
+              Reduced motion: no slide, the bag fades where it stands. */}
           <motion.div
             ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label="Your bag"
-            initial={{ transform: "translateX(100%)" }}
-            animate={{ transform: "translateX(0%)" }}
-            exit={{ transform: "translateX(100%)" }}
+            initial={reduceMotion ? { opacity: 0 } : { transform: "translateX(100%)" }}
+            animate={reduceMotion ? { opacity: 1 } : { transform: "translateX(0%)" }}
+            exit={{
+              ...(reduceMotion ? { opacity: 0 } : { transform: "translateX(100%)" }),
+              transition: { duration: CLOSE_MS / 1000, ease: EASE_DRAWER },
+            }}
             transition={{ duration: OPEN_SETTLE_MS / 1000, ease: EASE_DRAWER }}
             className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-[#FDFBF7] z-[9999] shadow-2xl flex flex-col overflow-hidden"
           >
