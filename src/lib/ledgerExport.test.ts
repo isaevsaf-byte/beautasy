@@ -45,8 +45,15 @@ test("the daily job runs it, alongside the rest and not before them", () => {
   const settled = CRON.slice(CRON.indexOf("Promise.allSettled(["), CRON.indexOf("]);", CRON.indexOf("Promise.allSettled([")));
   assert.match(settled, /sendMonthlyLedgerExport\(\),/);
   assert.equal((CRON.match(/sendMonthlyLedgerExport\(/g) ?? []).length, 1, "called once, inside allSettled");
-  // Eighth in the list and eighth read back: the destructuring is positional
+  // The same place in the list as in what is read back: the destructuring is positional
   const jobs = settled.match(/^\s{4}(\w+)\(/gm)?.map((line) => line.trim().replace("(", "")) ?? [];
-  assert.equal(jobs.indexOf("sendMonthlyLedgerExport"), 7);
+  const names = CRON.slice(CRON.indexOf("const [", CRON.indexOf("Promise.allSettled([")), CRON.indexOf("] = results.map"))
+    .replace("const [", "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  assert.equal(jobs.length, names.length, "every job has a name to be read back under");
+  assert.ok(jobs.indexOf("sendMonthlyLedgerExport") >= 0);
+  assert.equal(jobs.indexOf("sendMonthlyLedgerExport"), names.indexOf("ledgerExport"));
   assert.match(CRON, /health,\n\s+ledgerExport,\n\s+referrals,\n[\s\w,]*\] = results\.map/, "its answer is read back in its own place");
 });

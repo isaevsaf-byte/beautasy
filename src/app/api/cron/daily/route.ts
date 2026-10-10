@@ -9,6 +9,9 @@ import { runHealthWatchdog } from "@/lib/siteHealth";
 import { sendMonthlyLedgerExport } from "@/lib/ledgerExport";
 import { settleReferredBookings } from "@/lib/referralSettle";
 import { sweepAbandonedReviewPhotos } from "@/lib/reviewPhotos";
+import { sendMorningList } from "@/lib/morningList";
+import { sendFittingReminders } from "@/lib/bookingReminders";
+import { runRetentionCleanup } from "@/lib/retention";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -24,7 +27,7 @@ export const maxDuration = 60;
  * is why one of the jobs is the watchman: it is the only one that speaks up on
  * its own, and only when something is wrong.
  *
- * All ten start together, so the order of the list below is only the order
+ * All thirteen start together, so the order of the list below is only the order
  * the results are read back in. Nothing here waits for anything else, and no
  * job may assume it runs before or after another. That rule is why sending
  * approved posts is no longer one of them: the watchman's answer depended on
@@ -59,6 +62,16 @@ export async function GET(req: NextRequest) {
     runReviewRequests(),
     deliverScheduledGiftCards(),
     sendPendingBookingEmails(),
+    // Kristina's list of today's and tomorrow's visits, once a day, claimed
+    // by the date. Nothing on, nothing sent. See @/lib/morningList.
+    sendMorningList(),
+    // The morning-before email to each client with a fitting tomorrow, by
+    // Southampton's calendar. Once per booking and time. See @/lib/bookingReminders.
+    sendFittingReminders(),
+    // What the Privacy Policy says we stop keeping: bookings two years after
+    // the last visit, stock alerts after twelve months. Nothing is due before
+    // 24 August 2027, so for now it deletes nothing. See @/lib/retention.
+    runRetentionCleanup(),
     // Drafting only writes suggestions into the Studio. Sending them is not
     // here, and the reason is the line below: the publisher writes down every
     // run of itself, and the watchman reads that record to say whether the
@@ -109,6 +122,9 @@ export async function GET(req: NextRequest) {
     reviewRequests,
     giftCards,
     bookings,
+    morningList,
+    reminders,
+    retention,
     socialDrafts,
     health,
     ledgerExport,
@@ -126,6 +142,9 @@ export async function GET(req: NextRequest) {
     reviewRequests,
     giftCards,
     bookings,
+    morningList,
+    reminders,
+    retention,
     socialDrafts,
     health,
     ledgerExport,
