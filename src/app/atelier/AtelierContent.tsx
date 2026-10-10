@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   MapPin,
@@ -112,13 +112,11 @@ const HERO_BOOK_ID = "atelier-hero-book";
 
 /* ─────────────── Components ─────────────── */
 
-function PriceLine({ item, index }: { item: PriceItem; index: number }) {
+/** One line of the price list. No entrance of its own: the lines arriving one
+ *  by one made every tab switch a wait (see the price list below). */
+function PriceLine({ item }: { item: PriceItem }) {
   return (
-    <motion.div
-      variants={fadeUp}
-      custom={index}
-      className="flex items-end gap-2 py-3 group"
-    >
+    <div className="flex items-end gap-2 py-3 group">
       {/* The name wraps and the price never does: "Shorten Jeans (Keep
           Original Hem)" on one line made the whole page wider than a 320px
           phone, which then showed it zoomed out and sliding sideways */}
@@ -132,7 +130,7 @@ function PriceLine({ item, index }: { item: PriceItem; index: number }) {
       <span className="text-[15px] font-medium text-charcoal whitespace-nowrap tabular-nums">
         {item.price}
       </span>
-    </motion.div>
+    </div>
   );
 }
 
@@ -161,8 +159,6 @@ export default function AtelierContent({
   const whatsappLink = "https://wa.me/447729741116";
   const photoLink = whatsappWith("Hi Kristina, I'd like a quote. Here's the garment, and the label inside:");
   const emailLink = "mailto:hello@beautasy.co.uk";
-
-  const activeCategory = pricingCategories.find((c) => c.id === activeTab)!;
 
   return (
     <>
@@ -221,7 +217,7 @@ export default function AtelierContent({
                   <a
                     id={HERO_BOOK_ID}
                     href="#book"
-                    className="topstitch group flex w-full sm:inline-flex sm:w-auto items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                    className="topstitch group flex w-full sm:inline-flex sm:w-auto items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
                   >
                     Choose a time
                     <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -272,13 +268,12 @@ export default function AtelierContent({
                 </motion.div>
               </motion.div>
 
-              {/* Right — Atelier Logo */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
-                className="hidden lg:flex items-center justify-center"
-              >
+              {/* Right — Atelier Logo. Painted where it stands: on a laptop it
+                  is the largest thing in view, the moment Google times as
+                  "loaded", and it used to wait at opacity 0 for every script
+                  and then spend a second growing from 95% on the main thread
+                  while the page was waking up. */}
+              <div className="hidden lg:flex items-center justify-center">
                 <Image
                   src="/beautasy-atelier-logo.png"
                   alt="Beautasy Alterations — Scissors, needle and measuring tape"
@@ -287,7 +282,7 @@ export default function AtelierContent({
                   className="w-[340px] xl:w-[400px] h-auto object-contain drop-shadow-xl"
                   priority
                 />
-              </motion.div>
+              </div>
             </div>
           </div>
         </section>
@@ -330,7 +325,11 @@ export default function AtelierContent({
                   key={s.step}
                   variants={fadeUp}
                   custom={i}
-                  className="relative text-center bg-white/70 backdrop-blur-sm rounded-3xl px-8 py-10 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-all duration-500"
+                  // Only the shadow eases on hover: transition-all also caught the
+                  // opacity and transform framer moves on the entrance, and the
+                  // two fought every frame. No backdrop blur — the section
+                  // behind is one flat colour, so it blurred nothing at a cost.
+                  className="relative text-center bg-white/70 rounded-3xl px-8 py-10 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-[box-shadow,background-color] duration-300"
                 >
                   {/* Step number */}
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-lavender text-charcoal w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold tracking-wide">
@@ -423,8 +422,10 @@ export default function AtelierContent({
                 {pricingCategories.map((cat) => (
                   <button
                     key={cat.id}
+                    type="button"
+                    aria-pressed={activeTab === cat.id}
                     onClick={() => setActiveTab(cat.id)}
-                    className={`px-5 py-2.5 rounded-full text-sm tracking-wide transition-all duration-300 ${
+                    className={`px-5 py-2.5 rounded-full text-sm tracking-wide transition-[background-color,color,box-shadow] duration-200 ${
                       activeTab === cat.id
                         ? "bg-lavender text-charcoal font-medium shadow-md shadow-lavender/20"
                         : "bg-cream-soft text-charcoal-light hover:bg-lavender/15 hover:text-charcoal"
@@ -436,39 +437,41 @@ export default function AtelierContent({
               </div>
             </motion.div>
 
-            {/* Price List */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="bg-white/60 backdrop-blur-sm border border-lavender-soft/30 rounded-3xl px-8 sm:px-10 py-8"
-              >
-                {/* Category header */}
-                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-lavender-soft/30">
-                  {/* A gold stitch, not open scissors: nothing over the prices
-                      says "cut" — the shears below stay closed */}
-                  <div className="w-9 h-9 rounded-xl bg-lavender/20 flex items-center justify-center">
-                    <span className="price-stitch" aria-hidden="true" />
-                  </div>
-                  <h3 className="font-serif text-xl">{activeCategory.label}</h3>
-                </div>
-
-                {/* Items */}
-                <motion.div
-                  initial="hidden"
-                  animate="visible"
-                  variants={stagger}
-                  className="divide-y divide-transparent"
+            {/* Price List. Every category is on the page at once, stacked in
+                the card's one grid cell with only the chosen one showing: the
+                card is as tall as the longest list whichever tab is open, so
+                nothing below it jumps, and a switch is one 150ms crossfade.
+                It used to wait for the old list to leave, fade the new one in
+                and then bring the lines in one by one — about two and a half
+                seconds a tab — and the prices were served at opacity 0 until
+                every script had loaded. */}
+            <div className="grid bg-white/60 border border-lavender-soft/30 rounded-3xl px-8 sm:px-10 py-8">
+              {pricingCategories.map((cat) => (
+                <div
+                  key={cat.id}
+                  className={`[grid-area:1/1] transition-[opacity,visibility] duration-150 ease-out ${
+                    activeTab === cat.id ? "visible opacity-100" : "invisible opacity-0"
+                  }`}
                 >
-                  {activeCategory.items.map((item, i) => (
-                    <PriceLine key={item.name} item={item} index={i} />
-                  ))}
-                </motion.div>
-              </motion.div>
-            </AnimatePresence>
+                  {/* Category header */}
+                  <div className="flex items-center gap-3 mb-6 pb-4 border-b border-lavender-soft/30">
+                    {/* A gold stitch, not open scissors: nothing over the prices
+                        says "cut" — the shears below stay closed */}
+                    <div className="w-9 h-9 rounded-xl bg-lavender/20 flex items-center justify-center">
+                      <span className="price-stitch" aria-hidden="true" />
+                    </div>
+                    <h3 className="font-serif text-xl">{cat.label}</h3>
+                  </div>
+
+                  {/* Items */}
+                  <div className="divide-y divide-transparent">
+                    {cat.items.map((item) => (
+                      <PriceLine key={item.name} item={item} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
 
             {/* ──── What the price means ──── */}
             <ClosedShears className="mt-8" />
@@ -591,7 +594,9 @@ export default function AtelierContent({
                   key={service.title}
                   variants={fadeUp}
                   custom={i}
-                  className="bg-white/70 backdrop-blur-sm rounded-3xl p-8 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-all duration-500"
+                  // As the step cards above: only the shadow eases, and no blur
+                  // over a flat background
+                  className="bg-white/70 rounded-3xl p-8 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-[box-shadow,background-color] duration-300"
                 >
                   <h4 className="font-serif text-xl mb-3">{service.title}</h4>
                   <p className="text-sm text-charcoal-light leading-relaxed mb-6">
@@ -694,7 +699,7 @@ export default function AtelierContent({
                 >
                   <Link
                     href="#book"
-                    className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                    className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
                   >
                     Choose a time
                     <ArrowRight
@@ -704,7 +709,7 @@ export default function AtelierContent({
                   </Link>
                   <Link
                     href="/shop"
-                    className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+                    className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-colors duration-300"
                   >
                     Browse Shop
                   </Link>

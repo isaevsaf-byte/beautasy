@@ -94,8 +94,10 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
     // the fixed header whenever the announcement bar was showing. Clipped
     // sideways at the screen's edges: the needle left in the heading's cloth
     // reaches into the margin, and on a 320px phone its box would otherwise
-    // make the page a little wider than the screen
-    <section className="relative min-h-[100dvh] flex items-center pt-28 pb-12 overflow-x-clip">
+    // make the page a little wider than the screen. At least the small
+    // screen's height (svh), not the dynamic one: dvh changes as a phone's
+    // address bar slides away, and the whole hero jumped with it mid-scroll
+    <section className="relative min-h-svh flex items-center pt-28 pb-12 overflow-x-clip">
       <div className="max-w-6xl mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
         {/* Text — first on a phone, and painted as it is rather than faded
             in: at opacity 0 the heading and both buttons waited for every
@@ -170,7 +172,7 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
                 off the screen. */}
             <Link
               href="/atelier#book"
-              className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium sm:whitespace-nowrap hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+              className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium sm:whitespace-nowrap hover:bg-[#CFC0F0] transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
             >
               Choose a time
               <ArrowRight
@@ -182,7 +184,7 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
               href={whatsappLink(WHATSAPP_PHOTO)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex max-w-full items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm text-center tracking-wider uppercase font-medium sm:whitespace-nowrap hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+              className="inline-flex max-w-full items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm text-center tracking-wider uppercase font-medium sm:whitespace-nowrap hover:border-lavender hover:bg-lavender/10 transition-colors duration-300"
             >
               <MessageCircle size={16} aria-hidden="true" className="shrink-0" />
               Send a photo on WhatsApp
@@ -201,15 +203,12 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
         </motion.div>
 
         {/* Logo Image */}
-        {/* Settles into place rather than fading in: at opacity 0 the logo is
-            invisible until scripts load, and it is the largest thing on the
-            page — the moment Google times as "loaded". */}
-        <motion.div
-          initial={{ opacity: 1, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.1, ease: "easeOut" }}
-          className="order-2 relative"
-        >
+        {/* Painted where it stands, with no entrance at all: it is the largest
+            thing on the page — the moment Google times as "loaded" — so it
+            never fades in, and the one-second settle it used to do from 97%
+            ran on the main thread while the page was still waking up, just
+            when a first tap needs it. */}
+        <div className="order-2 relative">
           <div className="relative aspect-[5/4] sm:aspect-[4/5] rounded-3xl overflow-hidden bg-gradient-to-br from-[#F3ECFF] via-[#E8DEFF] to-[#DCD0FF] flex items-center justify-center">
             {/* The gold catches the light once, after the first stitch or as it
                 comes into view (stitch/LogoSheen.tsx); the picture is unchanged */}
@@ -237,7 +236,7 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
               ✨ 100% Handmade
             </p>
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );
@@ -288,25 +287,30 @@ function CategoryGrid() {
           className={`grid grid-cols-1 sm:grid-cols-2 ${WIDE_COLUMNS[shownCategories.length] ?? "lg:grid-cols-4"} gap-6`}
         >
           {shownCategories.map((cat, i) => (
+            // The lift on hover is CSS on the link inside, not framer on the
+            // card: the card's own transition is the entrance's (fadeUp, with
+            // its delay), so a card the pointer had left waited out that
+            // delay and hung in the air before it came down
             <motion.div
               key={cat.title}
               variants={fadeUp}
               custom={i}
-              whileHover={{ y: -8 }}
-              transition={{ type: "spring", stiffness: 300, damping: 20 }}
               className="group block"
             >
-              <Link href={cat.href || "/shop"}>
+              <Link
+                href={cat.href || "/shop"}
+                className="block transition-transform duration-200 ease-out group-hover:-translate-y-1.5"
+              >
                 <div className={`relative aspect-[6/7] rounded-2xl overflow-hidden mb-4 flex items-center justify-center ${cat.bgClass || "bg-cream-soft"}`}>
                   <Image
                     src={cat.image}
                     alt={cat.title}
                     width={600}
                     height={600}
-                    className="w-[65%] h-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-700 ease-out"
+                    className="w-[65%] h-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300 ease-out"
                   />
                   {/* Overlay on hover */}
-                  <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-500" />
+                  <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300 ease-out" />
                 </div>
                 <h3 className="font-serif text-lg mb-1">
                   {cat.title}
@@ -404,7 +408,7 @@ function AtelierSection() {
             <motion.div variants={fadeUp} custom={6}>
               <Link
                 href="/atelier"
-                className="group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
               >
                 Atelier Services
                 <ArrowRight
