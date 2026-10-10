@@ -105,7 +105,7 @@ test("the main photo arrives in place: not slid, not faded, and draggable sidewa
   const html = detail();
   const gallery = between(html, '<div class="relative aspect-[4/5]', 'aria-label="Zoom image"');
   // The page's largest paint: at rest from the first byte, no opacity at all
-  assert.match(gallery, /<div style="transform:none;[^"]*touch-action:pan-y"[^>]*><img alt="Pearl Blossom Thong"/);
+  assert.match(gallery, /<div style="z-index:0;transform:none;[^"]*touch-action:pan-y"[^>]*><img alt="Pearl Blossom Thong"/);
   assert.doesNotMatch(gallery, /opacity/);
   assert.match(gallery, /fetchPriority="high"/);
   // The neighbours wait for the first photo: nothing else in the frame yet
@@ -115,9 +115,15 @@ test("the main photo arrives in place: not slid, not faded, and draggable sidewa
   assert.match(source, /<AnimatePresence initial=\{false\} custom=\{turn\}>/);
   assert.match(source, /drag=\{draggable \? "x" : false\}\s*dragConstraints=\{\{ left: 0, right: 0 \}\}[\s\S]{0,400}?dragElastic=\{1\}\s*dragMomentum=\{false\}/);
   assert.match(source, /const SETTLE_BACK = \{ type: "spring", duration: 0\.4, bounce: 0\.15 \} as const;/);
-  // Arrows and thumbnails turn without a slide
-  assert.match(source, /const turn: Turn = swipe\?\.to === photoKey \? swipe\.turn : 0;/);
-  assert.match(source, /transition=\{turn === 0 \|\| reduceMotion \? \{ duration: 0 \} : \{ duration: 0\.22, ease: EASE_OUT \}\}/);
+  // Arrows, thumbnails and reduced motion turn without a slide
+  assert.match(source, /swipe\?\.to === photoKey && !reduceMotion \? \{ turn: swipe\.turn, velocity: swipe\.velocity \} : NO_TURN;/);
+  assert.match(source, /turn === 0\s*\? \{ x: "0%", transition: \{ duration: 0 \} \}/);
+  // A swipe: the new photo comes in underneath, the old one leaves on top
+  // carrying the finger's speed, on a spring with no overshoot
+  assert.match(source, /const SWIPE_TURN = \{ type: "spring", duration: 0\.35, bounce: 0 \} as const;/);
+  assert.match(source, /transition: \{ \.\.\.SWIPE_TURN, velocity \}/);
+  assert.match(source, /style=\{\{ x, zIndex: isPresent \? 0 : 1 \}\}/);
+  assert.match(source, /const COMMIT_VELOCITY = 150;/);
 });
 
 test("the image viewer closes on a pull down, its dark thinning with the pull", () => {
