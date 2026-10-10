@@ -52,12 +52,17 @@ function focusables(root: HTMLElement): HTMLElement[] {
  *
  * Put the returned ref on the panel. `initialFocus` names the element to
  * focus first (the search field, the close button); otherwise the first
- * control in the panel.
+ * control in the panel. `returnFocus` names where focus goes back to on
+ * closing, for an opener that is not what had focus when the panel opened:
+ * the search button hands focus to a stand-in field during the tap (so an
+ * iPhone raises its keyboard), and focus must come back to the button, not
+ * to that field.
  */
 export function useDialog<T extends HTMLElement = HTMLDivElement>(
   open: boolean,
   onClose: () => void,
-  initialFocus?: RefObject<HTMLElement | null>
+  initialFocus?: RefObject<HTMLElement | null>,
+  returnFocus?: RefObject<HTMLElement | null>
 ): RefObject<T | null> {
   const panelRef = useRef<T | null>(null);
   const closeRef = useRef(onClose);
@@ -67,7 +72,7 @@ export function useDialog<T extends HTMLElement = HTMLDivElement>(
 
   useEffect(() => {
     if (!open) return;
-    const opener = document.activeElement as HTMLElement | null;
+    const opener = returnFocus?.current ?? (document.activeElement as HTMLElement | null);
 
     // A frame later: the panel may still be mounting, or sliding in
     const frame = requestAnimationFrame(() => {
@@ -113,7 +118,7 @@ export function useDialog<T extends HTMLElement = HTMLDivElement>(
         opener.focus({ preventScroll: true });
       }
     };
-  }, [open, initialFocus]);
+  }, [open, initialFocus, returnFocus]);
 
   return panelRef;
 }

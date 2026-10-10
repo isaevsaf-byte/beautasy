@@ -21,6 +21,32 @@ import { DEFAULT_FREE_THRESHOLD, DEFAULT_INT_RATE, DEFAULT_UK_RATE } from "../li
 const read = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
 const headings = (html: string) => [...html.matchAll(/<h([1-6])\b/g)].map((m) => Number(m[1]));
 
+test("the search button raises an iPhone's keyboard: a stand-in field takes the tap's focus", () => {
+  // iOS raises the keyboard only for a focus made inside the tap, before the
+  // search's own field exists. The stand-in is on the page from the start…
+  const html = renderToStaticMarkup(createElement(Header));
+  const standIns = [...html.matchAll(/<input[^>]*aria-hidden="true"[^>]*>/g)].map(([tag]) => tag);
+  assert.ok(standIns.length >= 1, "a stand-in beside each search button");
+  for (const tag of standIns) {
+    assert.match(tag, /tabindex="-1"/, "out of the Tab order");
+    assert.doesNotMatch(tag, /readonly|disabled|hidden=""|display:\s*none/i, "focusable and editable, or no keyboard");
+    assert.match(tag, /class="[^"]*\btext-base\b/, "16px, or iOS zooms in on it");
+    assert.match(tag, /class="[^"]*\bopacity-0\b/);
+  }
+
+  // …focused synchronously in the click, then the real field a frame later
+  const source = read("src/components/SearchOverlay.tsx");
+  const open = source.slice(source.indexOf("function open()"), source.indexOf("\n  }\n", source.indexOf("function open()")));
+  assert.match(open, /standInRef\.current\?\.focus\(\{ preventScroll: true \}\);\s*setIsOpen\(true\);/);
+  assert.doesNotMatch(open, /setTimeout|requestAnimationFrame|await/, "inside the tap, not after it");
+  assert.match(source, /onClick=\{open\}/);
+  // Closing hands focus to the button, not to the stand-in that had it
+  assert.match(source, /useDialog\(isOpen, close, inputRef, buttonRef\)/);
+  const dialog = read("src/lib/useDialog.ts");
+  assert.match(dialog, /returnFocus\?: RefObject<HTMLElement \| null>\s*\): RefObject<T \| null>/);
+  assert.match(dialog, /const opener = returnFocus\?\.current \?\? \(document\.activeElement as HTMLElement \| null\);/);
+});
+
 test("the header is sent visible, not faded in once the scripts arrive", () => {
   const html = renderToStaticMarkup(createElement(Header));
   const tag = html.match(/<header\b[^>]*>/)?.[0] ?? "";

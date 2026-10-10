@@ -52,12 +52,24 @@ export default function SearchOverlay({ className = "" }: { className?: string }
   // over the open phone menu no longer unfreezes the page under the menu).
   // Focus lands in the field a frame after it opens, Tab stays in the panel,
   // Escape closes it and focus goes back to the search button.
-  // On an iPhone that frame-later focus puts the caret in the field but does
-  // not raise the keyboard — iOS only does that for a focus made inside the
-  // tap itself, and the field does not exist yet at the tap. The 60ms timer
-  // this replaces was no different; a visitor taps the field once.
+  // An iPhone raises its keyboard only for a focus made inside the tap
+  // itself, and the real field does not exist yet at the tap: a frame-later
+  // focus put the caret in it with no keyboard, so a visitor had to tap the
+  // field again. So the tap focuses a stand-in field that is always on the
+  // page (below), the keyboard comes up for it, and the frame-later focus
+  // moves to the real field — iOS keeps the keyboard up when focus passes
+  // from one field to another. Closing gives focus back to the button, not
+  // to the stand-in, which is what had focus when the panel opened.
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const standInRef = useRef<HTMLInputElement>(null);
   useScrollLock(isOpen);
-  const panelRef = useDialog(isOpen, close, inputRef);
+  const panelRef = useDialog(isOpen, close, inputRef, buttonRef);
+
+  function open() {
+    // Synchronously, inside the tap: this is the focus iOS answers with the keyboard
+    standInRef.current?.focus({ preventScroll: true });
+    setIsOpen(true);
+  }
 
   // Debounced lookup — one request per pause in typing, not per keystroke
   useEffect(() => {
@@ -234,13 +246,29 @@ export default function SearchOverlay({ className = "" }: { className?: string }
   return (
     <>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={open}
         aria-label="Search"
         className={`size-11 -m-2 grid place-items-center text-charcoal/70 hover:text-charcoal transition-colors duration-300 ${className}`}
       >
         <Search size={20} />
       </button>
+      {/* The stand-in that catches the tap's focus (see open). It must be a
+          real, editable field: display:none or visibility:hidden cannot take
+          focus, and a readOnly field takes it without a keyboard. Hidden
+          from screen readers and out of the Tab order; 16px, or iOS zooms
+          the page in on it. Absolute, so it is out of the header's row, and
+          see-through at the header's corner rather than far off-screen: iOS
+          scrolls the page to a focused field, and the header is always in view. */}
+      <input
+        ref={standInRef}
+        type="text"
+        aria-hidden="true"
+        tabIndex={-1}
+        autoComplete="off"
+        className="absolute top-0 left-0 size-px p-0 border-0 opacity-0 pointer-events-none text-base"
+      />
       {mounted && createPortal(overlay, document.body)}
     </>
   );
