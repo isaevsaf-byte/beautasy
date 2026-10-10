@@ -141,3 +141,15 @@ test("a word that turns lavender under the pointer turns the ink, not the fill",
   assert.doesNotMatch(read("src/app/reviews/page.tsx"), /rgba\(74,\s*74,\s*74/);
   assert.doesNotMatch(read("src/app/atelier/AtelierContent.tsx"), /shadow-xl hover:shadow-lavender\/10/);
 });
+
+test("a typed field and a pick-one chip each have one shape across the site", () => {
+  // Fields were xl, lg or full and choices lg, full or xl depending on the
+  // page; two named radii in @theme keep them from drifting apart again
+  assert.match(css, /--radius-field:\s*0\.75rem;/);
+  assert.match(css, /--radius-chip:\s*9999px;/);
+  const booking = read("src/components/AtelierBookingForm.tsx");
+  assert.match(booking, /const FIELD_CLASS =\s*"[^"]*\brounded-field\b/, "booking fields");
+  assert.match(booking, /pin-slot relative[^`"]*\brounded-chip\b/, "booking times");
+  assert.match(read("src/app/shop/[param]/ProductDetail.tsx"), /min-w-\[52px\] min-h-11 px-3 py-2 rounded-chip\b/, "size chips");
+  assert.match(read("src/components/Cart.tsx"), /rounded-field border border-lavender-soft\/50 bg-white/, "the bag's code field");
+});

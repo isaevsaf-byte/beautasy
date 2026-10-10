@@ -508,7 +508,7 @@ export default function ShopContent({
                           href={buildHref({ sort: option.key })}
                           scroll={false}
                           aria-current={active ? "true" : undefined}
-                          className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-200 ${
+                          className={`px-3 sm:px-4 py-1.5 rounded-chip text-xs font-medium whitespace-nowrap transition-colors duration-200 ${
                             active
                               ? "bg-lavender text-charcoal"
                               : "bg-cream border border-lavender-soft/40 text-charcoal/80 hover:text-charcoal"
@@ -540,7 +540,7 @@ export default function ShopContent({
                               href={buildHref({ size: active ? undefined : size })}
                               scroll={false}
                               aria-current={active ? "true" : undefined}
-                              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
+                              className={`px-3.5 py-1.5 rounded-chip text-xs font-medium transition-colors duration-200 ${
                                 active
                                   ? "bg-lavender text-charcoal"
                                   : "bg-cream border border-lavender-soft/40 text-charcoal/80 hover:text-charcoal"
@@ -556,7 +556,7 @@ export default function ShopContent({
                       href={buildHref({ ready: readyOnly ? undefined : "1" })}
                       scroll={false}
                       aria-current={readyOnly ? "true" : undefined}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${
+                      className={`px-3.5 py-1.5 rounded-chip text-xs font-medium transition-colors duration-200 ${
                         readyOnly
                           ? "bg-lavender text-charcoal"
                           : "bg-cream border border-lavender-soft/40 text-charcoal/80 hover:text-charcoal"

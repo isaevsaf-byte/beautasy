@@ -43,7 +43,7 @@ export default function ReviewWall({
               type="button"
               aria-pressed={shelf === option.key}
               onClick={() => setShelf(option.key)}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors ${
+              className={`inline-flex items-center gap-2 rounded-chip border px-4 py-2 text-sm transition-colors ${
                 shelf === option.key
                   ? "bg-plum text-white border-plum"
                   : "bg-white/70 text-charcoal border-lavender-soft hover:border-lavender"

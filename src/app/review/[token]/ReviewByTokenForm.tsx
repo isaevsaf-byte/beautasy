@@ -136,7 +136,7 @@ export default function ReviewByTokenForm({
         rows={4}
         maxLength={MAX_COMMENT}
         placeholder={`How does the ${productName} feel to wear?`}
-        className="w-full p-4 rounded-xl border border-lavender-soft/40 bg-white/70 text-sm text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:ring-2 focus:ring-lavender/40 mb-3"
+        className="w-full p-4 rounded-field border border-lavender-soft/40 bg-white/70 text-sm text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:ring-2 focus:ring-lavender/40 mb-3"
       />
 
       <input
@@ -145,7 +145,7 @@ export default function ReviewByTokenForm({
         onChange={(e) => setUserName(e.target.value)}
         placeholder="Name shown with your review"
         aria-label="Name shown with your review"
-        className="w-full px-4 py-2.5 rounded-xl border border-lavender-soft/40 bg-white/70 text-sm text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:ring-2 focus:ring-lavender/40 mb-4"
+        className="w-full px-4 py-2.5 rounded-field border border-lavender-soft/40 bg-white/70 text-sm text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:ring-2 focus:ring-lavender/40 mb-4"
       />
 
       <div className="flex flex-wrap gap-2 mb-4">

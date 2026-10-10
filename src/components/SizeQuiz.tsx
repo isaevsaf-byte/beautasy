@@ -118,7 +118,7 @@ export default function SizeQuiz({
                           setValues((v) => ({ ...v, [measure]: e.target.value.slice(0, 6) }))
                         }
                         placeholder="e.g. 70"
-                        className="w-full text-sm px-3 py-2.5 rounded-lg border border-lavender-soft/40 bg-white text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
+                        className="w-full text-sm px-3 py-2.5 rounded-field border border-lavender-soft/40 bg-white text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                       />
                     </label>
                   ))}

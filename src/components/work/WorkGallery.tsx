@@ -150,7 +150,7 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
                 type="button"
                 onClick={() => setFilter(c.value)}
                 aria-pressed={active}
-                className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-xs tracking-[0.16em] uppercase transition-colors ${
+                className={`shrink-0 whitespace-nowrap rounded-chip border px-4 py-2 text-xs tracking-[0.16em] uppercase transition-colors ${
                   active
                     ? "border-charcoal bg-charcoal text-white"
                     : "border-charcoal/15 text-charcoal-light hover:border-lavender hover:text-charcoal"

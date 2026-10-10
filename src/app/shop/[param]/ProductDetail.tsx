@@ -154,12 +154,12 @@ function StockAlertForm({ productId, size }: { productId: string; size?: string 
         placeholder="Your email"
         autoComplete="email"
         enterKeyHint="send"
-        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
+        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-field border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
       />
       <button
         type="submit"
         disabled={status === "loading"}
-        className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-lavender/20 hover:bg-lavender/30 text-charcoal rounded-lg text-xs font-medium transition-colors disabled:opacity-60"
+        className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-lavender/20 hover:bg-lavender/30 text-charcoal rounded-field text-xs font-medium transition-colors disabled:opacity-60"
       >
         {status === "loading" ? <Loader2 size={12} className="animate-spin" /> : <Bell size={12} />}
         Notify Me
@@ -896,7 +896,7 @@ export default function ProductDetail({
                           setSelectedSize(size);
                           setSizeChalk(0);
                         }}
-                        className={`min-w-[52px] min-h-11 px-3 py-2 rounded-lg border text-sm font-medium transition-[background-color,border-color,box-shadow] duration-200 ${
+                        className={`min-w-[52px] min-h-11 px-3 py-2 rounded-chip border text-sm font-medium transition-[background-color,border-color,box-shadow] duration-200 ${
                           selectedSize === size
                             ? "bg-lavender border-lavender text-charcoal ring-2 ring-lavender-ink ring-offset-2 ring-offset-cream"
                             : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
@@ -941,7 +941,7 @@ export default function ProductDetail({
                             setSelectedColor(color.name);
                             setColorChalk(0);
                           }}
-                          className={`flex items-center gap-2 min-h-11 px-3 py-2 rounded-full border text-sm font-medium transition-[background-color,border-color,box-shadow] duration-200 ${
+                          className={`flex items-center gap-2 min-h-11 px-3 py-2 rounded-chip border text-sm font-medium transition-[background-color,border-color,box-shadow] duration-200 ${
                             active
                               ? "bg-lavender border-lavender text-charcoal ring-2 ring-lavender-ink ring-offset-2 ring-offset-cream"
                               : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
@@ -1024,7 +1024,7 @@ export default function ProductDetail({
                                     setMeasurements((m) => ({ ...m, [field]: e.target.value.slice(0, 12) }))
                                   }
                                   placeholder="e.g. 86cm"
-                                  className="w-full text-sm px-3 py-2 rounded-lg border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
+                                  className="w-full text-sm px-3 py-2 rounded-field border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                                 />
                               </label>
                             ))}
@@ -1040,7 +1040,7 @@ export default function ProductDetail({
                                 setMeasurements((m) => ({ ...m, notes: e.target.value.slice(0, 200) }))
                               }
                               placeholder="Longer straps, a little more room at the back…"
-                              className="w-full text-sm px-3 py-2 rounded-lg border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
+                              className="w-full text-sm px-3 py-2 rounded-field border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                             />
                           </label>
                           {/* Said where the missing fields are, after an add was
@@ -1116,7 +1116,7 @@ export default function ProductDetail({
                             }
                             rows={3}
                             placeholder={product.giftCardPlaceholder || "Write a short note to include with the gift card…"}
-                            className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25 resize-none"
+                            className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-field border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25 resize-none"
                           />
                           <p className="text-[11px] text-charcoal-light mt-1.5 text-right tabular-nums">
                             {giftMessage.length} / {GIFT_MESSAGE_MAX}

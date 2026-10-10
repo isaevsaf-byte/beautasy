@@ -36,7 +36,7 @@ const CHOOSE_A_TIME = "Please choose a time.";
 /** The focus ring is the darker lavender: the pale one at 20% was barely there
  *  on white, and someone moving through the form by keyboard lost their place */
 const FIELD_CLASS =
-  "w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25";
+  "w-full px-4 py-3 rounded-field border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25";
 
 interface Slot {
   start: string;
@@ -553,7 +553,7 @@ export default function AtelierBookingForm({
                   aria-pressed={active}
                   // 44px tall, a finger's width: at text-xs and py-2 the days
                   // were 32px and easy to miss beside each other
-                  className={`shrink-0 min-h-11 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
+                  className={`shrink-0 min-h-11 px-4 py-2 rounded-chip border text-sm font-medium transition-colors ${
                     active
                       ? "bg-lavender border-lavender text-charcoal"
                       : "bg-white border-lavender-soft/50 text-charcoal-light hover:border-lavender"
@@ -583,7 +583,7 @@ export default function AtelierBookingForm({
                     aria-pressed={active}
                     // The chosen time gets a dressmaker's pin through its
                     // corner: this one is yours (.pin-slot in globals.css)
-                    className={`pin-slot relative px-4 py-2.5 rounded-xl border text-sm font-medium tabular-nums transition-colors ${
+                    className={`pin-slot relative px-4 py-2.5 rounded-chip border text-sm font-medium tabular-nums transition-colors ${
                       active
                         ? "bg-lavender border-lavender text-charcoal shadow-sm"
                         : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"

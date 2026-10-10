@@ -281,7 +281,7 @@ export default function GiftBoxDetail({
                   }
                   rows={3}
                   placeholder="Write a short note to include with the gift card…"
-                  className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25 resize-none"
+                  className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-field border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25 resize-none"
                 />
                 <p className="text-[11px] text-charcoal-light mt-1.5 text-right tabular-nums">
                   {giftMessage.length} / {GIFT_MESSAGE_MAX}

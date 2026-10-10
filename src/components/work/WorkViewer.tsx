@@ -115,7 +115,7 @@ function PairSlide({ before, after }: { before: ShownPhoto; after: ShownPhoto })
               setShowing(side);
             }}
             aria-pressed={showing === side}
-            className={`rounded-full px-4 py-1.5 text-xs tracking-[0.16em] uppercase transition-colors ${
+            className={`rounded-chip px-4 py-1.5 text-xs tracking-[0.16em] uppercase transition-colors ${
               showing === side ? "bg-lavender text-charcoal" : "text-white/75"
             }`}
           >

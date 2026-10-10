@@ -376,7 +376,7 @@ export default function AtelierContent({
                     type="button"
                     aria-pressed={activeTab === cat.id}
                     onClick={() => setActiveTab(cat.id)}
-                    className={`px-5 py-2.5 rounded-full text-sm tracking-wide transition-[background-color,color,box-shadow] duration-200 ${
+                    className={`px-5 py-2.5 rounded-chip text-sm tracking-wide transition-[background-color,color,box-shadow] duration-200 ${
                       activeTab === cat.id
                         ? "bg-lavender text-charcoal font-medium shadow-md shadow-lavender/20"
                         : "bg-cream-soft text-charcoal-light hover:bg-lavender/15 hover:text-charcoal"

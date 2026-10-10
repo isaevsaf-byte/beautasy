@@ -40,6 +40,15 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* One shape per kind of control, so a form reads as one hand made it: a
+     typed field was xl in the booking form, lg in the bag and full in the
+     newsletter; a choice was lg for sizes, full for days, xl for times.
+     Fields (rounded-field) keep a soft square corner that holds a line of
+     typing; a pick-one chip (rounded-chip) is always a pill. The newsletter's
+     field and button make one pill-shaped bar together, so it stays full. */
+  --radius-field: 0.75rem;
+  --radius-chip: 9999px;
 }
 
 /* A button that answers the finger. On a phone there is no hover, so until
@@ -578,8 +587,11 @@ main:focus {
 .pin-slot[aria-pressed="true"]::after {
   content: "";
   position: absolute;
-  top: -11px;
-  right: -11px;
+  /* The chip is a pill (rounded-chip), whose curve sits further in from the
+     corner than the old square-ish one did: 3px in, so the pin still goes
+     into the cloth and not into the air beside it */
+  top: -8px;
+  right: -8px;
   width: 28px;
   height: 28px;
   pointer-events: none;

@@ -726,7 +726,7 @@ export function CartDrawer({
                         type="button"
                         onClick={() => setRegion(value)}
                         aria-pressed={region === value}
-                        className={`py-2 rounded-lg border text-xs font-medium transition-colors ${
+                        className={`py-2 rounded-chip border text-xs font-medium transition-colors ${
                           region === value
                             ? "bg-lavender border-lavender text-charcoal"
                             : "bg-white border-lavender-soft/50 text-charcoal-light hover:border-lavender"
@@ -783,7 +783,7 @@ export function CartDrawer({
                             placeholder="Email you'll check out with"
                             aria-label="Email you'll check out with"
                             autoComplete="email"
-                            className="w-full text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
+                            className="w-full text-xs px-3 py-2 rounded-field border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                           />
                           <p className="text-[11px] text-charcoal-light mt-1">
                             First orders only, so we check by email. Not combined with other codes.
@@ -891,7 +891,7 @@ export function CartDrawer({
                         spellCheck={false}
                         autoComplete="off"
                         enterKeyHint="go"
-                        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
+                        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-field border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                       />
                       {/* While the code is checked the word stays (invisible)
                           and the spinner sits over it, so the button keeps
@@ -900,7 +900,7 @@ export function CartDrawer({
                         type="submit"
                         disabled={checkingCode || codeInput.trim().length < 4}
                         aria-busy={checkingCode}
-                        className="press relative shrink-0 px-3 py-2 rounded-lg bg-lavender/20 hover:bg-lavender/30 text-charcoal text-xs font-medium disabled:opacity-50"
+                        className="press relative shrink-0 px-3 py-2 rounded-field bg-lavender/20 hover:bg-lavender/30 text-charcoal text-xs font-medium disabled:opacity-50"
                       >
                         <span className={checkingCode ? "opacity-0" : undefined}>Apply</span>
                         {checkingCode && (
