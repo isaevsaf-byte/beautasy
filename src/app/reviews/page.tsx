@@ -98,7 +98,9 @@ export default async function ReviewsPage() {
       <HeaderWrapper />
       <main id="main" className="pt-28">
         {/* ──── The opening: what people say, and where ──── */}
-        <section className="relative overflow-hidden pt-16 pb-12 md:pt-20">
+        {/* pt-16 md:pt-24 under the main's pt-28, as the shop, /contact and
+            /gift-cards open: at md:pt-20 this heading stood higher than theirs */}
+        <section className="relative overflow-hidden pt-16 pb-12 md:pt-24">
           <div
             aria-hidden="true"
             className="absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-lavender-bg to-transparent pointer-events-none"
