@@ -9,6 +9,7 @@ import { runHealthWatchdog } from "@/lib/siteHealth";
 import { sendMonthlyLedgerExport } from "@/lib/ledgerExport";
 import { settleReferredBookings } from "@/lib/referralSettle";
 import { sweepAbandonedReviewPhotos } from "@/lib/reviewPhotos";
+import { sendFittingReminders } from "@/lib/bookingReminders";
 import { sendMorningList } from "@/lib/morningList";
 import { runRetentionCleanup } from "@/lib/retention";
 
@@ -64,11 +65,10 @@ export async function GET(req: NextRequest) {
     // Kristina's list of today's and tomorrow's visits, once a day, claimed
     // by the date. Nothing on, nothing sent. See @/lib/morningList.
     sendMorningList(),
-    // Not here: the morning-before reminder to each client (@/lib/bookingReminders,
-    // built and tested). Safar, 08.10: a reminder email may not be needed at
-    // all — the .ics already rings the evening before and two hours ahead. To
-    // switch it on, import sendFittingReminders and list it here, and add
-    // `reminders` back to the names read below in the same place.
+    // The morning-before email to each client with a fitting tomorrow, by
+    // Southampton's calendar. Once per booking and time. Switched on by Safar
+    // on 10.10 (he had held it back on 08.10). See @/lib/bookingReminders.
+    sendFittingReminders(),
     // What the Privacy Policy says we stop keeping: bookings two years after
     // the last visit, stock alerts after twelve months. Nothing is due before
     // 24 August 2027, so for now it deletes nothing. See @/lib/retention.
@@ -124,6 +124,7 @@ export async function GET(req: NextRequest) {
     giftCards,
     bookings,
     morningList,
+    reminders,
     retention,
     socialDrafts,
     health,
@@ -143,6 +144,7 @@ export async function GET(req: NextRequest) {
     giftCards,
     bookings,
     morningList,
+    reminders,
     retention,
     socialDrafts,
     health,
