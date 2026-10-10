@@ -38,7 +38,7 @@ export default async function ReviewPage({
               </p>
               <Link
                 href="/contact"
-                className="press inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
+                className="press inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover"
               >
                 Get in touch
               </Link>

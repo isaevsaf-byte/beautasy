@@ -224,7 +224,7 @@ export default function GiftBoxDetail({
                   Gift Set
                 </span>
                 {giftBox.stock > 0 ? (
-                  <span className="text-xs text-green-600 font-medium">
+                  <span className="text-xs text-green-700 font-medium">
                     In Stock
                   </span>
                 ) : (
@@ -243,7 +243,7 @@ export default function GiftBoxDetail({
                   {formatPence(giftBox.price)}
                 </p>
                 {savings > 0 && totalIndividualValue > 0 && (
-                  <p className="text-sm text-green-600 font-medium tabular-nums">
+                  <p className="text-sm text-green-700 font-medium tabular-nums">
                     Save {formatPence(savings)}
                   </p>
                 )}
@@ -281,7 +281,7 @@ export default function GiftBoxDetail({
                   }
                   rows={3}
                   placeholder="Write a short note to include with the gift card…"
-                  className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20 resize-none"
+                  className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25 resize-none"
                 />
                 <p className="text-[11px] text-charcoal-light mt-1.5 text-right tabular-nums">
                   {giftMessage.length} / {GIFT_MESSAGE_MAX}
@@ -293,7 +293,7 @@ export default function GiftBoxDetail({
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  className="press flex-1 group inline-flex items-center justify-center px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                  className="press flex-1 group inline-flex items-center justify-center px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
                 >
                   {/* Both labels always there, in one cell of a grid, as in
                       AddToCartButton: the button keeps its width, and the label
@@ -405,7 +405,7 @@ export default function GiftBoxDetail({
                   <p className="font-serif text-xl text-charcoal tabular-nums">
                     Gift Box Price: {formatPence(giftBox.price)}
                     {savings > 0 && (
-                      <span className="text-green-600 text-sm font-sans font-medium ml-2">
+                      <span className="text-green-700 text-sm font-sans font-medium ml-2">
                         You save {formatPence(savings)}
                       </span>
                     )}

@@ -56,7 +56,7 @@ export default function AddToCartButton({
     <button
       type="button"
       onClick={handleAdd}
-      className={`press group inline-flex items-center justify-center px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30 ${className}`}
+      className={`press group inline-flex items-center justify-center px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30 ${className}`}
     >
       {/* Both labels are always there, in one cell of a grid: the button keeps
           the width of the longer one, so nothing beside it moves, and the

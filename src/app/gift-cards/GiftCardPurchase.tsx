@@ -148,7 +148,7 @@ export default function GiftCardPurchase() {
                 value={custom}
                 onChange={(e) => setCustom(e.target.value.slice(0, 6))}
                 placeholder="e.g. 75"
-                className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
               />
             </label>
             {!customValid && custom !== "" && (
@@ -170,7 +170,7 @@ export default function GiftCardPurchase() {
             value={recipientEmail}
             onChange={(e) => setRecipientEmail(e.target.value)}
             placeholder="their@email.com"
-            className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+            className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
           />
         </label>
 
@@ -183,7 +183,7 @@ export default function GiftCardPurchase() {
             value={recipientName}
             onChange={(e) => setRecipientName(clipText(e.target.value, 60))}
             placeholder="So we can greet them properly"
-            className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+            className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
           />
         </label>
 
@@ -196,7 +196,7 @@ export default function GiftCardPurchase() {
             value={message}
             onChange={(e) => setMessage(clipText(e.target.value, 300))}
             placeholder="Happy birthday, choose something you love…"
-            className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white resize-none focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+            className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white resize-none focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
           />
         </label>
 
@@ -209,7 +209,7 @@ export default function GiftCardPurchase() {
             value={deliverAt}
             min={new Date().toISOString().slice(0, 10)}
             onChange={(e) => setDeliverAt(e.target.value)}
-            className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+            className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
           />
           <span className="block text-[11px] text-charcoal-light mt-1">
             Leave empty and it arrives as soon as you&apos;ve paid.
@@ -229,7 +229,7 @@ export default function GiftCardPurchase() {
         type="submit"
         disabled={loading}
         aria-describedby={termsId}
-        className="press w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 flex items-center justify-center gap-2"
+        className="press w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {loading ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
         {customValid && chosenAmount > 0

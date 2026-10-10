@@ -713,7 +713,7 @@ export default function AtelierBookingForm({
           type="submit"
           disabled={status === "loading"}
           aria-describedby={termsId}
-          className="press inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium text-center hover:bg-[#CFC0F0] disabled:opacity-60"
+          className="press inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium text-center hover:bg-lavender-hover disabled:opacity-60"
         >
           {status === "loading" && <Loader2 size={16} className="animate-spin" />}
           {/* With a time pinned the button names it: on a phone the times

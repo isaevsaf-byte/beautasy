@@ -680,7 +680,7 @@ export function CartDrawer({
                           more for free UK delivery
                         </p>
                       ) : (
-                        <p className="text-xs text-green-600 font-medium mb-1.5 flex items-center gap-1">
+                        <p className="text-xs text-green-700 font-medium mb-1.5 flex items-center gap-1">
                           <Package size={12} />
                           You qualify for free UK delivery! 🎉
                         </p>
@@ -953,7 +953,7 @@ export function CartDrawer({
                   onClick={handleCheckout}
                   disabled={isLoading}
                   aria-describedby={termsId}
-                  className="press w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium tabular-nums hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="press w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium tabular-nums hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
                     <>

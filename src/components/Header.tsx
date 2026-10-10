@@ -381,7 +381,7 @@ export default function Header({
                 <Link
                   href="/atelier#book"
                   onClick={() => setMobileOpen(false)}
-                  className="topstitch flex w-full items-center justify-center gap-2 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors"
+                  className="topstitch flex w-full items-center justify-center gap-2 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover transition-colors"
                 >
                   <CalendarCheck size={16} aria-hidden="true" />
                   Choose a time

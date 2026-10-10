@@ -136,7 +136,7 @@ function StockAlertForm({ productId, size }: { productId: string; size?: string 
 
   if (status === "done") {
     return (
-      <p className="flex items-center gap-2 text-xs text-green-600 font-medium mt-2">
+      <p className="flex items-center gap-2 text-xs text-green-700 font-medium mt-2">
         <CheckCircle2 size={14} />
         We&apos;ll email you when ready-made stock is available.
       </p>
@@ -153,7 +153,7 @@ function StockAlertForm({ productId, size }: { productId: string; size?: string 
         placeholder="Your email"
         autoComplete="email"
         enterKeyHint="send"
-        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
       />
       <button
         type="submit"
@@ -164,7 +164,7 @@ function StockAlertForm({ productId, size }: { productId: string; size?: string 
         Notify Me
       </button>
       {status === "error" && (
-        <span className="text-[10px] text-red-500">Try again</span>
+        <span className="text-[10px] text-rose-700">Try again</span>
       )}
     </form>
   );
@@ -1023,7 +1023,7 @@ export default function ProductDetail({
                                     setMeasurements((m) => ({ ...m, [field]: e.target.value.slice(0, 12) }))
                                   }
                                   placeholder="e.g. 86cm"
-                                  className="w-full text-sm px-3 py-2 rounded-lg border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                                  className="w-full text-sm px-3 py-2 rounded-lg border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                                 />
                               </label>
                             ))}
@@ -1039,7 +1039,7 @@ export default function ProductDetail({
                                 setMeasurements((m) => ({ ...m, notes: e.target.value.slice(0, 200) }))
                               }
                               placeholder="Longer straps, a little more room at the back…"
-                              className="w-full text-sm px-3 py-2 rounded-lg border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-lavender-soft/40 bg-cream-soft/50 text-charcoal placeholder:text-charcoal/30 resize-none focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                             />
                           </label>
                           {/* Said where the missing fields are, after an add was
@@ -1115,7 +1115,7 @@ export default function ProductDetail({
                             }
                             rows={3}
                             placeholder={product.giftCardPlaceholder || "Write a short note to include with the gift card…"}
-                            className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20 resize-none"
+                            className="w-full text-sm text-charcoal bg-cream-soft/50 rounded-lg border border-lavender-soft/40 px-3 py-2 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25 resize-none"
                           />
                           <p className="text-[11px] text-charcoal-light mt-1.5 text-right tabular-nums">
                             {giftMessage.length} / {GIFT_MESSAGE_MAX}
@@ -1141,7 +1141,7 @@ export default function ProductDetail({
                   className={`press flex-1 group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm tracking-wider uppercase font-medium ${
                     isBlocked(blockers)
                       ? "bg-lavender/50 text-charcoal"
-                      : "bg-lavender text-charcoal hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                      : "bg-lavender text-charcoal hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
                   }`}
                 >
                   {bagButtonLabel(blockers, bagTotal)}
@@ -1301,7 +1301,7 @@ export default function ProductDetail({
           type="button"
           onClick={handleAddToCart}
           aria-disabled={isBlocked(blockers)}
-          className="press shrink-0 px-5 py-3 whitespace-nowrap rounded-full bg-lavender text-charcoal text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
+          className="press shrink-0 px-5 py-3 whitespace-nowrap rounded-full bg-lavender text-charcoal text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover"
         >
           {bagButtonLabel(blockers)}
         </button>

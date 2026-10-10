@@ -39,7 +39,7 @@ export default function FriendsShare({ code }: { code: string }) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackReferralShare("whatsapp")}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-lavender-hover transition-colors"
         >
           <MessageCircle size={14} aria-hidden="true" />
           Share on WhatsApp

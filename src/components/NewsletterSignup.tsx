@@ -114,7 +114,7 @@ export default function NewsletterSignup({ source = "footer" }: { source?: strin
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="press shrink-0 px-5 py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] disabled:opacity-60 flex items-center gap-1.5"
+                className="press shrink-0 px-5 py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-lavender-hover disabled:opacity-60 flex items-center gap-1.5"
               >
                 {status === "loading" && <Loader2 size={13} className="animate-spin" />}
                 Join

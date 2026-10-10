@@ -190,7 +190,7 @@ export default function ReviewByTokenForm({
         <button
           type="submit"
           disabled={status === "sending" || rating === 0 || comment.length < 10}
-          className="press px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="press px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {status === "sending" && <Loader2 size={14} className="animate-spin" />}
           Send review

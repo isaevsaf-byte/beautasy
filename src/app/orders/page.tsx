@@ -69,7 +69,7 @@ export default async function OrdersPage() {
               </p>
               <Link
                 href="/shop"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover transition-[background-color,border-color,box-shadow,color] duration-300"
               >
                 Shop Collection
                 <ArrowRight size={16} />

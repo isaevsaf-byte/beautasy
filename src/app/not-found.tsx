@@ -46,7 +46,7 @@ export default function NotFound() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
                 href="/atelier#book"
-                className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30"
+                className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover transition-[background-color,border-color,box-shadow,color] duration-300 hover:shadow-lg hover:shadow-lavender/30"
               >
                 Choose a time
                 <ArrowRight size={16} aria-hidden="true" className="group-hover:translate-x-1 transition-transform" />
@@ -55,7 +55,7 @@ export default function NotFound() {
                 href={whatsappLink("Hi Kristina! I'd love to ask about an alteration.")}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-[background-color,border-color,box-shadow,color] duration-300"
               >
                 <MessageCircle size={16} aria-hidden="true" />
                 WhatsApp Kristina

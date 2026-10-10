@@ -136,7 +136,7 @@ export default async function WorkPage() {
               <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
                   href="/atelier#book"
-                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-8 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase press hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-8 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase press hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
                 >
                   Book a fitting
                   <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
@@ -194,7 +194,7 @@ export default async function WorkPage() {
             <div className="flex flex-col justify-center gap-3 sm:flex-row">
               <Link
                 href="/atelier#book"
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-8 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase transition-colors hover:bg-[#CFC0F0]"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-8 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase transition-colors hover:bg-lavender-hover"
               >
                 Book a fitting
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />

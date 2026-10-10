@@ -155,7 +155,7 @@ export default function SizeQuiz({
                             onPick(result.size as string);
                             close();
                           }}
-                          className="mt-3 w-full py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors"
+                          className="mt-3 w-full py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-lavender-hover transition-colors"
                         >
                           Choose size {result.size}
                         </button>

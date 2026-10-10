@@ -97,7 +97,7 @@ export default function CookieConsent() {
           <div className="flex gap-2">
             <button
               onClick={() => decide("granted")}
-              className="press flex-1 min-h-11 px-3 py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
+              className="press flex-1 min-h-11 px-3 py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-lavender-hover"
             >
               Accept all
             </button>

@@ -493,7 +493,7 @@ export default function WorkViewer({
                   viewer anyway, and Back from there reopens the piece. */}
               <Link
                 href="/atelier#book"
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-6 py-3 text-sm font-medium tracking-wider text-charcoal uppercase transition-colors hover:bg-[#CFC0F0]"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-6 py-3 text-sm font-medium tracking-wider text-charcoal uppercase transition-colors hover:bg-lavender-hover"
               >
                 Book a fitting
                 <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
@@ -515,7 +515,7 @@ export default function WorkViewer({
               className={`inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium tracking-wider uppercase transition-colors ${
                 atelier
                   ? "border border-white/25 hover:border-lavender hover:bg-white/5"
-                  : "bg-lavender text-charcoal hover:bg-[#CFC0F0]"
+                  : "bg-lavender text-charcoal hover:bg-lavender-hover"
               }`}
             >
               <ShoppingBag size={15} aria-hidden="true" />

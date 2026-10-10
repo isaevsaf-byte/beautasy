@@ -9,7 +9,7 @@ import { COMMENT_MAX, COMMENT_MIN, NAME_MAX, REVIEW_TOPICS } from "@/lib/siteRev
 type Status = "idle" | "loading" | "done" | "error";
 
 const FIELD_CLASS =
-  "w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20";
+  "w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25";
 const LABEL_CLASS = "block text-xs tracking-wider uppercase text-charcoal-light mb-1.5";
 
 /**

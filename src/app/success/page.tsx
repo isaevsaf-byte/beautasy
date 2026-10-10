@@ -259,7 +259,7 @@ function SuccessContent({ sessionId, giftCardHint }: { sessionId: string | null;
       >
         <Link
           href="/shop"
-          className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+          className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
         >
           Continue Shopping
           <ArrowRight

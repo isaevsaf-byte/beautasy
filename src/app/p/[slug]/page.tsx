@@ -113,7 +113,7 @@ export default async function PartnerLandingPage({ params }: { params: Promise<{
           <div className="max-w-3xl mx-auto px-6 mt-12 grid sm:grid-cols-2 gap-5">
             <Link
               href="/atelier#book"
-              className="group bg-white/70 border border-lavender-soft/40 rounded-3xl p-7 hover:shadow-xl hover:shadow-lavender/10 transition-all duration-300"
+              className="group bg-white/70 border border-lavender-soft/40 rounded-3xl p-7 hover:shadow-xl hover:shadow-lavender/10 transition-[background-color,border-color,box-shadow,color] duration-300"
             >
               <div className="w-11 h-11 rounded-2xl bg-lavender/20 flex items-center justify-center mb-5">
                 <Scissors size={20} className="text-charcoal" aria-hidden="true" />
@@ -134,7 +134,7 @@ export default async function PartnerLandingPage({ params }: { params: Promise<{
               href={whatsappLink(live ? partnerWhatsappText(name) : "Hi Kristina! I'd love to ask about an alteration.")}
               target="_blank"
               rel="noopener noreferrer"
-              className="group bg-white/70 border border-lavender-soft/40 rounded-3xl p-7 hover:shadow-xl hover:shadow-lavender/10 transition-all duration-300"
+              className="group bg-white/70 border border-lavender-soft/40 rounded-3xl p-7 hover:shadow-xl hover:shadow-lavender/10 transition-[background-color,border-color,box-shadow,color] duration-300"
             >
               <div className="w-11 h-11 rounded-2xl bg-lavender/20 flex items-center justify-center mb-5">
                 <MessageCircle size={20} className="text-charcoal" aria-hidden="true" />

@@ -131,7 +131,7 @@ export default function WishlistPage() {
                           /* Something to choose — send to the PDP */
                           <Link
                             href={itemHref}
-                            className="press flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
+                            className="press flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-lavender-hover"
                           >
                             <ShoppingBag size={14} />
                             {action.label}
@@ -141,7 +141,7 @@ export default function WishlistPage() {
                           <button
                             type="button"
                             onClick={() => handleAddToCart(item)}
-                            className="press flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
+                            className="press flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lavender text-charcoal rounded-full text-xs tracking-wider uppercase font-medium hover:bg-lavender-hover"
                           >
                             <ShoppingBag size={14} />
                             Add to Bag
@@ -150,7 +150,7 @@ export default function WishlistPage() {
                         <button
                           type="button"
                           onClick={() => removeItem(item.id)}
-                          className="p-2.5 rounded-full border border-charcoal/15 text-charcoal-light hover:text-red-500 hover:border-red-200 transition-colors"
+                          className="p-2.5 rounded-full border border-charcoal/15 text-charcoal-light hover:text-rose-700 hover:border-red-200 transition-colors"
                           aria-label="Remove from wishlist"
                         >
                           <Trash2 size={14} />
@@ -191,7 +191,7 @@ export default function WishlistPage() {
                 </p>
                 <Link
                   href="/shop"
-                  className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                  className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
                 >
                   Browse Shop
                   <ArrowRight

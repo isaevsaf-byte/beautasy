@@ -105,7 +105,7 @@ export default function MeetKristina({
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-8">
             <Link
               href={bookHref}
-              className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover transition-all duration-300"
+              className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover transition-[background-color,border-color,box-shadow,color] duration-300"
             >
               Choose a time
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
@@ -114,7 +114,7 @@ export default function MeetKristina({
               href={whatsappLink(WHATSAPP_HELLO)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-[background-color,border-color,box-shadow,color] duration-300"
             >
               <MessageCircle size={15} aria-hidden="true" />
               Send a photo on WhatsApp
