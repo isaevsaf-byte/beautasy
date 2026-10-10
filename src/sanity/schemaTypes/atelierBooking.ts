@@ -284,6 +284,11 @@ export const atelierBooking = defineType({
       readOnly: true,
       hidden: true,
     }),
+    // The morning-before reminder — see @/lib/bookingReminders. `reminderSentFor`
+    // is the time it was for, so a booking moved after its reminder gets one
+    // for the new time
+    defineField({ name: "reminderSentAt", title: "Напоминание отправлено", type: "datetime", readOnly: true, hidden: true }),
+    defineField({ name: "reminderSentFor", title: "Напоминание о времени", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "createdAt", title: "Дата заявки", type: "datetime", readOnly: true }),
     // The diary's own bookkeeping — see @/lib/diary
     defineField({ name: "movedAt", title: "Когда перенесли", type: "datetime", readOnly: true, hidden: true }),
