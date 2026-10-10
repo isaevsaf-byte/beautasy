@@ -134,9 +134,9 @@ export default function Lightbox({
             dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
             dragElastic={{ top: 0.1, bottom: 1, left: 0, right: 0 }}
             dragMomentum={false}
-            onDragStart={() => {
-              axis.current = null;
-            }}
+            // The axis is cleared at the end of each drag, not at its start:
+            // framer reports the start after the frame, by which time a quick
+            // stroke has already locked its direction
             onDragEnd={(_, info) => {
               const locked = axis.current;
               axis.current = null;
