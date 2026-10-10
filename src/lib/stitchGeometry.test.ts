@@ -473,9 +473,22 @@ test("the logo's gold catches the light once: only the gold, after the stitch, a
     /<div className="relative w-\[250px\] sm:w-\[280px\] lg:w-\[300px\]">\s*<Image\s+src="\/beautasy-logo-gold\.png"[^>]*?\/>\s*<LogoSheen \/>\s*<\/div>/,
     "the sheen lies in the logo's own box, sized as the logo",
   );
-  assert.equal((home.match(/<LogoSheen \/>/g) ?? []).length, 1);
+  // Twice in the source, once on the page: on the label in the corner of the
+  // photo of Kristina at work, or on the logo card when there is no photo yet
+  assert.equal((home.match(/<LogoSheen \/>/g) ?? []).length, 2);
+  assert.match(
+    home,
+    /<div className="relative w-\[96px\] sm:w-\[112px\]">\s*<Image\s+src="\/beautasy-logo-gold\.png"[^>]*?\/>\s*<LogoSheen \/>\s*<\/div>/,
+    "on the label, the sheen lies in the logo's own box too",
+  );
   const html = renderToStaticMarkup(createElement(HomeContent, { priceFrom: "£8" }));
   assert.match(html, /<div class="relative w-\[250px\][^"]*"><img [^>]*src="[^"]*beautasy-logo-gold[^>]*><span class="logo-sheen" aria-hidden="true"><\/span><\/div>/);
+  assert.equal((html.match(/class="logo-sheen"/g) ?? []).length, 1);
+  const photo = { src: "/kristina-at-work.jpg", alt: "Kristina at her machine", width: 1080, height: 1350, lqip: null };
+  const withPhoto = renderToStaticMarkup(createElement(HomeContent, { priceFrom: "£8", heroPhoto: photo }));
+  assert.match(withPhoto, /<div class="relative w-\[96px\][^"]*"><img [^>]*src="[^"]*beautasy-logo-gold[^>]*><span class="logo-sheen" aria-hidden="true"><\/span><\/div>/);
+  assert.equal((withPhoto.match(/class="logo-sheen"/g) ?? []).length, 1);
+  assert.match(withPhoto, /alt="Kristina at her machine"/);
 
   // At rest nothing shows; it moves only once set going, and only for those who want motion
   const sheen = rule(".logo-sheen");

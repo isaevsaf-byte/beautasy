@@ -14,6 +14,7 @@ import { useShelves } from "@/lib/useShelves";
 import { BUSINESS, whatsappLink } from "@/lib/business";
 import { commonPrices } from "@/lib/atelierPrices";
 import { Scissors, Heart, Sparkles, MapPin, Clock, Tag, MessageCircle } from "lucide-react";
+import type { ShownPortrait } from "@/lib/meetKristina";
 
 /* ─────────────── Data ─────────────── */
 
@@ -94,7 +95,7 @@ const WHATSAPP_PHOTO = "Hi Kristina, here's a photo of something that needs alte
  * A person who came about a hem now sees what it costs, when Kristina works
  * and the two ways to start, before anything else; the shop is a line below.
  */
-function Hero({ priceFrom }: { priceFrom?: string | null }) {
+function Hero({ priceFrom, heroPhoto }: { priceFrom?: string | null; heroPhoto?: ShownPortrait | null }) {
   return (
     // pt-28, as every other page's <main>: at pt-20 the first line sat under
     // the fixed header whenever the announcement bar was showing. Clipped
@@ -214,45 +215,83 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
           </motion.p>
         </motion.div>
 
-        {/* Logo Image */}
-        {/* Painted where it stands, with no entrance at all: it is the largest
-            thing on the page — the moment Google times as "loaded" — so it
-            never fades in, and the one-second settle it used to do from 97%
-            ran on the main thread while the page was still waking up, just
-            when a first tap needs it. */}
-        <div className="order-2 relative">
-          <div className="relative aspect-[5/4] sm:aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-wash flex items-center justify-center">
-            {/* The gold catches the light once, after the first stitch or as it
-                comes into view (stitch/LogoSheen.tsx); the picture is unchanged.
-                The logo file has no transparency — it is gold on a white square
-                — so it is multiplied into the lavender: white takes the card's
-                colour and the gold stays gold, a shade warmer. No drop shadow:
-                on an opaque picture it shadows the square, not the letters. */}
-            <div className="relative w-[250px] sm:w-[280px] lg:w-[300px]">
+        {heroPhoto ? (
+          // Kristina at her machine: the first thing a visitor sees is the
+          // hands that will do the work, not a logo the header already shows.
+          // It is the largest picture on the page — the moment Google times as
+          // "loaded" — so it is fetched first and painted where it stands, with
+          // no entrance. The same photo is not repeated in Meet Kristina below
+          // (./page.tsx hands that block the portrait alone).
+          <div className="order-2 relative">
+            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-bg shadow-xl shadow-plum/10">
               <Image
-                src="/beautasy-logo-gold.png"
-                alt="Beautasy - Handmade Lingerie & Alterations Logo"
-                width={600}
-                height={600}
-                className="w-full h-auto object-contain mix-blend-multiply"
+                src={heroPhoto.src}
+                alt={heroPhoto.alt}
+                fill
+                sizes="(min-width: 1152px) 528px, (min-width: 1024px) 46vw, 92vw"
                 preload
                 fetchPriority="high"
+                {...(heroPhoto.lqip ? { placeholder: "blur" as const, blurDataURL: heroPhoto.lqip } : {})}
+                className="object-cover"
               />
-              <LogoSheen />
+            </div>
+            {/* The label sewn into the corner: the gold logo on cream, where the
+                "100% Handmade" badge was. The gold still catches the light once
+                (stitch/LogoSheen.tsx); multiplied into the cream, the logo's
+                white square takes the label's colour. */}
+            <div className="absolute -bottom-5 -left-3 sm:-left-5 rounded-2xl bg-cream px-3 py-2 shadow-lg shadow-plum/10 border border-lavender-soft/60">
+              <div className="relative w-[96px] sm:w-[112px]">
+                <Image
+                  src="/beautasy-logo-gold.png"
+                  alt="Beautasy"
+                  width={600}
+                  height={600}
+                  sizes="112px"
+                  className="w-full h-auto object-contain mix-blend-multiply"
+                />
+                <LogoSheen />
+              </div>
             </div>
           </div>
-          {/* Decorative floating badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 1 }}
-            className="absolute -bottom-4 -left-4 bg-white/90 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-lg shadow-lavender/10 border border-lavender-soft/50"
-          >
-            <p className="text-xs tracking-wider uppercase text-charcoal-light">
-              ✨ 100% Handmade
-            </p>
-          </motion.div>
-        </div>
+        ) : (
+          // Until the Studio has a photo of Kristina at work: the logo card.
+          // Painted where it stands, with no entrance at all: it is then the
+          // largest thing on the page — the moment Google times as "loaded" —
+          // so it never fades in.
+          <div className="order-2 relative">
+            <div className="relative aspect-[5/4] sm:aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-wash flex items-center justify-center">
+              {/* The gold catches the light once, after the first stitch or as it
+                  comes into view (stitch/LogoSheen.tsx); the picture is unchanged.
+                  The logo file has no transparency — it is gold on a white square
+                  — so it is multiplied into the lavender: white takes the card's
+                  colour and the gold stays gold, a shade warmer. No drop shadow:
+                  on an opaque picture it shadows the square, not the letters. */}
+              <div className="relative w-[250px] sm:w-[280px] lg:w-[300px]">
+                <Image
+                  src="/beautasy-logo-gold.png"
+                  alt="Beautasy - Handmade Lingerie & Alterations Logo"
+                  width={600}
+                  height={600}
+                  className="w-full h-auto object-contain mix-blend-multiply"
+                  preload
+                  fetchPriority="high"
+                />
+                <LogoSheen />
+              </div>
+            </div>
+            {/* Decorative floating badge */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 1 }}
+              className="absolute -bottom-4 -left-4 bg-white/90 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-lg shadow-lavender/10 border border-lavender-soft/50"
+            >
+              <p className="text-xs tracking-wider uppercase text-charcoal-light">
+                ✨ 100% Handmade
+              </p>
+            </motion.div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -489,17 +528,19 @@ export default function Home({
   reviews,
   priceFrom,
   meetKristina,
+  heroPhoto,
 }: {
   recentWork?: React.ReactNode;
   reviews?: React.ReactNode;
   priceFrom?: string | null;
   meetKristina?: React.ReactNode;
+  heroPhoto?: ShownPortrait | null;
 }) {
   return (
     <>
       <Header />
       <main id="main">
-        <Hero priceFrom={priceFrom} />
+        <Hero priceFrom={priceFrom} heroPhoto={heroPhoto} />
         {/* The atelier, its work and what people said about it, then the
             shop: the order the money comes in */}
         <AtelierSection />

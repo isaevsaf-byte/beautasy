@@ -60,7 +60,10 @@ export default async function Home() {
       }
       reviews={kindWords.length > 0 ? <ReviewStrip reviews={kindWords} nextdoorUrl={nextdoorUrl} featured /> : null}
       priceFrom={priceFrom}
-      meetKristina={kristina ? <MeetKristina content={kristina} /> : null}
+      // Kristina at work opens the page; Meet Kristina further down then shows
+      // her portrait alone, so the same picture is not on the page twice
+      heroPhoto={kristina?.atWork ?? null}
+      meetKristina={kristina ? <MeetKristina content={kristina.atWork ? { ...kristina, atWork: null } : kristina} /> : null}
     />
   );
 }
