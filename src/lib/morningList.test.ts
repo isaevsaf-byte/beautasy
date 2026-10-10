@@ -197,18 +197,20 @@ test("a claim refused for any reason but 'already claimed' still sends — the l
   assert.equal(deps.sent.length, 1);
 });
 
-test("the morning cron runs the list, the reminders and the clean-up once each, inside allSettled, read back in place", () => {
+test("the morning cron runs the list and the clean-up once each, inside allSettled, read back in place — and not the client reminder", () => {
   const cron = readFileSync(join(process.cwd(), "src", "app", "api", "cron", "daily", "route.ts"), "utf8");
   const settled = cron.slice(cron.indexOf("Promise.allSettled(["), cron.indexOf("]);", cron.indexOf("Promise.allSettled([")));
-  for (const job of ["sendMorningList", "sendFittingReminders", "runRetentionCleanup"]) {
+  for (const job of ["sendMorningList", "runRetentionCleanup"]) {
     assert.match(settled, new RegExp(`\\n\\s{4}${job}\\(\\),`), `${job} is not in allSettled`);
     assert.equal((cron.match(new RegExp(`${job}\\(`, "g")) ?? []).length, 1, `${job} runs once`);
   }
+  // Safar, 08.10: no reminder email to clients for now (see the cron's comment)
+  assert.doesNotMatch(cron, /sendFittingReminders\(/);
   // Positional: the answers are read back in the order the jobs were listed
   const jobs = settled.match(/^\s{4}(\w+)\(/gm)?.map((line) => line.trim().replace("(", "")) ?? [];
   const at = jobs.indexOf("sendMorningList");
-  assert.deepEqual(jobs.slice(at - 1, at + 3), ["sendPendingBookingEmails", "sendMorningList", "sendFittingReminders", "runRetentionCleanup"]);
-  assert.match(cron, /bookings,\n\s+morningList,\n\s+reminders,\n\s+retention,\n\s+socialDrafts,\n[\s\w,]*\] = results\.map/);
+  assert.deepEqual(jobs.slice(at - 1, at + 2), ["sendPendingBookingEmails", "sendMorningList", "runRetentionCleanup"]);
+  assert.match(cron, /bookings,\n\s+morningList,\n\s+retention,\n\s+socialDrafts,\n[\s\w,]*\] = results\.map/);
 });
 
 test("the subject says how the two days look", () => {
