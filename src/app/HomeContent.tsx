@@ -12,6 +12,7 @@ import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { placeLink } from "@/lib/shelves";
 import { useShelves } from "@/lib/useShelves";
 import { BUSINESS, whatsappLink } from "@/lib/business";
+import { commonPrices } from "@/lib/atelierPrices";
 import { Scissors, Heart, Sparkles, MapPin, Clock, Tag, MessageCircle } from "lucide-react";
 
 /* ─────────────── Data ─────────────── */
@@ -75,6 +76,9 @@ const services = [
     description: "Perfect fit adjustments for ready-to-wear and cherished pieces.",
   },
 ];
+
+/** The common jobs from the atelier's price guide, for the price list beside "Local services" */
+const homePrices = commonPrices();
 
 /* ═════════════════════════════════════════════════════
    HERO
@@ -427,37 +431,41 @@ function AtelierSection() {
             </motion.div>
           </div>
 
-          {/* Right — image */}
-          <motion.div
-            variants={fadeIn}
-            className="relative"
-          >
-            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-lavender-wash flex items-center justify-center">
-              <Image
-                src="/beautasy-atelier-logo.png"
-                alt="Beautasy Atelier — Custom Sewing & Alterations"
-                width={800}
-                height={686}
-                // Multiplied into the wash, so its near-white square goes, and
-                // lifted to white first (see the shelves below)
-                className="w-[65%] h-auto object-contain brightness-105 mix-blend-multiply"
-              />
-            </div>
-            {/* Decorative badge */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.5 }}
-              className="absolute -bottom-4 -right-4 bg-white/90 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-lg shadow-lavender/10 border border-lavender-soft/50"
-            >
-              <div className="flex items-center gap-2">
-                <MapPin size={14} className="text-lavender" />
-                <p className="text-xs tracking-wider uppercase text-charcoal-light">
-                  Southampton, UK
-                </p>
+          {/* Right — a few prices, where a second logo card used to stand.
+              Three picture-and-words halves ran one after another down the
+              page (the hero, this, Meet Kristina) and read as the same block
+              three times; the question a person has by now is what a job
+              costs, so this half answers it. The lines are the /atelier
+              guide's own (@/lib/atelierPrices), sewn the same way. */}
+          <motion.div variants={fadeIn}>
+            <div className="bg-white/70 border border-lavender-soft/40 rounded-3xl px-6 sm:px-8 py-7 shadow-xl shadow-plum/5">
+              <div className="flex items-center gap-3 mb-3 pb-4 border-b border-lavender-soft/40">
+                <div className="w-9 h-9 rounded-xl bg-lavender/20 flex items-center justify-center">
+                  <span className="price-stitch" aria-hidden="true" />
+                </div>
+                <h3 className="font-serif text-xl">Our price guide</h3>
               </div>
-            </motion.div>
+              <ul>
+                {homePrices.map((item) => (
+                  // As /atelier's PriceLine: the name wraps, the price never
+                  // does, and the stitch keeps at least 1.5rem between them
+                  <li key={item.name} className="flex items-end gap-2 py-3">
+                    <span className="min-w-0 text-[15px] text-charcoal">{item.name}</span>
+                    <span className="leader-stitch flex-1 min-w-6 mb-1.5" aria-hidden="true" />
+                    <span className="text-[15px] font-medium text-charcoal whitespace-nowrap tabular-nums">
+                      {item.price}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/atelier#prices"
+                className="group mt-4 inline-flex items-center gap-1.5 text-sm text-lavender-ink underline underline-offset-4 decoration-lavender-ink/30 hover:decoration-lavender-ink transition-colors"
+              >
+                See all prices
+                <ArrowRight size={15} aria-hidden="true" className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
           </motion.div>
         </motion.div>
       </div>

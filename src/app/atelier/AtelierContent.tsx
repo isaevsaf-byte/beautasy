@@ -23,62 +23,14 @@ import PriceFirst from "@/components/PriceFirst";
 import ClosedShears from "@/components/stitch/ClosedShears";
 import { fadeUp, fadeIn, stagger } from "@/components/animations";
 import { LOCAL_SERVICES } from "@/lib/localServices";
+import { pricingCategories, type PriceItem } from "@/lib/atelierPrices";
 import { BUSINESS, BY_APPOINTMENT, whatsappLink as whatsappWith } from "@/lib/business";
 import type { CollectionOffer } from "@/lib/collection";
 
 /* ─────────────── Data ─────────────── */
 
-interface PriceItem {
-  name: string;
-  price: string;
-}
-
-interface ServiceCategory {
-  id: string;
-  label: string;
-  items: PriceItem[];
-}
-
-const pricingCategories: ServiceCategory[] = [
-  {
-    id: "denim",
-    label: "Denim & Trousers",
-    items: [
-      { name: "Shorten Jeans (Standard)", price: "from £15.50" },
-      { name: "Shorten Jeans (Keep Original Hem)", price: "from £17.00" },
-      { name: "Waist Adjustment", price: "from £22.00" },
-      { name: "Replace Zip", price: "from £18.00" },
-    ],
-  },
-  {
-    id: "dresses",
-    label: "Dresses & Skirts",
-    items: [
-      { name: "Day Dress Shorten", price: "from £15.00" },
-      { name: "Evening / Prom Dress Shorten", price: "from £30.00" },
-      { name: "Take in Sides (Resize)", price: "from £28.00" },
-      { name: "Strap Adjustments", price: "from £20.00" },
-    ],
-  },
-  {
-    id: "coats",
-    label: "Coats & Jackets",
-    items: [
-      { name: "Shorten Sleeves", price: "from £36.00" },
-      { name: "New Zip (Coat)", price: "from £45.00" },
-      { name: "Relining", price: "from £80.00" },
-    ],
-  },
-  {
-    id: "home",
-    label: "Home Textiles",
-    items: [
-      { name: "Curtain Hemming (per panel)", price: "from £20.00" },
-      { name: "Cushion Cover (custom)", price: "from £25.00" },
-      { name: "Table Runner / Napkins", price: "from £18.00" },
-    ],
-  },
-];
+// The price guide lives in @/lib/atelierPrices: the home page shows a few of
+// its lines too
 
 /** In order: the page shows the order by where each stands, joined by a stitch */
 const steps = [
@@ -390,7 +342,9 @@ export default function AtelierContent({
         )}
 
         {/* ──── Pricing with Tabs ──── */}
-        <section className="py-20 md:py-28">
+        {/* #prices is where the home page's "See all prices" lands, as the
+            service pages' "see every price" lands on theirs */}
+        <section id="prices" className="py-20 md:py-28 scroll-mt-24">
           <div className="max-w-3xl mx-auto px-6">
             <motion.div
               initial="hidden"
