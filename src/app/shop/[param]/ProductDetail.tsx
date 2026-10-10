@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { motion, AnimatePresence, animate, useMotionValue, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, animate, useIsPresent, useMotionValue, useReducedMotion } from "framer-motion";
 import { availability } from "@/lib/availability";
 import { DELIVERY_TIMES, withoutQuotedDays } from "@/lib/delivery";
 import {
@@ -269,23 +269,48 @@ function Chalk({ mark, late, className }: { mark: number; late: boolean; classNa
 /** Which way the gallery last turned by a swipe: 1 to the next photo, -1 back, 0 not by a swipe */
 type Turn = -1 | 0 | 1;
 
-/** A swipe turns the photo past a fifth of its width, or on a flick (px/s) */
+/**
+ * How the gallery last turned, as AnimatePresence hands it to both photos:
+ * the way, and the speed (px/s) the finger let go at, so the photo leaving
+ * carries on at the pace it was thrown instead of starting again from rest.
+ */
+type TurnInfo = { turn: Turn; velocity: number };
+
+/** Arrows, thumbnails, colours and reduced motion: no slide in, no slide out */
+const NO_TURN: TurnInfo = { turn: 0, velocity: 0 };
+
+/**
+ * A swipe turns the photo past a fifth of its width, or on a flick (px/s) in
+ * the way it was dragged. At 400 an unhurried flick of the thumb fell short
+ * and the photo settled back; 150 still ignores the drift of a finger lifting.
+ */
 const COMMIT_SHARE = 0.2;
-const COMMIT_VELOCITY = 400;
+const COMMIT_VELOCITY = 150;
 
 /** A swipe let go too early settles back with a small give, like cloth */
 const SETTLE_BACK = { type: "spring", duration: 0.4, bounce: 0.15 } as const;
 
+/** A turn made by a swipe: no overshoot, it is a photo leaving the frame */
+const SWIPE_TURN = { type: "spring", duration: 0.35, bounce: 0 } as const;
+
 const turnVariants = {
-  // Turned by a swipe the new photo comes in from a little way off (30%),
-  // not from the edge: the old one is already on its way out under the
-  // finger. Turned by an arrow or a thumbnail it is simply there.
-  enter: (turn: Turn) => ({ x: turn === 0 ? "0%" : turn > 0 ? "30%" : "-30%" }),
-  center: { x: "0%" },
-  exit: (turn: Turn) =>
+  // Turned by a swipe the new photo comes in from a little way off (30%)
+  // UNDERNEATH the old one, which slides off on top and uncovers it (the
+  // stacking is GallerySlide's: a leaving photo is raised). It used to come
+  // in on top, and since AnimatePresence keeps a leaving photo at its old
+  // place in the stack, an opaque photo popped in over 70% of the frame.
+  // Turned by an arrow or a thumbnail it is simply there. The transitions
+  // live here, not on the element: a leaving photo keeps the props of its
+  // last render, from before it was the one being turned away from.
+  enter: ({ turn }: TurnInfo) => ({ x: turn === 0 ? "0%" : turn > 0 ? "30%" : "-30%" }),
+  center: ({ turn }: TurnInfo) => ({
+    x: "0%",
+    transition: turn === 0 ? { duration: 0 } : SWIPE_TURN,
+  }),
+  exit: ({ turn, velocity }: TurnInfo) =>
     turn === 0
       ? { x: "0%", transition: { duration: 0 } }
-      : { x: turn > 0 ? "-100%" : "100%" },
+      : { x: turn > 0 ? "-100%" : "100%", transition: { ...SWIPE_TURN, velocity } },
 };
 
 /**
@@ -307,26 +332,29 @@ function GallerySlide({
 }: {
   src: string;
   alt: string;
-  turn: Turn;
+  turn: TurnInfo;
   draggable: boolean;
   reduceMotion: boolean;
-  onTurn: (turn: 1 | -1) => void;
+  onTurn: (turn: 1 | -1, velocity: number) => void;
   onLoad: () => void;
 }) {
   const x = useMotionValue(0);
   const ref = useRef<HTMLDivElement | null>(null);
+  // A photo on its way out is raised above the one coming in, so it slides
+  // off the top and uncovers the next rather than being covered by it
+  const isPresent = useIsPresent();
   return (
     <motion.div
       ref={ref}
+      // Reduced motion: the photo still follows the finger, which is the
+      // finger's own movement, but the turn itself is a cut (the caller
+      // hands over NO_TURN)
       custom={turn}
       variants={turnVariants}
       initial="enter"
       animate="center"
       exit="exit"
-      // Reduced motion: the photo still follows the finger, which is the
-      // finger's own movement, but the turn itself is a cut
-      transition={turn === 0 || reduceMotion ? { duration: 0 } : { duration: 0.22, ease: EASE_OUT }}
-      style={{ x }}
+      style={{ x, zIndex: isPresent ? 0 : 1 }}
       // framer sets touch-action: pan-y for a sideways drag, so the page
       // still scrolls under a vertical stroke
       drag={draggable ? "x" : false}
@@ -342,7 +370,11 @@ function GallerySlide({
         const { offset, velocity } = info;
         const flicked = Math.abs(velocity.x) > COMMIT_VELOCITY && Math.sign(velocity.x) === Math.sign(offset.x);
         if (offset.x !== 0 && (Math.abs(offset.x) > width * COMMIT_SHARE || flicked)) {
-          onTurn(offset.x < 0 ? 1 : -1);
+          // Only the part of the release speed that points the way the photo
+          // is leaving carries on: a finger that drifted back as it lifted
+          // must not make the photo start out in reverse
+          const out = offset.x < 0 ? Math.min(velocity.x, 0) : Math.max(velocity.x, 0);
+          onTurn(offset.x < 0 ? 1 : -1, out);
         } else {
           animate(x, 0, reduceMotion ? { duration: 0 } : SETTLE_BACK);
         }
@@ -425,7 +457,7 @@ export default function ProductDetail({
   const measurementsRef = useRef<HTMLDivElement | null>(null);
   // The photo a swipe turned to, and which way. Only that photo slides in:
   // one reached by an arrow, a thumbnail or a colour is simply there.
-  const [swipe, setSwipe] = useState<{ to: string; turn: 1 | -1 } | null>(null);
+  const [swipe, setSwipe] = useState<{ to: string; turn: 1 | -1; velocity: number } | null>(null);
   const reduceMotion = useReducedMotion() ?? false;
   // The photos either side are fetched once the first has arrived, so a
   // swipe never turns to an empty frame and nothing competes with the first
@@ -525,10 +557,11 @@ export default function ProductDetail({
   // Which photo is showing, as the gallery tells them apart: by place, so a
   // photo used twice still turns; a colour's own photo is its own
   const photoKey = activeColorVariant ? `colour:${activeImage}` : `${activeImageIndex}:${activeImage}`;
-  const turn: Turn = swipe?.to === photoKey ? swipe.turn : 0;
-  const swipeTo = (direction: 1 | -1) => {
+  const turn: TurnInfo =
+    swipe?.to === photoKey && !reduceMotion ? { turn: swipe.turn, velocity: swipe.velocity } : NO_TURN;
+  const swipeTo = (direction: 1 | -1, velocity: number) => {
     const next = (activeImageIndex + direction + images.length) % images.length;
-    setSwipe({ to: `${next}:${images[next]}`, turn: direction });
+    setSwipe({ to: `${next}:${images[next]}`, turn: direction, velocity });
     setActiveImageIndex(next);
   };
   const neighbours =
