@@ -72,6 +72,25 @@ export type Scene =
       count?: number;
     }
   | {
+      /**
+       * A little theatre: the shop's pieces as actors on a drawn set (a shelf
+       * and the cutting table), moving on the voice. Positions are the bottom
+       * centre of each piece in film pixels (1080×1920). The lights can go
+       * out and come back; in the dark a torch from Bea's brooch follows
+       * whoever she is talking about.
+       */
+      type: "stage";
+      at: Anchor;
+      actors: Actor[];
+      moves?: Move[];
+      lightsOff?: Anchor;
+      lightsOn?: Anchor;
+      /** Where the torch points, in order: [when, x, y] */
+      torch?: [Anchor, number, number][];
+      /** Gold "z"s rising over an actor */
+      zzz?: { actor: string; from: Anchor; to: Anchor };
+    }
+  | {
       /** Before and after side by side; `after` arrives at afterAt (default with the scene) */
       type: "split";
       at: Anchor;
@@ -96,6 +115,42 @@ export type Scene =
       urlAt?: Anchor;
     };
 
+/** One of the shop's pieces, cut out of its photo (scripts/cutout.swift) */
+export type Actor = {
+  id: string;
+  /** A transparent PNG in public/ */
+  src: string;
+  /** Bottom centre where it sits, film pixels */
+  home: [number, number];
+  /** Width on screen */
+  w: number;
+  rot?: number;
+};
+
+/**
+ * What an actor does, and when. Moves of one actor run one after another.
+ *   hop    — a jump to `to` (or on the spot), squashing on take-off and landing
+ *   waddle — walks to `to`, rocking side to side
+ *   peek   — rises a little and looks left and right
+ *   puff   — swells up (`scale`, default 1.25) and stays swollen
+ *   sleep  — breathes slowly until its next move
+ *   snap   — back home at once, as if nothing happened
+ *   flop   — jumps to `to` and lands on its side (`rot`, default 80)
+ */
+export type Move = {
+  actor: string;
+  do: "hop" | "waddle" | "peek" | "puff" | "sleep" | "snap" | "flop";
+  at: Anchor;
+  to?: [number, number];
+  /** Seconds; each move has its own default */
+  dur?: number;
+  height?: number;
+  scale?: number;
+  rot?: number;
+  /** A sound from public/ when the move lands */
+  sound?: string;
+};
+
 /**
  * Drawn over whatever scene is on screen. Positions on a print are fractions of
  * the photo (0–1); a print with tilt 0 keeps them exactly over the picture.
@@ -114,7 +169,9 @@ export type Overlay =
       topLabel?: string;
       bottomLabel?: string;
     }
-  | { type: "rule"; from: Anchor; to: Anchor; y: number; label?: string };
+  | { type: "rule"; from: Anchor; to: Anchor; y: number; label?: string }
+  /** Big serif words, the hook of an episode that does not open on Bea waking */
+  | { type: "title"; text: string; from: Anchor; to: Anchor; y?: number; size?: number; left?: number; right?: number };
 
 export type Post = {
   caption: string;
@@ -131,6 +188,10 @@ export type Episode = {
   lines: Line[];
   scenes: Scene[];
   overlays?: Overlay[];
+  /** Sounds at moments of the film: [file in public/, when, volume] */
+  sounds?: [string, Anchor, number?][];
+  /** Sound effects this episode needs, made once with ElevenLabs: file in public/bea/ → what it sounds like */
+  sfx?: Record<string, string>;
   post: Post;
 };
 

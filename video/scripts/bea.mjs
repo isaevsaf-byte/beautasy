@@ -135,12 +135,13 @@ function pace() {
 }
 
 // The countdown's tick and the answer's bell, made once with ElevenLabs sound effects
+// Also any the episode lists in "sfx": { "<file in public/bea/>": "what it sounds like" }
 async function sfx() {
-  if (!episode.scenes.some((s) => s.type === "guess")) return;
-  const sounds = {
-    "sfx-tick.mp3": "a single soft wooden clock tick, close and dry, no reverb",
-    "sfx-ding.mp3": "one bright small brass shop bell ding with a light sparkle, short and cheerful",
-  };
+  const sounds = { ...(episode.sfx ?? {}) };
+  if (episode.scenes.some((s) => s.type === "guess")) {
+    sounds["sfx-tick.mp3"] = "a single soft wooden clock tick, close and dry, no reverb";
+    sounds["sfx-ding.mp3"] = "one bright small brass shop bell ding with a light sparkle, short and cheerful";
+  }
   for (const [name, text] of Object.entries(sounds)) {
     const path = join(ROOT, "public", "bea", name);
     if (existsSync(path)) continue;

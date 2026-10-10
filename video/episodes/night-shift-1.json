@@ -1,0 +1,295 @@
+{
+  "id": "night-shift-1",
+  "title": "Night shift #1 — what the shop gets up to after closing",
+  "lines": [
+    {
+      "text": "What do the scrunchies get up to when Kristina switches off the lights?"
+    },
+    {
+      "text": "Cloud goes first. Always.",
+      "pause": 1.0
+    },
+    {
+      "text": "Azure follows. She never lets Cloud go anywhere alone."
+    },
+    {
+      "text": "Silk Road strolls in with another story about her Uzbek ikat."
+    },
+    {
+      "text": "Berry Velvet has been packed full. Again."
+    },
+    {
+      "text": "And the silk mask? The only one who actually sleeps."
+    },
+    {
+      "text": "Everyone back in place…",
+      "pause": 1.1
+    },
+    {
+      "text": "Almost everyone.",
+      "pause": 0.4
+    },
+    {
+      "text": "Night shift, episode one.",
+      "caption": false
+    },
+    {
+      "text": "Meet the whole cast in the Beautasy shop.",
+      "caption": false
+    }
+  ],
+  "scenes": [
+    {
+      "type": "stage",
+      "at": 0,
+      "actors": [
+        {
+          "id": "mask",
+          "src": "bea/actors/mask.png",
+          "home": [
+            330,
+            822
+          ],
+          "w": 380
+        },
+        {
+          "id": "berry",
+          "src": "bea/actors/berry.png",
+          "home": [
+            745,
+            822
+          ],
+          "w": 420
+        },
+        {
+          "id": "cloud",
+          "src": "bea/actors/cloud.png",
+          "home": [
+            200,
+            1250
+          ],
+          "w": 270
+        },
+        {
+          "id": "azure",
+          "src": "bea/actors/azure.png",
+          "home": [
+            490,
+            1255
+          ],
+          "w": 290
+        },
+        {
+          "id": "silkroad",
+          "src": "bea/actors/silkroad.png",
+          "home": [
+            830,
+            1262
+          ],
+          "w": 400
+        }
+      ],
+      "lightsOff": "line:0:end+0.3",
+      "lightsOn": "line:5:end+0.45",
+      "torch": [
+        [
+          "line:0:end+0.6",
+          540,
+          1050
+        ],
+        [
+          "line:1",
+          210,
+          1120
+        ],
+        [
+          "word:1:3",
+          380,
+          1260
+        ],
+        [
+          "line:2",
+          520,
+          1250
+        ],
+        [
+          "line:3",
+          810,
+          1240
+        ],
+        [
+          "line:4",
+          745,
+          745
+        ],
+        [
+          "line:5",
+          330,
+          710
+        ],
+        [
+          "line:5:end",
+          330,
+          710
+        ]
+      ],
+      "moves": [
+        {
+          "actor": "cloud",
+          "do": "peek",
+          "at": "line:1"
+        },
+        {
+          "actor": "cloud",
+          "do": "hop",
+          "at": "word:1:3",
+          "to": [
+            380,
+            1390
+          ],
+          "height": 170,
+          "sound": "bea/sfx-plop.mp3"
+        },
+        {
+          "actor": "azure",
+          "do": "hop",
+          "at": "word:2:1",
+          "to": [
+            650,
+            1398
+          ],
+          "height": 150,
+          "sound": "bea/sfx-plop.mp3"
+        },
+        {
+          "actor": "azure",
+          "do": "hop",
+          "at": "word:2:8",
+          "height": 60
+        },
+        {
+          "actor": "cloud",
+          "do": "hop",
+          "at": "word:2:8+0.08",
+          "height": 60
+        },
+        {
+          "actor": "silkroad",
+          "do": "waddle",
+          "at": "line:3",
+          "to": [
+            815,
+            1405
+          ],
+          "dur": 1.8
+        },
+        {
+          "actor": "berry",
+          "do": "puff",
+          "at": "word:4:4",
+          "scale": 1.25
+        },
+        {
+          "actor": "berry",
+          "do": "puff",
+          "at": "word:4:6",
+          "scale": 1.5
+        },
+        {
+          "actor": "mask",
+          "do": "sleep",
+          "at": "line:5"
+        },
+        {
+          "actor": "cloud",
+          "do": "snap",
+          "at": "line:5:end+0.5"
+        },
+        {
+          "actor": "silkroad",
+          "do": "snap",
+          "at": "line:5:end+0.5"
+        },
+        {
+          "actor": "berry",
+          "do": "snap",
+          "at": "line:5:end+0.5"
+        },
+        {
+          "actor": "mask",
+          "do": "snap",
+          "at": "line:5:end+0.5"
+        },
+        {
+          "actor": "azure",
+          "do": "flop",
+          "at": "line:5:end+0.5",
+          "to": [
+            575,
+            1365
+          ],
+          "height": 90,
+          "rot": 84,
+          "sound": "bea/sfx-plop.mp3"
+        }
+      ],
+      "zzz": {
+        "actor": "mask",
+        "from": "line:5+0.5",
+        "to": "line:5:end+0.45"
+      }
+    },
+    {
+      "type": "end",
+      "at": "line:8-0.2",
+      "lead": "Night shift · Episode 1",
+      "title": "Made to fit.",
+      "subtitle": "Handmade · silk scrunchies from £12",
+      "url": "beautasy.co.uk/shop",
+      "urlAt": "line:9+0.5"
+    }
+  ],
+  "overlays": [
+    {
+      "type": "title",
+      "text": "After closing time…",
+      "from": 0,
+      "to": "line:0:end+0.3",
+      "y": 470,
+      "size": 76,
+      "left": 370,
+      "right": 40
+    },
+    {
+      "type": "chip",
+      "text": "Uzbek ikat",
+      "from": "word:3:10",
+      "to": "line:3:end+0.4",
+      "x": 800,
+      "y": 1060,
+      "dark": true
+    }
+  ],
+  "sounds": [
+    [
+      "bea/sfx-switch.mp3",
+      "line:0:end+0.27",
+      0.8
+    ],
+    [
+      "bea/sfx-switch.mp3",
+      "line:5:end+0.42",
+      0.8
+    ]
+  ],
+  "sfx": {
+    "sfx-switch.mp3": "a single crisp light switch click indoors, close and dry",
+    "sfx-plop.mp3": "a soft puff of fabric landing on a wooden table, tiny, gentle and cute"
+  },
+  "post": {
+    "caption": "What really happens after closing time 🌙✨\n\nCloud always goes first, Azure never lets her go alone, Silk Road has another story about her Uzbek ikat, Berry Velvet is packed full again… and the silk mask is the only one who actually sleeps 😴\n\nEvery one of them handmade in my workroom 🤍 Which one would you take home?",
+    "hashtags": "#handmade #silkscrunchie #sleepmask #smallbusiness #nightshift #beautasy",
+    "kind": "product",
+    "cover": 8
+  }
+}

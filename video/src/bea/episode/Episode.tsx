@@ -3,6 +3,7 @@ import { AbsoluteFill, Audio, CalculateMetadataFunction, OffthreadVideo, Sequenc
 import { CREAM, Caption, PLUM, Sewn, ease, serifItalic } from "../BeaReel";
 import { AwakeCameo, Print } from "../BeaCurtains";
 import { BOX, Chip, EndCard, GuessCard, Phone, PhonePage, QuestionCard, Rule, SplitPrints, Tag, Tape, clamp, popIn } from "./parts";
+import { MOVE_SECONDS, Stage, StageMove, landsAt } from "./stage";
 import { frameOf, totalFrames, VOICE_AT } from "./timing";
 import type { EpisodeProps, Scene } from "./types";
 
@@ -27,9 +28,22 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
   const at = (a: Parameters<typeof frameOf>[0]) => frameOf(a, timing);
   const total = totalFrames(timing);
 
-  const scenes = episode.scenes.map((scene) => ({ scene, start: scene.type === "wake" ? 0 : at(scene.at) }));
+  // Without a wake scene the first scene is on screen from the first frame
+  const hasWake = episode.scenes.some((s) => s.type === "wake");
+  const scenes = episode.scenes.map((scene, i) => ({ scene, start: scene.type === "wake" || (!hasWake && i === 0) ? 0 : at(scene.at) }));
   const wake = scenes.find((s) => s.scene.type === "wake")?.scene as Extract<Scene, { type: "wake" }> | undefined;
   const firstCut = scenes.find((s) => s.scene.type !== "wake")?.start ?? total;
+  const stageMoves = (scene: Extract<Scene, { type: "stage" }>, start: number): StageMove[] =>
+    (scene.moves ?? []).map((m) => ({
+      actor: m.actor,
+      do: m.do,
+      start: at(m.at) - start,
+      dur: Math.round((m.dur ?? MOVE_SECONDS[m.do]) * 30),
+      to: m.to,
+      height: m.height ?? 120,
+      scale: m.scale ?? 1.25,
+      rot: m.rot ?? 80,
+    }));
   const end = scenes.find((s) => s.scene.type === "end");
   const endStart = end?.start ?? total;
   const current = [...scenes].reverse().find((s) => frame >= s.start)?.scene.type ?? "wake";
@@ -53,7 +67,7 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
     return base * fadeIn * fadeOut;
   };
   const hook = interpolate(frame, [0, 8], [0.35, 1], { ...clamp, easing: ease });
-  const captionTop = current === "wake" || current === "guess" ? 1440 : current === "phone" ? 1390 : 1420;
+  const captionTop = current === "wake" || current === "guess" || current === "stage" ? 1440 : current === "phone" ? 1390 : 1420;
 
   const sceneBody = (scene: Scene, start: number) => {
     switch (scene.type) {
@@ -120,6 +134,19 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
             frames={Math.max(1, (scenes.find((s) => s.start > start)?.start ?? total) - start)}
           />
         );
+      case "stage": {
+        const rel = (a: Parameters<typeof frameOf>[0] | undefined) => (a !== undefined ? at(a) - start : undefined);
+        return (
+          <Stage
+            actors={scene.actors}
+            moves={stageMoves(scene, start)}
+            lightsOff={rel(scene.lightsOff)}
+            lightsOn={rel(scene.lightsOn)}
+            torch={(scene.torch ?? []).map(([a, x, y]) => [at(a) - start, x, y] as [number, number, number])}
+            zzz={scene.zzz && { actor: scene.zzz.actor, from: at(scene.zzz.from) - start, to: at(scene.zzz.to) - start }}
+          />
+        );
+      }
       case "split":
         return (
           <SplitPrints
@@ -160,8 +187,23 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
         ];
       })}
 
+      {/* Sounds at moments, and each stage move's landing */}
+      {(episode.sounds ?? []).map(([src, when, volume], i) => (
+        <Sequence key={`snd${i}`} from={at(when)} layout="none">
+          <Audio src={staticFile(src)} volume={volume ?? 0.6} />
+        </Sequence>
+      ))}
+      {scenes.flatMap(({ scene, start }, i) =>
+        scene.type !== "stage"
+          ? []
+          : stageMoves(scene, start).flatMap((m, k) => {
+              const sound = (scene.moves ?? [])[k]?.sound;
+              return sound ? [<Sequence key={`land${i}-${k}`} from={start + landsAt(m) - 1} layout="none"><Audio src={staticFile(sound)} volume={0.5} /></Sequence>] : [];
+            }),
+      )}
+
       {/* Bea wakes up */}
-      {frame < firstCut + WIPE && (
+      {hasWake && frame < firstCut + WIPE && (
         <AbsoluteFill>
           <OffthreadVideo src={staticFile("bea/wake.mp4")} muted trimBefore={12} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           {wake && (
@@ -187,11 +229,15 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
 
       {scenes
         .filter((s) => s.scene.type !== "wake")
-        .map(({ scene, start }, i) => (
-          <Sewn key={i} at={start}>
-            {sceneBody(scene, start)}
-          </Sewn>
-        ))}
+        .map(({ scene, start }, i) =>
+          start === 0 ? (
+            <AbsoluteFill key={i}>{sceneBody(scene, start)}</AbsoluteFill>
+          ) : (
+            <Sewn key={i} at={start}>
+              {sceneBody(scene, start)}
+            </Sewn>
+          ),
+        )}
 
       {/* Overlays over the scenes */}
       {(episode.overlays ?? []).map((o, i) => {
@@ -220,6 +266,30 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
               />
             );
           }
+          case "title": {
+            const k = Math.min(interpolate(frame, [from, from + 8], [0.35, 1], { ...clamp, easing: ease }), interpolate(frame, [to - 8, to], [1, 0], clamp));
+            return (
+              <div
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: o.left ?? 60,
+                  right: o.right ?? 60,
+                  top: o.y ?? 270,
+                  textAlign: "center",
+                  fontFamily: serifItalic,
+                  fontSize: o.size ?? 88,
+                  lineHeight: 1.1,
+                  color: PLUM,
+                  opacity: k,
+                  transform: `translateY(${(1 - k) * 18}px)`,
+                  textWrap: "balance",
+                }}
+              >
+                {o.text}
+              </div>
+            );
+          }
           case "rule": {
             const draw = interpolate(frame, [from, from + 26], [0, 1], { ...clamp, easing: ease });
             return <Rule key={i} y={o.y} draw={draw} label={o.label} labelK={interpolate(frame, [from + 24, from + 34], [0, 1], clamp)} />;
@@ -231,7 +301,7 @@ export const Episode: React.FC<EpisodeProps> = ({ episode, timing }) => {
 
       {/* Captions and Bea's brooch */}
       {frame < endStart &&
-        captions.map((c) => <Caption key={c.i} text={c.text} from={c.from} to={c.to} top={captionTop} />)}
+        captions.map((c) => <Caption key={c.i} text={c.text} from={c.from} to={c.to} top={captionTop} onFootage={current === "stage"} />)}
       {firstCut < endStart && <AwakeCameo from={firstCut + 10} to={endStart + 4} />}
     </AbsoluteFill>
   );
