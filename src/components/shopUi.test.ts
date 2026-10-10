@@ -130,14 +130,19 @@ test("the image viewer closes on a pull down, its dark thinning with the pull", 
   const source = read("src/components/Lightbox.tsx");
   assert.match(source, /const backdropOpacity = useTransform\(dragY, \[0, 320\], \[1, 0\.25\]\);/);
   assert.match(source, /style=\{\{ opacity: backdropOpacity \}\}/);
-  assert.match(source, /style=\{\{ y: dragY \}\}\s*drag\s*dragDirectionLock/);
-  assert.match(source, /if \(offset\.y > 120 \|\| velocity\.y > 500\) \{[^]*?onClose\(\);/);
-  // Sideways is still a page turn, and the photo itself does not slide that way
-  assert.match(source, /dragElastic=\{\{ top: 0\.1, bottom: 1, left: 0, right: 0 \}\}/);
-  assert.match(source, /if \(Math\.abs\(offset\.x\) > 45 \|\| flicked\) \(offset\.x < 0 \? goNext : goPrev\)\(\);/);
+  assert.match(source, /style=\{\{ x: dragX, y: dragY \}\}\s*drag\s*dragDirectionLock/);
+  // A pull that was heading back up as it let go does not close it
+  assert.match(source, /if \(\(offset\.y > 120 && velocity\.y > -50\) \|\| velocity\.y > 150\) \{[^]*?onClose\(\);/);
+  // Sideways is still a page turn, and now the photo follows the finger there
+  assert.match(source, /dragElastic=\{\{ top: 0\.1, bottom: 1, left: images\.length > 1 \? 1 : 0, right: images\.length > 1 \? 1 : 0 \}\}/);
+  assert.match(source, /Math\.abs\(velocity\.x\) > 150 && Math\.sign\(velocity\.x\) === Math\.sign\(offset\.x\)/);
+  assert.match(source, /if \(Math\.abs\(offset\.x\) > 45 \|\| flicked\) \{\s*(\/\/[^\n]*\s*)*dragX\.jump\(0\);\s*\(offset\.x < 0 \? goNext : goPrev\)\(\);/);
+  // Opening grows the photo from 97% on the fade's curve, unless motion is reduced
+  assert.match(source, /initial=\{\{ scale: reduceMotion \? 1 : 0\.97 \}\}/);
+  assert.match(source, /transition=\{\{ duration: 0\.2, ease: EASE_OUT \}\}\s*role="dialog"/);
   // The dark is no longer on the dialog itself, where a fade would take the photo with it
   assert.doesNotMatch(source, /className="fixed inset-0[^"]*bg-black\/80/);
-  assert.match(source, /<AnimatePresence onExitComplete=\{\(\) => dragY\.jump\(0\)\}>/);
+  assert.match(source, /onExitComplete=\{\(\) => \{\s*dragX\.jump\(0\);\s*dragY\.jump\(0\);\s*\}\}/);
 });
 
 test("a product page says once whether it ships now or is made for you", () => {

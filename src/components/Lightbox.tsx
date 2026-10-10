@@ -61,11 +61,14 @@ export default function Lightbox({
     return () => window.removeEventListener("keydown", handleKey);
   }, [open, goNext, goPrev]);
 
-  // The photo is held by the finger. A sideways swipe turns the page, as in
-  // the work viewer; pulled down past 120px (or flicked down) it lets go and
-  // the viewer closes, the dark behind it thinning as it is pulled, so the
-  // page underneath shows what letting go will lead back to. Direction lock:
-  // a stroke is one or the other, never both.
+  // The photo is held by the finger. Sideways it follows the finger, as the
+  // product page's gallery does, and let go far enough (or flicked) it turns
+  // the page; it used to stay put until the finger lifted, so a swipe felt
+  // like pressing on glass. Pulled down past 120px (or flicked down) it lets
+  // go and the viewer closes, the dark behind it thinning as it is pulled, so
+  // the page underneath shows what letting go will lead back to. Direction
+  // lock: a stroke is one or the other, never both.
+  const dragX = useMotionValue(0);
   const dragY = useMotionValue(0);
   const backdropOpacity = useTransform(dragY, [0, 320], [1, 0.25]);
   const axis = useRef<"x" | "y" | null>(null);
@@ -73,13 +76,18 @@ export default function Lightbox({
 
   const content = (
     // Back at rest for the next opening, once this one has gone
-    <AnimatePresence onExitComplete={() => dragY.jump(0)}>
+    <AnimatePresence
+      onExitComplete={() => {
+        dragX.jump(0);
+        dragY.jump(0);
+      }}
+    >
       {open && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.2, ease: EASE_OUT }}
           role="dialog"
           aria-modal="true"
           aria-label={`${alt} — image viewer`}
@@ -122,20 +130,28 @@ export default function Lightbox({
 
           {/* The next photo is simply there. Each one used to be remounted and
               zoomed up from 92%, so paging through five photos was five small
-              entrances for something the visitor had already asked to see. */}
+              entrances for something the visitor had already asked to see.
+              Only the opening grows it, from 97% as the dark fades in, so the
+              photo arrives with its viewer rather than a beat behind it; the
+              close is the fade alone. Reduced motion: no growing. */}
           <motion.div
             className="relative max-w-[90vw] max-h-[85dvh]"
             onClick={(e) => e.stopPropagation()}
-            style={{ y: dragY }}
+            initial={{ scale: reduceMotion ? 1 : 0.97 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.2, ease: EASE_OUT }}
+            style={{ x: dragX, y: dragY }}
             drag
             dragDirectionLock
             onDirectionLock={(locked) => {
               axis.current = locked;
             }}
-            // Sideways the photo stays put (the swipe turns the page, as it
-            // did); down it follows the finger fully, up only a little
+            // Sideways and down it follows the finger fully (with one photo
+            // there is nowhere to turn to, so sideways it stays put); up only
+            // a little. Let go short of a turn or a close, framer springs it
+            // back to the middle.
             dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
-            dragElastic={{ top: 0.1, bottom: 1, left: 0, right: 0 }}
+            dragElastic={{ top: 0.1, bottom: 1, left: images.length > 1 ? 1 : 0, right: images.length > 1 ? 1 : 0 }}
             dragMomentum={false}
             // The axis is cleared at the end of each drag, not at its start:
             // framer reports the start after the frame, by which time a quick
@@ -147,7 +163,10 @@ export default function Lightbox({
               if ((window.visualViewport?.scale ?? 1) > 1.01) return;
               const { offset, velocity } = info;
               if (locked === "y") {
-                if (offset.y > 120 || velocity.y > 500) {
+                // Past 120px, unless the finger was already heading back up
+                // as it let go (changing its mind), or on a flick down. At
+                // 500 px/s only a hard flick closed it.
+                if ((offset.y > 120 && velocity.y > -50) || velocity.y > 150) {
                   // On its way down as the viewer fades, not sprung back up
                   if (!reduceMotion) animate(dragY, dragY.get() + 160, { duration: 0.2, ease: EASE_OUT });
                   onClose();
@@ -155,8 +174,13 @@ export default function Lightbox({
                 return;
               }
               if (locked === "x" && images.length > 1) {
-                const flicked = Math.abs(velocity.x) > 400 && Math.sign(velocity.x) === Math.sign(offset.x);
-                if (Math.abs(offset.x) > 45 || flicked) (offset.x < 0 ? goNext : goPrev)();
+                const flicked = Math.abs(velocity.x) > 150 && Math.sign(velocity.x) === Math.sign(offset.x);
+                if (Math.abs(offset.x) > 45 || flicked) {
+                  // The next photo takes the middle at once, as the arrows
+                  // give it; the one under the finger does not spring back
+                  dragX.jump(0);
+                  (offset.x < 0 ? goNext : goPrev)();
+                }
               }
             }}
           >
