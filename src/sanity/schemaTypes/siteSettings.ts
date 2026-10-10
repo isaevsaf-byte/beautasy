@@ -42,8 +42,11 @@ export const siteSettings = defineType({
           name: "text",
           title: "Текст",
           type: "string",
-          description: "По-английски — его видит каждый посетитель.",
+          description: "По-английски — его видит каждый посетитель. До 80 знаков: на телефоне длиннее не помещается в две строки.",
           placeholder: "Например: Free UK shipping on orders over £50 🎁",
+          // A warning, not a block: the bar shows two lines at most on a
+          // phone and cuts the rest, so a long promo loses its condition
+          validation: (Rule) => Rule.max(80).warning("На телефоне видно только две строки — сократите до 80 знаков."),
         }),
         defineField({
           name: "link",

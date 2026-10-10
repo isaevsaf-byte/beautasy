@@ -583,7 +583,7 @@ export default function AtelierContent({
                   // over a flat background
                   className="bg-white/70 rounded-3xl p-8 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-[box-shadow,background-color] duration-300"
                 >
-                  <h4 className="font-serif text-xl mb-3">{service.title}</h4>
+                  <h3 className="font-serif text-xl mb-3">{service.title}</h3>
                   <p className="text-sm text-charcoal-light leading-relaxed mb-6">
                     {service.description}
                   </p>
