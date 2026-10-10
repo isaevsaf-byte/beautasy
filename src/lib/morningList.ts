@@ -88,7 +88,7 @@ export function diaryTimeHolds(booking: Pick<DiaryBooking, "slotStart" | "slotEn
 
 export interface Visit {
   day: "today" | "tomorrow";
-  /** "2:00pm", or "2:00pm–3:00pm" for a collection's trip */
+  /** The start, or for a collection its trip from start to end, as timeLabel writes them */
   time: string;
   name: string;
   /** The job, as she would say it */
