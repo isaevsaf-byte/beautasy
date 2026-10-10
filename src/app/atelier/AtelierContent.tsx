@@ -198,11 +198,15 @@ export default function AtelierContent({
                   custom={1}
                   className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] leading-tight mb-6"
                 >
-                  {/* Two lines on a laptop; on a phone the browser balances
-                      them, where a fixed break left a word alone */}
+                  {/* Two lines on a laptop, the break hidden on a phone. The
+                      second line is a block of its own (inline-block): the
+                      browser does not balance the words after a <br>, and on a
+                      1024px screen "you." was left alone under "tailored just
+                      for"; inside the block they balance, and the line never
+                      starts halfway through "The perfect fit," either. */}
                   The perfect fit,{" "}
                   <br className="hidden md:inline" />
-                  <span className="italic text-lavender">tailored just for you.</span>
+                  <span className="inline-block italic text-lavender">tailored just for you.</span>
                 </motion.h1>
                 <motion.p
                   variants={fadeUp}

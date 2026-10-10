@@ -123,11 +123,14 @@ function Hero({ priceFrom }: { priceFrom?: string | null }) {
             custom={1}
             className="font-serif text-4xl sm:text-5xl lg:text-6xl leading-tight mb-6"
           >
-            {/* The break is for a laptop, where the two lines are the design;
-                on a phone the browser balances the words itself, and a fixed
-                break there left "repairs" alone on a line at some widths */}
+            {/* The break is for a tablet, where the column is wide and the two
+                lines are the design. On a phone, and from lg where the heading
+                shares the row with the logo, the column is too narrow for
+                "Alterations & repairs" on one line: the fixed break then left
+                "repairs" alone under "Alterations &", and without it the
+                browser balances "Alterations / & repairs / in Southampton". */}
             Alterations &amp; repairs{" "}
-            <br className="hidden md:inline" />
+            <br className="hidden md:inline lg:hidden" />
             <span className="italic text-lavender-ink">
               <Stitched>in Southampton</Stitched>
             </span>
