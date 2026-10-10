@@ -788,33 +788,50 @@ main:focus {
    it has finished, and it moves only for a visitor who has not asked for
    less motion. Screen blending
    only ever lightens, so the lilac figure under the mask's soft edge stays
-   lilac. */
+   lilac.
+   The band is painted once on a strip of its own (::before) that slides
+   across under the mask, rather than moved as a background-position, which
+   repainted the logo's box on every frame of the 1.6s. The strip is the size
+   the background was (260% of the logo by its height), so the band is the
+   same shape; its two places are the old 125% and -25% positions — its left
+   edge two logo-widths before the logo and 0.4 of one past it, as fractions
+   of its own width (2 / 2.6 and 0.4 / 2.6). Opacity and transform both run
+   on the compositor. */
 .logo-sheen {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   pointer-events: none;
-  opacity: 0;
   -webkit-mask: url("/beautasy-logo-gold-mask.png") 0 0 / 100% 100% no-repeat;
   mask: url("/beautasy-logo-gold-mask.png") 0 0 / 100% 100% no-repeat;
-  background: linear-gradient(
-      100deg,
-      transparent 0 43%,
-      rgb(255 236 190 / 0.45) 47%,
-      rgb(255 244 214 / 0.9) 50%,
-      rgb(255 236 190 / 0.45) 53%,
-      transparent 57% 100%
-    )
-    125% 0 / 260% 100% no-repeat;
   mix-blend-mode: screen;
 }
+.logo-sheen::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 260%;
+  height: 100%;
+  opacity: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 0 43%,
+    rgb(255 236 190 / 0.45) 47%,
+    rgb(255 244 214 / 0.9) 50%,
+    rgb(255 236 190 / 0.45) 53%,
+    transparent 57% 100%
+  );
+  transform: translateX(-76.923%);
+}
 @media (prefers-reduced-motion: no-preference) {
-  .logo-sheen[data-shine] {
+  .logo-sheen[data-shine]::before {
     animation: bty-sheen 1.6s ease-in-out both;
   }
 }
 @keyframes bty-sheen {
-  0% { opacity: 1; background-position: 125% 0; }
-  100% { opacity: 1; background-position: -25% 0; }
+  0% { opacity: 1; transform: translateX(-76.923%); }
+  100% { opacity: 1; transform: translateX(15.385%); }
 }
 @media (forced-colors: active), print {
   .logo-sheen {

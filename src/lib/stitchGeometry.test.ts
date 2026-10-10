@@ -477,25 +477,40 @@ test("the logo's gold catches the light once: only the gold, after the stitch, a
 
   // At rest nothing shows; it moves only once set going, and only for those who want motion
   const sheen = rule(".logo-sheen");
+  const strip = rule(".logo-sheen::before");
   const masked = /url\("\/beautasy-logo-gold-mask\.png"\) 0 0 \/ 100% 100% no-repeat;/.source;
-  for (const part of [/opacity: 0;/, /pointer-events: none;/, new RegExp(`-webkit-mask: ${masked}`), new RegExp(`(?:^|; )mask: ${masked}`), /mix-blend-mode: screen;/]) {
+  for (const part of [/pointer-events: none;/, /overflow: hidden;/, new RegExp(`-webkit-mask: ${masked}`), new RegExp(`(?:^|; )mask: ${masked}`), /mix-blend-mode: screen;/]) {
     assert.match(sheen, part);
   }
+  assert.match(strip, /opacity: 0;/);
   const motion = block(CSS, "@media (prefers-reduced-motion: no-preference)", CSS.indexOf(".logo-sheen {"));
-  assert.match(motion, /^\s*\.logo-sheen\[data-shine\] \{\s*animation: bty-sheen 1\.6s ease-in-out both;\s*\}\s*$/);
+  assert.match(motion, /^\s*\.logo-sheen\[data-shine\]::before \{\s*animation: bty-sheen 1\.6s ease-in-out both;\s*\}\s*$/);
   const part = CSS.slice(CSS.indexOf(".logo-sheen {"), CSS.indexOf("@media (forced-colors: active), print", CSS.indexOf(".logo-sheen {")));
   assert.doesNotMatch(part.replace(motion, ""), /\b(animation|transition)\s*:/, "an animation outside the reduced-motion guard");
   assert.equal((CSS.match(/\bbty-sheen\b/g) ?? []).length, 2, "used once, guarded, plus its keyframes");
   assert.match(block(CSS, "@media (forced-colors: active), print", CSS.indexOf(".logo-sheen {")), /^\s*\.logo-sheen \{\s*display: none;\s*\}\s*$/);
-  // The light band is off the letters where it starts and where it stops, so nothing is left lit
-  const band = /linear-gradient\(\s*(\d+)deg,\s*transparent 0 (\d+)%,[\s\S]*?transparent (\d+)% 100%\s*\)\s*([-\d]+)% 0 \/ (\d+)% 100% no-repeat;/.exec(sheen);
-  assert.ok(band, sheen);
-  const [angle, from, to, , width] = band.slice(1).map(Number);
-  assert.ok(angle >= 90 && angle <= 120, "a band near upright, so its resting place off the side is off the whole logo");
-  const edges = (position: number) => [from, to].map((stop) => ((1 - width / 100) * position) / 100 + (width / 100) * (stop / 100));
+  // It slides on the compositor: the band is painted once and the strip moves, nothing repainted per frame
   for (const stop of ["0%", "100%"]) {
-    const position = Number(/background-position: ([-\d]+)% 0;/.exec(frame("bty-sheen", stop))?.[1]);
-    const [left, right] = edges(position);
+    assert.deepEqual(
+      [...frame("bty-sheen", stop).matchAll(/([a-z-]+):/g)].map((match) => match[1]).sort(),
+      ["opacity", "transform"],
+      `the ${stop} frame moves only opacity and transform`,
+    );
+  }
+  // The light band is off the letters where it starts and where it stops, so nothing is left lit
+  const band = /linear-gradient\(\s*(\d+)deg,\s*transparent 0 (\d+)%,[\s\S]*?transparent (\d+)% 100%\s*\);/.exec(strip);
+  assert.ok(band, strip);
+  const [angle, from, to] = band.slice(1).map(Number);
+  const width = Number(/(?:^|; )width: (\d+)%;/.exec(strip)?.[1]);
+  assert.ok(width > 100, `the strip is wider than the logo (${width}%)`);
+  assert.ok(angle >= 90 && angle <= 120, "a band near upright, so its resting place off the side is off the whole logo");
+  // A translate's percentages are of the strip's own width, so in logo widths its left edge sits at shift × width
+  const edges = (shift: number) => [from, to].map((stop) => ((shift / 100) * width) / 100 + (width / 100) * (stop / 100));
+  const shift = (css: string) => Number(/transform: translateX\(([-\d.]+)%\);/.exec(css)?.[1]);
+  assert.equal(shift(strip), shift(frame("bty-sheen", "0%")), "at rest the strip waits where the sweep starts");
+  assert.ok(edges(shift(frame("bty-sheen", "0%")))[0] < edges(shift(frame("bty-sheen", "100%")))[0], "the light runs left to right");
+  for (const stop of ["0%", "100%"]) {
+    const [left, right] = edges(shift(frame("bty-sheen", stop)));
     assert.ok(right <= -0.1 || left >= 1.1, `at ${stop} the band runs ${left.toFixed(2)}–${right.toFixed(2)} of the logo`);
     assert.match(frame("bty-sheen", stop), /opacity: 1;/);
   }
