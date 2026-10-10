@@ -389,7 +389,9 @@ export default function ShopContent({
                     <div className={`${i % 2 === 1 ? "lg:order-2" : ""}`}>
                       {/* The logos are drawn on near-white squares; multiplied
                           into the tile, the square takes its colour and the
-                          drop shadow it cast is gone with it */}
+                          drop shadow it cast is gone with it. 5% brighter
+                          first, as the squares are 246–252 and not white (see
+                          the home page's shelves). */}
                       <Link href={cat.href}>
                         <div className={`relative aspect-[4/5] rounded-3xl overflow-hidden flex items-center justify-center cursor-pointer ${cat.bgClass || "bg-cream-soft"}`}>
                           <Image
@@ -397,7 +399,7 @@ export default function ShopContent({
                             alt={cat.title}
                             width={600}
                             height={600}
-                            className="w-[60%] h-auto object-contain mix-blend-multiply hover:scale-105 transition-transform duration-300 ease-out"
+                            className="w-[60%] h-auto object-contain brightness-105 mix-blend-multiply hover:scale-105 transition-transform duration-300 ease-out"
                             {...(i === 0 ? { preload: true, fetchPriority: "high" as const } : {})}
                           />
                         </div>
@@ -409,14 +411,16 @@ export default function ShopContent({
                       <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-3">
                         Collection
                       </p>
-                      <h3 className="font-serif text-3xl sm:text-4xl mb-2">
+                      {/* h2: each section is a part of the page under its h1,
+                          as "Featured products" is; as h3 they skipped a level */}
+                      <h2 className="font-serif text-3xl sm:text-4xl mb-2">
                         {cat.title}
                         {cat.subtitle && (
                           <span className="text-lg font-sans text-charcoal-light ml-3">
                             ({cat.subtitle})
                           </span>
                         )}
-                      </h3>
+                      </h2>
                       <p className="text-charcoal-light leading-relaxed mb-8 max-w-md">
                         {cat.description}
                       </p>
@@ -600,7 +604,7 @@ export default function ShopContent({
                 <div className="w-20 h-20 rounded-full bg-lavender/15 flex items-center justify-center mx-auto mb-6">
                   <span className="text-3xl">✨</span>
                 </div>
-                <h4 className="font-serif text-2xl mb-3">
+                <h3 className="font-serif text-2xl mb-3">
                   {activeSize || readyOnly
                     ? "Nothing matches those filters"
                     : activeSubcategory
@@ -608,7 +612,7 @@ export default function ShopContent({
                     : activeCategory
                     ? `${categoryLabels[activeCategory] || "This"} collection coming soon`
                     : "New collection coming soon"}
-                </h4>
+                </h3>
                 <p className="text-charcoal-light max-w-md mx-auto leading-relaxed mb-8">
                   We&apos;re handcrafting new pieces for this collection. Check
                   back soon or get in touch to request something custom.
@@ -669,25 +673,9 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
               />
               <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300 ease-out" />
             </Link>
-            {/* Badges — siblings of the PDP link, not nested inside it. They stop
-                short of the heart (right-16): a long collection name used to
-                slide underneath it, and now ends in "…" with the full name on
-                hover. */}
-            <div className="absolute top-4 left-4 right-16 flex flex-col items-start gap-1.5 pointer-events-none">
-              <div className="max-w-full bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 pointer-events-auto">
-                <p className="text-xs text-charcoal-light truncate" title={product.category}>{product.category}</p>
-              </div>
-              {product.collection && (
-                <Link
-                  href={`/shop/collection/${product.collection.slug}`}
-                  title={product.collection.name}
-                  className="max-w-full bg-lavender/90 backdrop-blur-sm rounded-full px-3 py-1 hover:bg-lavender transition-colors pointer-events-auto"
-                >
-                  <p className="text-xs text-charcoal font-medium truncate">{product.collection.name}</p>
-                </Link>
-              )}
-            </div>
-            {/* Wishlist heart */}
+            {/* Wishlist heart — the one thing on the photo besides the zoom.
+                The section and collection pills that sat over its top left
+                corner are under the name now, so the piece is seen whole. */}
             <div className="absolute top-4 right-4 z-10">
               <WishlistButton
                 product={wishlistEntry(product, activeImage)}
@@ -740,10 +728,28 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           <Link href={`/shop/${product.slug}`} className="block">
             {/* Two lines at most, so a long name does not push its card's
                 button below its neighbours'; the whole name is in the title */}
-            <h4 className="font-serif text-lg mb-1 line-clamp-2 hover:text-charcoal/70 transition-colors" title={product.name}>
+            <h3 className="font-serif text-lg mb-1 line-clamp-2 hover:text-charcoal/70 transition-colors" title={product.name}>
               {product.name}
-            </h4>
+            </h3>
           </Link>
+          {/* Where it belongs, in small words under its name: the section, and
+              the collection as a link to the rest of it. They used to be pills
+              over the photo, covering the piece. A long collection name wraps
+              here instead of ending in "…". */}
+          <p className="flex flex-wrap items-baseline gap-x-1.5 text-xs text-charcoal-light mb-1.5">
+            <span>{product.category}</span>
+            {product.collection && (
+              <>
+                <span aria-hidden="true">·</span>
+                <Link
+                  href={`/shop/collection/${product.collection.slug}`}
+                  className="text-lavender-ink underline-offset-2 hover:underline"
+                >
+                  {product.collection.name}
+                </Link>
+              </>
+            )}
+          </p>
           {/* "from" the cheapest size when the sizes cost different amounts */}
           <p className="text-charcoal-light text-sm mb-1 tabular-nums">{startingPriceLabel(product)}</p>
           {/* The same words the product page uses (@/lib/availability). Full

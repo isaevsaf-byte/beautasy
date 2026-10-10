@@ -185,9 +185,31 @@ const shop = (products: ShopProduct[], filters = {}) =>
 test("a shop section arrives with its heading and products visible", () => {
   const html = shop([piece(1), piece(2)]);
   assert.match(html, /<h1[^>]*>Mini Beautasy<\/h1>/);
-  assert.match(html, /Piece 2<\/h4>/);
+  assert.match(html, /Piece 2<\/h3>/);
   // On a throttled phone the faded-in top of /shop stayed blank for 14–19 s
   assert.doesNotMatch(html, /opacity:\s*0[;"]/);
+});
+
+test("the shop's headings go down one level at a time, and the photos carry no pills", () => {
+  const levels = (html: string) => [...html.matchAll(/<h([1-6])\b/g)].map(([, level]) => Number(level));
+  const steps = (html: string) =>
+    levels(html).reduce((previous, level) => {
+      assert.ok(level <= previous + 1, `h${previous} is followed by h${level}`);
+      return level;
+    });
+  const collection = { name: "Moonlight", slug: "moonlight" };
+  // The whole shop, with its sections, and a section of it
+  const all = render(createElement(ShopContent, { products: [piece(1, { collection })], basePath: "/shop" }));
+  steps(all);
+  assert.ok(levels(all).includes(2) && levels(all).includes(3));
+  const section = shop([piece(1, { collection }), piece(2)]);
+  steps(section);
+  // The section and collection are in words under the name, not over the photo
+  const card = section.slice(section.indexOf("Piece 1</h3>"));
+  assert.match(card, /<span>Kids<\/span><span aria-hidden="true">·<\/span><a [^>]*href="\/shop\/collection\/moonlight"[^>]*>Moonlight<\/a>/);
+  assert.doesNotMatch(section, /absolute top-4 left-4/);
+  // An empty shelf says so in an h3 under the h2
+  steps(shop([]));
 });
 
 test("the grid's thumbnails are small, lazy and not preloaded", () => {
@@ -223,8 +245,8 @@ test("each card says when it ships, in words dark enough to read", () => {
 
   // "Ready to ship" keeps pieces with something on the shelf
   const ready = shop([piece(1), piece(3, { stock: 0 })], { ready: "1" });
-  assert.match(ready, /Piece 1<\/h4>/);
-  assert.doesNotMatch(ready, /Piece 3<\/h4>/);
+  assert.match(ready, /Piece 1<\/h3>/);
+  assert.doesNotMatch(ready, /Piece 3<\/h3>/);
 });
 
 test("a card with a colour to choose sends the customer to choose it", () => {
