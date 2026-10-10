@@ -8,7 +8,7 @@ import FriendsShare from "@/components/FriendsShare";
 type Status = "idle" | "loading" | "done" | "error";
 
 const FIELD_CLASS =
-  "w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20";
+  "w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25";
 
 /**
  * "Get my link": a first name and an email. The link is shown here at once

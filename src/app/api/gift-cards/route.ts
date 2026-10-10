@@ -4,6 +4,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { findSpendableCard, normaliseCode, sanitiseAmount, PRESET_AMOUNTS } from "@/lib/giftCards";
 import { secretsConfigured } from "@/lib/secrets";
 import { checkoutReturnBase, createCheckoutSession } from "@/lib/stripeCheckout";
+import { clipText } from "@/lib/clipText";
 
 export const dynamic = "force-dynamic";
 
@@ -104,8 +105,8 @@ export async function POST(req: NextRequest) {
       gift_card: "true",
       gift_card_amount: String(value),
       gift_card_recipient: recipientEmail,
-      ...(recipientName ? { gift_card_recipient_name: String(recipientName).slice(0, 60) } : {}),
-      ...(message ? { gift_card_message: String(message).slice(0, MESSAGE_MAX) } : {}),
+      ...(recipientName ? { gift_card_recipient_name: clipText(String(recipientName), 60) } : {}),
+      ...(message ? { gift_card_message: clipText(String(message), MESSAGE_MAX) } : {}),
       ...(deliverAtIso ? { gift_card_deliver_at: deliverAtIso } : {}),
     };
 

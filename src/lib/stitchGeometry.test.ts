@@ -382,7 +382,7 @@ test("Book with no time draws chalk by the times instead of red words by the but
   assert.match(noTime, /setError\(CHOOSE_A_TIME\);/);
   assert.match(
     form,
-    /role="alert"[\s\S]{0,500}className=\{chalk > 0 && bookable && !collecting && error === CHOOSE_A_TIME \? "sr-only" : "text-xs text-red-500"\}/,
+    /role="alert"[\s\S]{0,500}className=\{chalk > 0 && bookable && !collecting && error === CHOOSE_A_TIME \? "sr-only" : "text-xs text-rose-700"\}/,
   );
   // A time picked, a switch between fitting and collection, another service or a send brushes it off
   assert.match(form, /setPicked\(s\.start\);\s*setError\(null\);\s*setUnanswered\(false\);\s*setChalk\(0\);/);

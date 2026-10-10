@@ -737,7 +737,7 @@ export default function AtelierBookingForm({
               exit={{ opacity: 0 }}
               // Only "choose a time" is said by the chalk, while it is there; this
               // line keeps it for screen readers. Anything else shows in words.
-              className={chalk > 0 && bookable && !collecting && error === CHOOSE_A_TIME ? "sr-only" : "text-xs text-red-500"}
+              className={chalk > 0 && bookable && !collecting && error === CHOOSE_A_TIME ? "sr-only" : "text-xs text-rose-700"}
             >
               {error}
             </motion.p>

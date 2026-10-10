@@ -6,6 +6,7 @@ import { Loader2, Gift } from "lucide-react";
 import { fadeUp, stagger } from "@/components/animations";
 import TermsNote from "@/components/TermsNote";
 import { formatPence } from "@/lib/money";
+import { clipText } from "@/lib/clipText";
 
 const PRESETS = [2500, 5000, 10000];
 const MIN = 1000;
@@ -180,7 +181,7 @@ export default function GiftCardPurchase() {
           <input
             type="text"
             value={recipientName}
-            onChange={(e) => setRecipientName(e.target.value.slice(0, 60))}
+            onChange={(e) => setRecipientName(clipText(e.target.value, 60))}
             placeholder="So we can greet them properly"
             className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
           />
@@ -193,7 +194,7 @@ export default function GiftCardPurchase() {
           <textarea
             rows={3}
             value={message}
-            onChange={(e) => setMessage(e.target.value.slice(0, 300))}
+            onChange={(e) => setMessage(clipText(e.target.value, 300))}
             placeholder="Happy birthday, choose something you love…"
             className="w-full text-sm px-4 py-2.5 rounded-xl border border-lavender-soft/50 bg-white resize-none focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
           />

@@ -107,6 +107,10 @@ test("a page without the button or the form keeps the bar hidden, and nothing br
 
 test("the bar on the page is the one these tests drive", () => {
   const source = readFileSync(join(process.cwd(), "src/components/StickyBookBar.tsx"), "utf8");
-  assert.match(source, /useEffect\(\(\) => followBookBar\(window, heroId, bookId, setShown\), \[heroId, bookId\]\);/);
+  assert.match(source, /useEffect\(\(\) => followBookBar\(window, heroId, bookId, setScrolledPast\), \[heroId, bookId\]\);/);
   assert.match(source, /inert=\{!shown\}/);
+  // and it waits for the cookie banner, which owns the bottom of the screen
+  // until it is answered
+  assert.match(source, /const shown = scrolledPast && consentAnswered;/);
+  assert.match(source, /useSyncExternalStore\(\s*subscribeToConsent,\s*\(\) => readConsent\(\) !== null,\s*\(\) => false\s*\)/);
 });

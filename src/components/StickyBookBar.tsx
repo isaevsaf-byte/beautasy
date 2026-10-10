@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { ArrowRight, MessageCircle } from "lucide-react";
+import { readConsent, subscribeToConsent } from "@/lib/consent";
 
 /**
  * Whether the phone's booking bar shows: once the first "Choose a time" has
@@ -89,8 +90,17 @@ export default function StickyBookBar({
   /** The WhatsApp link, with its first line already typed */
   whatsapp: string;
 }) {
-  const [shown, setShown] = useState(false);
-  useEffect(() => followBookBar(window, heroId, bookId, setShown), [heroId, bookId]);
+  const [scrolledPast, setScrolledPast] = useState(false);
+  useEffect(() => followBookBar(window, heroId, bookId, setScrolledPast), [heroId, bookId]);
+  // On a first visit the cookie banner owns the bottom of the screen, and the
+  // bar slid up underneath it, half hidden, with both asking for a tap. The
+  // bar waits until the banner has been answered.
+  const consentAnswered = useSyncExternalStore(
+    subscribeToConsent,
+    () => readConsent() !== null,
+    () => false
+  );
+  const shown = scrolledPast && consentAnswered;
 
   return (
     // Phones only: the way to the booking form, while it is still below.
