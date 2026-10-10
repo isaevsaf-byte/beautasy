@@ -1283,8 +1283,11 @@ export default function ProductDetail({
       {/* The name takes the room and gives way ("…"); the button keeps its
           words on one line. With the button as flex-1, a long name squeezed it
           down to its longest word. The bottom padding clears the iPhone's
-          home bar now that the page runs edge to edge. */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3">
+          home bar now that the page runs edge to edge. On a touch screen
+          the bar is a near-solid cream with no blur: a blur under a fixed bar
+          is redrawn on every frame of every scroll, which costs a phone
+          battery. */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md pointer-coarse:backdrop-blur-none pointer-coarse:bg-[#FDFBF7]/[0.97] border-t border-lavender-soft/40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] text-charcoal-light truncate">{product.name}</p>
           <p className="font-serif text-lg leading-tight tabular-nums">

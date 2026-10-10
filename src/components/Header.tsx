@@ -171,8 +171,11 @@ export default function Header({
     // A column no taller than the screen: the open phone menu is the part
     // that gives way and scrolls, so its last buttons can always be reached
     // (on a phone on its side they were below the screen, out of reach).
+    // Frosted glass with a mouse; on a touch screen a near-solid cream with
+    // no blur, because a blur under a fixed bar is worked out again on every
+    // frame of every scroll, and on a phone that is battery.
     <header
-      className="fixed top-0 left-0 right-0 z-50 flex flex-col max-h-dvh backdrop-blur-md bg-[#FDFBF7]/90 border-b border-[#E6E6FA]/40"
+      className="fixed top-0 left-0 right-0 z-50 flex flex-col max-h-dvh backdrop-blur-md bg-[#FDFBF7]/90 pointer-coarse:backdrop-blur-none pointer-coarse:bg-[#FDFBF7]/[0.97] border-b border-[#E6E6FA]/40"
     >
       {/* ── Announcement bar — lives inside the fixed header so it never
            bleeds through the header's glass background as a ghost ── */}

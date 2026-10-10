@@ -106,10 +106,12 @@ export default function StickyBookBar({
     // Phones only: the way to the booking form, while it is still below.
     // The inset has a 0px fallback, so a browser without it keeps the 0.75rem
     // rather than dropping the whole padding. With less motion asked for, the
-    // bar appears and goes without sliding.
+    // bar appears and goes without sliding. On a touch screen it is a
+    // near-solid cream with no blur: a blur under a fixed bar is redrawn on
+    // every frame of every scroll, which a phone pays for in battery.
     <div
       inert={!shown}
-      className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-lavender-soft/40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3 transition-transform duration-300 motion-reduce:transition-none ${
+      className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FDFBF7]/95 backdrop-blur-md pointer-coarse:backdrop-blur-none pointer-coarse:bg-[#FDFBF7]/[0.97] border-t border-lavender-soft/40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3 transition-transform duration-300 motion-reduce:transition-none ${
         shown ? "translate-y-0" : "translate-y-full"
       }`}
     >
