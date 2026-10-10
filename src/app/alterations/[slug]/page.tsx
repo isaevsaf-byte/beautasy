@@ -217,9 +217,9 @@ export default async function LocalServicePage({
         {/* ──── Breadcrumb ──── */}
         <nav aria-label="Breadcrumb" className="max-w-4xl mx-auto px-6 mb-8">
           <ol className="flex flex-wrap items-center gap-2 text-xs text-charcoal-light">
-            <li><Link href="/" className="hover:text-lavender transition-colors">Home</Link></li>
+            <li><Link href="/" className="hover:text-lavender-ink transition-colors">Home</Link></li>
             <li aria-hidden="true">/</li>
-            <li><Link href="/alterations" className="hover:text-lavender transition-colors">Alterations</Link></li>
+            <li><Link href="/alterations" className="hover:text-lavender-ink transition-colors">Alterations</Link></li>
             <li aria-hidden="true">/</li>
             <li className="text-charcoal">{service.eyebrow}</li>
           </ol>
@@ -417,10 +417,10 @@ export default async function LocalServicePage({
               <span className="inline-flex items-center gap-2">
                 <Clock size={14} aria-hidden="true" /> {BUSINESS.hours.label}
               </span>
-              <a href={BUSINESS.telephoneHref} className="inline-flex items-center gap-2 hover:text-lavender transition-colors">
+              <a href={BUSINESS.telephoneHref} className="inline-flex items-center gap-2 hover:text-lavender-ink transition-colors">
                 <Phone size={14} aria-hidden="true" /> {BUSINESS.telephone}
               </a>
-              <a href={`mailto:${BUSINESS.email}`} className="inline-flex items-center gap-2 hover:text-lavender transition-colors">
+              <a href={`mailto:${BUSINESS.email}`} className="inline-flex items-center gap-2 hover:text-lavender-ink transition-colors">
                 <Mail size={14} aria-hidden="true" /> {BUSINESS.email}
               </a>
             </div>
@@ -442,7 +442,7 @@ export default async function LocalServicePage({
                 href={item.href}
                 className="group bg-white rounded-2xl border border-lavender-soft/40 p-5 hover:border-lavender transition-colors"
               >
-                <span className="font-serif text-lg leading-snug block mb-1.5 group-hover:text-lavender transition-colors">
+                <span className="font-serif text-lg leading-snug block mb-1.5 group-hover:text-lavender-ink transition-colors">
                   {item.label}
                 </span>
                 <span className="text-sm text-charcoal-light leading-relaxed block">{item.note}</span>
@@ -465,7 +465,7 @@ export default async function LocalServicePage({
                 <span className="block text-xs tracking-[0.18em] uppercase text-charcoal-light mb-2">
                   {r.eyebrow}
                 </span>
-                <span className="font-serif text-lg leading-snug block group-hover:text-lavender transition-colors">
+                <span className="font-serif text-lg leading-snug block group-hover:text-lavender-ink transition-colors">
                   {r.h1.replace(" in Southampton", "")}
                 </span>
               </Link>
@@ -477,7 +477,7 @@ export default async function LocalServicePage({
               <span className="block text-xs tracking-[0.18em] uppercase text-charcoal-light mb-2">
                 Everything
               </span>
-              <span className="font-serif text-lg leading-snug block group-hover:text-lavender transition-colors">
+              <span className="font-serif text-lg leading-snug block group-hover:text-lavender-ink transition-colors">
                 Full atelier services &amp; price list
               </span>
             </Link>

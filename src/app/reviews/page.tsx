@@ -163,7 +163,7 @@ export default async function ReviewsPage() {
               FEATURED_REVIEW_MAX, so it never fills a phone's screen many
               times over before the page's own button */}
           {featured && (
-            <figure className="relative max-w-3xl mt-14 mx-6 sm:mx-auto rounded-3xl bg-white/80 border border-lavender-soft/60 px-7 pt-12 pb-9 sm:px-14 text-center shadow-[0_20px_60px_-30px_rgba(74,74,74,0.25)]">
+            <figure className="relative max-w-3xl mt-14 mx-6 sm:mx-auto rounded-3xl bg-white/80 border border-lavender-soft/60 px-7 pt-12 pb-9 sm:px-14 text-center shadow-[0_20px_60px_-30px_rgba(90,45,92,0.22)]">
               <span
                 aria-hidden="true"
                 className="absolute left-1/2 -translate-x-1/2 -top-7 font-serif text-8xl leading-none text-lavender select-none"

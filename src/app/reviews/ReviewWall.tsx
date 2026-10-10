@@ -45,7 +45,7 @@ export default function ReviewWall({
               onClick={() => setShelf(option.key)}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors ${
                 shelf === option.key
-                  ? "bg-charcoal text-white border-charcoal"
+                  ? "bg-plum text-white border-plum"
                   : "bg-white/70 text-charcoal border-lavender-soft hover:border-lavender"
               }`}
             >

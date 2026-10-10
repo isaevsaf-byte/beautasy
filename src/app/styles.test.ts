@@ -121,3 +121,23 @@ test("the pages written for this fix use the ink, not the brand lavender, for wo
   assert.doesNotMatch(legal, /prose-a:text-lavender\b(?!-)/);
   assert.doesNotMatch(legal, /prose-a:no-underline/);
 });
+
+test("a word that turns lavender under the pointer turns the ink, not the fill", () => {
+  // .text-lavender:not(svg) repaints the class itself as the ink, but not its
+  // hover: and group-hover: variants: those painted the hovered word in the
+  // 1.4:1 fill, so a title seemed to fade out as the pointer reached it
+  const files = [
+    "src/app/atelier/AtelierContent.tsx",
+    "src/app/alterations/[slug]/page.tsx",
+    "src/app/alterations/page.tsx",
+    "src/app/HomeContent.tsx",
+    "src/components/reviews/ReviewCard.tsx",
+    "src/components/reviews/ReviewStrip.tsx",
+  ];
+  for (const file of files) {
+    assert.doesNotMatch(read(file), /(?<![\w-])(?:group-)?hover:text-lavender(?![\w-])/, file);
+  }
+  // Large shadows carry the plum, not grey
+  assert.doesNotMatch(read("src/app/reviews/page.tsx"), /rgba\(74,\s*74,\s*74/);
+  assert.doesNotMatch(read("src/app/atelier/AtelierContent.tsx"), /shadow-xl hover:shadow-lavender\/10/);
+});

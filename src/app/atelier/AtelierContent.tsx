@@ -290,7 +290,7 @@ export default function AtelierContent({
                   // Each card is drawn over the next, so the stitch leaving it
                   // lies on top of the card it runs into (see .step-stitch-*).
                   style={{ zIndex: steps.length - i }}
-                  className="relative text-center bg-white/70 rounded-3xl px-8 py-10 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-[box-shadow,background-color] duration-300"
+                  className="relative text-center bg-white/70 rounded-3xl px-8 py-10 border border-lavender-soft/30 hover:shadow-xl hover:shadow-plum/10 transition-[box-shadow,background-color] duration-300"
                 >
                   <div className="w-14 h-14 rounded-2xl bg-lavender/15 flex items-center justify-center mx-auto mb-5">
                     <s.icon size={26} className="text-charcoal" />
@@ -456,7 +456,7 @@ export default function AtelierContent({
                   <span className="block text-xs tracking-[0.18em] uppercase text-charcoal-light mb-2">
                     {s.eyebrow}
                   </span>
-                  <span className="font-serif text-lg leading-snug block mb-3 group-hover:text-lavender transition-colors">
+                  <span className="font-serif text-lg leading-snug block mb-3 group-hover:text-lavender-ink transition-colors">
                     {s.h1.replace(" in Southampton", "")}
                   </span>
                   <span className="text-sm font-medium text-charcoal">{s.prices[0].price}</span>
@@ -533,7 +533,7 @@ export default function AtelierContent({
                   custom={i}
                   // As the step cards above: only the shadow eases, and no blur
                   // over a flat background
-                  className="bg-white/70 rounded-3xl p-8 border border-lavender-soft/30 hover:shadow-xl hover:shadow-lavender/10 transition-[box-shadow,background-color] duration-300"
+                  className="bg-white/70 rounded-3xl p-8 border border-lavender-soft/30 hover:shadow-xl hover:shadow-plum/10 transition-[box-shadow,background-color] duration-300"
                 >
                   <h3 className="font-serif text-xl mb-3">{service.title}</h3>
                   <p className="text-sm text-charcoal-light leading-relaxed mb-6">

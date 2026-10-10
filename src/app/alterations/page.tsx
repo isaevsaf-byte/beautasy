@@ -148,7 +148,7 @@ export default async function AlterationsHub() {
                 <span className="block text-xs tracking-[0.18em] uppercase text-charcoal-light mb-2">
                   {s.eyebrow}
                 </span>
-                <h3 className="font-serif text-xl leading-snug mb-2 group-hover:text-lavender transition-colors">
+                <h3 className="font-serif text-xl leading-snug mb-2 group-hover:text-lavender-ink transition-colors">
                   {s.h1.replace(" in Southampton", "")}
                 </h3>
                 <p className="text-sm text-charcoal-light leading-relaxed mb-4">
