@@ -61,15 +61,22 @@ export default function NewsletterSignup({ source = "footer" }: { source?: strin
         New pieces, atelier news and a welcome code. No noise.
       </p>
 
-      <AnimatePresence mode="wait">
+      {/* initial={false}: the form is there from the first paint. Without it
+          the form was sent from the server at opacity 0, so every page's
+          footer had an invisible signup until the scripts had loaded. Only
+          the swap to the thank-you line animates. */}
+      <AnimatePresence mode="wait" initial={false}>
         {status === "done" ? (
           <motion.p
             key="done"
+            role="status"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 text-sm text-green-600 font-medium"
+            // Charcoal, with the tick in the brand's darker lavender: the
+            // green it was in failed contrast on the cream footer
+            className="flex items-center gap-2 text-sm text-charcoal font-medium"
           >
-            <CheckCircle2 size={16} />
+            <CheckCircle2 size={16} className="text-lavender-ink shrink-0" aria-hidden="true" />
             {message}
           </motion.p>
         ) : (
@@ -99,19 +106,22 @@ export default function NewsletterSignup({ source = "footer" }: { source?: strin
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 aria-label="Email address"
-                className="flex-1 min-w-0 text-sm px-4 py-2.5 rounded-full border border-lavender-soft/60 bg-white/70 text-charcoal placeholder:text-charcoal-light/50 focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                // The saved address offered as you tap, and a Send key
+                autoComplete="email"
+                enterKeyHint="send"
+                className="flex-1 min-w-0 text-sm px-4 py-2.5 rounded-full border border-lavender-soft/60 bg-white/70 text-charcoal placeholder:text-charcoal-light/50 focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
               />
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="shrink-0 px-5 py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                className="press shrink-0 px-5 py-2.5 rounded-full bg-lavender text-charcoal text-xs tracking-wider uppercase font-medium hover:bg-[#CFC0F0] disabled:opacity-60 flex items-center gap-1.5"
               >
                 {status === "loading" && <Loader2 size={13} className="animate-spin" />}
                 Join
               </button>
             </div>
             {status === "error" && (
-              <p className="text-xs text-red-500">{message}</p>
+              <p role="alert" className="text-xs text-rose-700">{message}</p>
             )}
           </motion.form>
         )}

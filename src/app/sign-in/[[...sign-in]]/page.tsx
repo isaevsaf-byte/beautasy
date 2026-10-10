@@ -18,10 +18,17 @@ export default function SignInPage() {
   return (
     <>
       <Header />
-      <main className="pt-28 min-h-screen flex items-center justify-center bg-cream">
+      {/* svh: the screen with Safari's bars showing, so the form is not
+          centred partly under them. Clerk draws its fields at about 13px,
+          and a phone zooms the page in on any field under 16px. */}
+      <main className="pt-28 min-h-svh flex items-center justify-center bg-cream">
         <SignIn
           appearance={{
             variables: { colorPrimary: "#DCD0FF" },
+            elements: {
+              formFieldInput: { fontSize: "16px" },
+              otpCodeFieldInput: { fontSize: "16px" },
+            },
           }}
         />
       </main>

@@ -18,7 +18,9 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FDFBF7] px-6">
+    // svh, so on a phone the message is centred in what shows between
+    // Safari's bars rather than in the taller screen behind them
+    <div className="min-h-svh flex items-center justify-center bg-[#FDFBF7] px-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -37,17 +39,19 @@ export default function GlobalError({
           look into it. In the meantime, you can try refreshing the page.
         </p>
 
+        {/* .press carries the colour change and gives the press; the
+            transition-all these had also animated anything else that moved */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={reset}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#DCD0FF] text-[#4A4A4A] rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+            className="press inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#DCD0FF] text-[#4A4A4A] rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0]"
           >
             <RefreshCw size={14} />
             Try Again
           </button>
           <Link
             href="/"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-[#4A4A4A]/20 text-[#4A4A4A] rounded-full text-sm tracking-wider uppercase font-medium hover:border-[#DCD0FF] hover:bg-[#DCD0FF]/10 transition-all duration-300"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-[#4A4A4A]/20 text-[#4A4A4A] rounded-full text-sm tracking-wider uppercase font-medium hover:border-[#DCD0FF] hover:bg-[#DCD0FF]/10 transition-[border-color,background-color] duration-300"
           >
             <ArrowLeft size={14} />
             Back Home

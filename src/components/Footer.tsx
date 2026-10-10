@@ -204,7 +204,9 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
               of handmade lingerie, kids&apos; pieces and accessories from the same
               workroom.
             </p>
-            {/* Social Links */}
+            {/* Social Links. Each icon is 20px and was a 20px target; p-3
+                makes the target 44px and -m-3 takes the room back, so the
+                row looks as it did */}
             {hasSocial && (
               <div className="flex items-center gap-3 mt-4">
                 {social.instagram && (
@@ -212,7 +214,7 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
                     href={social.instagram}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-charcoal-light hover:text-charcoal transition-colors"
+                    className="-m-3 p-3 text-charcoal-light hover:text-charcoal transition-colors"
                     aria-label="Instagram"
                   >
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -225,7 +227,7 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
                     href={social.tiktok}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-charcoal-light hover:text-charcoal transition-colors"
+                    className="-m-3 p-3 text-charcoal-light hover:text-charcoal transition-colors"
                     aria-label="TikTok"
                   >
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -238,7 +240,7 @@ export default function Footer({ settings: propSettings }: { settings?: FooterSe
                     href={social.pinterest}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-charcoal-light hover:text-charcoal transition-colors"
+                    className="-m-3 p-3 text-charcoal-light hover:text-charcoal transition-colors"
                     aria-label="Pinterest"
                   >
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
