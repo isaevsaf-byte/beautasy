@@ -201,8 +201,11 @@ export default async function LocalServicePage({
 
       <HeaderWrapper />
 
-      {/* Clipped sideways at the screen's edges for the needle in the heading (see the home page's hero) */}
-      <main id="main" className="pt-24 pb-24 overflow-x-clip">
+      {/* Clipped sideways at the screen's edges for the needle in the heading,
+          and pt-28 as every other page's <main> (both: see the home page's
+          hero) — at pt-24 the breadcrumb slipped under the fixed header
+          whenever the announcement bar was showing */}
+      <main id="main" className="pt-28 pb-24 overflow-x-clip">
         {/* ──── Breadcrumb ──── */}
         <nav aria-label="Breadcrumb" className="max-w-4xl mx-auto px-6 mb-8">
           <ol className="flex flex-wrap items-center gap-2 text-xs text-charcoal-light">
@@ -242,14 +245,14 @@ export default async function LocalServicePage({
             <a
               id={HERO_BOOK_ID}
               href="#book"
-              className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+              className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors duration-300"
             >
               Choose a time
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
             </a>
             <a
               href={BUSINESS.telephoneHref}
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-colors duration-300"
             >
               <Phone size={15} aria-hidden="true" />
               Call the atelier
@@ -304,8 +307,12 @@ export default async function LocalServicePage({
                 key={p.name}
                 className="flex items-end gap-2 py-3.5 border-b border-charcoal/[0.07] last:border-b-0"
               >
-                <span className="text-[15px] text-charcoal">{p.name}</span>
-                <span className="leader-stitch flex-1 mb-1.5" aria-hidden="true" />
+                {/* As on /atelier: the name wraps, the price never does, and
+                    the stitch keeps at least 1.5rem between them. Without
+                    min-w-0 and min-w-6 a long name squeezed the stitch to
+                    nothing and ran straight into its price. */}
+                <span className="min-w-0 text-[15px] text-charcoal">{p.name}</span>
+                <span className="leader-stitch flex-1 min-w-6 mb-1.5" aria-hidden="true" />
                 <span className="text-[15px] font-medium text-charcoal whitespace-nowrap tabular-nums">
                   {p.price}
                 </span>

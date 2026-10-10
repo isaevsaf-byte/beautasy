@@ -51,9 +51,20 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+/**
+ * How the prints lie for one, two or three covers. The fan was laid out for
+ * three: with fewer, the first print kept its turn and its step to the left
+ * and the table looked like the rest had been swept off it.
+ */
+const FAN_TURNS: Record<number, string[]> = {
+  1: ["rotate-2"],
+  2: ["-rotate-3 -translate-x-10", "rotate-3 translate-x-10 z-10"],
+  3: ["-rotate-6 -translate-x-16", "rotate-2 z-10", "rotate-6 translate-x-16"],
+};
+
 /** Without a showreel: the three newest covers, fanned out like prints on a table */
 function CoverFan({ pieces }: { pieces: ShownPiece[] }) {
-  const turns = ["-rotate-6 -translate-x-16", "rotate-2 z-10", "rotate-6 translate-x-16"];
+  const turns = FAN_TURNS[Math.min(pieces.length, 3)] ?? FAN_TURNS[3];
   return (
     <div className="relative mx-auto flex h-[420px] w-full max-w-sm items-center justify-center">
       {pieces.slice(0, 3).map((piece, i) => (
@@ -96,7 +107,10 @@ export default async function WorkPage() {
 
       <HeaderWrapper />
 
-      <main id="main" className="pt-24 pb-24">
+      {/* pt-28, as every other page's <main> (see the home page's hero): at
+          pt-24 the first line slipped under the fixed header whenever the
+          announcement bar was showing */}
+      <main id="main" className="pt-28 pb-24">
         {/* ──── Hero ──── */}
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 -z-10" aria-hidden="true">
@@ -109,7 +123,8 @@ export default async function WorkPage() {
             <div className="max-w-xl">
               <p className="mb-4 text-sm tracking-[0.25em] uppercase text-charcoal-light">Our work · Southampton</p>
               <h1 className="mb-6 font-serif text-5xl leading-[1.04] sm:text-6xl lg:text-7xl">
-                Made <span className="italic text-[#b3a1e8]">&amp;</span>
+                {/* The darker lavender: the pale #b3a1e8 was 2.2:1 on the cream */}
+                Made <span className="italic text-lavender-ink">&amp;</span>
                 <br />
                 Mended
               </h1>
@@ -121,7 +136,7 @@ export default async function WorkPage() {
               <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
                   href="/atelier#book"
-                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-8 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase transition-all duration-300 hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
+                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-8 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase press hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30"
                 >
                   Book a fitting
                   <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
@@ -130,7 +145,7 @@ export default async function WorkPage() {
                   href={whatsappLink("Hi Kristina, I've seen your work — here's a photo of mine:")}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-charcoal/20 px-6 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase transition-all duration-300 hover:border-lavender hover:bg-lavender/10"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-charcoal/20 px-6 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase transition-colors duration-300 hover:border-lavender hover:bg-lavender/10"
                 >
                   <MessageCircle size={16} aria-hidden="true" />
                   Send a photo

@@ -90,7 +90,9 @@ function PairSlide({ before, after }: { before: ShownPhoto; after: ShownPhoto })
                 alt={photo.alt}
                 width={photo.width}
                 height={photo.height}
-                className="max-h-[calc(100vh-4rem)] lg:max-h-[calc(100vh-6rem)] w-auto object-contain rounded-xl shadow-2xl"
+                // dvh, the height actually showing: on a phone 100vh counts the
+                // address bar too, and the bottom of the photo went under it
+                className="max-h-[calc(100dvh-4rem)] lg:max-h-[calc(100dvh-6rem)] w-auto object-contain rounded-xl shadow-2xl"
               />
               <Label tone={tone}>{label}</Label>
             </div>
@@ -257,9 +259,11 @@ export default function WorkViewer({
         <X size={22} />
       </button>
 
-      {/* The pictures */}
+      {/* The pictures. svh, the height with the phone's address bar showing:
+          vh is measured with it hidden, so the pictures took more than their
+          share and pushed the story below the bottom of the screen */}
       <div
-        className="relative flex h-[62vh] shrink-0 items-center justify-center px-4 pt-16 pb-4 sm:px-16 lg:h-full lg:flex-1 lg:py-10"
+        className="relative flex h-[62svh] shrink-0 items-center justify-center px-4 pt-16 pb-4 sm:px-16 lg:h-full lg:flex-1 lg:py-10"
         onTouchStart={(e) => {
           // Not a swipe: two fingers (a pinch), a zoomed-in page, or a drag
           // along the video's own controls
@@ -282,7 +286,7 @@ export default function WorkViewer({
           if (Math.abs(dx) > 50 && Math.abs(dy) < 60) (dx < 0 ? next : previous)();
         }}
       >
-        <div key={`${piece.id}-${current.key}`} className="flex h-full w-full items-center justify-center animate-[workFade_0.25s_ease-out]">
+        <div key={`${piece.id}-${current.key}`} className="flex h-full w-full items-center justify-center animate-[workFade_0.25s_ease-out] motion-reduce:animate-none">
           {current.kind === "pair" ? (
             <PairSlide before={current.before} after={current.after} />
           ) : current.kind === "video" ? (
@@ -314,8 +318,9 @@ export default function WorkViewer({
         )}
       </div>
 
-      {/* The story */}
-      <aside className="flex-1 overflow-y-auto border-t border-white/10 px-6 py-6 sm:px-8 lg:h-full lg:w-[400px] lg:flex-none lg:border-t-0 lg:border-l lg:py-16">
+      {/* The story. Its scroll stays its own: at the end of a long caption a
+          phone used to carry on scrolling the page behind the viewer */}
+      <aside className="flex-1 overflow-y-auto overscroll-contain border-t border-white/10 px-6 py-6 sm:px-8 lg:h-full lg:w-[400px] lg:flex-none lg:border-t-0 lg:border-l lg:py-16">
         {/* Not text-lavender: that is repainted dark for cream pages (globals.css) and is 3:1 here */}
         <p className="mb-2 text-[11px] tracking-[0.25em] uppercase text-lavender-on-dark">{piece.categoryLabel}</p>
         <h2 id="work-viewer-title" className="mb-3 font-serif text-2xl leading-snug sm:text-3xl">
@@ -334,7 +339,7 @@ export default function WorkViewer({
                   onClick={() => setSlide(i)}
                   aria-label={`Show ${s.kind === "pair" ? "before and after" : s.kind === "video" ? "the video" : `picture ${i + 1}`}`}
                   aria-current={i === slide}
-                  className={`relative h-14 w-14 overflow-hidden rounded-lg border-2 transition-all ${
+                  className={`relative h-14 w-14 overflow-hidden rounded-lg border-2 transition-[border-color,opacity] ${
                     i === slide ? "border-lavender" : "border-white/15 opacity-70 hover:opacity-100"
                   }`}
                 >

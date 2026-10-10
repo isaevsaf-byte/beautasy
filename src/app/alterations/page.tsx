@@ -77,7 +77,10 @@ export default async function AlterationsHub() {
 
       <HeaderWrapper />
 
-      <main id="main" className="pt-24 pb-24">
+      {/* pt-28, as every other page's <main> (see the home page's hero): at
+          pt-24 the eyebrow slipped under the fixed header whenever the
+          announcement bar was showing */}
+      <main id="main" className="pt-28 pb-24">
         <section className="max-w-4xl mx-auto px-6">
           <p className="text-xs tracking-[0.25em] uppercase text-charcoal-light mb-5">
             Alterations · Southampton
@@ -103,7 +106,7 @@ export default async function AlterationsHub() {
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-9">
             <Link
               href="/atelier#book"
-              className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+              className="topstitch group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors duration-300"
             >
               Choose a time
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
@@ -113,14 +116,14 @@ export default async function AlterationsHub() {
               href={whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-colors duration-300"
             >
               <MessageCircle size={15} aria-hidden="true" />
               Send a photo on WhatsApp
             </a>
             <a
               href={BUSINESS.telephoneHref}
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-all duration-300"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-charcoal/20 rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-colors duration-300"
             >
               <Phone size={15} aria-hidden="true" />
               {BUSINESS.telephone}
@@ -198,7 +201,7 @@ export default async function AlterationsHub() {
             </p>
             <Link
               href="/atelier#book"
-              className="topstitch inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300"
+              className="topstitch inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-colors duration-300"
             >
               Choose a time
               <ArrowRight size={16} aria-hidden="true" />

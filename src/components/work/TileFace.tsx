@@ -76,7 +76,9 @@ export function Cover({
   );
 }
 
-const PICTURE = "absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]";
+/** The picture leans in on hover in 300ms: at 700ms it was still easing when
+ *  the pointer had moved on to the next tile */
+const PICTURE = "absolute inset-0 h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]";
 
 export default function TileFace({
   piece,
@@ -126,8 +128,10 @@ export default function TileFace({
           <Cover media={cover} sizes={sizes} eager={eager} className={PICTURE} />
         )}
 
+        {/* Top left, unless a before/after pair has its "Before" there: then
+            top right, where the pair has no count of its own */}
         {video && (
-          <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+          <span className={`absolute top-3 ${pair ? "right-3" : "left-3"} inline-flex items-center gap-1.5 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm`}>
             <Play size={11} className="fill-current" aria-hidden="true" />
             {video.kind === "video" && video.duration ? durationLabel(video.duration) : "Video"}
           </span>
