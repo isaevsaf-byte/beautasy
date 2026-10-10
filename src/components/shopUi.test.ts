@@ -101,6 +101,25 @@ test("a product page asks for small thumbnails, later, and preloads only its mai
   assert.equal((html.match(/<link rel="preload" as="image"/g) ?? []).length, 1, "the main photo alone");
 });
 
+test("the main photo arrives in place: not slid, not faded, and draggable sideways only", () => {
+  const html = detail();
+  const gallery = between(html, '<div class="relative aspect-[4/5]', 'aria-label="Zoom image"');
+  // The page's largest paint: at rest from the first byte, no opacity at all
+  assert.match(gallery, /<div style="transform:none;[^"]*touch-action:pan-y"[^>]*><img alt="Pearl Blossom Thong"/);
+  assert.doesNotMatch(gallery, /opacity/);
+  assert.match(gallery, /fetchPriority="high"/);
+  // The neighbours wait for the first photo: nothing else in the frame yet
+  assert.equal((gallery.match(/<img /g) ?? []).length, 1);
+
+  const source = read("src/app/shop/[param]/ProductDetail.tsx");
+  assert.match(source, /<AnimatePresence initial=\{false\} custom=\{turn\}>/);
+  assert.match(source, /drag=\{draggable \? "x" : false\}\s*dragConstraints=\{\{ left: 0, right: 0 \}\}\s*dragElastic=\{0\.2\}\s*dragMomentum=\{false\}/);
+  assert.match(source, /const SETTLE_BACK = \{ type: "spring", duration: 0\.4, bounce: 0\.15 \} as const;/);
+  // Arrows and thumbnails turn without a slide
+  assert.match(source, /const turn: Turn = swipe\?\.to === photoKey \? swipe\.turn : 0;/);
+  assert.match(source, /transition=\{turn === 0 \|\| reduceMotion \? \{ duration: 0 \} : \{ duration: 0\.22, ease: EASE_OUT \}\}/);
+});
+
 test("a product page says once whether it ships now or is made for you", () => {
   // Three sizes and a product-wide count: it cannot promise the size picked
   const some = detail();

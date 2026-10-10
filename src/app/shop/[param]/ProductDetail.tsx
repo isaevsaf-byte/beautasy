@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, animate, useMotionValue, useReducedMotion } from "framer-motion";
 import { availability } from "@/lib/availability";
 import { DELIVERY_TIMES, withoutQuotedDays } from "@/lib/delivery";
 import {
@@ -43,7 +43,7 @@ import SizeQuiz from "@/components/SizeQuiz";
 import { useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
 import { trackViewItem, trackAddToCart } from "@/lib/analytics";
-import { fadeUp, stagger } from "@/components/animations";
+import { EASE_OUT, fadeUp, stagger } from "@/components/animations";
 import { formatPence } from "@/lib/money";
 import { useDialog, useScrollLock } from "@/lib/useDialog";
 import { startingPrice, type SizePrice } from "../startingPrice";
@@ -263,6 +263,104 @@ function Chalk({ mark, late }: { mark: number; late: boolean }) {
   );
 }
 
+/* ─── The main photo, which follows a finger ─── */
+
+/** Which way the gallery last turned by a swipe: 1 to the next photo, -1 back, 0 not by a swipe */
+type Turn = -1 | 0 | 1;
+
+/** A swipe turns the photo past a fifth of its width, or on a flick (px/s) */
+const COMMIT_SHARE = 0.2;
+const COMMIT_VELOCITY = 400;
+
+/** A swipe let go too early settles back with a small give, like cloth */
+const SETTLE_BACK = { type: "spring", duration: 0.4, bounce: 0.15 } as const;
+
+const turnVariants = {
+  // Turned by a swipe the new photo comes in from a little way off (30%),
+  // not from the edge: the old one is already on its way out under the
+  // finger. Turned by an arrow or a thumbnail it is simply there.
+  enter: (turn: Turn) => ({ x: turn === 0 ? "0%" : turn > 0 ? "30%" : "-30%" }),
+  center: { x: "0%" },
+  exit: (turn: Turn) =>
+    turn === 0
+      ? { x: "0%", transition: { duration: 0 } }
+      : { x: turn > 0 ? "-100%" : "100%" },
+};
+
+/**
+ * One photo in the gallery. It moves with the finger (held back, so it reads
+ * as a pull rather than a slide) and, let go past a fifth of its width or on
+ * a flick, hands over to the next one; otherwise it settles back. Each photo
+ * owns its x, so the one leaving and the one arriving never share a position.
+ * Transform only, never opacity: the first of these is the page's largest
+ * paint and must not fade (AnimatePresence initial={false} in the caller).
+ */
+function GallerySlide({
+  src,
+  alt,
+  turn,
+  draggable,
+  reduceMotion,
+  onTurn,
+  onLoad,
+}: {
+  src: string;
+  alt: string;
+  turn: Turn;
+  draggable: boolean;
+  reduceMotion: boolean;
+  onTurn: (turn: 1 | -1) => void;
+  onLoad: () => void;
+}) {
+  const x = useMotionValue(0);
+  const ref = useRef<HTMLDivElement | null>(null);
+  return (
+    <motion.div
+      ref={ref}
+      custom={turn}
+      variants={turnVariants}
+      initial="enter"
+      animate="center"
+      exit="exit"
+      // Reduced motion: the photo still follows the finger, which is the
+      // finger's own movement, but the turn itself is a cut
+      transition={turn === 0 || reduceMotion ? { duration: 0 } : { duration: 0.22, ease: EASE_OUT }}
+      style={{ x }}
+      // framer sets touch-action: pan-y for a sideways drag, so the page
+      // still scrolls under a vertical stroke
+      drag={draggable ? "x" : false}
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.2}
+      dragMomentum={false}
+      onDragEnd={(_, info) => {
+        const width = ref.current?.offsetWidth ?? 1;
+        const { offset, velocity } = info;
+        const flicked = Math.abs(velocity.x) > COMMIT_VELOCITY && Math.sign(velocity.x) === Math.sign(offset.x);
+        if (offset.x !== 0 && (Math.abs(offset.x) > width * COMMIT_SHARE || flicked)) {
+          onTurn(offset.x < 0 ? 1 : -1);
+        } else {
+          animate(x, 0, reduceMotion ? { duration: 0 } : SETTLE_BACK);
+        }
+      }}
+      className="absolute inset-0 touch-pan-y"
+    >
+      {/* The LCP element on a product page: sized per device and fetched
+          with priority so it is not queued behind scripts. */}
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="(max-width: 1024px) 100vw, 50vw"
+        className="object-cover pointer-events-none"
+        draggable={false}
+        preload
+        fetchPriority="high"
+        onLoad={onLoad}
+      />
+    </motion.div>
+  );
+}
+
 /* ─── Category label mapping ─── */
 const categorySlugMap: Record<string, string> = {
   Lingerie: "lingerie",
@@ -320,7 +418,13 @@ export default function ProductDetail({
   const optionsRef = useRef<HTMLDivElement | null>(null);
   // …and to the measurement fields, when one of those is what's missing
   const measurementsRef = useRef<HTMLDivElement | null>(null);
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  // The photo a swipe turned to, and which way. Only that photo slides in:
+  // one reached by an arrow, a thumbnail or a colour is simply there.
+  const [swipe, setSwipe] = useState<{ to: string; turn: 1 | -1 } | null>(null);
+  const reduceMotion = useReducedMotion() ?? false;
+  // The photos either side are fetched once the first has arrived, so a
+  // swipe never turns to an empty frame and nothing competes with the first
+  const [firstPhotoIn, setFirstPhotoIn] = useState(false);
   // The size guide is a real dialog: Escape closes it, Tab stays inside,
   // focus goes back to "Size Guide", and the page behind it holds still
   const closeSizeGuide = useCallback(() => setSizeGuideOpen(false), []);
@@ -409,6 +513,23 @@ export default function ProductDetail({
   const goPrev = useCallback(() => {
     setActiveImageIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
   }, [images.length]);
+
+  // Which photo is showing, as the gallery tells them apart: by place, so a
+  // photo used twice still turns; a colour's own photo is its own
+  const photoKey = activeColorVariant ? `colour:${activeImage}` : `${activeImageIndex}:${activeImage}`;
+  const turn: Turn = swipe?.to === photoKey ? swipe.turn : 0;
+  const swipeTo = (direction: 1 | -1) => {
+    const next = (activeImageIndex + direction + images.length) % images.length;
+    setSwipe({ to: `${next}:${images[next]}`, turn: direction });
+    setActiveImageIndex(next);
+  };
+  const neighbours =
+    images.length > 1 && !activeColorVariant
+      ? [...new Set([
+          images[(activeImageIndex + 1) % images.length],
+          images[(activeImageIndex - 1 + images.length) % images.length],
+        ])].filter((src) => src !== activeImage)
+      : [];
 
   // Report the product view once per product, for GA4 funnels and remarketing
   useEffect(() => {
@@ -520,40 +641,41 @@ export default function ProductDetail({
             {/* ──── Left: Image Gallery ──── */}
             <motion.div variants={fadeUp} custom={0}>
               {/* Main Image */}
-              <div
-                className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white/60 mb-4 touch-pan-y select-none [-webkit-touch-callout:none]"
-                onTouchStart={(e) => {
-                  // One finger only: two are a pinch, not a swipe
-                  touchStart.current =
-                    e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
-                }}
-                onTouchMove={(e) => {
-                  if (e.touches.length > 1) touchStart.current = null;
-                }}
-                onTouchEnd={(e) => {
-                  // Swipe through the gallery on touch devices; the arrows are
-                  // fiddly on a phone and everyone expects a swipe here. Only a
-                  // clearly sideways stroke turns the photo: a scroll down the
-                  // page that drifted 50px sideways used to turn it too.
-                  const start = touchStart.current;
-                  touchStart.current = null;
-                  if (!start || images.length < 2) return;
-                  const dx = e.changedTouches[0].clientX - start.x;
-                  const dy = e.changedTouches[0].clientY - start.y;
-                  if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) (dx < 0 ? goNext : goPrev)();
-                }}
-              >
-                {/* The LCP element on a product page: sized per device and
-                    fetched with priority so it is not queued behind scripts. */}
-                <Image
-                  src={activeImage}
-                  alt={product.name}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover"
-                  preload
-                  fetchPriority="high"
-                />
+              <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white/60 mb-4 select-none [-webkit-touch-callout:none]">
+                {/* Swipe through the gallery on touch devices; the arrows are
+                    fiddly on a phone and everyone expects a swipe here. The
+                    photo now follows the finger and turns past a fifth of its
+                    width (GallerySlide). Only a sideways stroke moves it: a
+                    scroll down the page stays a scroll. initial={false}: the
+                    first photo is painted as it is, never slid in. */}
+                <AnimatePresence initial={false} custom={turn}>
+                  <GallerySlide
+                    key={photoKey}
+                    src={activeImage}
+                    alt={product.name}
+                    turn={turn}
+                    draggable={images.length > 1 && !activeColorVariant}
+                    reduceMotion={reduceMotion}
+                    onTurn={swipeTo}
+                    onLoad={() => setFirstPhotoIn(true)}
+                  />
+                </AnimatePresence>
+                {/* The photos either side, fetched at the size the gallery
+                    will ask for, once the first is in, and never shown */}
+                {firstPhotoIn &&
+                  neighbours.map((src) => (
+                    <Image
+                      key={`next-${src}`}
+                      src={src}
+                      alt=""
+                      aria-hidden="true"
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      loading="eager"
+                      fetchPriority="low"
+                      className="invisible"
+                    />
+                  ))}
                 {/* Zoom button */}
                 <button
                   type="button"
