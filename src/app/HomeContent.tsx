@@ -307,14 +307,17 @@ function CategoryGrid() {
               >
                 {/* Each logo is drawn on its own near-white square; multiplied
                     into the tile, the square takes the tile's colour (see the
-                    hero) */}
+                    hero). The section logos' squares are not quite white —
+                    246 to 252, and noisier once compressed — which multiplied
+                    to a faint yellowish box; 5% brighter lifts them to white
+                    first and leaves the drawing all but unchanged. */}
                 <div className={`relative aspect-[6/7] rounded-2xl overflow-hidden mb-4 flex items-center justify-center ${cat.bgClass || "bg-cream-soft"}`}>
                   <Image
                     src={cat.image}
                     alt={cat.title}
                     width={600}
                     height={600}
-                    className="w-[65%] h-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300 ease-out"
+                    className="w-[65%] h-auto object-contain brightness-105 mix-blend-multiply group-hover:scale-105 transition-transform duration-300 ease-out"
                   />
                   {/* Overlay on hover */}
                   <div className="absolute inset-0 bg-lavender/0 group-hover:bg-lavender/10 transition-colors duration-300 ease-out" />
@@ -432,8 +435,9 @@ function AtelierSection() {
                 alt="Beautasy Atelier — Custom Sewing & Alterations"
                 width={800}
                 height={686}
-                // Multiplied into the wash, so its near-white square goes (see the hero)
-                className="w-[65%] h-auto object-contain mix-blend-multiply"
+                // Multiplied into the wash, so its near-white square goes, and
+                // lifted to white first (see the shelves below)
+                className="w-[65%] h-auto object-contain brightness-105 mix-blend-multiply"
               />
             </div>
             {/* Decorative badge */}

@@ -283,8 +283,9 @@ export default function AtelierContent({
                   width={800}
                   height={686}
                   // Multiplied into the wash behind it: the logo is drawn on a
-                  // near-white square, and its drop shadow shadowed the square
-                  className="w-[340px] xl:w-[400px] h-auto object-contain mix-blend-multiply"
+                  // near-white square, and its drop shadow shadowed the square.
+                  // 5% brighter first: the square is not quite white.
+                  className="w-[340px] xl:w-[400px] h-auto object-contain brightness-105 mix-blend-multiply"
                   priority
                 />
               </div>
