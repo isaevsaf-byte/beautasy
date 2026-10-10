@@ -32,8 +32,10 @@ const SERVICES = ATELIER_SERVICES;
 /** What Book with no time chosen says — in chalk on screen, in words to a screen reader */
 const CHOOSE_A_TIME = "Please choose a time.";
 
+/** The focus ring is the darker lavender: the pale one at 20% was barely there
+ *  on white, and someone moving through the form by keyboard lost their place */
 const FIELD_CLASS =
-  "w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20";
+  "w-full px-4 py-3 rounded-xl border border-lavender-soft/40 bg-white text-sm focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25";
 
 interface Slot {
   start: string;
@@ -431,6 +433,12 @@ export default function AtelierBookingForm({
               autoComplete="postal-code"
               required
               maxLength={FIELD_LIMITS.postcode}
+              // A postcode is capitals and no dictionary word: the phone's
+              // keyboard shouldn't lower-case it or "correct" SO17 into a word
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="next"
               value={postcode}
               onChange={(e) => {
                 setPostcode(e.target.value);
@@ -526,7 +534,11 @@ export default function AtelierBookingForm({
             </p>
           )}
 
-          <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-2 -mx-1 px-1">
+          {/* The days run off the right edge on a phone, and a hard cut
+              looked like the end of the list: the last 2.5rem fades out, and
+              the same 2.5rem of padding at the end means a list that fits, or
+              one scrolled to its end, never has a day under the fade */}
+          <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-2 -mx-1 pl-1 pr-10 [mask-image:linear-gradient(to_right,#000_calc(100%_-_2.5rem),transparent)]">
             {offered!.map((d) => {
               const active = d.date === day?.date;
               return (
@@ -535,7 +547,9 @@ export default function AtelierBookingForm({
                   type="button"
                   onClick={() => setActiveDate(d.date)}
                   aria-pressed={active}
-                  className={`shrink-0 px-4 py-2 rounded-full border text-xs font-medium transition-colors ${
+                  // 44px tall, a finger's width: at text-xs and py-2 the days
+                  // were 32px and easy to miss beside each other
+                  className={`shrink-0 min-h-11 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
                     active
                       ? "bg-lavender border-lavender text-charcoal"
                       : "bg-white border-lavender-soft/50 text-charcoal-light hover:border-lavender"
@@ -565,7 +579,7 @@ export default function AtelierBookingForm({
                     aria-pressed={active}
                     // The chosen time gets a dressmaker's pin through its
                     // corner: this one is yours (.pin-slot in globals.css)
-                    className={`pin-slot relative px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                    className={`pin-slot relative px-4 py-2.5 rounded-xl border text-sm font-medium tabular-nums transition-colors ${
                       active
                         ? "bg-lavender border-lavender text-charcoal shadow-sm"
                         : "bg-white border-lavender-soft/50 text-charcoal hover:border-lavender hover:bg-lavender/10"
@@ -699,7 +713,7 @@ export default function AtelierBookingForm({
           type="submit"
           disabled={status === "loading"}
           aria-describedby={termsId}
-          className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium text-center hover:bg-[#CFC0F0] transition-all duration-300 disabled:opacity-60"
+          className="press inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium text-center hover:bg-[#CFC0F0] disabled:opacity-60"
         >
           {status === "loading" && <Loader2 size={16} className="animate-spin" />}
           {/* With a time pinned the button names it: on a phone the times
