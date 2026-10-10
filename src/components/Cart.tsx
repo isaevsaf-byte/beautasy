@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, X, Plus, Minus, Trash2, Loader2, Package, Sparkles } from "lucide-react";
 /* eslint-disable @next/next/no-img-element */
 import { usePathname } from "next/navigation";
-import { useCart } from "@/store/useCart";
+import { MAX_PER_LINE, useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
+import { whatsappLink } from "@/lib/business";
 import { useIsClient } from "@/lib/useIsClient";
 import { useDialog, useScrollLock } from "@/lib/useDialog";
 import { formatPence } from "@/lib/money";
@@ -31,11 +32,20 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** The drawer's curve, as globals.css has it (--ease-drawer): quick off the mark, a long soft landing */
 const EASE_DRAWER = [0.32, 0.72, 0, 1] as const;
 
-/** How long "Bag cleared · Undo" stays */
+/** How long "Bag cleared · Undo" (and a line's "Removed · Undo") stays */
 const UNDO_MS = 5000;
 
 /** The drawer's slide, in ms: the bag's own requests wait for it to finish */
 const OPEN_SETTLE_MS = 350;
+
+/** The free-delivery bar's thread: the gold of the site's stitched leaders (.leader-stitch) */
+const STITCH_GOLD = "rgb(176 136 72)";
+
+/** What WhatsApp opens with when a line has reached the bag's ten */
+function moreThanTenMessage(item: CartItem): string {
+  const variant = [item.size && `size ${item.size}`, item.color].filter(Boolean).join(", ");
+  return `Hi Kristina, I'd like more than ${MAX_PER_LINE} of ${item.name}${variant ? ` (${variant})` : ""}`;
+}
 
 /** Shown when a line's photo will not load: the mark, small, rather than a broken-image icon */
 const IMAGE_FALLBACK = "/beautasy-mark.png";
@@ -124,8 +134,13 @@ export function CartDrawer({
   // What clearing the bag took out, kept for a few seconds so Undo can put it back
   const [cleared, setCleared] = useState<CartItem[] | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // One line taken out by its bin (or its minus at 1), and where it stood:
+  // "Removed · Undo" holds its place for the same few seconds
+  const [removed, setRemoved] = useState<{ line: CartItem; at: number } | null>(null);
+  const removedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (undoTimer.current) clearTimeout(undoTimer.current);
+    if (removedTimer.current) clearTimeout(removedTimer.current);
   }, []);
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
@@ -225,7 +240,52 @@ export function CartDrawer({
   useScrollLock(isOpen);
   const panelRef = useDialog(isOpen, closeCart, closeRef);
 
+  function removeWithUndo(line: CartItem, at: number) {
+    setRemoved({ line, at });
+    removeItem(line);
+    if (removedTimer.current) clearTimeout(removedTimer.current);
+    removedTimer.current = setTimeout(() => setRemoved(null), UNDO_MS);
+  }
+
+  function undoRemove() {
+    if (removed) restore([removed.line], removed.at);
+    setRemoved(null);
+    if (removedTimer.current) clearTimeout(removedTimer.current);
+  }
+
+  /** "Removed · Undo", spliced into the list where the line stood */
+  function withRemovedNote(rows: React.ReactElement[]): React.ReactElement[] {
+    if (!removed) return rows;
+    const note = (
+      <motion.p
+        key="removed-line"
+        role="status"
+        layout
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, transition: { duration: 0.12, ease: EASE_OUT } }}
+        transition={{ duration: 0.2, ease: EASE_OUT, layout: { duration: 0.25, ease: EASE_IN_OUT } }}
+        className="px-3 py-2 rounded-2xl border border-dashed border-lavender-soft/60 text-center text-sm text-charcoal"
+      >
+        Removed<span className="sr-only"> {removed.line.name}</span> ·{" "}
+        <button
+          type="button"
+          onClick={undoRemove}
+          className="-my-3 py-3 font-medium underline underline-offset-2 hover:text-charcoal/70 transition-colors"
+        >
+          Undo
+        </button>
+      </motion.p>
+    );
+    const at = Math.min(removed.at, rows.length);
+    return [...rows.slice(0, at), note, ...rows.slice(at)];
+  }
+
   function clearWithUndo() {
+    // One Undo on screen at a time: the bag's takes over from a line's, and
+    // brings back what clearing took, not the line removed before it
+    setRemoved(null);
+    if (removedTimer.current) clearTimeout(removedTimer.current);
     setCleared(items);
     clearCart();
     if (undoTimer.current) clearTimeout(undoTimer.current);
@@ -244,6 +304,23 @@ export function CartDrawer({
   // the order goes through at full price with the code left out. The cookie
   // stays, so the discount comes back if the basket grows.
   const friendApplies = friendDiscountApplies(friend, totalPrice());
+
+  // The moment the bag reaches free delivery, the gold thread is tied off
+  // with a knot. Once per crossing, and only one she saw happen: a bag that
+  // opens already qualifying shows its knot sitting there, not tying itself
+  // again. The previous answer is kept in state and compared while
+  // rendering (React's "adjusting state when a prop changes"), so there is
+  // no effect and no extra paint between the bar filling and the knot.
+  const qualifiesForFree = freeShippingThreshold > 0 && totalPrice() >= freeShippingThreshold;
+  const [qualifiedBefore, setQualifiedBefore] = useState(qualifiesForFree);
+  const [tyingKnot, setTyingKnot] = useState(false);
+  if (qualifiesForFree !== qualifiedBefore) {
+    setQualifiedBefore(qualifiesForFree);
+    // Open here also covers Add to Bag, which adds and opens in one go
+    setTyingKnot(qualifiesForFree && isOpen);
+  }
+  // Closed, the knot is simply tied: the next opening must not tie it again
+  if (!isOpen && tyingKnot) setTyingKnot(false);
 
   async function handleCheckout() {
     setIsLoading(true);
@@ -412,6 +489,19 @@ export function CartDrawer({
                       </button>
                     </p>
                   )}
+                  {/* The last line's bin empties the bag: its Undo waits here */}
+                  {removed && !cleared && (
+                    <p role="status" className="mt-5 text-sm text-charcoal">
+                      Removed<span className="sr-only"> {removed.line.name}</span> ·{" "}
+                      <button
+                        type="button"
+                        onClick={undoRemove}
+                        className="-my-3 py-3 font-medium underline underline-offset-2 hover:text-charcoal/70 transition-colors"
+                      >
+                        Undo
+                      </button>
+                    </p>
+                  )}
                 </motion.div>
               ) : (
                 <motion.div
@@ -427,7 +517,7 @@ export function CartDrawer({
                       and the rest close the gap. The exit only ever ran with
                       AnimatePresence round the list, which it never had. */}
                   <AnimatePresence initial={false} mode="popLayout">
-                  {items.map((item) => {
+                  {withRemovedNote(items.map((item, index) => {
                     const key = {
                       id: item.id,
                       size: item.size,
@@ -435,6 +525,7 @@ export function CartDrawer({
                       giftMessage: item.giftMessage,
                       measurements: item.measurements,
                     };
+                    const atMost = item.quantity >= MAX_PER_LINE;
                     return (
                     <motion.div
                       key={`${item.id}-${item.size ?? ""}-${item.color ?? ""}-${item.giftMessage ?? ""}-${item.measurements ?? ""}`}
@@ -503,8 +594,14 @@ export function CartDrawer({
                             thumb pressed them, 36px with a mouse. The bin
                             stays at the far end, well clear of the minus. */}
                         <div className="flex items-center gap-3 mt-2">
+                          {/* At 1 the minus takes the line out, so it gets
+                              the bin's Undo too */}
                           <button
-                            onClick={() => updateQuantity(key, item.quantity - 1)}
+                            onClick={() =>
+                              item.quantity > 1
+                                ? updateQuantity(key, item.quantity - 1)
+                                : removeWithUndo(item, index)
+                            }
                             className="size-10 sm:size-9 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
                             aria-label={`Decrease quantity of ${item.name}`}
                           >
@@ -513,26 +610,46 @@ export function CartDrawer({
                           <span className="text-sm font-medium min-w-6 tabular-nums text-center">
                             {item.quantity}
                           </span>
+                          {/* At ten it stays in the tab order and says it is
+                              unavailable (aria-disabled, not disabled), with
+                              the way to ask for more right under the line */}
                           <button
-                            onClick={() => updateQuantity(key, item.quantity + 1)}
-                            className="size-10 sm:size-9 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
+                            onClick={() => {
+                              if (!atMost) updateQuantity(key, item.quantity + 1);
+                            }}
+                            aria-disabled={atMost || undefined}
+                            className="size-10 sm:size-9 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-lavender-bg"
                             aria-label={`Increase quantity of ${item.name}`}
                           >
                             <Plus size={14} />
                           </button>
 
                           <button
-                            onClick={() => removeItem(key)}
+                            onClick={() => removeWithUndo(item, index)}
                             className="ml-auto -mr-2 size-10 grid place-items-center text-charcoal-light hover:text-red-400 transition-colors"
                             aria-label={`Remove ${item.name} from bag`}
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
+                        {/* Ten of one piece is the bag's most (MAX_PER_LINE);
+                            past that it is a word with Kristina, who sews them */}
+                        {atMost && (
+                          <p className="text-xs text-charcoal-light mt-1.5">
+                            <a
+                              href={whatsappLink(moreThanTenMessage(item))}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline underline-offset-2 hover:text-charcoal transition-colors"
+                            >
+                              Need more? Message Kristina
+                            </a>
+                          </p>
+                        )}
                       </div>
                     </motion.div>
                     );
-                  })}
+                  }))}
                   </AnimatePresence>
                 </motion.div>
               )}
@@ -568,15 +685,36 @@ export function CartDrawer({
                           You qualify for free UK delivery! 🎉
                         </p>
                       )}
-                      {/* A full-width bar cut back to the share spent. It
-                          used to grow from nothing every time the bag opened;
-                          now it opens where it is, and moves only when the
-                          amount does — clip-path, so nothing is laid out again */}
-                      <div className="h-1.5 w-full bg-lavender-bg rounded-full overflow-hidden">
-                        <div
-                          className="h-full w-full bg-lavender rounded-full transition-[clip-path] duration-400 ease-out motion-reduce:transition-none"
-                          style={{ clipPath: `inset(0 ${100 - pct}% 0 0 round 9999px)` }}
-                        />
+                      {/* A line of gold running stitch, sewn as far as the
+                          share spent, on a pale thread of what is left. It
+                          opens where it is and moves only when the amount
+                          does: clip-path uncovers stitches already laid out,
+                          where scaling the bar would stretch them into dashes. At free
+                          delivery it is tied off with a knot at the end —
+                          tied in front of her only when she crossed the line
+                          (see tyingKnot), simply there otherwise. The row
+                          keeps the old bar's 6px, so nothing below moves. */}
+                      <div className="relative h-1.5 w-full flex items-center" aria-hidden="true">
+                        <div className="h-0.5 w-full bg-lavender-bg rounded-full">
+                          <div
+                            className="h-full w-full transition-[clip-path] duration-400 ease-out motion-reduce:transition-none"
+                            style={{
+                              background: `repeating-linear-gradient(90deg, rgb(176 136 72 / 0.6) 0 6px, transparent 6px 10px)`,
+                              clipPath: `inset(0 ${100 - pct}% 0 0)`,
+                            }}
+                          />
+                        </div>
+                        {qualifiesForFree && (
+                          <span
+                            className={`absolute right-0 top-0 size-1.5 rounded-full ${
+                              tyingKnot
+                                ? // after the 0.4s the stitches take to reach the end
+                                  "animate-[bty-knot_0.3s_cubic-bezier(0.34,1.56,0.64,1)_0.35s_both] motion-reduce:animate-none"
+                                : ""
+                            }`}
+                            style={{ background: STITCH_GOLD }}
+                          />
+                        )}
                       </div>
                     </div>
                   );

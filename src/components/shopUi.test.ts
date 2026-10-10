@@ -293,3 +293,37 @@ test("a welcome code is pointed to the payment page before any gift card lookup"
   assert.ok(welcome > -1 && giftLookup > welcome, "recognised first, never sent to the gift card lookup");
   assert.match(cart.slice(welcome, giftLookup), /setCodeNote\(\s*welcomeCodeNote\(/);
 });
+
+test("at ten of one line the + says it is unavailable and WhatsApp is offered under the line", () => {
+  const cart = read("src/components/Cart.tsx");
+  assert.match(cart, /const atMost = item\.quantity >= MAX_PER_LINE;/);
+  // aria-disabled, not disabled: it stays reachable and says why
+  assert.match(cart, /if \(!atMost\) updateQuantity\(key, item\.quantity \+ 1\);[^]*?aria-disabled=\{atMost \|\| undefined\}/);
+  assert.match(cart, /\{atMost && \([^]*?href=\{whatsappLink\(moreThanTenMessage\(item\)\)\}[^]*?Need more\? Message Kristina/);
+  assert.match(cart, /`Hi Kristina, I'd like more than \$\{MAX_PER_LINE\} of \$\{item\.name\}/);
+});
+
+test("removing one line leaves 'Removed · Undo' in its place, and Undo puts it back there", () => {
+  const cart = read("src/components/Cart.tsx");
+  assert.match(cart, /onClick=\{\(\) => removeWithUndo\(item, index\)\}/);
+  // The minus at 1 removes too, with the same Undo
+  assert.match(cart, /item\.quantity > 1\s*\? updateQuantity\(key, item\.quantity - 1\)\s*: removeWithUndo\(item, index\)/);
+  assert.match(cart, /if \(removed\) restore\(\[removed\.line\], removed\.at\);/);
+  assert.match(cart, /removedTimer\.current = setTimeout\(\(\) => setRemoved\(null\), UNDO_MS\);/);
+  assert.match(cart, /withRemovedNote\(items\.map\(/);
+  // The bag's own Undo after Clear bag is still there
+  assert.match(cart, /if \(cleared\) restore\(cleared\);/);
+  assert.doesNotMatch(cart, /onClick=\{\(\) => removeItem\(key\)\}/);
+});
+
+test("the free-delivery bar is gold running stitch, uncovered by clip-path, tied off once per crossing", () => {
+  const cart = read("src/components/Cart.tsx");
+  const bar = between(cart, "{/* Free shipping progress */}", "{/* Delivery region");
+  assert.match(bar, /repeating-linear-gradient\(90deg, rgb\(176 136 72 \/ 0\.6\) 0 6px, transparent 6px 10px\)/);
+  assert.match(bar, /clipPath: `inset\(0 \$\{100 - pct\}% 0 0\)`/);
+  assert.doesNotMatch(bar, /scaleX|scale-x/, "a stretched stitch is a dash");
+  // The knot ties only on the crossing, and holds still for reduced motion
+  assert.match(bar, /"animate-\[bty-knot_0\.3s_cubic-bezier\(0\.34,1\.56,0\.64,1\)[^"]*motion-reduce:animate-none"/);
+  assert.match(cart, /setTyingKnot\(qualifiesForFree && isOpen\);/);
+  assert.match(cart, /if \(!isOpen && tyingKnot\) setTyingKnot\(false\);/);
+});
