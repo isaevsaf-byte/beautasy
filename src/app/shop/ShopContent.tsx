@@ -106,6 +106,18 @@ const categories = [
   },
 ];
 
+/**
+ * The section tiles' row on a laptop, by how many sections have something in
+ * them: always a quarter of the width each, and the row centred, so three
+ * stocked sections leave no hole where the fourth was and don't swell to fill it
+ */
+const TILE_ROW: Record<number, string> = {
+  1: "lg:grid-cols-1 lg:max-w-[17rem]",
+  2: "lg:grid-cols-2 lg:max-w-[35.5rem]",
+  3: "lg:grid-cols-3 lg:max-w-[54rem]",
+  4: "lg:grid-cols-4",
+};
+
 // Human-friendly category name mapping
 const categoryLabels: Record<string, string> = {
   lingerie: "Lingerie",
@@ -365,92 +377,68 @@ export default function ShopContent({
         )}
 
         {/* Category Overview — only show when browsing ALL products (no active category or collection) */}
+        {/* One row of small tiles, two to a phone's row and four to a
+            laptop's. Each section used to be a half-screen of logo beside its
+            words, zigzagging down the page, so on a phone four logos came
+            before the first thing for sale. The tile is the link the
+            "Explore" button was. Painted as they are, not faded in: the whole
+            row is on the first screen. */}
         {!activeCategory && !isCollection && (
-          <section className="pb-16">
+          <section className="pb-14">
             <div className="max-w-6xl mx-auto px-6">
-              <motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "-80px" }}
-                variants={stagger}
-                className="space-y-20"
-              >
+              <ul className={`mx-auto grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-5 ${TILE_ROW[stockedCategories.length] ?? "lg:grid-cols-4"}`}>
                 {stockedCategories.map((cat, i) => (
-                  <motion.div
-                    key={cat.title}
-                    variants={fadeUp}
-                    custom={i}
-                    // The first card is on screen before anything scrolls; waiting
-                    // for it to scroll into view left it hidden until scripts ran.
-                    initial={i === 0 ? false : undefined}
-                    className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center p-6 rounded-3xl transition-colors"
-                  >
-                    {/* Image */}
-                    <div className={`${i % 2 === 1 ? "lg:order-2" : ""}`}>
+                  <li key={cat.title}>
+                    <Link href={cat.href} className="group block">
                       {/* The logos are drawn on near-white squares; multiplied
                           into the tile, the square takes its colour and the
                           drop shadow it cast is gone with it. 5% brighter
                           first, as the squares are 246–252 and not white (see
                           the home page's shelves). */}
-                      <Link href={cat.href}>
-                        <div className={`relative aspect-[4/5] rounded-3xl overflow-hidden flex items-center justify-center cursor-pointer ${cat.bgClass || "bg-cream-soft"}`}>
-                          <Image
-                            src={cat.image}
-                            alt={cat.title}
-                            width={600}
-                            height={600}
-                            className="w-[60%] h-auto object-contain brightness-105 mix-blend-multiply hover:scale-105 transition-transform duration-300 ease-out"
-                            {...(i === 0 ? { preload: true, fetchPriority: "high" as const } : {})}
-                          />
-                        </div>
-                      </Link>
-                    </div>
-
-                    {/* Text */}
-                    <div className={`${i % 2 === 1 ? "lg:order-1" : ""}`}>
-                      <p className="text-sm tracking-[0.25em] uppercase text-charcoal-light mb-3">
-                        Collection
-                      </p>
+                      <div className={`relative aspect-[5/4] rounded-2xl overflow-hidden flex items-center justify-center transition-shadow duration-300 group-hover:shadow-lg group-hover:shadow-plum/10 ${cat.bgClass || "bg-cream-soft"}`}>
+                        <Image
+                          src={cat.image}
+                          alt={cat.title}
+                          width={320}
+                          height={320}
+                          className="w-[60%] h-auto object-contain brightness-105 mix-blend-multiply group-hover:scale-105 transition-transform duration-300 ease-out"
+                          {...(i === 0 ? { preload: true, fetchPriority: "high" as const } : {})}
+                        />
+                      </div>
                       {/* h2: each section is a part of the page under its h1,
                           as "Featured products" is; as h3 they skipped a level */}
-                      <h2 className="font-serif text-3xl sm:text-4xl mb-2">
+                      <h2 className="mt-3 font-serif text-lg sm:text-xl leading-snug group-hover:text-lavender-ink transition-colors">
                         {cat.title}
                         {cat.subtitle && (
-                          <span className="text-lg font-sans text-charcoal-light ml-3">
+                          <span className="text-sm font-sans text-charcoal-light ml-2">
                             ({cat.subtitle})
                           </span>
                         )}
                       </h2>
-                      <p className="text-charcoal-light leading-relaxed mb-8 max-w-md">
+                      <p className="mt-0.5 text-sm text-charcoal-light leading-relaxed">
                         {cat.description}
                       </p>
+                    </Link>
 
-                      <div className="flex flex-wrap gap-2 mb-8">
+                    {/* The kinds of piece inside, from a small tablet up. On a
+                        phone the tile is too narrow for them, and the section's
+                        own page opens on the same chips. */}
+                    {cat.items.length > 0 && (
+                      <div className="hidden sm:flex flex-wrap gap-1.5 mt-3">
                         {cat.items.map((item) => (
                           <Link
                             key={item.slug}
                             href={item.href}
-                            className="px-4 py-2 bg-lavender-bg rounded-full text-sm text-charcoal-light hover:bg-lavender hover:text-charcoal transition-colors"
+                            className="px-3 py-1 bg-lavender-bg rounded-full text-xs text-charcoal-light hover:bg-lavender hover:text-charcoal transition-colors"
                           >
                             {item.label}
                           </Link>
                         ))}
                       </div>
-
-                      <Link
-                        href={cat.href}
-                        className="press group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
-                      >
-                        Explore {cat.title}
-                        <ArrowRight
-                          size={16}
-                          className="group-hover:translate-x-1 transition-transform"
-                        />
-                      </Link>
-                    </div>
-                  </motion.div>
+                    )}
+                  </li>
                 ))}
-              </motion.div>
+              </ul>
             </div>
           </section>
         )}
