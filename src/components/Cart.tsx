@@ -9,6 +9,11 @@ import { usePathname } from "next/navigation";
 import { useCart } from "@/store/useCart";
 import { useCartUI } from "@/store/useCartUI";
 import { useIsClient } from "@/lib/useIsClient";
+import { useDialog, useScrollLock } from "@/lib/useDialog";
+import { formatPence } from "@/lib/money";
+import { EASE_IN_OUT, EASE_OUT } from "@/components/animations";
+import CountBadge from "@/components/CountBadge";
+import type { CartItem } from "@/store/useCart";
 import { DEFAULT_FREE_THRESHOLD } from "@/lib/siteSettings";
 import { trackBeginCheckout, trackReferralApply } from "@/lib/analytics";
 import {
@@ -22,6 +27,27 @@ import { friendDiscountApplies, looksLikeWelcomeCode, welcomeCodeNote } from "@/
 import TermsNote from "@/components/TermsNote";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** The drawer's curve, as globals.css has it (--ease-drawer): quick off the mark, a long soft landing */
+const EASE_DRAWER = [0.32, 0.72, 0, 1] as const;
+
+/** How long "Bag cleared · Undo" stays */
+const UNDO_MS = 5000;
+
+/** The drawer's slide, in ms: the bag's own requests wait for it to finish */
+const OPEN_SETTLE_MS = 350;
+
+/** Shown when a line's photo will not load: the mark, small, rather than a broken-image icon */
+const IMAGE_FALLBACK = "/beautasy-mark.png";
+
+/** A line's photo, or the quiet mark when the photo is gone (a piece unpublished, a URL changed) */
+function BagImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed || !src) {
+    return <img src={IMAGE_FALLBACK} alt={alt} className="w-full h-full object-contain p-5 opacity-60" />;
+  }
+  return <img src={src} alt={alt} onError={() => setFailed(true)} className="w-full h-full object-cover" />;
+}
 
 /**
  * The bag icon in the header. Open/closed state lives in the `useCartUI`
@@ -40,21 +66,16 @@ export default function Cart() {
     : 0;
 
   return (
+    // A 44px target with the same 20px bag; the negative margin keeps the
+    // glyph where the old 36px button had it, so the header row does not move.
+    // It darkens on hover like the icons beside it, where it used to fade.
     <button
       onClick={openCart}
-      className="relative p-2 text-charcoal hover:text-charcoal/70 transition-colors"
+      className="relative size-11 -m-1 grid place-items-center text-charcoal/70 hover:text-charcoal transition-colors duration-300"
       aria-label="Open cart"
     >
       <ShoppingBag size={20} />
-      {count > 0 && (
-        <motion.span
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="absolute -top-1 -right-1 w-5 h-5 bg-lavender text-charcoal text-[10px] font-medium rounded-full flex items-center justify-center"
-        >
-          {count}
-        </motion.span>
-      )}
+      <CountBadge count={count} className="top-0 right-0 min-w-5 h-5 px-1 text-[10px]" />
     </button>
   );
 }
@@ -70,7 +91,7 @@ export function CartDrawer({
 }: {
   freeShippingThreshold?: number;
 }) {
-  const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart();
+  const { items, removeItem, updateQuantity, totalPrice, clearCart, restore } = useCart();
   const isOpen = useCartUI((state) => state.isOpen);
   const closeCart = useCartUI((state) => state.closeCart);
   const [isLoading, setIsLoading] = useState(false);
@@ -100,6 +121,13 @@ export function CartDrawer({
   const [region, setRegion] = useState<"uk" | "international">("uk");
   // The terms line under Checkout, which the button names as its description
   const termsId = useId();
+  // What clearing the bag took out, kept for a few seconds so Undo can put it back
+  const [cleared, setCleared] = useState<CartItem[] | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+  }, []);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
 
   const hydrated = useIsClient();
 
@@ -144,24 +172,29 @@ export function CartDrawer({
     const code = readReferralCookie();
     if (!code) return;
     let cancelled = false;
-    fetch(`/api/referrals?code=${encodeURIComponent(code)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (data?.valid) {
-          setFriend({
-            code: data.code,
-            firstName: data.firstName ?? null,
-            discount: data.shopDiscount ?? 0,
-            minBasket: data.minBasket ?? 0,
-          });
-        } else {
-          clearReferralCookie();
-        }
-      })
-      .catch(() => {/* no discount is the safe default */});
+    // Once the drawer has slid in, so the answer's re-render does not land
+    // in the middle of the slide
+    const wait = setTimeout(() => {
+      fetch(`/api/referrals?code=${encodeURIComponent(code)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled) return;
+          if (data?.valid) {
+            setFriend({
+              code: data.code,
+              firstName: data.firstName ?? null,
+              discount: data.shopDiscount ?? 0,
+              minBasket: data.minBasket ?? 0,
+            });
+          } else {
+            clearReferralCookie();
+          }
+        })
+        .catch(() => {/* no discount is the safe default */});
+    }, OPEN_SETTLE_MS);
     return () => {
       cancelled = true;
+      clearTimeout(wait);
     };
   }, [isOpen, friend]);
 
@@ -169,40 +202,41 @@ export function CartDrawer({
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    fetch("/api/geo")
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled && (data?.region === "uk" || data?.region === "international")) {
-          setRegion(data.region);
-        }
-      })
-      .catch(() => {/* the UK default is the common case */});
+    const wait = setTimeout(() => {
+      fetch("/api/geo")
+        .then((r) => r.json())
+        .then((data) => {
+          if (!cancelled && (data?.region === "uk" || data?.region === "international")) {
+            setRegion(data.region);
+          }
+        })
+        .catch(() => {/* the UK default is the common case */});
+    }, OPEN_SETTLE_MS);
     return () => {
       cancelled = true;
+      clearTimeout(wait);
     };
   }, [isOpen]);
 
-  // Lock body scroll when cart is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
+  // The page behind stays still, counted with the other panels (closing the
+  // search over the open bag no longer unfreezes the page). Focus moves to
+  // the close button, Tab stays in the bag, Escape closes it, and focus goes
+  // back to the bag button that opened it.
+  useScrollLock(isOpen);
+  const panelRef = useDialog(isOpen, closeCart, closeRef);
 
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeCart();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [isOpen, closeCart]);
+  function clearWithUndo() {
+    setCleared(items);
+    clearCart();
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setCleared(null), UNDO_MS);
+  }
+
+  function undoClear() {
+    if (cleared) restore(cleared);
+    setCleared(null);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+  }
 
   // Whether the friend's (or salon's) £5 is on this basket. One answer for the
   // banner, the email box, the email check and what checkout is sent: under
@@ -310,33 +344,52 @@ export function CartDrawer({
             className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9998]"
           />
 
-          {/* Drawer */}
+          {/* Drawer. The slide is a full transform string on the drawer
+              curve, not framer's `x` shorthand: a transform string runs on
+              the compositor, so it stays smooth while the bag's contents
+              render. The drawer itself does not scroll: the list does, and
+              the footer only when it alone would fill most of the screen. */}
           <motion.div
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label="Your bag"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-[#FDFBF7] z-[9999] shadow-2xl flex flex-col overflow-y-auto overscroll-contain"
+            initial={{ transform: "translateX(100%)" }}
+            animate={{ transform: "translateX(0%)" }}
+            exit={{ transform: "translateX(100%)" }}
+            transition={{ duration: OPEN_SETTLE_MS / 1000, ease: EASE_DRAWER }}
+            className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-[#FDFBF7] z-[9999] shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-lavender-soft/40 shrink-0">
               <h2 className="font-serif text-xl tracking-wide">Your Bag</h2>
+              {/* A 44px target round the same 20px cross; the negative
+                  margin keeps the cross where it was */}
               <button
+                ref={closeRef}
                 onClick={closeCart}
-                className="p-1 text-charcoal-light hover:text-charcoal transition-colors"
+                className="size-11 -m-2 grid place-items-center text-charcoal-light hover:text-charcoal transition-colors"
                 aria-label="Close cart"
               >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Items */}
-            <div className="flex-1 min-h-32 overflow-y-auto px-6 py-4">
+            {/* Items — the one part of the bag that scrolls. It used to scroll
+                inside a drawer that scrolled too, so a swipe on the list
+                moved one or the other depending on where it started. */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-4">
+              {/* Empty and full swap with a short fade rather than a jump */}
+              <AnimatePresence mode="wait" initial={false}>
               {items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center">
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: EASE_OUT }}
+                  className="flex flex-col items-center justify-center h-full text-center"
+                >
                   <ShoppingBag
                     size={48}
                     className="text-lavender-soft mb-4"
@@ -345,9 +398,35 @@ export function CartDrawer({
                   <p className="text-sm text-charcoal-light">
                     Add something beautiful to get started.
                   </p>
-                </div>
+                  {/* Clearing the bag is one tap and takes measurements and gift
+                      notes with it: for a few seconds it can be taken back */}
+                  {cleared && (
+                    <p role="status" className="mt-5 text-sm text-charcoal">
+                      Bag cleared ·{" "}
+                      <button
+                        type="button"
+                        onClick={undoClear}
+                        className="-my-3 py-3 font-medium underline underline-offset-2 hover:text-charcoal/70 transition-colors"
+                      >
+                        Undo
+                      </button>
+                    </p>
+                  )}
+                </motion.div>
               ) : (
-                <div className="space-y-4">
+                <motion.div
+                  key="list"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: EASE_OUT }}
+                  className="relative flex flex-col gap-4"
+                >
+                  {/* Lines already in the bag are simply there when it opens;
+                      one added while it is open rises in, one taken out fades
+                      and the rest close the gap. The exit only ever ran with
+                      AnimatePresence round the list, which it never had. */}
+                  <AnimatePresence initial={false} mode="popLayout">
                   {items.map((item) => {
                     const key = {
                       id: item.id,
@@ -360,23 +439,24 @@ export function CartDrawer({
                     <motion.div
                       key={`${item.id}-${item.size ?? ""}-${item.color ?? ""}-${item.giftMessage ?? ""}-${item.measurements ?? ""}`}
                       layout
-                      initial={{ opacity: 0, y: 10 }}
+                      initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
+                      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.18, ease: EASE_OUT } }}
+                      transition={{
+                        duration: 0.2,
+                        ease: EASE_OUT,
+                        layout: { duration: 0.25, ease: EASE_IN_OUT },
+                      }}
                       className="flex gap-4 p-3 rounded-2xl bg-white/60 border border-lavender-soft/30"
                     >
                       {/* Image */}
                       <div className="w-20 h-24 rounded-xl overflow-hidden bg-cream-soft flex-shrink-0">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
+                        <BagImage src={item.image} alt={item.name} />
                       </div>
 
                       {/* Details */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm truncate">
+                        <h4 className="font-medium text-sm truncate" title={item.name}>
                           {item.name}
                         </h4>
                         {item.size && (
@@ -407,25 +487,35 @@ export function CartDrawer({
                             </p>
                           </div>
                         )}
-                        <p className="text-sm font-medium mt-1">
-                          £{(item.price / 100).toFixed(2)}
+                        {/* What the line costs, with the price of one beside
+                            it once there are several: "£24.00" next to a 3
+                            read as the total and was not */}
+                        <p className="text-sm font-medium mt-1 tabular-nums">
+                          {formatPence(item.price * item.quantity)}
+                          {item.quantity > 1 && (
+                            <span className="ml-1.5 text-xs font-normal text-charcoal-light">
+                              {formatPence(item.price)} each
+                            </span>
+                          )}
                         </p>
 
-                        {/* Quantity controls */}
+                        {/* Quantity controls: 40px squares on a phone, where a
+                            thumb pressed them, 36px with a mouse. The bin
+                            stays at the far end, well clear of the minus. */}
                         <div className="flex items-center gap-3 mt-2">
                           <button
                             onClick={() => updateQuantity(key, item.quantity - 1)}
-                            className="w-7 h-7 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
+                            className="size-10 sm:size-9 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
                             aria-label={`Decrease quantity of ${item.name}`}
                           >
                             <Minus size={14} />
                           </button>
-                          <span className="text-sm font-medium w-6 text-center">
+                          <span className="text-sm font-medium min-w-6 tabular-nums text-center">
                             {item.quantity}
                           </span>
                           <button
                             onClick={() => updateQuantity(key, item.quantity + 1)}
-                            className="w-7 h-7 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
+                            className="size-10 sm:size-9 rounded-lg bg-lavender-bg flex items-center justify-center hover:bg-lavender/20 transition-colors"
                             aria-label={`Increase quantity of ${item.name}`}
                           >
                             <Plus size={14} />
@@ -433,7 +523,7 @@ export function CartDrawer({
 
                           <button
                             onClick={() => removeItem(key)}
-                            className="ml-auto p-1.5 text-charcoal-light hover:text-red-400 transition-colors"
+                            className="ml-auto -mr-2 size-10 grid place-items-center text-charcoal-light hover:text-red-400 transition-colors"
                             aria-label={`Remove ${item.name} from bag`}
                           >
                             <Trash2 size={14} />
@@ -443,13 +533,19 @@ export function CartDrawer({
                     </motion.div>
                     );
                   })}
-                </div>
+                  </AnimatePresence>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
 
             {/* Footer */}
+            {/* Never taller than 70% of the drawer: on a 320x460 screen it
+                grew past the bottom and its last button could not be reached. Past
+                that height it scrolls on its own, under the list, not inside
+                it — and it clears the iPhone's home bar. */}
             {items.length > 0 && (
-              <div className="border-t border-lavender-soft/40 px-6 py-5 space-y-4 shrink-0">
+              <div className="border-t border-lavender-soft/40 px-6 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] space-y-4 shrink-0 max-h-[70%] overflow-y-auto overscroll-contain">
                 {/* Free shipping progress */}
                 {region === "uk" && freeShippingThreshold > 0 && (() => {
                   const spent = totalPrice();
@@ -461,8 +557,8 @@ export function CartDrawer({
                         <p className="text-xs text-charcoal-light mb-1.5 flex items-center gap-1">
                           <Package size={12} className="text-lavender" />
                           Add{" "}
-                          <span className="font-medium text-charcoal">
-                            £{(remaining / 100).toFixed(2)}
+                          <span className="font-medium text-charcoal tabular-nums">
+                            {formatPence(remaining)}
                           </span>{" "}
                           more for free UK delivery
                         </p>
@@ -472,12 +568,14 @@ export function CartDrawer({
                           You qualify for free UK delivery! 🎉
                         </p>
                       )}
+                      {/* A full-width bar cut back to the share spent. It
+                          used to grow from nothing every time the bag opened;
+                          now it opens where it is, and moves only when the
+                          amount does — clip-path, so nothing is laid out again */}
                       <div className="h-1.5 w-full bg-lavender-bg rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full bg-lavender rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${pct}%` }}
-                          transition={{ duration: 0.4, ease: "easeOut" }}
+                        <div
+                          className="h-full w-full bg-lavender rounded-full transition-[clip-path] duration-400 ease-out motion-reduce:transition-none"
+                          style={{ clipPath: `inset(0 ${100 - pct}% 0 0 round 9999px)` }}
                         />
                       </div>
                     </div>
@@ -556,7 +654,7 @@ export function CartDrawer({
                             placeholder="Email you'll check out with"
                             aria-label="Email you'll check out with"
                             autoComplete="email"
-                            className="w-full text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                            className="w-full text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                           />
                           <p className="text-[11px] text-charcoal-light mt-1">
                             First orders only, so we check by email. Not combined with other codes.
@@ -572,8 +670,11 @@ export function CartDrawer({
                   {giftCard && (
                     <div className="flex items-center justify-between gap-2 text-xs bg-lavender-bg/60 border border-lavender-soft/40 rounded-lg px-3 py-2 mb-2">
                       <span className="text-charcoal">
-                        Gift card <strong>{giftCard.code}</strong> — £
-                        {(Math.min(giftCard.balance, Math.max(0, totalPrice() - (friend && friendApplies ? friend.discount : 0))) / 100).toFixed(2)} off
+                        Gift card <strong>{giftCard.code}</strong> —{" "}
+                        <span className="tabular-nums">
+                          {formatPence(Math.min(giftCard.balance, Math.max(0, totalPrice() - (friend && friendApplies ? friend.discount : 0))))}
+                        </span>{" "}
+                        off
                       </span>
                       <button
                         onClick={() => {
@@ -653,18 +754,35 @@ export function CartDrawer({
                         onChange={(e) => setCodeInput(e.target.value.toUpperCase().slice(0, 30))}
                         placeholder={giftCard ? "Friend code" : friend ? "Gift card code" : "Gift card or friend code"}
                         aria-label="Gift card or friend code"
-                        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender focus:ring-2 focus:ring-lavender/20"
+                        // Codes are capitals and made-up words: the phone's
+                        // keyboard types capitals, does not "correct" ANNA-K7P2
+                        // into a word, and its return key says Go
+                        autoCapitalize="characters"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        autoComplete="off"
+                        enterKeyHint="go"
+                        className="flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border border-lavender-soft/50 bg-white focus:outline-none focus:border-lavender-ink focus:ring-2 focus:ring-lavender-ink/25"
                       />
+                      {/* While the code is checked the word stays (invisible)
+                          and the spinner sits over it, so the button keeps
+                          its width — "…" used to shrink it and move the field */}
                       <button
                         type="submit"
                         disabled={checkingCode || codeInput.trim().length < 4}
-                        className="shrink-0 px-3 py-2 rounded-lg bg-lavender/20 hover:bg-lavender/30 text-charcoal text-xs font-medium transition-colors disabled:opacity-50"
+                        aria-busy={checkingCode}
+                        className="press relative shrink-0 px-3 py-2 rounded-lg bg-lavender/20 hover:bg-lavender/30 text-charcoal text-xs font-medium disabled:opacity-50"
                       >
-                        {checkingCode ? "…" : "Apply"}
+                        <span className={checkingCode ? "opacity-0" : undefined}>Apply</span>
+                        {checkingCode && (
+                          <span className="absolute inset-0 grid place-items-center" aria-hidden="true">
+                            <Loader2 size={14} className="animate-spin" />
+                          </span>
+                        )}
                       </button>
                     </form>
                   )}
-                  {codeError && <p className="text-[11px] text-red-500 mt-1">{codeError}</p>}
+                  {codeError && <p role="alert" className="text-[11px] text-rose-700 mt-1">{codeError}</p>}
                   {codeNote && (
                     <p role="status" className="text-[11px] text-charcoal mt-1 leading-relaxed">
                       {codeNote}
@@ -675,8 +793,8 @@ export function CartDrawer({
                 {/* Total */}
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-charcoal-light">Subtotal</p>
-                  <p className="font-serif text-xl">
-                    £{(totalPrice() / 100).toFixed(2)}
+                  <p className="font-serif text-xl tabular-nums">
+                    {formatPence(totalPrice())}
                   </p>
                 </div>
                 <div className="text-xs text-charcoal-light space-y-0.5">
@@ -685,17 +803,19 @@ export function CartDrawer({
 
                 {/* Error message */}
                 {error && (
-                  <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
+                  <p role="alert" className="text-xs text-rose-700 bg-red-50 rounded-lg px-3 py-2">
                     {error}
                   </p>
                 )}
 
-                {/* Checkout button */}
+                {/* Checkout button. .press gives it the site's press and
+                    carries its colour and shadow changes, in place of a
+                    transition-all that also animated layout */}
                 <button
                   onClick={handleCheckout}
                   disabled={isLoading}
                   aria-describedby={termsId}
-                  className="w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-[#CFC0F0] transition-all duration-300 hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="press w-full py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium tabular-nums hover:bg-[#CFC0F0] hover:shadow-lg hover:shadow-lavender/30 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
                     <>
@@ -703,17 +823,16 @@ export function CartDrawer({
                       Redirecting…
                     </>
                   ) : (
-                    "Checkout — £" +
-                    (totalPrice() / 100).toFixed(2)
+                    "Checkout — " + formatPence(totalPrice())
                   )}
                 </button>
                 {/* What paying agrees to, said before Stripe's page: the link
                     closes the bag (every navigation does) and the bag is kept */}
                 <TermsNote id={termsId} doing="paying" className="text-center" />
 
-                {/* Clear cart */}
+                {/* Clear cart — with a few seconds' Undo in the empty bag */}
                 <button
-                  onClick={clearCart}
+                  onClick={clearWithUndo}
                   className="w-full text-center text-xs text-charcoal-light hover:text-charcoal transition-colors"
                 >
                   Clear bag

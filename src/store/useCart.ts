@@ -34,6 +34,8 @@ interface CartState {
   removeItem: (key: ItemKey) => void;
   updateQuantity: (key: ItemKey, quantity: number) => void;
   clearCart: () => void;
+  /** Puts back lines taken out by "Clear bag", keeping anything added since */
+  restore: (lines: CartItem[]) => void;
   totalItems: () => number;
   totalPrice: () => number;
 }
@@ -82,6 +84,21 @@ export const useCart = create<CartState>()(
       },
 
       clearCart: () => set({ items: [] }),
+
+      // "Clear bag" is one tap, and a made-to-measure line carries
+      // measurements someone sat down and took. Undo hands the old lines
+      // back: they go first, in their old order, and a piece added in the
+      // seconds between is kept — on the same line, the quantities add up.
+      restore: (lines) => {
+        set((state) => {
+          const back = lines.map((line) => {
+            const since = state.items.find((i) => sameLine(i, line));
+            return since ? { ...line, quantity: line.quantity + since.quantity } : line;
+          });
+          const added = state.items.filter((i) => !lines.some((line) => sameLine(i, line)));
+          return { items: [...back, ...added] };
+        });
+      },
 
       totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
 

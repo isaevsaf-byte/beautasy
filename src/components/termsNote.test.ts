@@ -117,8 +117,16 @@ test("the privacy policy is pointed to, never agreed to", () => {
   assert.doesNotMatch(visible(booking), /agree to[^.]*Privacy/);
 });
 
-test("on a short phone the bag scrolls as one column, so Checkout and Clear bag can be reached", () => {
+test("on a short phone Checkout and Clear bag can be reached, without a scroller inside a scroller", () => {
+  // The drawer used to scroll as one column with the list scrolling inside
+  // it, so a swipe moved one or the other. Now the drawer clips, the list is
+  // the scroller, and the footer scrolls on its own only past 70% of the
+  // drawer — on a 320x460 screen that still reaches Clear bag.
   const cart = read("src/components/Cart.tsx");
-  assert.match(cart, /fixed top-0 right-0 bottom-0 w-full max-w-md[^"]*flex flex-col overflow-y-auto overscroll-contain/);
-  assert.match(cart, /flex-1 min-h-32 overflow-y-auto px-6 py-4/);
+  assert.match(cart, /fixed top-0 right-0 bottom-0 w-full max-w-md[^"]*flex flex-col overflow-hidden"/);
+  assert.match(cart, /flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-4/);
+  const footer = cart.match(/className="(border-t border-lavender-soft\/40 px-6 pt-5[^"]*)"/)?.[1] ?? "";
+  for (const name of ["shrink-0", "max-h-[70%]", "overflow-y-auto", "pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]"]) {
+    assert.ok(footer.split(" ").includes(name), `the footer has ${name}`);
+  }
 });
