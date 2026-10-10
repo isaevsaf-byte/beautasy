@@ -21,7 +21,7 @@ import AtelierBookingForm from "@/components/AtelierBookingForm";
 import StickyBookBar from "@/components/StickyBookBar";
 import PriceFirst from "@/components/PriceFirst";
 import ClosedShears from "@/components/stitch/ClosedShears";
-import { fadeUp, fadeIn, stagger } from "@/components/animations";
+import { fadeUp, stagger } from "@/components/animations";
 import { LOCAL_SERVICES } from "@/lib/localServices";
 import { pricingCategories, type PriceItem } from "@/lib/atelierPrices";
 import { BUSINESS, BY_APPOINTMENT, whatsappLink as whatsappWith } from "@/lib/business";
@@ -594,62 +594,10 @@ export default function AtelierContent({
           </div>
         </section>
 
-        {/* ──── CTA ──── */}
-        <section className="py-20 md:py-28">
-          <div className="max-w-6xl mx-auto px-6">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={stagger}
-              className="relative bg-lavender/10 rounded-[2rem] px-8 sm:px-16 py-14 text-center overflow-hidden"
-            >
-              {/* Decorative blobs */}
-              <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-lavender/10 blur-3xl" />
-              <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-lavender-bg/40 blur-3xl" />
-
-              <motion.div className="relative z-10" variants={fadeIn}>
-                <motion.h2
-                  variants={fadeUp}
-                  custom={0}
-                  className="font-serif text-3xl sm:text-4xl mb-4"
-                >
-                  Ready for the perfect fit?
-                </motion.h2>
-                <motion.p
-                  variants={fadeUp}
-                  custom={1}
-                  className="text-charcoal-light max-w-md mx-auto mb-8 leading-relaxed"
-                >
-                  Book a fitting appointment at our Southampton atelier or get in
-                  touch to discuss your project.
-                </motion.p>
-                <motion.div
-                  variants={fadeUp}
-                  custom={2}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-4"
-                >
-                  <Link
-                    href="#book"
-                    className="topstitch group inline-flex items-center gap-2 px-8 py-3.5 bg-lavender text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:bg-lavender-hover transition-[background-color,box-shadow] duration-300 hover:shadow-lg hover:shadow-lavender/30"
-                  >
-                    Choose a time
-                    <ArrowRight
-                      size={16}
-                      className="group-hover:translate-x-1 transition-transform"
-                    />
-                  </Link>
-                  <Link
-                    href="/shop"
-                    className="inline-flex items-center gap-2 px-8 py-3.5 border border-charcoal/20 text-charcoal rounded-full text-sm tracking-wider uppercase font-medium hover:border-lavender hover:bg-lavender/10 transition-colors duration-300"
-                  >
-                    Browse Shop
-                  </Link>
-                </motion.div>
-              </motion.div>
-            </motion.div>
-          </div>
-        </section>
+        {/* No call to action after the form. The closing "perfect fit" box
+            sat right under it with a "Choose a time" that led back up to the
+            form the visitor had just passed, and a second shop button the
+            menu already has: the page ends on the form. */}
       </main>
 
       {/* Google sends people who search for the atelier here, and the booking

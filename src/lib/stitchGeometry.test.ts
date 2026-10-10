@@ -232,7 +232,9 @@ test("every lavender «Choose a time» is top-stitched, and the stitch never mov
       assert.doesNotMatch(line, /\b(absolute|fixed|sticky)\b/, `${file}: ${line.trim()}`);
     }
   }
-  assert.equal(stitched, 12);
+  // 11 since 10.10: the second one on /atelier, under its own form, is gone
+  assert.equal(stitched, 11);
+  assert.doesNotMatch(read("src/app/atelier/AtelierContent.tsx"), /Ready for the perfect fit\?/, "nothing after the form sends people back up to it");
   assert.match(rule(".topstitch::after"), /pointer-events: none;/);
   assert.match(rule(".topstitch::after"), /border: 1\.5px dashed/);
   assert.doesNotMatch(rule(".topstitch::after"), /animation/, "it never moves");
