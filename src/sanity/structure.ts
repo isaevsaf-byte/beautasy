@@ -1,5 +1,6 @@
-import { defaultIntentChecker, type StructureResolver } from "sanity/structure";
+import { defaultIntentChecker, type StructureBuilder, type StructureResolver } from "sanity/structure";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
+import { UPCOMING_FITTINGS_FILTER, upcomingFittingsParams } from "./upcomingFittings";
 import { ManualBookingPane } from "./ManualBookingPane";
 import { LedgerPane } from "./LedgerPane";
 import { PartnersPane } from "./PartnersPane";
@@ -42,12 +43,43 @@ import {
  * Emails, the Dashboard and hints in the Studio name lists in words; when a
  * list moves, they say «Folder» → «List» (STUDIO_LISTS in @/lib/studioStats).
  */
+/**
+ * «Ближайшие примерки»: confirmed visits still ahead, soonest first. A child
+ * resolver rather than a list, so "now" is read each time the list is opened —
+ * see @/sanity/upcomingFittings.
+ *
+ * No «+ Создать» here: a booking is made with «Записать вручную», and one
+ * created blank in this list would not even appear in it. It does not take
+ * over «open this document» either (no canHandleIntent) — a booking opened
+ * from search or an email still opens beside «Записи в ателье».
+ */
+function upcomingFittings(S: StructureBuilder) {
+  return () =>
+    S.documentList()
+      .id("upcoming-fittings-list")
+      .title("Ближайшие примерки")
+      .schemaType("atelierBooking")
+      .apiVersion("2024-01-29")
+      .filter(UPCOMING_FITTINGS_FILTER)
+      .params(upcomingFittingsParams())
+      .defaultOrdering([{ field: "slotStart", direction: "asc" }])
+      // Last, as in the review lists: a call after it would bring the templates back
+      .initialValueTemplates([]);
+}
+
 export const structure: StructureResolver = (S) =>
   S.list()
     .title("Beautasy")
     .items([
       // ─── Every day ───
       S.documentTypeListItem("atelierBooking").title("Записи в ателье"),
+      // The diary from now on, soonest first: "Записи в ателье" is every
+      // request ever made, newest first, and the next visitor is somewhere in it
+      S.listItem()
+        .id("upcoming-fittings")
+        .title("Ближайшие примерки")
+        .schemaType("atelierBooking")
+        .child(upcomingFittings(S)),
       // For someone who got in touch on WhatsApp, by phone or on Nextdoor: the
       // time goes into the same diary the site books from, so it closes online
       S.listItem()
