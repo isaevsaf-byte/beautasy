@@ -22,5 +22,8 @@ export async function GET(req: NextRequest) {
   if (!process.env.SANITY_API_WRITE_TOKEN) {
     return NextResponse.json({ error: "Sanity write token is not set" }, { status: 500 });
   }
-  return NextResponse.json(await runLeadSearch());
+  const result = await runLeadSearch();
+  // One line a morning in Vercel's logs: what was read, kept, new, and told
+  console.log("Lead search:", JSON.stringify(result));
+  return NextResponse.json(result);
 }
