@@ -41,6 +41,7 @@ export const STUDIO_MOVES: Readonly<Record<string, string>> = {
   partners: "friends",
   // Born in the folder (11.10.2026); listed so the rule "every list in a folder is here" holds
   leads: "friends",
+  leadPlace: "friends",
   referrer: "friends",
   referral: "friends",
 

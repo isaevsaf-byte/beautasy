@@ -304,6 +304,9 @@ export const structure: StructureResolver = (S) =>
                     .defaultOrdering([{ field: "foundAt", direction: "desc" }])
                     .canHandleIntent(defaultIntentChecker)
                 ),
+              // Facebook groups and searches where people ask for a maker, which no
+              // program may read: Kristina opens them herself (see leadPlace)
+              S.documentTypeListItem("leadPlace").title("Где ищут мастеров"),
               // Salons and shops that send their clients, each with a link, a card and
               // a month's statement. Contacts and payments are sealed, so it is a pane
               // that asks the server — see PartnersPane
