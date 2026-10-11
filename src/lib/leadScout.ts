@@ -75,7 +75,8 @@ const CRAFT: { pattern: RegExp; weight: number; label: string }[] = [
   { pattern: /\balteration(s|ist)?\b/i, weight: 3, label: "подгонка одежды" },
   { pattern: /\bcurtains?\b/i, weight: 2, label: "шторы" },
   { pattern: /\b(roman )?blinds?\b/i, weight: 1, label: "шторы/жалюзи" },
-  { pattern: /\b(sewing|sewer|stitcher)\b/i, weight: 2, label: "шитьё" },
+  // Not "sewer": on job boards that is drains (a "Sewer Network Operative", 11.10.2026)
+  { pattern: /\b(sewing|stitcher)\b/i, weight: 2, label: "шитьё" },
   { pattern: /\b(sewing )?machinist\b/i, weight: 2, label: "швея-машинистка" },
   { pattern: /\btailor(ing|ess)?\b/i, weight: 2, label: "портной" },
   { pattern: /\bbridal\b|\bwedding dress/i, weight: 2, label: "свадебные платья" },
@@ -175,7 +176,12 @@ export function judge(lead: LeadCandidate): Judgement {
     why.push("похоже на работу по найму");
   }
 
-  const keep = craft >= 2 && asking && !offering && score >= 5;
+  // A job advert far away is a job in another town, unless the work comes to her
+  const jobBoard = lead.source === "adzuna" || lead.source === "reed";
+  const comesToHer = askedBy.some((label) => label === "надомная работа" || label === "можно из дома" || label === "фриланс" || label === "субподряд");
+  const reachable = !jobBoard || Boolean(near) || comesToHer;
+
+  const keep = craft >= 2 && asking && !offering && reachable && score >= 5;
   return { score, why, keep };
 }
 

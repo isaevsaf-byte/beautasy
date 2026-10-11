@@ -182,3 +182,16 @@ test("the Facebook searches come on Mondays only", async () => {
   assert.equal(w.telegrams.length, 1);
   assert.ok(!w.telegrams[0].includes("Facebook"));
 });
+
+test("a job far away is kept only if the work comes to her", () => {
+  const factory = post("Sewing Machinist", "Sewing machinist wanted to join our team in Nottingham.", { source: "reed", place: "Nottingham", askingByNature: true });
+  const outwork = post("Sewing Machinist", "Home-based outworker wanted, work posted to you.", { source: "reed", place: "Nottingham", askingByNature: true });
+  const near = post("Sewing Machinist", "Sewing machinist wanted to join our team.", { source: "reed", place: "Eastleigh", askingByNature: true });
+  assert.equal(judge(factory).keep, false);
+  assert.equal(judge(outwork).keep, true);
+  assert.equal(judge(near).keep, true);
+});
+
+test("a sewer on a job board is drains, not sewing", () => {
+  assert.equal(judge(post("Sewer Network Operative", "Wastewater sewer technician wanted in Southampton.", { source: "reed", askingByNature: true })).why.includes("шитьё"), false);
+});

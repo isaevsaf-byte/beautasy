@@ -203,13 +203,15 @@ export async function fromReed(fetcher: Fetch = fetch, since: Date): Promise<Sou
   const key = process.env.REED_API_KEY;
   if (!key) return { source: "reed", candidates: [], problem: "нет ключа REED_API_KEY" };
   const auth = `Basic ${Buffer.from(`${key}:`).toString("base64")}`;
-  const words = ["seamstress", "curtain maker", "soft furnishings", "alterations", "sewing machinist"];
+  // Nationwide: within 40 miles of Southampton Reed had none of these on 11.10.2026.
+  // The judge keeps a far one only if the work can be done from home
+  const words = ["seamstress", "curtain maker", "soft furnishings", "sewing machinist", "hand sewer", "dressmaker", "outworker"];
   try {
     const answers = await Promise.all(
       words.map((keywords) =>
         getJson<ReedAnswer>(
           fetcher,
-          `https://www.reed.co.uk/api/1.0/search?${new URLSearchParams({ keywords, locationName: "Southampton", distanceFromLocation: "25", resultsToTake: "50" })}`,
+          `https://www.reed.co.uk/api/1.0/search?${new URLSearchParams({ keywords, resultsToTake: "100" })}`,
           { headers: { Authorization: auth } }
         )
       )
