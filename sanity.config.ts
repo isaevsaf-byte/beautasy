@@ -10,6 +10,7 @@ import { approvePostAction, publishNowAction } from "./src/sanity/socialActions"
 import { revealContactAction } from "./src/sanity/revealAction";
 import { moveBookingAction } from "./src/sanity/moveBookingAction";
 import { collectionTimeAction } from "./src/sanity/collectionAction";
+import { doneAction } from "./src/sanity/doneAction";
 import { recordPaymentAction } from "./src/sanity/paymentAction";
 import { partnerAttributionAction } from "./src/sanity/partnerAction";
 import { structure } from "./src/sanity/structure";
@@ -85,6 +86,7 @@ export default defineConfig({
       if (context.schemaType === "atelierBooking") {
         return [
           ...prev,
+          doneAction,
           moveBookingAction,
           collectionTimeAction,
           recordPaymentAction,

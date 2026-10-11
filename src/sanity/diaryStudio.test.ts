@@ -118,7 +118,7 @@ test("the move is not offered over unpublished changes, and it asks the diary ro
   assert.match(ACTION, /askDiary\(token, \{ action: "move", id, slot \}\)/);
   assert.match(
     CONFIG,
-    /return \[\s*\.\.\.prev,\s*moveBookingAction,\s*collectionTimeAction,\s*recordPaymentAction,\s*partnerAttributionAction,\s*notifyCustomerAction,\s*revealContactAction,\s*\];/
+    /return \[\s*\.\.\.prev,\s*doneAction,\s*moveBookingAction,\s*collectionTimeAction,\s*recordPaymentAction,\s*partnerAttributionAction,\s*notifyCustomerAction,\s*revealContactAction,\s*\];/
   );
   assert.match(STRUCTURE, /\.title\("Записать вручную"\)/);
 });

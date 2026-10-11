@@ -14,6 +14,7 @@ import { calendarUid, eveningBefore, fittingEvent, googleCalendarLink, icsInvite
 import { whatToBring } from "@/lib/whatToBring";
 import type { EmailMessage } from "@/lib/sendEmail";
 import { pieceInSentence, serviceInSentence } from "@/lib/atelierServices";
+import { careLabelHtml, careLabelOf, greetingName, type CareLine } from "@/lib/careLabel";
 
 type EmailAttachment = NonNullable<EmailMessage["attachments"]>[number];
 
@@ -66,6 +67,8 @@ export interface NotifiableBooking {
   referrer?: { _ref: string };
   referredBy?: string;
   referralDiscount?: number;
+  /** The care label's lines for the thank-you, as «✓ Работа готова» keeps them — see @/lib/careLabel */
+  careLabel?: CareLine[];
 }
 
 const SLOT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -304,9 +307,12 @@ export function bookingEmailHtml(
    * the link can live in the Studio, where Kristina can change it, instead of
    * behind a redeploy.
    */
-  reviewLink: string | null = process.env.GOOGLE_REVIEW_URL ?? null
+  reviewLink: string | null = process.env.GOOGLE_REVIEW_URL ?? null,
+  /** When it is written: the care label is dated by it */
+  now: Date = new Date()
 ): string {
-  const firstName = escapeHtml(booking.displayName ?? "there");
+  // "anna" written as she typed it reads as a typo: the name as the care label writes it
+  const firstName = escapeHtml(greetingName(booking.displayName));
   // Collect & return: nobody visits, so the calendar holds the window Kristina
   // comes to their door, when she gave it one from the diary
   const collection = booking.collection ?? null;
@@ -325,6 +331,9 @@ export function bookingEmailHtml(
       booking.confirmedFor ? ` on ${booking.confirmedFor}` : ""
     }: `
   );
+
+  // The thank-you opens with the piece's care label — see @/lib/careLabel
+  const label = status === "completed" ? careLabelOf(booking, now) : null;
 
   const moved = status === "confirmed" && booking.movedFrom ? escapeHtml(booking.movedFrom) : null;
   // A booking with an exact time went into her calendar with alarms, one of
@@ -403,13 +412,20 @@ export function bookingEmailHtml(
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#faf9f7;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#faf9f7;font-family:Georgia,serif;">${
+    // The inbox shows the first words of an email beside its subject: the
+    // label's small capitals would be those, so the greeting is put first
+    label
+      ? `
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${firstName}, thank you for trusting us with your ${service}.</div>`
+      : ""
+  }
   <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,0.06);">
     <div style="background:#e8dff5;padding:34px 40px;text-align:center;">
       <p style="margin:0 0 8px;font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#7a6d9a;">Beautasy Atelier</p>
       <h1 style="margin:0;font-size:25px;font-weight:400;color:#2d2d2d;font-style:italic;">${heading}</h1>
     </div>
-    <div style="padding:32px 40px;">
+    <div style="padding:32px 40px;">${label ? careLabelHtml(label) : ""}
       <p style="color:#3d3d3d;line-height:1.7;margin-top:0;">${firstName}, ${body}</p>
       ${
         booking.replyNote
@@ -453,7 +469,7 @@ export function bookingEmailHtml(
 export function reminderEmailHtml(
   booking: Pick<NotifiableBooking, "displayName" | "service" | "slotStart" | "slotEnd" | "collection">
 ): string {
-  const firstName = escapeHtml(booking.displayName ?? "there");
+  const firstName = escapeHtml(greetingName(booking.displayName));
   const when = booking.slotStart ? escapeHtml(slotLabel(booking.slotStart)) : "tomorrow";
   const length = fittingLength(booking);
   const whatsappKristina = whatsappLink(
@@ -525,17 +541,27 @@ export function bookingEmailSubject(
  * someone else (see @/lib/diary). It is owed at most the "sorry" it was
  * already due — never a "you're booked in" for a time another customer holds.
  */
-export const PENDING_QUERY = `*[
+const PENDING_FILTER = `
   _type == "atelierBooking"
+  && !(_id in path("drafts.**"))
   && defined(emailSealed)
   && status in ["confirmed", "declined", "cancelled", "completed"]
   && (!defined(notifiedStatus) || notifiedStatus != status)
-  && (!defined(releasedAt) || status in ["declined", "cancelled"])
-] | order(createdAt desc) [0...$limit] {
+  && (!defined(releasedAt) || status in ["declined", "cancelled"])`;
+
+const PENDING_FIELDS = `{
   _id, _rev, status, notifiedStatus, displayName, nameSealed, emailSealed,
   service, preferredDate, confirmedFor, slotStart, slotEnd, movedFrom, replyNote, createdAt,
-  referrer, referredBy, referralDiscount, collection
+  referrer, referredBy, referralDiscount, collection, careLabel
 }`;
+
+export const PENDING_QUERY = `*[${PENDING_FILTER}
+] | order(createdAt desc) [0...$limit] ${PENDING_FIELDS}`;
+
+/** The same, for one booking: «✓ Работа готова» sends its own thank-you, and nobody else's */
+export const PENDING_ONE_QUERY = `*[${PENDING_FILTER}
+  && _id == $id
+] [0...1] ${PENDING_FIELDS}`;
 
 /**
  * Emails customers whose booking Kristina has confirmed or declined.
@@ -574,12 +600,18 @@ export function claimBookingEmail(
   );
 }
 
-export async function sendPendingBookingEmails(limit = 25): Promise<{ checked: number; sent: number }> {
+export async function sendPendingBookingEmails(
+  limit = 25,
+  /** One booking's email only, by its id — see PENDING_ONE_QUERY */
+  only?: string
+): Promise<{ checked: number; sent: number }> {
   if (!process.env.RESEND_API_KEY || !process.env.SANITY_API_WRITE_TOKEN) {
     return { checked: 0, sent: 0 };
   }
 
-  const bookings: NotifiableBooking[] = await sanityWriteClient.fetch(PENDING_QUERY, { limit });
+  const bookings: NotifiableBooking[] = only
+    ? await sanityWriteClient.fetch(PENDING_ONE_QUERY, { id: only })
+    : await sanityWriteClient.fetch(PENDING_QUERY, { limit });
   let sent = 0;
 
   for (const booking of bookings) {

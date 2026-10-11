@@ -1,6 +1,6 @@
 import { defaultIntentChecker, type StructureBuilder, type StructureResolver } from "sanity/structure";
 import { SITE_SETTINGS_ID } from "@/lib/siteSettingsDocument";
-import { UPCOMING_FITTINGS_FILTER, upcomingFittingsParams } from "./upcomingFittings";
+import { IN_WORK_FILTER, UPCOMING_FITTINGS_FILTER, upcomingFittingsParams } from "./upcomingFittings";
 import { ManualBookingPane } from "./ManualBookingPane";
 import { LedgerPane } from "./LedgerPane";
 import { PartnersPane } from "./PartnersPane";
@@ -67,6 +67,21 @@ function upcomingFittings(S: StructureBuilder) {
       .initialValueTemplates([]);
 }
 
+/** «В работе» — see IN_WORK_FILTER */
+function inWork(S: StructureBuilder) {
+  // Worked out when the list is opened, as «Ближайшие примерки» is
+  return () =>
+    S.documentList()
+      .id("in-work-list")
+      .title("Когда вещь снова у клиента — нажмите «✓ Работа готова»")
+      .schemaType("atelierBooking")
+      .apiVersion("2024-01-29")
+      .filter(IN_WORK_FILTER)
+      .params(upcomingFittingsParams())
+      .defaultOrdering([{ field: "slotStart", direction: "desc" }])
+      .initialValueTemplates([]);
+}
+
 export const structure: StructureResolver = (S) =>
   S.list()
     .title("Beautasy")
@@ -80,6 +95,12 @@ export const structure: StructureResolver = (S) =>
         .title("Ближайшие примерки")
         .schemaType("atelierBooking")
         .child(upcomingFittings(S)),
+      // Visits that have happened and are not yet «Выполнена»: the jobs in hand
+      S.listItem()
+        .id("in-work")
+        .title("В работе")
+        .schemaType("atelierBooking")
+        .child(inWork(S)),
       // For someone who got in touch on WhatsApp, by phone or on Nextdoor: the
       // time goes into the same diary the site books from, so it closes online
       S.listItem()

@@ -189,9 +189,10 @@ test("the reminder: their time and job, what to bring, the confirmation's own wo
 });
 
 test("the HTML is escaped: a name typed into the form cannot write the email", () => {
-  const html = reminderEmailHtml({ displayName: "<img src=x>", service: "Alterations", slotStart: "2026-10-25T14:00" });
-  assert.doesNotMatch(html, /<img src=x>/);
-  assert.match(html, /&lt;img src=x&gt;, a little reminder/);
+  // displayName is one word, the first of the name typed (firstNameOf)
+  const html = reminderEmailHtml({ displayName: "<img/src=x>", service: "Alterations", slotStart: "2026-10-25T14:00" });
+  assert.doesNotMatch(html, /<img\/src=x>/);
+  assert.match(html, /&lt;img\/src=x&gt;, a little reminder/);
 });
 
 test("once per booking and time: the claim is written before the email, and a second run sends nothing", async () => {

@@ -29,3 +29,20 @@ export const UPCOMING_FITTINGS_FILTER = `_type == "atelierBooking"
 export function upcomingFittingsParams(at: Date = new Date()): { now: string } {
   return { now: localMinuteOf(at) };
 }
+
+/**
+ * «В работе»: confirmed visits whose time has come, the latest first — the
+ * pieces Kristina has, or is about to have, in hand (11.10.2026).
+ *
+ * Nothing used to bring a finished job back to her: a visit dropped out of
+ * «Ближайшие примерки» the minute it began, and «Выполнена» — the thank-you,
+ * its care label, the review it asks for and the friend's reward — waited on
+ * her finding the booking again among every request ever made. Here each one
+ * stays until she presses «✓ Работа готова» (src/sanity/doneAction.tsx).
+ * A confirmed request whose time was only typed in has no slot to compare,
+ * so it is listed too — the dialog says so before she presses.
+ */
+export const IN_WORK_FILTER = `_type == "atelierBooking"
+  && status == "confirmed"
+  && (!defined(slotStart) || slotStart < $now)
+  && !defined(releasedAt)`;

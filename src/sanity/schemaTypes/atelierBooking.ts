@@ -1,5 +1,6 @@
 import { defineField, defineType, type ValidationContext } from "sanity";
 import { instantOf } from "@/lib/slots";
+import { MAX_LINES, careLineProblem, lineText, type CareLine } from "@/lib/careLabel";
 
 // The Studio's words for each status. The values are what is stored, and what
 // the site and the emails read, so only the titles are ever translated. The
@@ -9,7 +10,7 @@ const STATUS_OPTIONS = [
   { title: "Подтверждена", value: "confirmed" },
   { title: "Отказано — время освободится", value: "declined" },
   { title: "Клиент отменил — время освободится", value: "cancelled" },
-  { title: "Выполнена — клиент получит благодарность и просьбу об отзыве", value: "completed" },
+  { title: "Выполнена — клиент получит «спасибо» с биркой и просьбу об отзыве", value: "completed" },
 ];
 
 /**
@@ -228,12 +229,56 @@ export const atelierBooking = defineType({
       // not take its time back by its status — see statusTakesTimeBack
       validation: (rule) => rule.custom(statusTakesTimeBack),
       description:
-        "Отменённую запись со временем вернуть в «Новая» или «Подтверждена» можно только кнопкой «Записать снова» (у забора — «🚗 Назначить забор снова»): она проверит, что время всё ещё свободно. «Выполнена» поставить можно после времени визита — например, если клиент отменил, а потом всё-таки пришёл. Если статус поменяли по ошибке и ещё не опубликовали, нажмите «Отменить изменения».",
+        "Готовую работу отмечайте кнопкой «✓ Работа готова» внизу: там вы выберете строку для бирки в письме «спасибо», и письмо уйдёт сразу. Отменённую запись со временем вернуть в «Новая» или «Подтверждена» можно только кнопкой «Записать снова» (у забора — «🚗 Назначить забор снова»): она проверит, что время всё ещё свободно. «Выполнена» поставить можно после времени визита — например, если клиент отменил, а потом всё-таки пришёл. Если статус поменяли по ошибке и ещё не опубликовали, нажмите «Отменить изменения».",
       options: {
         list: STATUS_OPTIONS,
         layout: "radio",
       },
       initialValue: "new",
+    }),
+    // The care label in the thank-you: what Kristina did, picked in Russian
+    // with «✓ Работа готова» and written in English when the email is — see
+    // @/lib/careLabel. Only keys and numbers are kept, never words
+    defineField({
+      name: "careLabel",
+      title: "Бирка в письме «спасибо»",
+      type: "array",
+      readOnly: true,
+      hidden: ({ document }) => !(document?.careLabel as unknown[] | undefined)?.length,
+      description:
+        "Строки бирки, которую клиент увидит в письме «спасибо». Выбираются кнопкой «✓ Работа готова» внизу.",
+      // A line retired from the list later is a hint, not a lock: she cannot
+      // edit this field, and an error here would stop her publishing anything
+      // else on the booking. The email leaves such a line off by itself
+      validation: (rule) => [
+        rule.max(MAX_LINES),
+        rule
+          .custom((lines: CareLine[] | undefined) =>
+            (lines ?? []).some((line) => careLineProblem(line))
+              ? "Одной из этих строк больше нет в списке — в письмо «спасибо» она не попадёт."
+              : true
+          )
+          .warning(),
+      ],
+      of: [
+        {
+          type: "object",
+          name: "careLine",
+          title: "Строка бирки",
+          fields: [
+            defineField({ name: "phrase", title: "Строка", type: "string" }),
+            defineField({ name: "a", title: "Число, см", type: "number" }),
+            defineField({ name: "b", title: "Второе число, см", type: "number" }),
+          ],
+          preview: {
+            select: { phrase: "phrase", a: "a", b: "b" },
+            prepare({ phrase, a, b }: { phrase?: string; a?: number; b?: number }) {
+              const line = { phrase: phrase ?? "", a, b };
+              return { title: lineText(line, "ru") ?? "Строка, которой больше нет", subtitle: lineText(line, "en") ?? "" };
+            },
+          },
+        },
+      ],
     }),
     defineField({
       name: "confirmedFor",

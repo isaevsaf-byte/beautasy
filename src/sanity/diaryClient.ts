@@ -25,7 +25,12 @@ export function useDiaryToken(): string | null {
   return studioToken(client.config().token);
 }
 
-export async function askDiary(token: string | null, body: Record<string, unknown>): Promise<DiaryReply> {
+export function askDiary(token: string | null, body: Record<string, unknown>): Promise<DiaryReply> {
+  return askSite("/api/studio/diary", token, body);
+}
+
+/** The same line to another of the site's Studio routes — «✓ Работа готова» speaks to /api/studio/done */
+export async function askSite(path: string, token: string | null, body: Record<string, unknown>): Promise<DiaryReply> {
   if (!token) {
     return {
       ok: false,
@@ -34,7 +39,7 @@ export async function askDiary(token: string | null, body: Record<string, unknow
     };
   }
   try {
-    const res = await fetch("/api/studio/diary", {
+    const res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, token }),

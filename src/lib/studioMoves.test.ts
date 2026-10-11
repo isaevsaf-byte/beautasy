@@ -34,10 +34,19 @@ function folderBlocks(): Map<string, string> {
   return new Map(starts.map(({ folder, at }, i) => [folder, STRUCTURE.slice(at, starts[i + 1]?.at ?? STRUCTURE.length)]));
 }
 
-test("the top of the sidebar is the six daily jobs, then five folders — eleven rows, not thirty-three", () => {
+test("the top of the sidebar is the seven daily jobs, then five folders — twelve rows, not thirty-three", () => {
   const top = STRUCTURE.slice(STRUCTURE.indexOf(".items(["), STRUCTURE.indexOf('.id("reviews")'));
-  // «Ближайшие примерки» (10.10) sits under the bookings it is cut from
-  assert.deepEqual(idsIn(top), ["atelierBooking", "upcoming-fittings", "book-by-hand", "postyNaOdobrenie", "group-posts", "kassa"]);
+  // «Ближайшие примерки» (10.10) sits under the bookings it is cut from, and
+  // «В работе» (11.10) after it: the visits that have happened, until «✓ Работа готова»
+  assert.deepEqual(idsIn(top), [
+    "atelierBooking",
+    "upcoming-fittings",
+    "in-work",
+    "book-by-hand",
+    "postyNaOdobrenie",
+    "group-posts",
+    "kassa",
+  ]);
   const folders = [...folderBlocks().keys()];
   assert.deepEqual(folders, ["reviews", "social", "shop", "friends", "settings"]);
   for (const id of idsIn(top)) assert.equal(STUDIO_MOVES[id], undefined, `${id} stayed at the top`);
@@ -96,13 +105,21 @@ test("lists inside folders still answer «open this document», and the two sche
   // Each list on its own: one match may not run on into the next list
   const custom = [...STRUCTURE.matchAll(/S\.documentList\(\)(?:(?!S\.documentList\(\))[\s\S])*?\)\s*\n\s*\),?\n/g)].map((m) => m[0]);
   const nested = custom.filter((list) => !list.includes("Ждут вашего решения"));
-  // «Ближайшие примерки» is cut from «Записи в ателье» and sits under it, so
-  // it must not take «open this document» from it, nor offer «+ Создать»
-  const upcoming = STRUCTURE.slice(STRUCTURE.indexOf("function upcomingFittings("), STRUCTURE.indexOf("export const structure"));
-  assert.match(upcoming, /S\.documentList\(\)/);
-  assert.doesNotMatch(upcoming, /canHandleIntent/);
-  assert.match(upcoming, /\.initialValueTemplates\(\[\]\);\s*\}\s*$/, "templates are set last, or a later call brings them back");
-  assert.ok(!custom.some((list) => list.includes("upcoming-fittings-list")), "counted as a folder's list");
+  // «Ближайшие примерки» and «В работе» are cut from «Записи в ателье» and
+  // sit under it, so neither may take «open this document» from it, nor
+  // offer «+ Создать». Each function on its own, so one cannot pass for the other
+  const upcoming = STRUCTURE.slice(
+    STRUCTURE.indexOf("function upcomingFittings("),
+    STRUCTURE.lastIndexOf("/**", STRUCTURE.indexOf("function inWork("))
+  );
+  const inWork = STRUCTURE.slice(STRUCTURE.indexOf("function inWork("), STRUCTURE.indexOf("export const structure"));
+  for (const [name, body] of [["upcoming-fittings", upcoming], ["in-work", inWork]] as const) {
+    assert.ok(body.length > 0, `${name}: found`);
+    assert.match(body, /S\.documentList\(\)/, name);
+    assert.doesNotMatch(body, /canHandleIntent/, name);
+    assert.match(body, /\.initialValueTemplates\(\[\]\);\s*\}\s*$/, `${name}: templates are set last, or a later call brings them back`);
+  }
+  assert.ok(!custom.some((list) => list.includes("upcoming-fittings-list") || list.includes("in-work-list")), "counted as a folder's list");
   assert.equal(nested.length, 8, "four review lists, three Instagram lists, the friends' links");
   for (const list of nested) assert.match(list, /\.canHandleIntent\(defaultIntentChecker\)/, list.slice(0, 80));
   assert.match(STRUCTURE, /\.documentId\(SITE_SETTINGS_ID\)/);
