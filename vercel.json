@@ -3,11 +3,17 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "regions": ["lhr1"],
+  "regions": [
+    "lhr1"
+  ],
   "crons": [
     {
       "path": "/api/cron/daily",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/leads",
+      "schedule": "30 6 * * *"
     }
   ]
 }

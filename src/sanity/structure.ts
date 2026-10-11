@@ -289,6 +289,21 @@ export const structure: StructureResolver = (S) =>
             .id("friends")
             .title("Друзья и партнёры")
             .items([
+              // People looking for a maker: outwork, subcontracts, tenders. Found by the
+              // morning search (see @/lib/leadRun), newest first; she marks each one
+              S.listItem()
+                .id("leads")
+                .title("Ищут мастера")
+                .schemaType("lead")
+                .child(
+                  S.documentList()
+                    .title("Ищут мастера")
+                    .schemaType("lead")
+                    .apiVersion("2024-01-29")
+                    .filter('_type == "lead" && !(status == "no")')
+                    .defaultOrdering([{ field: "foundAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
               // Salons and shops that send their clients, each with a link, a card and
               // a month's statement. Contacts and payments are sealed, so it is a pane
               // that asks the server — see PartnersPane

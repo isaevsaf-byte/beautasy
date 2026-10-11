@@ -39,6 +39,8 @@ export const STUDIO_MOVES: Readonly<Record<string, string>> = {
   subscriber: "shop",
 
   partners: "friends",
+  // Born in the folder (11.10.2026); listed so the rule "every list in a folder is here" holds
+  leads: "friends",
   referrer: "friends",
   referral: "friends",
 

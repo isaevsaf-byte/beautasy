@@ -120,7 +120,7 @@ test("lists inside folders still answer «open this document», and the two sche
     assert.match(body, /\.initialValueTemplates\(\[\]\);\s*\}\s*$/, `${name}: templates are set last, or a later call brings them back`);
   }
   assert.ok(!custom.some((list) => list.includes("upcoming-fittings-list") || list.includes("in-work-list")), "counted as a folder's list");
-  assert.equal(nested.length, 8, "four review lists, three Instagram lists, the friends' links");
+  assert.equal(nested.length, 9, "four review lists, three Instagram lists, the friends' links, «Ищут мастера»");
   for (const list of nested) assert.match(list, /\.canHandleIntent\(defaultIntentChecker\)/, list.slice(0, 80));
   assert.match(STRUCTURE, /\.documentId\(SITE_SETTINGS_ID\)/);
   assert.match(STRUCTURE, /\.documentId\("atelierSchedule"\)/, "🚨 without it the Studio makes a second schedule");
