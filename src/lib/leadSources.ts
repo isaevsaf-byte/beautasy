@@ -109,6 +109,9 @@ export async function fromContractsFinder(fetcher: Fetch = fetch, since: Date): 
 const ADZUNA_NEAR = ["seamstress", "curtain maker", "soft furnishings", "alterations", "sewing machinist", "dressmaker"];
 const ADZUNA_ANYWHERE = ["curtain maker home based", "sewing outworker", "freelance seamstress", "soft furnishings outworker"];
 
+const ADZUNA_GAP_MS = 1_500;
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 interface AdzunaAnswer {
   results?: {
     id: string;
@@ -145,11 +148,21 @@ export async function fromAdzuna(fetcher: Fetch = fetch, since: Date, now: Date)
     }
     return `https://api.adzuna.com/v1/api/jobs/gb/search/1?${params}`;
   };
-  try {
-    const answers = await Promise.all([
-      ...ADZUNA_NEAR.map((what) => getJson<AdzunaAnswer>(fetcher, url(what, true))),
-      ...ADZUNA_ANYWHERE.map((what) => getJson<AdzunaAnswer>(fetcher, url(what, false))),
-    ]);
+  // One at a time: ten at once got "429 Too Many Requests" on the first try (11.10.2026).
+  // A refusal part-way keeps what was already read
+  const answers: AdzunaAnswer[] = [];
+  let problem: string | undefined;
+  const asks = [...ADZUNA_NEAR.map((what) => url(what, true)), ...ADZUNA_ANYWHERE.map((what) => url(what, false))];
+  for (const [i, ask] of asks.entries()) {
+    if (i > 0) await pause(ADZUNA_GAP_MS);
+    try {
+      answers.push(await getJson<AdzunaAnswer>(fetcher, ask));
+    } catch (error) {
+      problem = reason(error);
+      break;
+    }
+  }
+  {
     const candidates = answers.flatMap((answer) =>
       (answer.results ?? []).map((job): LeadCandidate => {
         const pay =
@@ -172,9 +185,7 @@ export async function fromAdzuna(fetcher: Fetch = fetch, since: Date, now: Date)
         };
       })
     );
-    return { source: "adzuna", candidates: unique(candidates) };
-  } catch (error) {
-    return { source: "adzuna", candidates: [], problem: reason(error) };
+    return { source: "adzuna", candidates: unique(candidates), ...(problem ? { problem } : {}) };
   }
 }
 
