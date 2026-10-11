@@ -204,3 +204,48 @@ test("what is already paid is shown first, with the reminders that matter at the
   assert.match(friend, /скидка за друга £5\.00 от Mia/);
   assert.doesNotMatch(paymentView({ state: "ready", entries: [] }), /value="stripe"/, "a payment on the site records itself");
 });
+
+test("the tax year shows its bill, the advances, the lines ahead and what the ledger cannot see", async () => {
+  const { TaxView } = await import("./TaxView");
+  const { periodOf } = await import("@/lib/ledger");
+  const year: LedgerEntry[] = [
+    { id: "a", date: "2026-11-01", kind: "income", amount: 2_100_000, method: "transfer", category: "bridal", source: "manual" },
+    { id: "b", date: "2026-11-02", kind: "expense", amount: 100_000, method: "card", category: "mileage", source: "manual" },
+  ];
+  const html = renderToStaticMarkup(
+    createElement(TaxView, {
+      period: periodOf("taxYear", "2026-11-05"),
+      summary: summarise(year),
+      rolling: { state: "ready", income: 2_100_000 },
+      today: "2026-11-05",
+    })
+  );
+  assert.match(html, /Налоги за 2026\/27/);
+  assert.match(html, /£20,000\.00/, "profit");
+  assert.match(html, /£1,931\.80/, "7,430 at 26%");
+  assert.match(html, /£2,897\.70/, "the bill and the first advance due together");
+  assert.match(html, /31 января 2028/);
+  assert.match(html, /Касса ведётся со 2 октября 2026/, "a year that began before the ledger says it may be short");
+  assert.match(html, /Making Tax Digital/);
+  assert.match(html, /апреля 2028/);
+  assert.match(html, /VAT/);
+  assert.doesNotMatch(html, /Marriage Allowance/, "only offered when her allowance is not used up");
+
+  const quiet = renderToStaticMarkup(
+    createElement(TaxView, {
+      period: periodOf("taxYear", "2026-11-05"),
+      summary: summarise([{ ...year[0], amount: 80_000 }]),
+      rolling: { state: "loading" },
+      today: "2026-11-05",
+    })
+  );
+  assert.match(quiet, /декларация не нужна/);
+});
+
+test("miles and home working fill the amount for her, at HMRC's own rates", () => {
+  const props = { today, busy: false, error: null, onChange: () => {}, onSave: () => {}, onCancel: () => {} };
+  const miles = renderToStaticMarkup(createElement(EntryFormView, { ...props, form: { ...blankForm("expense", today), category: "mileage" } }));
+  assert.match(miles, /Сколько миль/);
+  const home = renderToStaticMarkup(createElement(EntryFormView, { ...props, form: { ...blankForm("expense", today), category: "homeworking" } }));
+  assert.match(home, /101 час и больше → £26\.00/);
+});

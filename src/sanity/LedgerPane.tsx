@@ -24,6 +24,8 @@ import { count, plural } from "@/lib/studioStats";
 import { useDiaryToken } from "./diaryClient";
 import { askLedger, entriesOf, errorOf } from "./ledgerClient";
 import { primaryButton, secondaryButton } from "./SlotPicker";
+import { HOME_WORKING, MILEAGE_RATE, mileagePence, poundsInput, rollingYear } from "@/lib/selfAssessment";
+import { TaxView, type RollingTurnover } from "./TaxView";
 
 /**
  * «Касса» — everything that came in and went out, and when.
@@ -134,6 +136,43 @@ export function entryPayload(form: EntryForm): Record<string, string> {
   };
 }
 
+/**
+ * Miles typed, pounds saved: the ledger keeps money, so the miles become the
+ * amount at 45p and stay in the note, which is what HMRC asks to see.
+ */
+function MileageHelper({ onPick }: { onPick: (amount: string, note: string) => void }) {
+  const [miles, setMiles] = useState("");
+  const pence = mileagePence(miles);
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <label style={labelStyle}>
+        Сколько миль (туда и обратно)
+        <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input
+            id="kassa-miles"
+            inputMode="decimal"
+            placeholder="12"
+            style={{ ...inputStyle, maxWidth: 120 }}
+            value={miles}
+            onChange={(e) => setMiles(e.target.value)}
+          />
+          <button
+            type="button"
+            style={{ ...secondaryButton, opacity: pence === null ? 0.45 : 1 }}
+            disabled={pence === null}
+            onClick={() => pence !== null && onPick(poundsInput(pence), `${miles.trim()} миль × ${MILEAGE_RATE}p`)}
+          >
+            {pence === null ? `× ${MILEAGE_RATE}p` : `Подставить ${formatPounds(pence)}`}
+          </button>
+        </span>
+      </label>
+      <p style={{ fontSize: 13, margin: 0, ...muted }}>
+        В заметке напишите, куда ездили: «забор у клиента, Bitterne». Бензин тогда отдельно не записывается.
+      </p>
+    </div>
+  );
+}
+
 export function EntryFormView({
   form,
   today,
@@ -223,6 +262,26 @@ export function EntryFormView({
           Работа оплачена подарочной картой: деньги за неё уже пришли, когда карту купили, поэтому в «Пришло» эта
           строка не войдёт. Её видно отдельно.
         </p>
+      )}
+      {!income && form.category === "mileage" && <MileageHelper onPick={(amount, note) => set({ amount, note })} />}
+      {!income && form.category === "homeworking" && (
+        <div style={{ display: "grid", gap: 6 }}>
+          <p style={{ fontSize: 13, margin: 0, ...muted }}>
+            Одна строка в месяц, по тому, сколько часов работала дома в этом месяце:
+          </p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {HOME_WORKING.map((step) => (
+              <button
+                key={step.amount}
+                type="button"
+                style={{ ...secondaryButton, padding: "4px 10px", fontSize: 12 }}
+                onClick={() => set({ amount: poundsInput(step.amount), note: `работа из дома: ${step.hours}` })}
+              >
+                {step.hours} → {formatPounds(step.amount)}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
       <label style={labelStyle}>
         {income ? "Кто заплатил (по желанию)" : "Кому (по желанию)"}
@@ -505,6 +564,26 @@ export function LedgerPane() {
 
   const summary = useMemo(() => summarise(loaded.entries), [loaded.entries]);
 
+  // VAT counts any twelve months in a row, not the tax year, so the tax view
+  // asks for those separately
+  const taxYearShown = periodKey === "taxYear" || periodKey === "lastTaxYear";
+  const [rolling, setRolling] = useState<{ key: string; value: RollingTurnover }>({ key: "", value: { state: "loading" } });
+  const rollingKey = `${today}|${attempt}`;
+  useEffect(() => {
+    if (!taxYearShown) return;
+    let abandoned = false;
+    const key = `${today}|${attempt}`;
+    const span = rollingYear(today);
+    void askLedger(token, { action: "list", from: span.from, to: span.to }).then((reply) => {
+      if (abandoned) return;
+      setRolling({ key, value: reply.ok ? { state: "ready", income: summarise(entriesOf(reply)).income } : { state: "failed" } });
+    });
+    return () => {
+      abandoned = true;
+    };
+  }, [token, today, attempt, taxYearShown]);
+  const rollingNow: RollingTurnover = rolling.key === rollingKey ? rolling.value : { state: "loading" };
+
   function open(kind: LedgerKind) {
     setForm(blankForm(kind, today));
     setFormError(null);
@@ -597,8 +676,10 @@ export function LedgerPane() {
             </button>
           </p>
         ) : (
-          <SummaryView summary={summary} byMonth={periodKey === "taxYear" || periodKey === "lastTaxYear"} />
+          <SummaryView summary={summary} byMonth={taxYearShown} />
         )}
+
+        {ready && taxYearShown && <TaxView period={period} summary={summary} rolling={rollingNow} today={today} />}
 
         {ready && loaded.unreadable > 0 && (
           <p role="alert" style={{ fontSize: 13, margin: 0, color: OUT }}>

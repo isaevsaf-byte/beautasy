@@ -50,6 +50,8 @@ export const EXPENSE_CATEGORIES: Choice[] = [
   { value: "partners", title: "Партнёрам за клиентов" },
   { value: "software", title: "Сайт и программы" },
   { value: "travel", title: "Транспорт и доставка" },
+  { value: "mileage", title: "Мили на своей машине (45p за милю)" },
+  { value: "homeworking", title: "Работа из дома (сумма за месяц)" },
   { value: "fees", title: "Комиссии: Stripe, Etsy, банк" },
   { value: "refunds", title: "Возврат клиенту" },
   { value: "equipment", title: "Оборудование" },
