@@ -106,8 +106,10 @@ export async function fromContractsFinder(fetcher: Fetch = fetch, since: Date): 
 // ─── Adzuna: job boards across the UK in one API. Free key (developer.adzuna.com).
 // Searched within 40 km of Southampton, plus "outwork"/"home based" UK-wide.
 
-const ADZUNA_NEAR = ["seamstress", "curtain maker", "soft furnishings", "alterations", "sewing machinist", "dressmaker"];
-const ADZUNA_ANYWHERE = ["curtain maker home based", "sewing outworker", "freelance seamstress", "soft furnishings outworker"];
+// Work that comes to her, not jobs to go to: the judge drops anything that
+// does not say outwork, home-based, freelance, subcontract or piece work
+const ADZUNA_NEAR = ["seamstress freelance", "curtain maker", "soft furnishings", "alterations freelance", "sewing self employed"];
+const ADZUNA_ANYWHERE = ["curtain maker home based", "sewing outworker", "freelance seamstress", "soft furnishings outworker", "sewing piece work"];
 
 const ADZUNA_GAP_MS = 1_500;
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

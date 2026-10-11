@@ -93,7 +93,7 @@ const ASKING: { pattern: RegExp; label: string }[] = [
   { pattern: /\b(seeking|wanted|required|needed)\b/i, label: "ищут" },
   { pattern: /\bneed (a |an |some(one|body))/i, label: "ищут" },
   { pattern: /\bsub-?contract(or|ors|ing)?\b/i, label: "субподряд" },
-  { pattern: /\bout-?work(er|ers)?\b/i, label: "надомная работа" },
+  { pattern: /\bout-?work(er|ers)?\b|\bpiece ?work\b|\bper (piece|item)\b/i, label: "надомная работа" },
   { pattern: /\b(work|working|based) from home\b|\bhome-?based\b|\bhome ?worker/i, label: "можно из дома" },
   { pattern: /\bfreelance\b|\bself-?employed\b/i, label: "фриланс" },
   { pattern: /\b(capacity|take on (extra |more )?work)\b/i, label: "ищут свободные руки" },
@@ -176,10 +176,13 @@ export function judge(lead: LeadCandidate): Judgement {
     why.push("похоже на работу по найму");
   }
 
-  // A job advert far away is a job in another town, unless the work comes to her
+  // A job advert is only for her when the work comes to her: outwork, freelance,
+  // subcontract, piece work. Kristina sews at home for her own atelier; a factory
+  // shift is not that, however near (Safar, 11.10.2026: "нам не нужны постоянные
+  // работы на фабрике"). Near only adds points once that holds.
   const jobBoard = lead.source === "adzuna" || lead.source === "reed";
   const comesToHer = askedBy.some((label) => label === "надомная работа" || label === "можно из дома" || label === "фриланс" || label === "субподряд");
-  const reachable = !jobBoard || Boolean(near) || comesToHer;
+  const reachable = !jobBoard || comesToHer;
 
   const keep = craft >= 2 && asking && !offering && reachable && score >= 5;
   return { score, why, keep };
