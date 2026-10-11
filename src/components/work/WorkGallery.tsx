@@ -6,42 +6,44 @@ import { categoriesIn, type WorkCategory } from "@/lib/work";
 import TileFace from "./TileFace";
 import WorkViewer from "./WorkViewer";
 import { columnsFor, tileRatio } from "./layout";
+import { GALLERY_TITLE, addressOf, pieceIn, pieceTitle } from "./pieceAddress";
 
 /**
  * The gallery on /work: filters, the tiles, and the viewer.
  *
- * Which piece is open lives in the address — /work#doorway-curtains — so a
- * piece can be sent to someone on WhatsApp and opens for them, and the phone's
- * back gesture closes the viewer instead of leaving the page.
+ * Which piece is open lives in the address — /work/doorway-curtains — so the
+ * phone's back gesture closes the viewer instead of leaving the page, and the
+ * address a visitor shares is the piece's own, with its own preview in a chat
+ * (./pieceAddress.ts). An older /work#doorway-curtains opens the piece too.
  */
 
-const HASH_EVENT = "beautasy:work-hash";
+const ADDRESS_EVENT = "beautasy:work-address";
 
 function subscribe(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
   window.addEventListener("popstate", onChange);
-  window.addEventListener(HASH_EVENT, onChange);
+  window.addEventListener(ADDRESS_EVENT, onChange);
   return () => {
     window.removeEventListener("hashchange", onChange);
     window.removeEventListener("popstate", onChange);
-    window.removeEventListener(HASH_EVENT, onChange);
+    window.removeEventListener(ADDRESS_EVENT, onChange);
   };
 }
 
-function readHash(): string {
-  try {
-    return decodeURIComponent(window.location.hash.slice(1));
-  } catch {
-    return "";
-  }
+function readPiece(): string {
+  return pieceIn(window.location.pathname, window.location.hash);
 }
 
-/** pushState and replaceState announce nothing, so the gallery is told directly */
-function writeHash(anchor: string | null, push: boolean) {
-  const url = anchor ? `#${encodeURIComponent(anchor)}` : `${window.location.pathname}${window.location.search}`;
+/**
+ * pushState and replaceState announce nothing, so the gallery is told
+ * directly. Next's router follows both (its usePathname reads the new
+ * address) and keeps the page on screen.
+ */
+function writeAddress(anchor: string | null, push: boolean) {
+  const url = `${addressOf(anchor)}${window.location.search}`;
   if (push) window.history.pushState(null, "", url);
   else window.history.replaceState(null, "", url);
-  window.dispatchEvent(new Event(HASH_EVENT));
+  window.dispatchEvent(new Event(ADDRESS_EVENT));
 }
 
 /**
@@ -58,7 +60,21 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
   const pushed = useRef(false);
   // The piece whose tile gets the keyboard back when the viewer closes
   const returnTo = useRef<string | null>(null);
-  const hash = useSyncExternalStore(subscribe, readHash, () => "");
+  const hash = useSyncExternalStore(subscribe, readPiece, () => "");
+
+  // An older link, /work#<piece>, is shown as the piece's own address. A
+  // moment later, not now: Next's router takes over the history only after
+  // the page's own effects have run, and until then it writes back the
+  // address it was loaded at.
+  useEffect(() => {
+    const later = window.setTimeout(() => {
+      const { pathname, hash: fragment } = window.location;
+      if (pathname.replace(/\/$/, "") !== "/work") return;
+      const anchor = pieceIn(pathname, fragment);
+      if (pieces.some((p) => p.anchor === anchor)) writeAddress(anchor, false);
+    });
+    return () => window.clearTimeout(later);
+  }, [pieces]);
 
   const categories = useMemo(() => categoriesIn(pieces), [pieces]);
   const shown = useMemo(
@@ -80,13 +96,21 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
     pushed.current = true;
     setFromEnd(false);
     setArriving(true);
-    writeHash(anchor, true);
+    writeAddress(anchor, true);
   };
 
   // Focus goes back where the reader was — the tile of the piece they last
   // looked at, in whichever of the two layouts is on screen — however the
   // viewer closed: the button, Escape or the phone's back gesture
   const openAnchor = openIndex >= 0 ? browsing[openIndex].anchor : null;
+  const openTitle = openIndex >= 0 ? browsing[openIndex].title : null;
+
+  // The tab says what the address says: the metadata is the page's as it
+  // was loaded, and the address moves without loading anything
+  useEffect(() => {
+    document.title = openTitle ? pieceTitle(openTitle) : GALLERY_TITLE;
+  }, [openTitle]);
+
   useEffect(() => {
     if (openAnchor) {
       returnTo.current = openAnchor;
@@ -108,7 +132,7 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
       pushed.current = false;
       window.history.back();
     } else {
-      writeHash(null, false);
+      writeAddress(null, false);
     }
   };
 
@@ -116,7 +140,7 @@ export default function WorkGallery({ pieces }: { pieces: ShownPiece[] }) {
     setFromEnd(end);
     // Before the address changes, so the next piece is never drawn still "arriving"
     setArriving(false);
-    writeHash(browsing[index].anchor, false);
+    writeAddress(browsing[index].anchor, false);
   };
 
   // Lazy throughout: the grid starts below the fold on every screen

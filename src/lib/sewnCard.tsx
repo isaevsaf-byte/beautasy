@@ -27,22 +27,21 @@ import { SOCIAL_CARD_SIZE } from "@/lib/socialCard";
  */
 
 /** The cloth the label is sewn onto */
-const CLOTH_TOP = "#F4EEFB";
-const CLOTH_BOTTOM = "#E9DFF5";
+export const CLOTH_TOP = "#F4EEFB";
+export const CLOTH_BOTTOM = "#E9DFF5";
 /** The label: a shade lighter than cream, as a woven label is */
-const LABEL = "#FFFEFB";
-const INK = "#2E2A33";
-const GREY = "#5F5A66";
-const LAVENDER = "#DCD0FF";
-const LAVENDER_INK = "#6E5BA8";
+export const LABEL = "#FFFEFB";
+export const INK = "#2E2A33";
+export const GREY = "#5F5A66";
+export const LAVENDER = "#DCD0FF";
+export const LAVENDER_INK = "#6E5BA8";
 const PLUM = "#5A2D5C";
-const GOLD = "#B08848";
+export const GOLD = "#B08848";
 /** The topstitch on the site's booking buttons (globals.css .topstitch), stronger for a small picture */
-const TOPSTITCH = "rgba(90, 45, 92, 0.6)";
+export const TOPSTITCH = "rgba(90, 45, 92, 0.6)";
 
 /** The heading's size; the needle is drawn in hundredths of it, as on the page */
 const HEADING_PX = 60;
-const EM = HEADING_PX / 100;
 /** The needle and its thread a little larger than on the page, to survive the feed's shrinking */
 const NEEDLE_SCALE = 1.45;
 
@@ -63,7 +62,7 @@ function once<T>(load: () => T): () => T {
  * label without a rectangle of its own (scripts/atelier-artwork.mjs makes it
  * from public/beautasy-atelier-og.jpg), and its size from its own header.
  */
-const artwork = once(() => {
+export const artwork = once(() => {
   const png = readFileSync(join(process.cwd(), "public", "beautasy-atelier-art.png"));
   return {
     src: `data:image/png;base64,${png.toString("base64")}`,
@@ -83,7 +82,7 @@ const artwork = once(() => {
  * future Next move the file, the card falls back to the face next/og brings,
  * kerned — uneven, never broken.
  */
-const face = once(() => {
+export const face = once(() => {
   const path = join(process.cwd(), "node_modules", "next", "dist", "compiled", "@vercel", "og", "Geist-Regular.ttf");
   if (!existsSync(path)) return null;
   const font = readFileSync(path);
@@ -97,7 +96,7 @@ const face = once(() => {
   return font;
 });
 
-const svg = (body: string, viewBox: string) =>
+export const svg = (body: string, viewBox: string) =>
   `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${body}</svg>`).toString("base64")}`;
 
 /**
@@ -124,7 +123,7 @@ const NEEDLE_AT_REST = (() => {
 })();
 
 /** A dashed topstitch round a box, as an image: the renderer's own dashes are too short to read as stitches */
-function topstitch(width: number, height: number, inset: number, radius: number, stroke: number) {
+export function topstitch(width: number, height: number, inset: number, radius: number, stroke: number) {
   return svg(
     `<rect x="${inset}" y="${inset}" width="${width - inset * 2}" height="${height - inset * 2}" rx="${radius}" ` +
       `fill="none" stroke="${TOPSTITCH}" stroke-width="${stroke}" stroke-dasharray="12 7" stroke-linecap="round"/>`,
@@ -230,12 +229,16 @@ export function sewnCard({ lead, priceFrom }: SewnCard): ImageResponse {
   );
 }
 
-/** "in Southampton" with the page's seam under it, the knot, and the needle at rest */
-function Sewn({ children }: { children: string }) {
-  const scale = EM * NEEDLE_SCALE;
+/**
+ * "in Southampton" with the page's seam under it, the knot, and the needle at
+ * rest, at the size of the heading above it (src/lib/workCard.tsx sews it
+ * under a smaller one)
+ */
+export function Sewn({ children, size = HEADING_PX }: { children: string; size?: number }) {
+  const scale = (size / 100) * NEEDLE_SCALE;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignSelf: "flex-start", marginTop: 4 }}>
-      <div style={{ display: "flex", fontSize: HEADING_PX, lineHeight: 1.06, color: LAVENDER_INK }}>{children}</div>
+      <div style={{ display: "flex", fontSize: size, lineHeight: 1.06, color: LAVENDER_INK }}>{children}</div>
       <div style={{ position: "relative", display: "flex", alignItems: "center", height: 12, marginTop: 6 }}>
         {SEAM.flatMap(({ stitch, gap, lift }, k) => [
           <div

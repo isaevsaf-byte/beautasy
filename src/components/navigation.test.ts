@@ -158,7 +158,7 @@ test("a keyboard can skip the menu on every page", () => {
     "src/app/shop/ShopContent.tsx",
     "src/app/alterations/page.tsx",
     "src/app/alterations/[slug]/page.tsx",
-    "src/app/work/page.tsx",
+    "src/app/work/WorkPageContent.tsx",
     "src/app/reviews/page.tsx",
     "src/app/refer/page.tsx",
     "src/app/gift-cards/page.tsx",

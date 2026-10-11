@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { ShownPiece } from "@/lib/workMedia";
 import TileFace from "./TileFace";
+import { addressOf } from "./pieceAddress";
 
 /**
  * A row of finished jobs for a page that sells the service: the atelier page
@@ -42,7 +43,7 @@ export default function WorkStrip({
         {pieces.map((piece) => (
           <Link
             key={piece.id}
-            href={`/work#${piece.anchor}`}
+            href={addressOf(piece.anchor)}
             className="group block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-lavender focus-visible:ring-offset-4"
           >
             {/* One shape for the whole row, so it reads as a row */}

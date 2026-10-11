@@ -1,0 +1,194 @@
+import Link from "next/link";
+import { ArrowDown, ArrowRight, MessageCircle, Scissors } from "lucide-react";
+import HeaderWrapper from "@/components/HeaderWrapper";
+import FooterWrapper from "@/components/FooterWrapper";
+import WorkGallery from "@/components/work/WorkGallery";
+import Showreel from "@/components/work/Showreel";
+import { Cover } from "@/components/work/TileFace";
+import { readWork } from "@/lib/getWork";
+import { showPiece, showShowreel, workJsonLd, type ShownPiece } from "@/lib/workMedia";
+import { SITE_URL } from "@/lib/site";
+import { jsonLdScript } from "@/lib/jsonLd";
+import { BUSINESS, whatsappLink } from "@/lib/business";
+import { CAMPAIGN_HOOK } from "@/lib/localServices";
+
+/**
+ * The gallery page, Made & Mended: /work, and /work/<piece> — the same page,
+ * where the gallery opens that piece from the address
+ * (src/components/work/pieceAddress.ts, src/app/work/[piece]/page.tsx).
+ */
+
+const PAGE_URL = `${SITE_URL}/work`;
+
+/**
+ * How the prints lie for one, two or three covers. The fan was laid out for
+ * three: with fewer, the first print kept its turn and its step to the left
+ * and the table looked like the rest had been swept off it.
+ */
+const FAN_TURNS: Record<number, string[]> = {
+  1: ["rotate-2"],
+  2: ["-rotate-3 -translate-x-10", "rotate-3 translate-x-10 z-10"],
+  3: ["-rotate-6 -translate-x-16", "rotate-2 z-10", "rotate-6 translate-x-16"],
+};
+
+/** Without a showreel: the three newest covers, fanned out like prints on a table */
+function CoverFan({ pieces }: { pieces: ShownPiece[] }) {
+  const turns = FAN_TURNS[Math.min(pieces.length, 3)] ?? FAN_TURNS[3];
+  return (
+    <div className="relative mx-auto flex h-[420px] w-full max-w-sm items-center justify-center">
+      {pieces.slice(0, 3).map((piece, i) => (
+        <div
+          key={piece.id}
+          className={`absolute w-[210px] overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-xl ${turns[i]}`}
+          style={{ aspectRatio: "3 / 4" }}
+        >
+          <Cover media={piece.media[0]} sizes="220px" eager className="h-full w-full object-cover" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default async function WorkPageContent() {
+  const { pieces, showreel } = await readWork();
+  const shown = pieces.map(showPiece);
+  const reel = showShowreel(showreel);
+  const films = shown.reduce((n, p) => n + p.media.filter((m) => m.kind === "video").length, 0);
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Our Work", item: PAGE_URL },
+    ],
+  };
+
+  return (
+    <>
+      {shown.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(workJsonLd(shown, PAGE_URL, BUSINESS.atelierId)) }}
+        />
+      )}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbLd) }} />
+
+      <HeaderWrapper />
+
+      {/* pt-28, as every other page's <main> (see the home page's hero): at
+          pt-24 the first line slipped under the fixed header whenever the
+          announcement bar was showing */}
+      <main id="main" className="pt-28 pb-24">
+        {/* ──── Hero ──── */}
+        <section className="relative overflow-hidden">
+          <div className="absolute inset-0 -z-10" aria-hidden="true">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FDFBF7] via-[#F3ECFF] to-[#E8DEFF]" />
+            <div className="absolute -top-24 -left-24 h-[380px] w-[380px] rounded-full bg-white/50 blur-3xl" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#FDFBF7]/95 via-[#FDFBF7]/70 to-transparent" />
+          </div>
+
+          <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 px-6 py-14 md:py-20 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="max-w-xl">
+              <p className="mb-4 text-sm tracking-eyebrow uppercase text-charcoal-light">Our work · Southampton</p>
+              <h1 className="mb-6 font-serif text-5xl leading-[1.04] sm:text-6xl lg:text-7xl">
+                {/* The darker lavender: the pale #b3a1e8 was 2.2:1 on the cream */}
+                Made <span className="italic text-lavender-ink">&amp;</span>
+                <br />
+                Mended
+              </h1>
+              <p className="mb-8 max-w-md text-lg leading-relaxed text-charcoal-light">
+                Every picture here is a real job from our Southampton workroom — curtains taken up to skim the
+                floor, a nursery quilt pieced square by square, scrunchies by the pile. Have a look, then bring
+                us yours.
+              </p>
+              <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link
+                  href="/atelier#book"
+                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-8 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase press hover:bg-lavender-hover hover:shadow-lg hover:shadow-lavender/30"
+                >
+                  Book a fitting
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                </Link>
+                <a
+                  href={whatsappLink("Hi Kristina, I've seen your work — here's a photo of mine:")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-charcoal/20 px-6 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase transition-colors duration-300 hover:border-lavender hover:bg-lavender/10"
+                >
+                  <MessageCircle size={16} aria-hidden="true" />
+                  Send a photo
+                </a>
+              </div>
+              {shown.length > 0 && (
+                <a
+                  href="#gallery"
+                  className="inline-flex items-center gap-2 text-sm text-charcoal-light transition-colors hover:text-charcoal"
+                >
+                  <ArrowDown size={15} aria-hidden="true" />
+                  {shown.length} {shown.length === 1 ? "piece" : "pieces"}
+                  {films > 0 && ` · ${films} ${films === 1 ? "film" : "films"} from the workroom`}
+                </a>
+              )}
+            </div>
+
+            <div className="flex justify-center">
+              {reel ? (
+                <Showreel showreel={reel} label="Hands at work in the Beautasy workroom: fabric cut, stacked and sewn" />
+              ) : shown.length > 0 ? (
+                <CoverFan pieces={shown} />
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+        {/* ──── The work ──── */}
+        <section id="gallery" className="mx-auto mt-16 max-w-6xl scroll-mt-28 px-4 sm:px-6">
+          {shown.length > 0 ? (
+            <WorkGallery pieces={shown} />
+          ) : (
+            <p className="mx-auto max-w-md text-center leading-relaxed text-charcoal-light">
+              The first pieces are being photographed. In the meantime, Kristina is happy to send pictures of
+              work like yours on WhatsApp.
+            </p>
+          )}
+        </section>
+
+        {/* ──── Bring yours ──── */}
+        <section className="mx-auto mt-24 max-w-4xl px-6">
+          <div className="rounded-3xl border border-lavender-soft/60 bg-lavender-bg px-7 py-12 text-center sm:px-12 sm:py-14">
+            <Scissors size={26} className="mx-auto mb-5 text-charcoal/70" aria-hidden="true" />
+            <h2 className="mb-3 font-serif text-3xl sm:text-4xl">{CAMPAIGN_HOOK.title}</h2>
+            <p className="mx-auto mb-8 max-w-xl leading-relaxed text-charcoal-light">{CAMPAIGN_HOOK.body}</p>
+            <div className="flex flex-col justify-center gap-3 sm:flex-row">
+              <Link
+                href="/atelier#book"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-lavender px-8 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase transition-colors hover:bg-lavender-hover"
+              >
+                Book a fitting
+                <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
+              </Link>
+              <a
+                href={whatsappLink("Hi Kristina, I've got something that needs saving — here's a photo:")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-charcoal/20 px-6 py-3.5 text-sm font-medium tracking-wider text-charcoal uppercase transition-colors hover:border-lavender hover:bg-white/60"
+              >
+                <MessageCircle size={16} aria-hidden="true" />
+                Send a photo on WhatsApp
+              </a>
+              <Link
+                href="/shop"
+                className="inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-medium tracking-wider text-charcoal-light uppercase transition-colors hover:text-charcoal"
+              >
+                Shop handmade
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <FooterWrapper />
+    </>
+  );
+}

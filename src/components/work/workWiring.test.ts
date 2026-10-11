@@ -47,10 +47,18 @@ test("the atelier page and each service page show their finished work", () => {
 test("Google hears of /work once there is something on it, and not before", () => {
   assert.match(read("src/app/sitemap.ts"), /const workRoutes: MetadataRoute\.Sitemap = pieces\.length \|\| !known/);
   const page = read("src/app/work/page.tsx");
-  // A Sanity failure must not rebuild the page as an empty, noindexed one
-  assert.match(page, /^import \{ readWork \} from "@\/lib\/getWork";$/m);
-  assert.doesNotMatch(page.replace('"@/lib/getWork"', ""), /getWork/, "not the reader that shrugs off a failure");
-  assert.equal(page.match(/await readWork\(\)/g)?.length, 2);
+  // A Sanity failure must not rebuild the page as an empty, noindexed one —
+  // its metadata, the gallery under it, nor a piece's own address
+  for (const [file, reads] of [
+    ["src/app/work/page.tsx", 1],
+    ["src/app/work/WorkPageContent.tsx", 1],
+    ["src/app/work/[piece]/page.tsx", 2],
+  ] as const) {
+    const source = read(file);
+    assert.match(source, /^import \{ readWork \} from "@\/lib\/getWork";$/m, file);
+    assert.doesNotMatch(source.replace('"@/lib/getWork"', ""), /getWork/, `${file}: not the reader that shrugs off a failure`);
+    assert.equal(source.match(/await readWork\(\)/g)?.length, reads, file);
+  }
   assert.match(page, /\.\.\.\(pieces\.length === 0 \? \{ robots: \{ index: false, follow: true \} \} : \{\}\)/);
   assert.match(page, /alternates: \{ canonical: PAGE_URL \}/);
 });
@@ -121,8 +129,8 @@ test("the viewer fades in when opened from a tile, never between pieces, and the
   const gallery = read("src/components/work/WorkGallery.tsx");
   // The viewer is drawn afresh for each piece (key={piece.id}): an entrance
   // that played every time would blink the screen on each "next"
-  assert.match(gallery, /setArriving\(true\);\s+writeHash\(anchor, true\);/, "a tile opens it arriving");
-  assert.match(gallery, /setArriving\(false\);\s+writeHash\(browsing\[index\]\.anchor, false\);/, "moving on doesn't");
+  assert.match(gallery, /setArriving\(true\);\s+writeAddress\(anchor, true\);/, "a tile opens it arriving");
+  assert.match(gallery, /setArriving\(false\);\s+writeAddress\(browsing\[index\]\.anchor, false\);/, "moving on doesn't");
   assert.match(gallery, /arriving=\{arriving\}/);
   const viewer = read("src/components/work/WorkViewer.tsx");
   assert.match(viewer, /data-arriving:duration-200 data-arriving:ease-out data-arriving:starting:opacity-0 motion-reduce:data-arriving:duration-\[120ms\]/);

@@ -4,14 +4,16 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, MessageCircle, ShoppingBag, X } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, ChevronRight, MessageCircle, Send, ShoppingBag, X } from "lucide-react";
 import type { ShownPhoto, ShownPiece, ShownVideo } from "@/lib/workMedia";
 import { ATELIER_CATEGORIES, shelfCta } from "@/lib/work";
 import { placeLink } from "@/lib/shelves";
 import { useShelves } from "@/lib/useShelves";
 import { useIsClient } from "@/lib/useIsClient";
 import { whatsappLink } from "@/lib/business";
+import { SITE_URL } from "@/lib/site";
 import { sameFraming } from "./layout";
+import { addressOf } from "./pieceAddress";
 
 /**
  * One piece at full size: its pictures and videos one after another, the story
@@ -533,6 +535,8 @@ export default function WorkViewer({
           )}
         </div>
 
+        <SendToFriend piece={piece} />
+
         {pieces.length > 1 && (
           <p className="mt-8 text-xs tracking-eyebrow uppercase text-white/40 tabular-nums">
             {index + 1} of {pieces.length}
@@ -541,5 +545,61 @@ export default function WorkViewer({
       </aside>
     </div>,
     document.body
+  );
+}
+
+/**
+ * The piece's own address, /work/<piece>, which previews in a chat as this
+ * piece — its photo, or its before and after, on the atelier's sewn card
+ * (src/app/work/[piece]/page.tsx). A phone opens its share sheet; a computer
+ * without one copies the link, and one that won't copy opens WhatsApp with it.
+ */
+function SendToFriend({ piece }: { piece: ShownPiece }) {
+  const [copied, setCopied] = useState(false);
+  const url = `${SITE_URL}${addressOf(piece.anchor)}`;
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  const send = async () => {
+    if (typeof navigator.share === "function" && (navigator.canShare?.({ url }) ?? true)) {
+      try {
+        await navigator.share({ title: piece.title, url });
+        return;
+      } catch (error) {
+        // The sheet closed without a choice: that was the answer
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      window.open(`https://wa.me/?text=${encodeURIComponent(url)}`, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={send}
+        className="mt-4 -mb-2 inline-flex items-center gap-2 rounded-full py-2 pr-2 text-sm text-white/75 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-lavender focus-visible:ring-offset-4 focus-visible:ring-offset-[#1f1b24]"
+      >
+        {copied ? (
+          <Check size={15} className="text-lavender-on-dark" aria-hidden="true" />
+        ) : (
+          <Send size={15} className="text-lavender-on-dark" aria-hidden="true" />
+        )}
+        {copied ? "Link copied — paste it to a friend" : "Send this to a friend"}
+      </button>
+      {/* Said once, when the link is copied: not again when the button's words come back */}
+      <span role="status" className="sr-only">
+        {copied ? "Link copied" : ""}
+      </span>
+    </>
   );
 }

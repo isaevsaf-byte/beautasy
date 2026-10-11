@@ -54,6 +54,7 @@ test("a tap is put down to a kind of page, never to the page's own address", () 
   assert.equal(pageBucketOf("/alterations/wedding-dress-southampton?utm_source=fb"), "alterations");
   assert.equal(pageBucketOf("/p/the-hair-lounge"), "partner");
   assert.equal(pageBucketOf("/work#dress-12"), "work");
+  assert.equal(pageBucketOf("/work/grey-eyelet-curtains"), "work", "a piece open in the gallery is still the gallery");
   assert.equal(pageBucketOf("/contact"), "contact");
   assert.equal(pageBucketOf("/shop/silk-slip"), "shop");
   assert.equal(pageBucketOf("/r/ANNA-K7P2"), "other", "a friend's code stays off the tally");
