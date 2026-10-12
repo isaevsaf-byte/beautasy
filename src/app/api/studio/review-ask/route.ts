@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   const reviewUrl = await googleReviewUrl();
   if (!reviewUrl) {
-    return answer(503, "На сайте нет ссылки на отзывы в Google. Вставьте её в «Настройки сайта».");
+    return answer(503, "На сайте нет ссылки на отзывы в Google. Вставьте её в «Сайт и настройки» → «Настройки сайта».");
   }
   const text = reviewAskText(booking, reviewUrl);
   const url = reviewAskLink(open(booking.phoneSealed), text);
