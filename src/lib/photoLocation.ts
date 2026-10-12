@@ -19,11 +19,11 @@ const GPS_IFD = 0x8825;
 const GPS_LATITUDE = 0x0002;
 const GPS_LONGITUDE = 0x0004;
 
-function readUint16(bytes: Uint8Array, at: number, little: boolean): number {
+export function readUint16(bytes: Uint8Array, at: number, little: boolean): number {
   return little ? bytes[at] | (bytes[at + 1] << 8) : (bytes[at] << 8) | bytes[at + 1];
 }
 
-function readUint32(bytes: Uint8Array, at: number, little: boolean): number {
+export function readUint32(bytes: Uint8Array, at: number, little: boolean): number {
   return little
     ? (bytes[at] | (bytes[at + 1] << 8) | (bytes[at + 2] << 16) | (bytes[at + 3] << 24)) >>> 0
     : ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0;
