@@ -5,7 +5,14 @@ import { isProjectMember } from "@/lib/studioMember";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { fromThisSite } from "@/lib/sameOrigin";
 import { secretsConfigured } from "@/lib/secrets";
-import { daysBetween, isDay, judgeEntry, todayInSouthampton, type LedgerEntry } from "@/lib/ledger";
+import { daysBetween, formatPounds, isDay, judgeEntry, todayInSouthampton, type LedgerEntry } from "@/lib/ledger";
+import {
+  CARD_TRIES,
+  CARD_WINDOW_MS,
+  redeemAtAtelier,
+  returnMutations,
+  type CardDesk,
+} from "@/lib/atelierGiftCardStore";
 import {
   LEDGER_ID,
   LEDGER_TYPE,
@@ -24,8 +31,9 @@ export const dynamic = "force-dynamic";
  *   { token, action: "list", from, to }          → the entries and the shop's own, opened
  *   { token, action: "forBooking", bookingId }   → what has been paid for one booking
  *   { token, action: "add", entry }              → a payment or an expense, sealed
+ *   { token, action: "add", entry, giftCardCode } → a payment by gift card, taken off the card
  *   { token, action: "update", id, entry }       → the same, corrected
- *   { token, action: "remove", id }              → gone
+ *   { token, action: "remove", id }              → gone (a card payment goes back on the card)
  *
  * Why it is a route: the dataset is readable by anyone, so an entry's amount,
  * who paid, the booking and the note are sealed, and only the server has the
@@ -50,6 +58,9 @@ function answer(status: number, error: string) {
 }
 
 const BOOKING_ID = /^[A-Za-z0-9._-]{1,128}$/;
+
+/** The Sanity client as the gift card code needs it — see @/lib/atelierGiftCardStore. */
+const desk = () => sanityWriteClient as unknown as CardDesk;
 
 interface BookingMarks {
   _id: string;
@@ -121,6 +132,22 @@ export async function POST(req: NextRequest) {
     const verdict = judgeEntry(body.entry, today);
     if (!verdict.ok) return answer(400, verdict.error);
     const value = verdict.value;
+
+    // A payment by gift card is taken off the card in the same write as the
+    // line, so it needs the card's code — and saving one answers whether a
+    // code is a real card, so it counts against the same small allowance as
+    // /api/studio/gift-card.
+    const byCard = value.kind === "income" && value.method === "giftcard";
+    const giftCardCode = typeof body.giftCardCode === "string" ? body.giftCardCode.slice(0, 80) : "";
+    if (byCard) {
+      if (!giftCardCode.trim()) {
+        return answer(400, "Напишите код подарочной карты — с неё спишется оплата, когда вы сохраните.");
+      }
+      if (!rateLimit(`studio-gift-card:${clientIp(req)}`, CARD_TRIES, CARD_WINDOW_MS).ok) {
+        return answer(429, "Слишком много проверок карт подряд — подождите немного и попробуйте снова.");
+      }
+    }
+
     try {
       let bookingKey: string | undefined;
       if (value.bookingId) {
@@ -129,6 +156,15 @@ export async function POST(req: NextRequest) {
         bookingKey = bookingKeyOf(booking);
       }
       const id = `ledger-${randomUUID()}`;
+      if (byCard) {
+        const now = new Date().toISOString();
+        const paid = await redeemAtAtelier(desk(), giftCardCode, value.amount, (giftCard) =>
+          ledgerDocument(id, { ...value, giftCard }, now, bookingKey)
+        );
+        if (!paid.ok) return answer(paid.status, paid.error);
+        const entry: LedgerEntry = { id, ...value, giftCard: paid.card, source: value.bookingId ? "booking" : "manual" };
+        return NextResponse.json({ ok: true, entry, card: { hint: paid.card.hint, balance: paid.balanceAfter } });
+      }
       await sanityWriteClient.create(ledgerDocument(id, value, new Date().toISOString(), bookingKey));
       const entry: LedgerEntry = { id, ...value, source: value.bookingId ? "booking" : "manual" };
       return NextResponse.json({ ok: true, entry });
@@ -150,8 +186,21 @@ export async function POST(req: NextRequest) {
     }
     if (!existing || existing._type !== LEDGER_TYPE) return answer(404, "Этой строки в кассе больше нет.");
 
+    const before = openLedgerDocument(existing);
+
     if (body.action === "remove") {
       try {
+        // A card payment that is deleted did not happen, so its money goes
+        // back on the card in the same write. A card deleted from the Studio
+        // since has nowhere to take it back, and the line goes alone.
+        const card = before?.giftCard;
+        const cardThere = card
+          ? await sanityWriteClient.fetch<string | null>(`*[_id == $id][0]._id`, { id: card.id })
+          : null;
+        if (before && card && cardThere) {
+          await desk().mutate(returnMutations(id, card.id, before.amount), { visibility: "sync" });
+          return NextResponse.json({ ok: true, returned: { hint: card.hint, amount: before.amount } });
+        }
         await sanityWriteClient.delete(id);
         return NextResponse.json({ ok: true });
       } catch {
@@ -163,10 +212,26 @@ export async function POST(req: NextRequest) {
     if (!verdict.ok) return answer(400, verdict.error);
     // A payment stays tied to the booking it was written against, whatever the
     // form sends: the booking is read from the sealed entry, not the request
-    const before = openLedgerDocument(existing);
     const value = { ...verdict.value };
     delete value.bookingId;
     if (before?.bookingId) value.bookingId = before.bookingId;
+
+    // What came off a card stays what came off it: the card was charged that
+    // much when the line was saved, and a correction does not reach the card.
+    // A line that was not a card payment cannot become one here either — it
+    // would say a card paid without the card going down.
+    if (before?.giftCard) {
+      if (value.amount !== before.amount || value.method !== "giftcard") {
+        return answer(
+          400,
+          `Эта оплата уже списана с карты …${before.giftCard.hint}, поэтому сумму и способ здесь не поменять. ` +
+            `Если ошиблись — удалите строку (${formatPounds(before.amount)} вернутся на карту) и запишите заново.`
+        );
+      }
+      value.giftCard = before.giftCard;
+    } else if (value.method === "giftcard" && before?.method !== "giftcard") {
+      return answer(400, "Оплату подарочной картой запишите новой строкой — тогда она спишется с карты. А эту строку удалите.");
+    }
     const doc = ledgerDocument(id, value, new Date().toISOString(), existing.bookingKey);
     try {
       await sanityWriteClient

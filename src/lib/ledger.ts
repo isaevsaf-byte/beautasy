@@ -81,7 +81,15 @@ export interface LedgerEntry {
   note?: string;
   /** The atelier booking this was paid for, when it was paid for one */
   bookingId?: string;
+  /** The gift card this was taken off, when it was paid with one at the atelier */
+  giftCard?: PaidWithCard;
   source: LedgerSource;
+}
+
+/** Which card paid: its id, to give the money back if the line is deleted, and its last four, to show. */
+export interface PaidWithCard {
+  id: string;
+  hint: string;
 }
 
 export function categoriesFor(kind: LedgerKind): Choice[] {
@@ -251,6 +259,8 @@ export interface EntryInput {
   who?: string;
   note?: string;
   bookingId?: string;
+  /** Set by the server once the card is charged — never read from the form */
+  giftCard?: PaidWithCard;
 }
 
 export type EntryVerdict = { ok: true; value: EntryInput } | { ok: false; error: string };

@@ -9,6 +9,7 @@ import {
   type LedgerEntry,
   type LedgerKind,
   type OrderRow,
+  type PaidWithCard,
 } from "./ledger";
 
 /**
@@ -58,6 +59,7 @@ interface SealedPart {
   who?: string;
   note?: string;
   bookingId?: string;
+  giftCard?: PaidWithCard;
 }
 
 /**
@@ -96,6 +98,7 @@ export function ledgerDocument(
     ...(input.who ? { who: input.who } : {}),
     ...(input.note ? { note: input.note } : {}),
     ...(input.bookingId ? { bookingId: input.bookingId } : {}),
+    ...(input.giftCard ? { giftCard: { id: input.giftCard.id, hint: input.giftCard.hint } } : {}),
   };
   return {
     _id: id,
@@ -136,6 +139,11 @@ export function openLedgerDocument(
     return null;
   }
   const bookingId = typeof part.bookingId === "string" ? part.bookingId : undefined;
+  const card = part.giftCard;
+  const giftCard =
+    card && typeof card === "object" && typeof card.id === "string" && typeof card.hint === "string"
+      ? { id: card.id, hint: card.hint }
+      : undefined;
   return {
     id: doc._id,
     date: doc.date,
@@ -146,6 +154,7 @@ export function openLedgerDocument(
     ...(typeof part.who === "string" ? { who: part.who } : {}),
     ...(typeof part.note === "string" ? { note: part.note } : {}),
     ...(bookingId ? { bookingId } : {}),
+    ...(giftCard ? { giftCard } : {}),
     source: bookingId ? "booking" : "manual",
   };
 }
