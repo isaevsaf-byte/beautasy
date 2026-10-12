@@ -189,6 +189,17 @@ export const STUDIO_STATS_QUERY = `{
   "reviewsLive": count(*[
     _type == "review" && !(_id in path("drafts.**")) && approved == true
   ]),
+  // Finished clients she could still ask on WhatsApp («🙏 Попросить отзыв»).
+  // A booking has no "finished on" date, so its last write stands in: that is
+  // «✓ Работа готова» or the thank-you being marked sent, unless something
+  // touched it later. Two days first, so the email's own ask has its turn;
+  // past a month, the moment has gone. Only those with a number to write to —
+  // whether phoneSealed is there is asked, its contents never are.
+  "reviewAsksDue": count(*[
+    _type == "atelierBooking" && !(_id in path("drafts.**"))
+    && status == "completed" && !defined(reviewAskedAt) && defined(phoneSealed)
+    && dateTime(_updatedAt) <= dateTime($twoDaysAgo) && dateTime(_updatedAt) > dateTime($monthAgo)
+  ]),
 
   // ── The list she can write to herself ──
   "subscribers": count(*[
@@ -254,6 +265,8 @@ export interface StatsRaw {
   postsPublished30: number;
   reviewsWaiting: number;
   reviewsLive: number;
+  /** Finished clients with a number, 2–30 days on, not yet asked on WhatsApp — optional, as older answers had none */
+  reviewAsksDue?: number;
   subscribers: number;
   subscribers7: number;
   giftCardBalance: number | null;
@@ -275,6 +288,7 @@ export function statsParams(now: Date): Record<string, string> {
   return {
     now: now.toISOString(),
     weekAgo: new Date(now.getTime() - 7 * DAY_MS).toISOString(),
+    twoDaysAgo: new Date(now.getTime() - 2 * DAY_MS).toISOString(),
     monthAgo: new Date(now.getTime() - 30 * DAY_MS).toISOString(),
     // Plain dates, to be compared against slotStart as text. Southampton is
     // never more than an hour off UTC, and a fitting booked for 00:30 on the
@@ -975,6 +989,20 @@ export function buildDashboard(raw: StatsRaw, traffic: Traffic, now: Date): Dash
           )} перед покупкой.`,
     tone: raw.reviewsLive === 0 ? "plain" : "good",
   });
+
+  // An open door, like the Facebook groups: nobody is waiting, so plain
+  const asks = raw.reviewAsksDue ?? 0;
+  if (asks > 0) {
+    reach.push({
+      key: "review-asks",
+      value: count(asks, "клиентке", "клиенткам", "клиенткам"),
+      label: "можно написать про отзыв",
+      meaning:
+        "Работу вы отдали от двух дней до месяца назад, а в WhatsApp про отзыв ещё не писали. Личное сообщение от вас срабатывает лучше письма, а каждый отзыв в Google поднимает вас выше, когда ищут портниху рядом.",
+      action: `Откройте "${STUDIO_LISTS.bookings}", выберите запись со статусом “Выполнена” и нажмите “🙏 Попросить отзыв” — WhatsApp откроется с готовым текстом.`,
+      tone: "plain",
+    });
+  }
 
   if (raw.fittingsThisWeek > 0) {
     reach.push({

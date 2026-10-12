@@ -683,6 +683,7 @@ const EVERYTHING_AT_ONCE: Partial<StatsRaw> = {
   fittingsThisWeek: 2,
   friendLinks: 5,
   friendsRewarded30: 1,
+  reviewAsksDue: 2,
   contactCountingSince: "2026-09-01",
   contactClicks7: [{ whatsapp: 4, phone: 1, pages: { atelier: { whatsapp: 4, phone: 1 } } }],
 };
@@ -724,6 +725,7 @@ const EVERY_LINE: [key: string, tone: string, hasAction: boolean][] = [
   ["posts-published", "good", false],
   ["subscribers", "plain", false],
   ["reviews-live", "good", false],
+  ["review-asks", "plain", true],
   ["fittings-week", "plain", false],
   ["friends", "plain", false],
 ];
@@ -1452,4 +1454,40 @@ test("a quiet week is said plainly, a counter that has just started says so, and
     undefined,
     "before the first tap is counted there is nothing to say, and zero would be a false quiet week"
   );
+});
+
+/* ─── «🙏 Попросить отзыв» (12.10.2026) ─── */
+
+test("finished clients to ask on WhatsApp: done two days to a month ago, with a number, and not asked yet", async () => {
+  const done = (over: Record<string, unknown>) =>
+    loaded("atelierBooking", { status: "completed", _updatedAt: daysFromNow(-5), ...over });
+  const answer = await askTheRealQuery([
+    done({}),
+    done({ _updatedAt: daysFromNow(-29) }),
+    // Too soon: the thank-you email's own ask has its turn first
+    done({ _updatedAt: daysFromNow(-1) }),
+    // Too late: the moment has gone
+    done({ _updatedAt: daysFromNow(-31) }),
+    // Asked already
+    done({ reviewAskedAt: daysFromNow(-3) }),
+    // No number to write to
+    done({ phoneSealed: undefined }),
+    // Not finished
+    loaded("atelierBooking", { status: "confirmed", _updatedAt: daysFromNow(-5) }),
+    // A draft is the same booking again
+    done({ _id: "drafts.atelierBooking-x" }),
+  ]);
+  assert.equal(answer.reviewAsksDue, 2);
+  assert.equal(JSON.stringify(answer).includes(SENTINEL), false, "the number is counted, never read");
+});
+
+test("the review line is a calm open door: shown only when there is someone to ask, and the button named", () => {
+  assert.equal(allLines().find((l) => l.key === "review-asks"), undefined, "nobody to ask, nothing said");
+  const one = allLines({ reviewAsksDue: 1 }).find((l) => l.key === "review-asks");
+  assert.ok(one);
+  assert.equal(`${one.value} ${one.label}`, "1 клиентке можно написать про отзыв");
+  assert.equal(one.tone, "plain", "nobody is waiting on her because of it");
+  assert.match(one.action ?? "", /нажмите “🙏 Попросить отзыв”/);
+  assert.equal(allLines({ reviewAsksDue: 3 }).find((l) => l.key === "review-asks")?.value, "3 клиенткам");
+  assert.equal(allLines({ reviewAsksDue: 21 }).find((l) => l.key === "review-asks")?.value, "21 клиентке");
 });
