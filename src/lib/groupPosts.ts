@@ -1,7 +1,8 @@
 import { BUSINESS } from "./business";
 import { SITE_URL } from "./site";
 import { LOCAL_SERVICES, type LocalService } from "./localServices";
-import { groupShortLink } from "./shortLinks";
+import { groupShortLink, workShortLink } from "./shortLinks";
+import { anchorFor } from "./workMedia";
 
 /**
  * Posts for the Facebook groups Kristina has joined.
@@ -44,7 +45,15 @@ export interface FacebookGroup {
   area?: string | null;
   rules?: string | null;
   lastPostedAt?: string | null;
+  /**
+   * The pieces of work posted here, as POSTED_WORK reads them: the piece's id
+   * and when. Written by «Опубликовала»; a piece is offered to a group once.
+   */
+  postedWork?: { piece?: string | null; at?: string | null }[] | null;
 }
+
+/** The group's posted pieces as FacebookGroup.postedWork has them: the reference unwrapped to the id */
+export const POSTED_WORK = `postedWork[]{ "piece": piece._ref, at }`;
 
 const DEFAULT_EVERY_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -232,27 +241,192 @@ function localPhone(): string {
 }
 
 export interface GroupPost {
+  /** A job with its prices, or a fresh piece of work from the gallery */
+  kind: "service" | "work";
   text: string;
   /** The link in the text, or null when the group allows none */
   link: string | null;
   /** The link as the text prints it: "www.beautasy.co.uk/g/prom/k3x" */
   shown: string | null;
-  /** The service the post is about this time */
-  service: string;
+  /** The service the post is about this time; for a piece, the page it was filed under, if any */
+  service: string | null;
+  /** The piece of work's id, for «Опубликовала» to record; null for a service post */
+  piece: string | null;
+  /**
+   * The piece's before-and-after card as a file, "/cards/work/<piece>.jpg" —
+   * to attach by hand in a group that allows no links. Relative: the Studio
+   * is on the site's own address, so the download stays on it.
+   */
+  card: string | null;
+}
+
+/* ─── Fresh work ─── */
+
+/**
+ * A gallery piece as a group post needs it. FRESH_WORK reads these, published
+ * only: a draft is not on the site yet, so its link would land on the gallery.
+ */
+export interface PostablePiece {
+  id: string;
+  title: string;
+  caption?: string | null;
+  category?: string | null;
+  service?: string | null;
+  /** The day the gallery sorts it by: its date, or the day it was created */
+  date?: string | null;
+  /** A before photo and a photo after it: the card shows the pair */
+  beforeAfter?: boolean | null;
+  /** The card has a picture: a photo first, or a video with its cover */
+  pictured?: boolean | null;
+}
+
+export const FRESH_WORK = `*[_type == "workPiece" && !(_id in path("drafts.**")) && defined(title) && count(media) > 0] {
+  "id": _id,
+  title,
+  caption,
+  category,
+  service,
+  "date": coalesce(date, _createdAt),
+  "beforeAfter": defined(before.asset) && media[0]._type == "workPhoto" && defined(media[0].asset),
+  "pictured": (media[0]._type == "workPhoto" && defined(media[0].asset)) || defined(media[0].poster.asset)
+}`;
+
+/**
+ * Work a customer can bring in or order: alterations, curtains, made from
+ * scratch. The workroom's process clips and the shop's own makes are lovely
+ * on Instagram, but a group post is there to bring a job.
+ */
+const WORK_POST_CATEGORIES = new Set(["alterations", "home", "made"]);
+
+/**
+ * How new a piece has to be. A month: the post calls it fresh, and a piece
+ * from the gallery's date this month is. Kristina can lift an older one by
+ * giving it today's date, as she already does to move it up the gallery.
+ * When nothing is that new, the groups get the service posts as before.
+ */
+export const FRESH_DAYS = 30;
+
+/**
+ * The rhythm: a piece only when the group's last post was not one, and none
+ * in the last week. A group that takes one post a week (most of them) gets
+ * a piece and a priced job in turn; one that allows more gets a piece once a
+ * week and priced jobs the rest. Prices are what turns a look into a booking.
+ */
+const WORK_EVERY_DAYS = 7;
+
+function dayOf(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : londonDay(new Date(value));
+}
+
+function lastWorkPost(group: FacebookGroup): string | null {
+  const times = (group.postedWork ?? []).map((p) => p?.at).filter((at): at is string => !!at && !Number.isNaN(Date.parse(at)));
+  return times.length ? times.reduce((a, b) => (Date.parse(a) >= Date.parse(b) ? a : b)) : null;
 }
 
 /**
- * The post for one group this week. Which job it is about turns with the
- * weeks, and starts from a different job in each group, so two groups
- * posted to on the same day don't carry the same words — which is what
- * Facebook's spam filter looks for.
+ * The piece today's post in this group is about, or null for a service post.
+ * One the group has not been shown, new enough, with a picture for the card;
+ * a before and after first, as that is what people stop scrolling for, then
+ * the newest.
+ */
+export function freshPiece(group: FacebookGroup, pieces: readonly PostablePiece[], now: Date): PostablePiece | null {
+  const today = londonDay(now);
+  const lastWork = lastWorkPost(group);
+  if (lastWork) {
+    if (daysBetween(dayOf(lastWork), today) < WORK_EVERY_DAYS) return null;
+    // «Опубликовала» writes both times as one; a later lastPostedAt is a post of another kind
+    const last = group.lastPostedAt && !Number.isNaN(Date.parse(group.lastPostedAt)) ? Date.parse(group.lastPostedAt) : 0;
+    if (Date.parse(lastWork) >= last) return null;
+  }
+
+  const shown = new Set((group.postedWork ?? []).map((p) => p?.piece).filter(Boolean));
+  const candidates = pieces.filter((piece) => {
+    if (!piece.id || piece.id.startsWith("drafts.") || shown.has(piece.id)) return false;
+    if (!piece.title?.trim() || !piece.pictured || !WORK_POST_CATEGORIES.has(piece.category ?? "")) return false;
+    if (!piece.date || Number.isNaN(Date.parse(piece.date))) return false;
+    const age = daysBetween(dayOf(piece.date), today);
+    return age >= 0 && age <= FRESH_DAYS;
+  });
+  candidates.sort(
+    (a, b) =>
+      Number(!!b.beforeAfter) - Number(!!a.beforeAfter) ||
+      dayOf(b.date!).localeCompare(dayOf(a.date!)) ||
+      a.id.localeCompare(b.id)
+  );
+  return candidates[0] ?? null;
+}
+
+/**
+ * What the piece's own caption says, without what only makes sense on the
+ * gallery: a sentence about Kristina in the third person (the post is her
+ * speaking) or about how the photos were taken. Nothing is added; at most
+ * two sentences are kept.
+ */
+export function pieceStory(piece: Pick<PostablePiece, "title" | "caption">): string {
+  const sentences = (piece.caption ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/(?<=[.!?])\s+/)
+    .filter((s) => s && !/\bKristina\b/.test(s) && !/^(Shown|Pictured|Photographed)\b/i.test(s));
+  if (sentences.length) return sentences.slice(0, 2).join(" ");
+  return `${piece.title.trim().replace(/[\s.!?,;:]+$/, "")}.`;
+}
+
+const WORK_HOOKS = {
+  pair: ["A before and after from my workroom ✨", "Before and after 🪡"],
+  one: ["Fresh from my sewing table 🪡", "A recent one from my workroom ✨"],
+} as const;
+
+/** The post about a piece of work, in her voice, from the piece's own words */
+function workPost(group: FacebookGroup, piece: PostablePiece, slug: string): GroupPost {
+  const anchor = anchorFor(piece.id);
+  const hook = WORK_HOOKS[piece.beforeAfter ? "pair" : "one"][hash(`${slug}|${piece.id}`) % 2];
+  const area = group.area?.trim() || "Southampton";
+
+  // The link opens the piece's own page, whose preview is its card
+  const short = group.links === false ? null : workShortLink(anchor, group._id ?? slug);
+  const link =
+    group.links === false
+      ? null
+      : (short?.href ?? `${SITE_URL}/work/${anchor}?utm_source=facebook&utm_medium=group&utm_campaign=${slug}`);
+  // Something made from scratch is ordered, not brought in
+  const made = piece.category === "made";
+  const question = made ? "Would you like something made for you?" : "Have something like this waiting?";
+  const ask = link
+    ? `${question} ${made ? "Send me a message" : "Send me a photo"} 🤍\n${short?.shown ?? link}`
+    : `${question} Message me here or on WhatsApp ${localPhone()}${made ? "" : " with a photo"} 🤍`;
+
+  const text = [hook, pieceStory(piece), `I'm Kristina, a seamstress here in ${area}. ${ask}`].join("\n\n");
+  return {
+    kind: "work",
+    text,
+    link,
+    shown: short?.shown ?? link,
+    service: piece.service ?? null,
+    piece: piece.id,
+    card: `/cards/work/${anchor}.jpg`,
+  };
+}
+
+/* ─── The post ─── */
+
+/**
+ * The post for one group today: a fresh piece of work when there is one the
+ * group hasn't seen (see freshPiece), otherwise this week's job. Which job
+ * turns with the weeks, and starts from a different job in each group, so two
+ * groups posted to on the same day don't carry the same words — which is
+ * what Facebook's spam filter looks for.
  */
 export function groupPost(
   group: FacebookGroup,
   now: Date,
+  pieces: readonly PostablePiece[] = [],
   services: readonly LocalService[] = LOCAL_SERVICES
 ): GroupPost {
   const slug = groupSlug(group.name);
+  const piece = freshPiece(group, pieces, now);
+  if (piece) return workPost(group, piece, slug);
+
   const week = Math.floor(Date.parse(`${londonDay(now)}T12:00:00Z`) / DAY_MS / 7);
   const turn = hash(slug) + week;
   const usable = services.filter((service) => WORDS[service.slug] && service.prices.length > 0);
@@ -280,5 +454,5 @@ export function groupPost(
     : `Not sure if it can be done? Message me here or on WhatsApp ${localPhone()} with a photo, and I'll tell you straight away 🤍`;
 
   const text = [hook, `I'm Kristina, a seamstress here in ${area}. ${words.what}`, prices, ask].join("\n\n");
-  return { text, link, shown: short?.shown ?? link, service: service.slug };
+  return { kind: "service", text, link, shown: short?.shown ?? link, service: service.slug, piece: null, card: null };
 }
