@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { LOCAL_SERVICES } from "./localServices";
-import { GROUP_CODE_LENGTH, SHORT_WORDS, groupCode, groupShortLink, shortLinkTarget } from "./shortLinks";
+import { GROUP_CODE_LENGTH, SHORT_WORDS, groupCode, groupShortLink, shortLinkTarget, workShortLink } from "./shortLinks";
 import { groupPost } from "./groupPosts";
 
 /**
@@ -80,6 +80,49 @@ test("a short link is never a dead end, and never leaves the site", () => {
     assert.match(target, /^\/alterations[/?]/, path);
     assert.equal(at(target).origin, "https://www.beautasy.co.uk", path);
   }
+});
+
+/* ─── A piece of work (12.10.2026) ─── */
+
+test("a piece of work's short link opens its own page with the group's tags", () => {
+  const link = workShortLink("grey-eyelet-curtains", "group-id");
+  assert.ok(link);
+  assert.equal(link.shown, `www.beautasy.co.uk/g/w/grey-eyelet-curtains/${groupCode("group-id")}`);
+  assert.equal(link.href, `https://${link.shown}`);
+
+  const url = at(shortLinkTarget(new URL(link.href).pathname, "?fbclid=abc&utm_source=whatsapp"));
+  assert.equal(url.pathname, "/work/grey-eyelet-curtains");
+  assert.equal(url.searchParams.get("utm_source"), "facebook");
+  assert.equal(url.searchParams.get("utm_medium"), "group");
+  assert.equal(url.searchParams.get("utm_campaign"), `fb-${groupCode("group-id")}`);
+  assert.equal(url.searchParams.get("fbclid"), "abc", "Facebook's click id comes along");
+  assert.deepEqual(url.searchParams.getAll("utm_source"), ["facebook"]);
+});
+
+test("a piece's link survives what is glued after it, and is never a dead end", () => {
+  for (const path of ["/g/w/grey-eyelet-curtains/k3xFeel", "/g/w/grey-eyelet-curtains/k3x%20Feel", "/g/W/grey-eyelet-curtains/k3x"]) {
+    const url = at(shortLinkTarget(path));
+    assert.equal(url.pathname, "/work/grey-eyelet-curtains", path);
+    assert.equal(url.searchParams.get("utm_campaign"), "fb-k3x", path);
+  }
+  // No code: the piece without the group's tag. No piece: the gallery.
+  assert.equal(at(shortLinkTarget("/g/w/grey-eyelet-curtains")).searchParams.get("utm_campaign"), null);
+  for (const path of ["/g/w", "/g/w/", "/g/w//k3x"]) assert.equal(at(shortLinkTarget(path)).pathname, "/work", path);
+  assert.equal(at(shortLinkTarget("/g/w//k3x")).searchParams.get("utm_campaign"), "fb-k3x", "the group still counts");
+});
+
+test("a piece's link never leaves the site, and never shadows a service word", () => {
+  for (const path of ["/g/w/%2F%2Fevil.com/k3x", "/g/w/..%2F..%2Fstudio/k3x", "/g/w/a.b/k3x", "/g/w/%E2%9C%A8/k3x"]) {
+    const target = shortLinkTarget(path)!;
+    assert.equal(at(target).pathname, "/work", path);
+    assert.equal(at(target).origin, "https://www.beautasy.co.uk", path);
+  }
+  assert.equal(workShortLink("../studio", "g"), null);
+  assert.equal(workShortLink("", "g"), null);
+  // Words that start with w are still their pages
+  assert.equal(at(shortLinkTarget("/g/wedding/k3x")).pathname, "/alterations/wedding-dress-southampton");
+  assert.equal(at(shortLinkTarget("/g/wFeel")).pathname, "/alterations");
+  assert.ok(!Object.hasOwn(SHORT_WORDS, "w"), "w is not a service");
 });
 
 test("only /g/ is a short link", () => {

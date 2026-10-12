@@ -13,6 +13,10 @@
  * numbered for it. It is a label, not a key: the word alone decides the
  * page, so two groups sharing a code would only share a tag.
  *
+ * A piece of work from the gallery (12.10.2026) has no word, so its link
+ * carries the piece's own address: www.beautasy.co.uk/g/w/<piece>/k3x, to
+ * /work/<piece> with the same tags.
+ *
  * Pure, so the middleware bundle carries only these few lines.
  */
 
@@ -60,19 +64,58 @@ export function groupShortLink(serviceSlug: string, groupId: string): { href: st
   return { href: `https://${shown}`, shown };
 }
 
+/**
+ * The short link for a piece of work and a group: /g/w/<piece>/<code>.
+ *
+ * A piece has no word on the list, and the middleware cannot look one up, so
+ * the piece's own address (its anchor, as /work/<piece> has it) rides in the
+ * link. "w" first keeps it apart from the service words, and the group's code
+ * stays last, where the cut for anything glued on already works. Null for an
+ * anchor that would not survive the trip.
+ */
+export function workShortLink(anchor: string, groupId: string): { href: string; shown: string } | null {
+  if (!WORK_ANCHOR.test(anchor)) return null;
+  const shown = `${SITE}/g/${WORK_WORD}/${anchor}/${groupCode(groupId)}`;
+  return { href: `https://${shown}`, shown };
+}
+
+/** The segment that says "a piece of work follows", not a service word */
+export const WORK_WORD = "w";
+// What anchorFor (@/lib/workMedia) can produce, and nothing that could leave the path
+const WORK_ANCHOR = /^[A-Za-z0-9_-]{1,100}$/;
+
 const CODE_START = new RegExp(`^[${CODE_ALPHABET}]{${GROUP_CODE_LENGTH}}`);
 
+/** Facebook's tags on whatever else the link carried (its fbclid); incoming utm tags are replaced */
+function facebookTags(search: string, code: string | null): URLSearchParams {
+  const params = new URLSearchParams(search);
+  for (const key of [...params.keys()]) if (key.startsWith("utm_")) params.delete(key);
+  params.set("utm_source", "facebook");
+  params.set("utm_medium", "group");
+  if (code) params.set("utm_campaign", `fb-${code}`);
+  return params;
+}
+
 /**
- * Where a short link goes: "/alterations/…?utm_…", or null for any other
+ * Where a short link goes: "/alterations/…?utm_…" (or "/work/…?utm_…"), or null for any other
  * address. Never a dead end — an unknown word lands on the alterations page,
  * a missing or broken code on the service page without the group's tag. The
- * address is built only from the list above and the code's own letters, so
- * nobody can make it send a visitor anywhere else. Every other parameter on
+ * address is built only from the list above, the code's own letters and a
+ * piece's plain letters and dashes, so nobody can make it send a visitor
+ * anywhere else. Every other parameter on
  * the link (Facebook's fbclid) comes along; incoming utm tags are replaced.
  */
 export function shortLinkTarget(pathname: string, search = ""): string | null {
   if (pathname !== "/g" && !pathname.startsWith("/g/")) return null;
-  const [rawWord = "", rawCode = ""] = pathname.slice(3).split("/");
+  const [rawWord = "", rawCode = "", rawLast = ""] = pathname.slice(3).split("/");
+
+  // A piece of work: /g/w/<piece>/<code> goes to /work/<piece>, which sends a
+  // piece taken down on to the gallery. A broken piece goes to the gallery here.
+  if (rawWord.toLowerCase() === WORK_WORD) {
+    const anchor = WORK_ANCHOR.test(rawCode) ? rawCode : null;
+    const params = facebookTags(search, CODE_START.exec(rawLast)?.[0] ?? null);
+    return `${anchor ? `/work/${anchor}` : "/work"}?${params}`;
+  }
 
   // A word glued to the next one ("promFeel") is still the word
   const word = /^[a-z]+/.exec(rawWord)?.[0] ?? /^[a-z]+/.exec(rawWord.toLowerCase())?.[0] ?? "";
@@ -80,13 +123,7 @@ export function shortLinkTarget(pathname: string, search = ""): string | null {
   const slug =
     (Object.hasOwn(SHORT_WORDS, word) ? SHORT_WORDS[word] : undefined) ??
     Object.entries(SHORT_WORDS).find(([w]) => word.startsWith(w))?.[1];
-  const code = CODE_START.exec(rawCode)?.[0] ?? null;
-
-  const params = new URLSearchParams(search);
-  for (const key of [...params.keys()]) if (key.startsWith("utm_")) params.delete(key);
-  params.set("utm_source", "facebook");
-  params.set("utm_medium", "group");
-  if (code) params.set("utm_campaign", `fb-${code}`);
+  const params = facebookTags(search, CODE_START.exec(rawCode)?.[0] ?? null);
 
   return `${slug ? `/alterations/${slug}` : "/alterations"}?${params}`;
 }
