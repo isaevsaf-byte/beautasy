@@ -16,6 +16,7 @@ import { useDiaryToken } from "./diaryClient";
 import { askLedger, entriesOf, errorOf } from "./ledgerClient";
 import { amountPreview } from "./LedgerPane";
 import { primaryButton, secondaryButton } from "./SlotPicker";
+import { GiftCardField, cardCovers, useGiftCardCheck, type CardCheck } from "./giftCardField";
 
 /**
  * "💷 Записать оплату" (Record a payment) — on a booking, where Kristina is
@@ -30,6 +31,11 @@ import { primaryButton, secondaryButton } from "./SlotPicker";
  * The booking itself is not touched: the payment lives in the ledger, sealed
  * there (see @/lib/ledgerStore), tied to the booking by a key that names no
  * booking.
+ *
+ * Paid with a gift card, it asks for the card's code and takes the payment
+ * off the card in the same write (see @/lib/atelierGiftCardStore). It used to
+ * ask her to lower the card's «Остаток» by hand, and a card whose balance was
+ * forgotten could be spent twice.
  */
 
 interface BookingDoc {
@@ -63,12 +69,15 @@ export interface PaymentForm {
   category: string;
   date: string;
   note: string;
+  /** Typed only when the client pays with a gift card */
+  giftCardCode: string;
 }
 
 export function PaymentFormView({
   doc,
   paid,
   form,
+  card = { state: "idle" },
   today,
   busy,
   error,
@@ -79,6 +88,8 @@ export function PaymentFormView({
   doc: BookingDoc;
   paid: AlreadyPaid;
   form: PaymentForm;
+  /** What the site said about the card typed, when paying by gift card */
+  card?: CardCheck;
   today: string;
   busy: boolean;
   error: string | null;
@@ -89,7 +100,11 @@ export function PaymentFormView({
   const set = (patch: Partial<PaymentForm>) => onChange({ ...form, ...patch });
   const pence = parsePounds(form.amount);
   const preview = amountPreview(form.amount);
-  const canSave = !busy && pence !== null && paid.state !== "checking";
+  const byCard = form.method === "giftcard";
+  // A card payment waits for the card to be found and to cover the price —
+  // the server checks again, but she should not be the one to find out there
+  const canSave = !busy && pence !== null && paid.state !== "checking" && (!byCard || cardCovers(card, pence));
+  const hint = card.state === "found" ? card.look.hint : null;
   return (
     <div style={{ display: "grid", gap: 12, padding: 4 }}>
       {paid.state === "checking" && <p style={{ fontSize: 13, margin: 0, opacity: 0.7 }}>Смотрим, что уже в кассе…</p>}
@@ -104,7 +119,8 @@ export function PaymentFormView({
           <strong>Уже в кассе:</strong>
           {paid.entries.map((entry) => (
             <span key={entry.id}>
-              +{formatPounds(entry.amount)} · {titleOf(PAYMENT_METHODS, entry.method).toLowerCase()} · {dayTitle(entry.date)}
+              +{formatPounds(entry.amount)} · {titleOf(PAYMENT_METHODS, entry.method).toLowerCase()}
+              {entry.giftCard ? ` …${entry.giftCard.hint}` : ""} · {dayTitle(entry.date)}
             </span>
           ))}
           <span style={{ opacity: 0.7 }}>Добавляйте новую оплату, только если клиент доплатил.</span>
@@ -142,11 +158,16 @@ export function PaymentFormView({
           ))}
         </select>
       </label>
-      {form.method === "giftcard" && (
-        <p style={{ fontSize: 13, margin: 0, opacity: 0.75 }}>
-          Деньги за карту уже пришли, когда её купили, поэтому в «Пришло» эта оплата не войдёт. Не забудьте уменьшить
-          «Остаток» карты в разделе «Магазин» → «Подарочные карты».
-        </p>
+      {byCard && (
+        <GiftCardField
+          id="payment-gift-card"
+          code={form.giftCardCode}
+          check={card}
+          pence={pence}
+          onCode={(giftCardCode) => set({ giftCardCode })}
+          inputStyle={inputStyle}
+          labelStyle={labelStyle}
+        />
       )}
       <label style={labelStyle}>
         За что
@@ -173,7 +194,13 @@ export function PaymentFormView({
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button type="button" style={primaryButton(canSave)} disabled={!canSave} onClick={onSave}>
-          {busy ? "Записываем…" : pence === null ? "Напишите сумму" : `Записать в кассу +${formatPounds(pence)}`}
+          {busy
+            ? "Записываем…"
+            : pence === null
+              ? "Напишите сумму"
+              : byCard && hint
+                ? `Записать и списать ${formatPounds(pence)} с карты …${hint}`
+                : `Записать в кассу +${formatPounds(pence)}`}
         </button>
         <button type="button" style={secondaryButton} onClick={onCancel}>
           Отмена
@@ -193,10 +220,13 @@ function PaymentDialog({ id, doc, onClose }: { id: string; doc: BookingDoc; onCl
     category: categoryForService(doc.service),
     date: today,
     note: "",
+    giftCardCode: "",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<LedgerEntry | null>(null);
+  const [saved, setSaved] = useState<{ entry: LedgerEntry; cardLeft?: number } | null>(null);
+  const byCard = form.method === "giftcard";
+  const card = useGiftCardCheck(token, form.giftCardCode, byCard && !saved);
 
   useEffect(() => {
     let abandoned = false;
@@ -216,25 +246,35 @@ function PaymentDialog({ id, doc, onClose }: { id: string; doc: BookingDoc; onCl
   async function save() {
     setBusy(true);
     setError(null);
+    const { giftCardCode, ...entry } = form;
     const reply = await askLedger(token, {
       action: "add",
-      entry: { kind: "income", ...form, who: doc.displayName ?? "", bookingId: id },
+      entry: { kind: "income", ...entry, who: doc.displayName ?? "", bookingId: id },
+      ...(byCard ? { giftCardCode } : {}),
     });
     setBusy(false);
     if (!reply.ok) {
       setError(errorOf(reply, "Не удалось записать."));
       return;
     }
-    setSaved((reply.data.entry as LedgerEntry | undefined) ?? null);
+    const written = reply.data.entry as LedgerEntry | undefined;
+    const left = (reply.data.card as { balance?: unknown } | undefined)?.balance;
+    if (written) setSaved({ entry: written, ...(typeof left === "number" ? { cardLeft: left } : {}) });
   }
 
   if (saved) {
+    const { entry, cardLeft } = saved;
     return (
       <div style={{ display: "grid", gap: 12, padding: 4 }}>
         <p style={{ fontSize: 15, margin: 0 }}>
-          ✓ Записано в кассу: <strong>+{formatPounds(saved.amount)}</strong>, {titleOf(PAYMENT_METHODS, saved.method).toLowerCase()},{" "}
-          {dayTitle(saved.date)}.
+          ✓ Записано в кассу: <strong>+{formatPounds(entry.amount)}</strong>, {titleOf(PAYMENT_METHODS, entry.method).toLowerCase()},{" "}
+          {dayTitle(entry.date)}.
         </p>
+        {entry.giftCard && typeof cardLeft === "number" && (
+          <p style={{ fontSize: 15, margin: 0 }}>
+            С карты …{entry.giftCard.hint} списано {formatPounds(entry.amount)}, на ней осталось <strong>{formatPounds(cardLeft)}</strong>.
+          </p>
+        )}
         <p style={{ fontSize: 13, margin: 0, opacity: 0.7 }}>Видно в разделе «Касса».</p>
         <div>
           <button type="button" style={primaryButton(true)} onClick={onClose}>
@@ -250,6 +290,7 @@ function PaymentDialog({ id, doc, onClose }: { id: string; doc: BookingDoc; onCl
       doc={doc}
       paid={paid}
       form={form}
+      card={card}
       today={today}
       busy={busy}
       error={error}

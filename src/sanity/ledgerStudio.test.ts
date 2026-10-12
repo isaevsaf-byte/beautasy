@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { summarise, type LedgerEntry } from "@/lib/ledger";
 import { EntriesView, EntryFormView, SummaryView, amountPreview, blankForm, entryPayload, formFor } from "./LedgerPane";
 import { PaymentFormView, type AlreadyPaid, type PaymentForm } from "./paymentAction";
+import type { CardCheck } from "./giftCardField";
 
 /**
  * «Касса» in the Studio: who may read it, what reaches the database, what
@@ -166,13 +167,14 @@ test("the amount under the field says what will be saved, or why not", () => {
   assert.equal(amountPreview("  "), null);
 });
 
-const paymentForm: PaymentForm = { amount: "45", method: "cash", category: "bridal", date: today, note: "" };
-const paymentView = (paid: AlreadyPaid, patch: Partial<PaymentForm> = {}, doc = { displayName: "Emily" }) =>
+const paymentForm: PaymentForm = { amount: "45", method: "cash", category: "bridal", date: today, note: "", giftCardCode: "" };
+const paymentView = (paid: AlreadyPaid, patch: Partial<PaymentForm> = {}, doc = { displayName: "Emily" }, card?: CardCheck) =>
   renderToStaticMarkup(
     createElement(PaymentFormView, {
       doc,
       paid,
       form: { ...paymentForm, ...patch },
+      card,
       today,
       busy: false,
       error: null,
@@ -198,11 +200,51 @@ test("what is already paid is shown first, with the reminders that matter at the
   const paid = paymentView({ state: "ready", entries: [{ ...entries[0], id: "p1", amount: 2000 }] });
   assert.match(paid, /Уже в кассе:/);
   assert.match(paid, /\+£20\.00 · наличные/);
-  const giftCard = paymentView({ state: "ready", entries: [] }, { method: "giftcard" });
-  assert.match(giftCard, /уменьшить «Остаток» карты/);
   const friend = paymentView({ state: "ready", entries: [] }, {}, { displayName: "Emily", referralDiscount: 500, referredBy: "Mia" } as never);
   assert.match(friend, /скидка за друга £5\.00 от Mia/);
   assert.doesNotMatch(paymentView({ state: "ready", entries: [] }), /value="stripe"/, "a payment on the site records itself");
+});
+
+test("a payment by gift card asks for the card's code, and nothing is left to do by hand", () => {
+  const ready: AlreadyPaid = { state: "ready", entries: [] };
+  const typing = paymentView(ready, { method: "giftcard" });
+  assert.match(typing, /Код карты/);
+  assert.match(typing, /id="payment-gift-card"/);
+  assert.match(typing, /оплата спишется с карты сама/);
+  assert.match(typing, /второй оплатой\s+другим способом/);
+  assert.doesNotMatch(typing, /уменьшить «Остаток»|Не забудьте/, "the card is no longer lowered by hand");
+  assert.match(typing, /<button[^>]*disabled=""[^>]*>Записать в кассу \+£45\.00<\/button>/, "not saved before the card is found");
+  assert.doesNotMatch(paymentView(ready), /Код карты/, "cash asks for no code");
+});
+
+test("a card that covers the price shows what will be left, and the button says what it will take off", () => {
+  const ready: AlreadyPaid = { state: "ready", entries: [] };
+  const found: CardCheck = { state: "found", look: { hint: "CD34", balance: 4000, available: 4000 } };
+  const html = paymentView(ready, { method: "giftcard", amount: "15.50", giftCardCode: "beautasy ab12 cd34" }, undefined, found);
+  assert.match(html, /Карта …CD34\. <\/strong>На карте £40\.00 — после оплаты останется £24\.50\./);
+  assert.match(html, /<button[^>]*>Записать и списать £15\.50 с карты …CD34<\/button>/);
+  assert.doesNotMatch(html, /disabled=""[^>]*>Записать и списать/);
+});
+
+test("a card that does not cover the price, or is not a card, cannot be saved and says why", () => {
+  const ready: AlreadyPaid = { state: "ready", entries: [] };
+  const small: CardCheck = { state: "found", look: { hint: "CD34", balance: 1000, available: 1000 } };
+  const short = paymentView(ready, { method: "giftcard", amount: "45" }, undefined, small);
+  assert.match(short, /На карте только £10\.00\. Запишите здесь £10\.00, а остальные £35\.00 — второй оплатой другим способом\./);
+  assert.match(short, /<button[^>]*disabled=""/);
+  const wrong: CardCheck = { state: "failed", message: "Карты с таким кодом нет." };
+  const none = paymentView(ready, { method: "giftcard" }, undefined, wrong);
+  assert.match(none, /role="alert"[^>]*>Карты с таким кодом нет\./);
+  assert.match(none, /<button[^>]*disabled=""/);
+  assert.match(paymentView(ready, { method: "giftcard" }, undefined, { state: "checking" }), /Проверяем карту…/);
+});
+
+test("what was already paid by card names the card", () => {
+  const paid: AlreadyPaid = {
+    state: "ready",
+    entries: [{ ...entries[0], id: "p2", amount: 1550, method: "giftcard", giftCard: { id: "giftCard-1", hint: "CD34" } }],
+  };
+  assert.match(paymentView(paid), /\+£15\.50 · подарочная карта …CD34 · /);
 });
 
 test("the tax year shows its bill, the advances, the lines ahead and what the ledger cannot see", async () => {
