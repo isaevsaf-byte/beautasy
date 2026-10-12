@@ -17,6 +17,8 @@ import { partnerAttributionAction } from "./src/sanity/partnerAction";
 import { structure } from "./src/sanity/structure";
 import { etsyReviewTemplate, googleReviewTemplate, nextdoorReviewTemplate } from "./src/sanity/reviewLists";
 import { dashboardTool } from "./src/sanity/dashboardTool";
+import { withLocationStripped } from "./src/sanity/cleanUploads";
+import { LocationNoticesLayout } from "./src/sanity/LocationNotices";
 
 export default defineConfig({
   name: "beautasy",
@@ -56,6 +58,17 @@ export default defineConfig({
   // list is composed rather than replaced: `prev` is what the plugins above
   // contributed, and overwriting it would take Structure and Vision away.
   tools: (prev) => [dashboardTool, ...prev],
+
+  // 🚨 Every image uploaded here is public the moment it lands, original file
+  // and all, and a phone photo taken in the workroom at home carries the
+  // home's address. So every image source's uploader takes the location out
+  // of each file before it leaves the browser — whichever field, however the
+  // file got there. See src/sanity/cleanUploads.ts. The layout is what tells
+  // Kristina it happened.
+  form: {
+    image: { assetSources: (prev) => prev.map((source) => withLocationStripped(source)) },
+  },
+  studio: { components: { layout: LocationNoticesLayout } },
 
   schema: {
     types: schemaTypes,
