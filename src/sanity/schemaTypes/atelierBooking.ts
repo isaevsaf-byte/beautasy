@@ -280,6 +280,18 @@ export const atelierBooking = defineType({
         },
       ],
     }),
+    // Stamped by «🙏 Попросить отзыв» when it makes the WhatsApp link — see
+    // /api/studio/review-ask. It means the link was made, not that the
+    // message went: WhatsApp tells nobody
+    defineField({
+      name: "reviewAskedAt",
+      title: "Попросили отзыв",
+      type: "datetime",
+      readOnly: true,
+      hidden: ({ document }) => !document?.reviewAskedAt,
+      description:
+        "Когда вы открыли WhatsApp с просьбой об отзыве кнопкой «🙏 Попросить отзыв». Отправили ли сообщение, сайт не знает.",
+    }),
     defineField({
       name: "confirmedFor",
       title: "Подтверждено на",
