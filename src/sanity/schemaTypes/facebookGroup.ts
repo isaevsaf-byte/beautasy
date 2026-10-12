@@ -1,4 +1,4 @@
-import { defineField, defineType } from "sanity";
+import { defineArrayMember, defineField, defineType } from "sanity";
 import { WEEKDAYS, isFacebookGroupUrl } from "@/lib/groupPosts";
 import { groupCode } from "@/lib/shortLinks";
 
@@ -85,6 +85,32 @@ export const facebookGroup = defineType({
       type: "datetime",
       description:
         "Ставится кнопкой «Опубликовала» в «Посты в группы». Если публиковали раньше сами — поставьте дату, чтобы не было поста чаще, чем разрешено.",
+    }),
+    defineField({
+      name: "postedWork",
+      title: "Работы, уже показанные в группе",
+      type: "array",
+      description:
+        "Ставится кнопкой «Опубликовала», когда пост был про работу из галереи: одну работу группе предлагаем один раз. Уберите строку — и работа снова сможет попасть в пост сюда.",
+      of: [
+        defineArrayMember({
+          name: "postedPiece",
+          title: "Работа",
+          type: "object",
+          fields: [
+            // Weak: a piece taken off the gallery can still be deleted
+            defineField({ name: "piece", title: "Работа", type: "reference", to: [{ type: "workPiece" }], weak: true }),
+            defineField({ name: "at", title: "Когда опубликовано", type: "datetime" }),
+          ],
+          preview: {
+            select: { title: "piece.title", at: "at" },
+            prepare: ({ title, at }) => ({
+              title: title ?? "Работа снята с сайта",
+              subtitle: at ? new Date(at as string).toLocaleDateString("ru-RU", { day: "numeric", month: "long", timeZone: "Europe/London" }) : undefined,
+            }),
+          },
+        }),
+      ],
     }),
   ],
   preview: {

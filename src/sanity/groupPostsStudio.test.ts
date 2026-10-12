@@ -68,7 +68,7 @@ test("the sidebar has today's group posts at the top, and the groups themselves 
 
 test("the three buttons copy the post, open the group, and rest it — draft and all", () => {
   const pane = read("src/sanity/FacebookGroupsPane.tsx");
-  assert.match(pane, /const post = groupPost\(group, now\);/);
+  assert.match(pane, /const post = groupPost\(group, now, pieces\);/);
   assert.match(pane, /navigator\.clipboard\.writeText\(text\)/);
   assert.match(pane, /<a href=\{group\.url\} target="_blank" rel="noopener noreferrer"/);
   assert.match(pane, /client\.transaction\(\)\.patch\(group\._id, \(p\) => p\.set\(\{ lastPostedAt: at \}\)\)/);
@@ -76,4 +76,30 @@ test("the three buttons copy the post, open the group, and rest it — draft and
   // Only published groups, and the client made once — see dashboardTool
   assert.match(pane, /_type == "facebookGroup" && !\(_id in path\("drafts\.\*\*"\)\)/);
   assert.match(pane, /^const CLIENT_OPTIONS = \{ apiVersion: sanityConfig\.apiVersion \};$/m);
+});
+
+test("a post about a piece of work notes the piece on the group, and a group without links gets the photo to attach", () => {
+  const pane = read("src/sanity/FacebookGroupsPane.tsx");
+  // The groups with what they were shown, and the published pieces — both defined beside the generator
+  assert.match(pane, /lastPostedAt, \$\{POSTED_WORK\}/);
+  assert.match(pane, /"pieces": \$\{FRESH_WORK\}/);
+  // «Опубликовала» records the piece at the same moment as the post, on the draft too
+  assert.match(pane, /onClick=\{\(\) => markPosted\(group, post\)\}/);
+  assert.match(pane, /piece: \{ _type: "reference", _ref: post\.piece, _weak: true \},\s*at,/);
+  assert.match(pane, /tx\.patch\(group\._id, \(p\) => p\.setIfMissing\(\{ postedWork: \[\] \}\)\.append\("postedWork", \[shown\]\)\);/);
+  assert.match(pane, /if \(hasDraft\) tx\.patch\(draftId, \(p\) => p\.setIfMissing\(\{ postedWork: \[\] \}\)\.append\("postedWork", \[shown\]\)\);/);
+  // The card, downloaded from the site, only where the link can't carry it
+  assert.match(pane, /\{post\.card && !post\.link && \(\s*<a\s+href=\{post\.card\}\s+download=/);
+  assert.match(pane, /"Скачать фото до\/после"/);
+
+  // The field the button writes: weak, so a piece can still be deleted from the gallery
+  const posted = (facebookGroup.fields as { name: string; of?: { name: string; fields: { name: string; to?: { type: string }[]; weak?: boolean }[] }[] }[]).find(
+    (f) => f.name === "postedWork"
+  );
+  assert.ok(posted?.of?.[0], "the group keeps the pieces it was shown");
+  assert.equal(posted.of[0].name, "postedPiece", "the _type the pane writes");
+  const piece = posted.of[0].fields.find((f) => f.name === "piece");
+  assert.deepEqual(piece?.to, [{ type: "workPiece" }]);
+  assert.equal(piece?.weak, true);
+  assert.ok(posted.of[0].fields.some((f) => f.name === "at"));
 });

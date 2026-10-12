@@ -2,7 +2,15 @@ import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { useClient } from "sanity";
 import { useRouter } from "sanity/router";
 import { sanityConfig } from "@/lib/sanity";
-import { groupPost, groupStatus, type FacebookGroup } from "@/lib/groupPosts";
+import {
+  FRESH_WORK,
+  POSTED_WORK,
+  groupPost,
+  groupStatus,
+  type FacebookGroup,
+  type GroupPost,
+  type PostablePiece,
+} from "@/lib/groupPosts";
 import { primaryButton, secondaryButton, shortDay } from "./SlotPicker";
 
 /**
@@ -17,13 +25,22 @@ import { primaryButton, secondaryButton, shortDay } from "./SlotPicker";
  * names the group. She copies it, opens the group, pastes, publishes, and
  * presses «Опубликовала», which rests the group until its rules allow the
  * next one.
+ *
+ * Some days the post is a fresh piece from the gallery instead (12.10.2026):
+ * real before-and-afters are what people in local groups answer. Its link
+ * previews as the piece's card; where links are not allowed, she downloads
+ * the card and attaches it. «Опубликовала» then notes the piece on the group,
+ * so the group is never offered it again.
  */
 
 // Hoisted: useClient memoises on the options object's reference — see dashboardTool
 const CLIENT_OPTIONS = { apiVersion: sanityConfig.apiVersion };
 
-const GROUPS_QUERY = `*[_type == "facebookGroup" && !(_id in path("drafts.**"))] | order(name asc) {
-  _id, name, url, active, days, everyDays, links, area, rules, lastPostedAt
+const GROUPS_QUERY = `{
+  "groups": *[_type == "facebookGroup" && !(_id in path("drafts.**"))] | order(name asc) {
+    _id, name, url, active, days, everyDays, links, area, rules, lastPostedAt, ${POSTED_WORK}
+  },
+  "pieces": ${FRESH_WORK}
 }`;
 
 const card: CSSProperties = {
@@ -36,7 +53,7 @@ const card: CSSProperties = {
 
 const muted: CSSProperties = { fontSize: 13, opacity: 0.75, margin: 0, lineHeight: 1.5 };
 
-type Load = { state: "loading" } | { state: "error" } | { state: "ready"; groups: FacebookGroup[] };
+type Load = { state: "loading" } | { state: "error" } | { state: "ready"; groups: FacebookGroup[]; pieces: PostablePiece[] };
 
 export function FacebookGroupsPane() {
   const client = useClient(CLIENT_OPTIONS);
@@ -50,9 +67,9 @@ export function FacebookGroupsPane() {
   useEffect(() => {
     let abandoned = false;
     client
-      .fetch<FacebookGroup[]>(GROUPS_QUERY)
-      .then((groups) => {
-        if (!abandoned) setLoad({ state: "ready", groups });
+      .fetch<{ groups: FacebookGroup[] | null; pieces: PostablePiece[] | null }>(GROUPS_QUERY)
+      .then(({ groups, pieces }) => {
+        if (!abandoned) setLoad({ state: "ready", groups: groups ?? [], pieces: pieces ?? [] });
       })
       .catch(() => {
         if (!abandoned) setLoad({ state: "error" });
@@ -76,21 +93,38 @@ export function FacebookGroupsPane() {
   /**
    * "I've posted it": the group rests until its rules allow the next post.
    * A draft of the group, if she has one open, gets the same date, or
-   * publishing the draft later would bring the old one back.
+   * publishing the draft later would bring the old one back. A post about a
+   * piece of work notes the piece too, at the same moment — that is how the
+   * next post knows the last one was a piece (see freshPiece).
    */
   const markPosted = useCallback(
-    async (group: FacebookGroup) => {
+    async (group: FacebookGroup, post: GroupPost) => {
       if (!group._id) return;
       setSaving(group._id);
       const at = new Date().toISOString();
+      // Weak, so the piece can still be deleted from the gallery
+      const shown = post.piece
+        ? {
+            _key: Math.random().toString(36).slice(2, 12),
+            _type: "postedPiece",
+            piece: { _type: "reference", _ref: post.piece, _weak: true },
+            at,
+          }
+        : null;
       try {
         const draftId = `drafts.${group._id}`;
         const hasDraft = await client.fetch<number>(`count(*[_id == $id])`, { id: draftId });
         const tx = client.transaction().patch(group._id, (p) => p.set({ lastPostedAt: at }));
         if (hasDraft) tx.patch(draftId, (p) => p.set({ lastPostedAt: at }));
+        if (shown) {
+          tx.patch(group._id, (p) => p.setIfMissing({ postedWork: [] }).append("postedWork", [shown]));
+          if (hasDraft) tx.patch(draftId, (p) => p.setIfMissing({ postedWork: [] }).append("postedWork", [shown]));
+        }
         await tx.commit();
         const next = groupStatus({ ...group, lastPostedAt: at }, new Date()).next;
-        setNotice(`«${group.name}»: отмечено.${next ? ` Следующий пост сюда — ${shortDay(next)}.` : ""}`);
+        setNotice(
+          `«${group.name}»: отмечено.${shown ? " Эту работу сюда больше не предложу." : ""}${next ? ` Следующий пост сюда — ${shortDay(next)}.` : ""}`
+        );
         setAttempt((n) => n + 1);
       } catch {
         setNotice(`«${group.name}»: не получилось отметить. Попробуйте ещё раз.`);
@@ -103,6 +137,7 @@ export function FacebookGroupsPane() {
 
   const now = new Date();
   const groups = load.state === "ready" ? load.groups : [];
+  const pieces = load.state === "ready" ? load.pieces : [];
   const withStatus = groups.map((group) => ({ group, status: groupStatus(group, now) }));
   const today = withStatus.filter((g) => g.status.state === "today");
   const later = withStatus
@@ -164,7 +199,8 @@ export function FacebookGroupsPane() {
               </p>
             )}
             {today.map(({ group, status }) => {
-              const post = groupPost(group, now);
+              const post = groupPost(group, now, pieces);
+              const piece = post.piece ? pieces.find((p) => p.id === post.piece) : undefined;
               const id = group._id ?? group.name;
               return (
                 <article key={id} style={card}>
@@ -179,6 +215,14 @@ export function FacebookGroupsPane() {
                     {group.links === false ? " · ссылки здесь нельзя, в тексте WhatsApp" : ""}
                   </p>
                   {group.rules && <p style={{ ...muted, fontStyle: "italic" }}>{group.rules}</p>}
+                  {piece && (
+                    <p style={{ ...muted, opacity: 1 }}>
+                      ✨ Сегодня свежая работа: «{piece.title}».{" "}
+                      {post.link
+                        ? "По ссылке Facebook сам покажет её фото."
+                        : "Ссылки здесь нельзя — скачайте фото и прикрепите его к посту."}
+                    </p>
+                  )}
                   <textarea
                     readOnly
                     value={post.text}
@@ -209,6 +253,18 @@ export function FacebookGroupsPane() {
                         {copied === `${id}:link` ? "Ссылка скопирована ✓" : "Скопировать ссылку"}
                       </button>
                     )}
+                    {/* Where links are not allowed, the picture goes in by hand: the piece's card, from the site itself */}
+                    {post.card && !post.link && (
+                      <a
+                        href={post.card}
+                        download={`beautasy-${post.card.split("/").pop()}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ ...secondaryButton, textDecoration: "none" }}
+                      >
+                        {piece?.beforeAfter ? "Скачать фото до/после" : "Скачать фото работы"}
+                      </a>
+                    )}
                     {group.url && (
                       <a href={group.url} target="_blank" rel="noopener noreferrer" style={{ ...secondaryButton, textDecoration: "none" }}>
                         2. Открыть группу ↗
@@ -218,7 +274,7 @@ export function FacebookGroupsPane() {
                       type="button"
                       style={{ ...secondaryButton, opacity: saving === group._id ? 0.5 : 1 }}
                       disabled={saving === group._id}
-                      onClick={() => markPosted(group)}
+                      onClick={() => markPosted(group, post)}
                     >
                       3. Опубликовала
                     </button>
