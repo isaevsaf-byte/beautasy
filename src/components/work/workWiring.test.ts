@@ -151,7 +151,7 @@ test("the showreel waits to be allowed, and can always be stopped", () => {
 
 test("the Studio never publishes where a photo was taken, and takes videos only from the import", () => {
   const schema = read("src/sanity/schemaTypes/workPiece.ts");
-  assert.equal(schema.match(/validation: \(Rule\) => Rule\.custom\(photoLocationRule\)/g)?.length, 2, "before and every photo");
+  assert.equal(schema.match(/validation: \(Rule\) => Rule\.custom\(photoLocationRule\)/g)?.length, 3, "before, every photo and a video's cover");
   assert.match(schema, /name: "file",\s+title: "Видео",\s+type: "file",\s+options: \{ accept: "video\/mp4" \},\s+readOnly: true,/);
   assert.match(schema, /name: "poster",\s+title: "Обложка",\s+type: "image",\s+options: \{ hotspot: true \},\s+readOnly: true,/);
   const settings = read("src/sanity/schemaTypes/siteSettings.ts");
