@@ -5,12 +5,14 @@ import { carriesLocation } from "@/lib/photoLocation";
  * The Studio's refusal to publish a photo whose file says where it was taken —
  * see @/lib/photoLocation. Every picture uploaded here is public the moment it
  * lands, original file and all, and a phone photo taken in the workroom at
- * home carries that home's address. Used wherever Kristina uploads her own
- * photos: the gallery (workPiece.ts) and «Знакомьтесь, Кристина» in Site
- * Settings.
+ * home carries that home's address. On every image field in every schema —
+ * photoLocationRule.test.ts walks them all, so a new one can't be missed.
  *
- * Only publishing can be stopped: the file is already out there, so each
- * message also asks for Safar to delete it.
+ * The Studio now takes the location out of each file before it is uploaded
+ * (cleanUploads.ts), so this is the second line: for a file that reached the
+ * dataset some other way, or before that existed. Only publishing can be
+ * stopped: the file is already out there, so each message also asks for
+ * Safar to delete it.
  */
 
 export const PHOTO_LOCATION_PROBLEM =
@@ -19,6 +21,10 @@ export const PHOTO_LOCATION_PROBLEM =
 /** For her own photos in Site Settings, which don't go through the Gallery import */
 export const PORTRAIT_LOCATION_PROBLEM =
   "В этом фото всё ещё записано место съёмки (GPS). Если снимали дома, это ваш домашний адрес, а исходный файл может скачать кто угодно. Уберите фото отсюда и загрузите копию без места съёмки: на iPhone «Поделиться» → «Параметры» вверху → выключите «Геопозиция», затем AirDrop на компьютер или «Сохранить в Файлы». Или отдайте фото Сафару. (И скажите Сафару, чтобы он удалил сам загруженный файл.)";
+
+/** For a customer's photo on a review: the home in it is theirs */
+export const CUSTOMER_PHOTO_LOCATION_PROBLEM =
+  "В этом фото всё ещё записано место съёмки (GPS) — скорее всего, это дом клиента, а исходный файл может скачать кто угодно. Уберите фото отсюда и загрузите копию без места съёмки или отдайте фото Сафару. (И скажите Сафару, чтобы он удалил сам загруженный файл.)";
 
 /** Answers per uploaded file: a file never changes, so neither does its answer */
 const checked = new Map<string, Promise<boolean>>();
@@ -56,3 +62,13 @@ export const photoLocationRule = locationRule(PHOTO_LOCATION_PROBLEM);
 
 /** Her portrait and the photo at work in Site Settings */
 export const portraitLocationRule = locationRule(PORTRAIT_LOCATION_PROBLEM);
+
+/**
+ * Her other photos, uploaded straight here rather than through the Gallery:
+ * the shop, collections, gift boxes, posts, pages. The same way out as her
+ * portrait.
+ */
+export const ownPhotoLocationRule = portraitLocationRule;
+
+/** Photos customers sent with a review */
+export const customerPhotoLocationRule = locationRule(CUSTOMER_PHOTO_LOCATION_PROBLEM);

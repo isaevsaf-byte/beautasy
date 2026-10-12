@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity";
+import { customerPhotoLocationRule } from "@/sanity/photoLocationRule";
 import { REVIEW_TOPICS, type ReviewTopic } from "@/lib/siteReviews";
 
 /**
@@ -160,7 +161,9 @@ export const review = defineType({
       name: "images",
       title: "Фото",
       type: "array",
-      of: [{ type: "image" }],
+      // The site's review form redraws each photo with nothing kept (see
+      // @/lib/cleanPhoto); this is for ones added here by hand
+      of: [{ type: "image", validation: (Rule) => Rule.custom(customerPhotoLocationRule) }],
       validation: (Rule) => Rule.max(4),
       description: "Фото, которые клиент приложил к отзыву (не больше 4).",
       hidden: hiddenForElsewhere,

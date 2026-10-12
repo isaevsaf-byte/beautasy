@@ -4,6 +4,9 @@ import sharp from "sharp";
 import { ConcreteRuleClass } from "sanity";
 import { siteSettings } from "@/sanity/schemaTypes/siteSettings";
 import { workPiece } from "@/sanity/schemaTypes/workPiece";
+import { review } from "@/sanity/schemaTypes/review";
+import { schemaTypes } from "@/sanity/schemaTypes";
+import { CUSTOMER_PHOTO_LOCATION_PROBLEM } from "@/sanity/photoLocationRule";
 
 /**
  * Every photo Kristina uploads in the Studio is public the moment it lands,
@@ -93,4 +96,52 @@ test("the gallery still turns them back too, with its own way out", async (t) =>
   const located = await says(rule, image("image-gallerygps-3024x4032-jpg"), context);
   assert.equal(located.length, 1);
   assert.match(located[0], /^error: .*GPS.*Gallery/);
+});
+
+/** Every image field in a type: its own, in objects, in lists, in rich text */
+type SchemaNode = {
+  name?: string;
+  type?: string;
+  validation?: (rule: never) => unknown;
+  fields?: SchemaNode[];
+  of?: SchemaNode[];
+  marks?: { annotations?: SchemaNode[] };
+};
+
+function imageFields(node: SchemaNode, path: string): { path: string; node: SchemaNode }[] {
+  const here = node.type === "image" ? [{ path, node }] : [];
+  const children = [
+    ...(node.fields ?? []).map((child) => [child, `${path}.${child.name}`] as const),
+    ...(node.of ?? []).map((child) => [child, `${path}[${child.name ?? child.type}]`] as const),
+    ...(node.marks?.annotations ?? []).map((child) => [child, `${path}{${child.name ?? child.type}}`] as const),
+  ];
+  return [...here, ...children.flatMap(([child, childPath]) => imageFields(child, childPath))];
+}
+
+test("every image field in every schema refuses a located photo, so a new field can't forget to", async (t) => {
+  const located = "image-everywheregps-3024x4032-jpg";
+  const context = await uploaded(t, { [located]: { located: true } });
+  const found = schemaTypes.flatMap((type) => imageFields(type as SchemaNode, type.name));
+  // The walk itself is checked too: 14 image fields on 12.10.2026, these among them
+  const paths = found.map((f) => f.path);
+  assert.ok(found.length >= 14, `only ${found.length} image fields found: ${paths.join(", ")}`);
+  for (const path of ["review.images[image]", "product.availableColors[object].variantImage", "legalPage.body[image]", "workPiece.media[workPhoto]"]) {
+    assert.ok(paths.includes(path), `${path} not found among ${paths.join(", ")}`);
+  }
+  for (const { path, node } of found) {
+    assert.ok(node.validation, `${path} has no validation, so nothing stops a located photo`);
+    const markers = await says(node.validation(ConcreteRuleClass.object() as never), image(located), context);
+    assert.ok(
+      markers.some((marker) => /^error: .*GPS/.test(marker)),
+      `${path} publishes a located photo (said: ${JSON.stringify(markers)})`,
+    );
+  }
+});
+
+test("a customer's review photo is turned back with words about the customer's home, not Kristina's", async (t) => {
+  const located = "image-reviewgps-3024x4032-jpg";
+  const context = await uploaded(t, { [located]: { located: true } });
+  const member = (field(review, "images") as SchemaNode).of![0];
+  const markers = await says(member.validation!(ConcreteRuleClass.object() as never), image(located), context);
+  assert.deepEqual(markers, [`error: ${CUSTOMER_PHOTO_LOCATION_PROBLEM}`]);
 });

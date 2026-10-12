@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity";
+import { ownPhotoLocationRule } from "@/sanity/photoLocationRule";
 
 export const legalPage = defineType({
   name: "legalPage",
@@ -29,6 +30,7 @@ export const legalPage = defineType({
       title: "Главное фото (по желанию)",
       type: "image",
       options: { hotspot: true },
+      validation: (Rule) => Rule.custom(ownPhotoLocationRule),
       description:
         "Фото на всю ширину сразу под заголовком страницы. Оставьте пустым, если не нужно.",
       fields: [
@@ -59,6 +61,7 @@ export const legalPage = defineType({
           type: "image",
           title: "Фото",
           options: { hotspot: true },
+          validation: (Rule) => Rule.custom(ownPhotoLocationRule),
           fields: [
             defineField({
               name: "alt",

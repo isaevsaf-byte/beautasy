@@ -125,6 +125,7 @@ export const workPiece = defineType({
               options: { hotspot: true },
               readOnly: true,
               description: "Кадр из видео, его делает импорт. Если обложка плохо обрезается, сдвиньте точку фокуса инструментом обрезки.",
+              validation: (Rule) => Rule.custom(photoLocationRule),
             }),
             altField("Что происходит в видео"),
             // Written by the import, so the page can lay the video out before it loads

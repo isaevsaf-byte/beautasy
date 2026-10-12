@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity";
+import { ownPhotoLocationRule } from "@/sanity/photoLocationRule";
 
 export const collection = defineType({
   name: "collection",
@@ -24,6 +25,7 @@ export const collection = defineType({
       title: "Обложка",
       type: "image",
       options: { hotspot: true },
+      validation: (Rule) => Rule.custom(ownPhotoLocationRule),
     }),
     defineField({
       name: "description",

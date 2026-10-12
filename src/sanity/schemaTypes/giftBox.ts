@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity";
+import { ownPhotoLocationRule } from "@/sanity/photoLocationRule";
 import { penceRules, priceLabel } from "./product";
 
 export const giftBox = defineType({
@@ -33,6 +34,7 @@ export const giftBox = defineType({
           options: {
             hotspot: true,
           },
+          validation: (Rule) => Rule.custom(ownPhotoLocationRule),
         },
       ],
       validation: (Rule) => Rule.required().min(1),

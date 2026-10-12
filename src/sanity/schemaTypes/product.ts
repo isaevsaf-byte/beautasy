@@ -1,4 +1,5 @@
 import { defineField, defineType, type NumberRule } from "sanity";
+import { ownPhotoLocationRule } from "@/sanity/photoLocationRule";
 
 /*
  * The Studio speaks Russian to Kristina; what it stores does not change. Every
@@ -105,6 +106,7 @@ export const product = defineType({
           options: {
             hotspot: true,
           },
+          validation: (Rule) => Rule.custom(ownPhotoLocationRule),
         },
       ],
       validation: (Rule) => Rule.required().min(1),
@@ -400,6 +402,7 @@ export const product = defineType({
               title: "Фото этого цвета (по желанию)",
               type: "image",
               options: { hotspot: true },
+              validation: (Rule) => Rule.custom(ownPhotoLocationRule),
               description:
                 "Когда покупатель выбирает этот цвет, главное фото товара само меняется на это.",
             }),

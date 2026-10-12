@@ -2,7 +2,7 @@ import { defineField, defineType } from "sanity";
 import { isNextdoorUrl } from "@/lib/siteReviews";
 import { collectionTerms, postcodeDistrict } from "@/lib/collection";
 import { penceRules } from "./product";
-import { portraitLocationRule } from "@/sanity/photoLocationRule";
+import { photoLocationRule, portraitLocationRule } from "@/sanity/photoLocationRule";
 import { MEET_KRISTINA_DEFAULT_TEXT, MEET_KRISTINA_MIN_SIDE, MEET_KRISTINA_TEXT_MAX, photoSizeProblem } from "@/lib/meetKristina";
 
 /** Southampton clock hours, shown as 22:00 rather than 22. */
@@ -497,6 +497,8 @@ export const siteSettings = defineType({
           type: "image",
           readOnly: true,
           description: "Видна, пока ролик не запустился, и показывается вместо него тем, у кого в телефоне включено «Уменьшение движения».",
+          // Made by the Gallery import, which keeps no location; checked all the same
+          validation: (Rule) => Rule.custom(photoLocationRule),
         }),
       ],
     }),

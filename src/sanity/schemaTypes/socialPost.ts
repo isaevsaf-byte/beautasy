@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity";
+import { ownPhotoLocationRule } from "@/sanity/photoLocationRule";
 import { VideoPreviewInput } from "../VideoPreviewInput";
 
 /**
@@ -54,7 +55,7 @@ export const socialPost = defineType({
       description:
         "То, что увидят люди. Instagram принимает JPEG или PNG — лучше всего квадрат или 4:5. У Reels эта картинка станет обложкой.",
       options: { hotspot: true },
-      validation: (Rule) => Rule.required(),
+      validation: (Rule) => [Rule.required(), Rule.custom(ownPhotoLocationRule)],
     }),
     defineField({
       name: "video",
