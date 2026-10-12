@@ -108,7 +108,7 @@ test("a price above the card is refused, with the rest to be taken as a second p
 const entryFor = (paidWith: { id: string; hint: string }): LedgerDocument =>
   ledgerDocument(
     "ledger-0",
-    { kind: "income", amount: 1550, date: "2026-10-12", method: "giftcard", category: "alterations", giftCard: paidWith },
+    { kind: "income", amount: 1550, date: "2026-10-12", method: "giftcard", category: "atelier", giftCard: paidWith },
     "2026-10-12T12:00:00Z",
     "booking-key",
     (value) => `sealed:${value.trim()}`
