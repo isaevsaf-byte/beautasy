@@ -11,6 +11,7 @@ import { revealContactAction } from "./src/sanity/revealAction";
 import { moveBookingAction } from "./src/sanity/moveBookingAction";
 import { collectionTimeAction } from "./src/sanity/collectionAction";
 import { doneAction } from "./src/sanity/doneAction";
+import { reviewAskAction } from "./src/sanity/reviewAskAction";
 import { recordPaymentAction } from "./src/sanity/paymentAction";
 import { partnerAttributionAction } from "./src/sanity/partnerAction";
 import { structure } from "./src/sanity/structure";
@@ -83,10 +84,12 @@ export default defineConfig({
       // typing into "Confirmed For", which held nothing. See moveBookingAction;
       // a collection gets the time Kristina drives out, see collectionAction.
       // "Кто прислал" puts a WhatsApp client down to the salon that sent her.
+      // «🙏 Попросить отзыв» writes to a finished client on WhatsApp.
       if (context.schemaType === "atelierBooking") {
         return [
           ...prev,
           doneAction,
+          reviewAskAction,
           moveBookingAction,
           collectionTimeAction,
           recordPaymentAction,
