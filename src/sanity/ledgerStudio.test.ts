@@ -159,6 +159,29 @@ test("the form offers only what she can record by hand, and shows the amount it 
   assert.equal(formFor(entries[0]).amount, "15.50", "a correction starts from the pounds that were saved");
 });
 
+test("«+ Пришло» by gift card asks for the code too; a line already charged to a card says so and asks for none", () => {
+  const props = { today, busy: false, error: null, onChange: () => {}, onSave: () => {}, onCancel: () => {} };
+  const form = { ...blankForm("income", today), amount: "15.50", method: "giftcard" };
+  const typing = renderToStaticMarkup(createElement(EntryFormView, { ...props, form }));
+  assert.match(typing, /id="kassa-gift-card"/);
+  assert.match(typing, /<button[^>]*disabled=""[^>]*>Записать \+£15\.50<\/button>/, "not saved before the card is found");
+  const found: CardCheck = { state: "found", look: { hint: "CD34", balance: 4000, available: 4000 } };
+  const ready = renderToStaticMarkup(createElement(EntryFormView, { ...props, form, card: found }));
+  assert.match(ready, /<button[^>]*>Записать и списать £15\.50 с карты …CD34<\/button>/);
+  assert.doesNotMatch(ready, /disabled=""[^>]*>Записать и списать/);
+
+  const charged: LedgerEntry = { ...entries[3], giftCard: { id: "giftCard-1", hint: "CD34" } };
+  const editing = renderToStaticMarkup(createElement(EntryFormView, { ...props, form: formFor(charged) }));
+  assert.doesNotMatch(editing, /kassa-gift-card/, "a correction never charges the card again");
+  assert.match(editing, /Списано с карты …CD34, поэтому сумму и способ здесь не поменять/);
+
+  const lines = renderToStaticMarkup(
+    createElement(EntriesView, { entries: [charged], confirming: charged.id, onEdit: () => {}, onAskDelete: () => {}, onDelete: () => {}, onKeep: () => {} })
+  );
+  assert.match(lines, /Подарочная карта …CD34/);
+  assert.match(lines, /Удалить эту строку\? £30\.00 вернутся на карту …CD34\./);
+});
+
 test("the amount under the field says what will be saved, or why not", () => {
   assert.deepEqual(amountPreview("1 250"), { text: "= £1,250.00", ok: true });
   assert.equal(amountPreview("15 50")?.ok, false);

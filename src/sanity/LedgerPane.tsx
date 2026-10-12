@@ -26,6 +26,7 @@ import { askLedger, entriesOf, errorOf } from "./ledgerClient";
 import { primaryButton, secondaryButton } from "./SlotPicker";
 import { HOME_WORKING, MILEAGE_RATE, mileagePence, poundsInput, rollingYear } from "@/lib/selfAssessment";
 import { TaxView, type RollingTurnover } from "./TaxView";
+import { GiftCardField, cardCovers, useGiftCardCheck, type CardCheck } from "./giftCardField";
 
 /**
  * «Касса» — everything that came in and went out, and when.
@@ -96,6 +97,10 @@ export interface EntryForm {
   category: string;
   who: string;
   note: string;
+  /** A new payment by gift card: the code the client shows, charged on save */
+  giftCardCode?: string;
+  /** A payment already taken off a card: that card's last four */
+  cardHint?: string;
 }
 
 export function blankForm(kind: LedgerKind, today: string): EntryForm {
@@ -120,7 +125,13 @@ export function formFor(entry: LedgerEntry): EntryForm {
     category: entry.category,
     who: entry.who ?? "",
     note: entry.note ?? "",
+    ...(entry.giftCard ? { cardHint: entry.giftCard.hint } : {}),
   };
+}
+
+/** A new line paid with a gift card — the one kind of line that is charged to a card when saved. */
+export function chargesCard(form: EntryForm): boolean {
+  return !form.id && form.kind === "income" && form.method === "giftcard";
 }
 
 /** What the server is sent: the amount exactly as typed, read there. */
@@ -175,6 +186,7 @@ function MileageHelper({ onPick }: { onPick: (amount: string, note: string) => v
 
 export function EntryFormView({
   form,
+  card = { state: "idle" },
   today,
   busy,
   error,
@@ -183,6 +195,8 @@ export function EntryFormView({
   onCancel,
 }: {
   form: EntryForm;
+  /** What the site said about the card typed, for a new payment by gift card */
+  card?: CardCheck;
   today: string;
   busy: boolean;
   error: string | null;
@@ -196,6 +210,8 @@ export function EntryFormView({
   const set = (patch: Partial<EntryForm>) => onChange({ ...form, ...patch });
   const preview = amountPreview(form.amount);
   const pence = parsePounds(form.amount);
+  const byCard = chargesCard(form);
+  const canSave = !busy && pence !== null && (!byCard || cardCovers(card, pence));
   return (
     <section
       style={{ border: LINE, borderLeft: `3px solid ${income ? IN : OUT}`, borderRadius: 8, padding: 16, display: "grid", gap: 12 }}
@@ -257,10 +273,23 @@ export function EntryFormView({
           </select>
         </label>
       </div>
-      {income && form.method === "giftcard" && (
+      {byCard && (
+        <GiftCardField
+          id="kassa-gift-card"
+          code={form.giftCardCode ?? ""}
+          check={card}
+          pence={pence}
+          onCode={(giftCardCode) => set({ giftCardCode })}
+          inputStyle={inputStyle}
+          labelStyle={labelStyle}
+        />
+      )}
+      {income && form.id && form.method === "giftcard" && (
         <p style={{ fontSize: 13, margin: 0, ...muted }}>
           Работа оплачена подарочной картой: деньги за неё уже пришли, когда карту купили, поэтому в «Пришло» эта
           строка не войдёт. Её видно отдельно.
+          {form.cardHint &&
+            ` Списано с карты …${form.cardHint}, поэтому сумму и способ здесь не поменять — если ошиблись, удалите строку: деньги вернутся на карту.`}
         </p>
       )}
       {!income && form.category === "mileage" && <MileageHelper onPick={(amount, note) => set({ amount, note })} />}
@@ -303,11 +332,13 @@ export function EntryFormView({
         </p>
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button type="button" style={primaryButton(!busy && pence !== null)} disabled={busy || pence === null} onClick={onSave}>
+        <button type="button" style={primaryButton(canSave)} disabled={!canSave} onClick={onSave}>
           {busy
             ? "Записываем…"
             : pence === null
             ? "Напишите сумму"
+            : byCard && card.state === "found"
+            ? `Записать и списать ${formatPounds(pence)} с карты …${card.look.hint}`
             : `${form.id ? "Сохранить" : "Записать"} ${income ? "+" : "−"}${formatPounds(pence)}`}
         </button>
         <button type="button" style={secondaryButton} onClick={onCancel}>
@@ -441,7 +472,7 @@ export function EntriesView({
         const giftCard = income && entry.method === "giftcard";
         const automatic = AUTOMATIC[entry.source];
         const details = [
-          titleOf(PAYMENT_METHODS, entry.method),
+          titleOf(PAYMENT_METHODS, entry.method) + (entry.giftCard ? ` …${entry.giftCard.hint}` : ""),
           entry.who,
           entry.note,
           automatic,
@@ -460,7 +491,10 @@ export function EntriesView({
                 <span style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                   {confirming === entry.id ? (
                     <>
-                      <span style={{ fontSize: 12 }}>Удалить эту строку?</span>
+                      <span style={{ fontSize: 12 }}>
+                        Удалить эту строку?
+                        {entry.giftCard && ` ${formatPounds(entry.amount)} вернутся на карту …${entry.giftCard.hint}.`}
+                      </span>
                       <button
                         type="button"
                         disabled={deleting}
@@ -543,6 +577,7 @@ export function LedgerPane() {
   const [notice, setNotice] = useState<{ text: string; bad?: boolean } | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const card = useGiftCardCheck(token, form?.giftCardCode ?? "", !!form && chargesCard(form));
 
   const requestKey = `${period.from}|${period.to}|${attempt}`;
   useEffect(() => {
@@ -596,7 +631,9 @@ export function LedgerPane() {
     setFormError(null);
     const reply = await askLedger(
       token,
-      form.id ? { action: "update", id: form.id, entry: entryPayload(form) } : { action: "add", entry: entryPayload(form) }
+      form.id
+        ? { action: "update", id: form.id, entry: entryPayload(form) }
+        : { action: "add", entry: entryPayload(form), ...(chargesCard(form) ? { giftCardCode: form.giftCardCode ?? "" } : {}) }
     );
     setBusy(false);
     if (!reply.ok) {
@@ -604,9 +641,13 @@ export function LedgerPane() {
       return;
     }
     const saved = reply.data.entry as LedgerEntry | undefined;
+    const cardLeft = (reply.data.card as { balance?: unknown } | undefined)?.balance;
     setNotice({
       text: saved
-        ? `✓ Записано: ${saved.kind === "income" ? "+" : "−"}${formatPounds(saved.amount)} · ${titleOf(categoriesFor(saved.kind), saved.category)}, ${dayTitle(saved.date)}`
+        ? `✓ Записано: ${saved.kind === "income" ? "+" : "−"}${formatPounds(saved.amount)} · ${titleOf(categoriesFor(saved.kind), saved.category)}, ${dayTitle(saved.date)}` +
+          (saved.giftCard && typeof cardLeft === "number"
+            ? `. С карты …${saved.giftCard.hint} списано, на ней осталось ${formatPounds(cardLeft)}.`
+            : "")
         : "✓ Записано.",
     });
     setForm(null);
@@ -623,7 +664,13 @@ export function LedgerPane() {
       setNotice({ text: errorOf(reply, "Не удалось удалить."), bad: true });
       return;
     }
-    setNotice({ text: "Строка удалена." });
+    const returned = reply.data.returned as { hint?: string; amount?: number } | undefined;
+    setNotice({
+      text:
+        returned && typeof returned.amount === "number"
+          ? `Строка удалена. ${formatPounds(returned.amount)} вернулись на карту …${returned.hint ?? ""}.`
+          : "Строка удалена.",
+    });
     setAttempt((n) => n + 1);
   }
 
@@ -723,6 +770,7 @@ export function LedgerPane() {
         {form && (
           <EntryFormView
             form={form}
+            card={card}
             today={today}
             busy={busy}
             error={formError}
