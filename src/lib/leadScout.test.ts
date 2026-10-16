@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { judge, leadIdFor, nearHer, plainText, telegramMessage, type LeadCandidate } from "./leadScout";
-import { keepers, leadDocument, leadEmailHtml, leadEmailSubject, runLeadSearch } from "./leadRun";
+import { keepers, leadDocument, leadEmailHtml, leadEmailSubject, runLeadSearch, tenderTally } from "./leadRun";
+import { factsFromContractsFinder } from "./tenderJudge";
 import type { SourceResult } from "./leadSources";
 
 /**
@@ -51,20 +52,33 @@ test("a building tender's 'alterations' and 'blinds' are not her craft", () => {
   const tender = post("Alterations to Radford House", "Internal refurbishment, change of use, new windows and blinds. Hampshire.", {
     source: "contractsFinder",
     askingByNature: true,
+    tender: factsFromContractsFinder({ id: "x", title: "Alterations to Radford House", description: "Internal refurbishment.", cpvCodes: "45000000", postcode: "SO50 9YN", coordinates: "50.97,-1.35" }),
   });
   assert.equal(judge(tender).keep, false);
 });
 
-test("a council tender for curtains near her is kept", () => {
+test("a council tender for curtains near her is kept, on its codes and its place", () => {
   const tender = post("Curtains, Blinds and Other Associated Products and Services", "Supply, making up and fitting of curtains for council properties.", {
     source: "contractsFinder",
     place: "South East, SO50",
     askingByNature: true,
+    tender: factsFromContractsFinder({
+      id: "y",
+      title: "Curtains, Blinds and Other Associated Products and Services",
+      description: "Making up of curtains for council properties.",
+      cpvCodes: "39515000",
+      valueHigh: 20_000,
+      postcode: "SO50 9YN",
+      coordinates: "50.9700,-1.3500",
+      deadlineDate: "2099-01-01T12:00:00Z",
+    }),
   });
-  // SO50 is not a town name; Hampshire is not said, so near is not claimed
   const verdict = judge(tender);
-  assert.equal(verdict.keep, true);
+  assert.equal(verdict.keep, true, verdict.why.join(" · "));
+  assert.ok(verdict.why.includes("шторы и портьеры"));
+  // Near is the tender judge's, from its coordinates, not a town name in its words
   assert.equal(nearHer(`${tender.title} ${tender.text} ${tender.place}`), null);
+  assert.ok(verdict.why.some((w) => w.startsWith("рядом:")));
 });
 
 test("a full-time factory job loses points; an outwork one does not", () => {
@@ -154,14 +168,40 @@ test("a new find is saved, then told in Telegram and by email; Monday adds Faceb
   assert.equal(result.problems.reed, "нет ключа REED_API_KEY");
 });
 
-test("a find already in the Studio is not told again", async () => {
+test("a find already in the Studio is not told again; on a Monday only the week's word comes", async () => {
   const id = leadIdFor("adzuna", ROMSEY.url);
   const w = world([id]);
   const result = await runLeadSearch(w.deps);
   assert.equal(result.fresh, 0);
   assert.equal(w.saved.length, 0);
-  assert.equal(w.telegrams.length, 0);
   assert.equal(w.emails.length, 0);
+  assert.equal(w.telegrams.length, 1, "Monday: Facebook and the tenders' tally, nothing else");
+  assert.ok(w.telegrams[0].includes("Facebook") && w.telegrams[0].includes("Тендеры"));
+  assert.ok(!w.telegrams[0].includes(ROMSEY.title));
+  // Any other day with nothing new: nothing at all
+  const tuesday = world([id]);
+  await runLeadSearch({ ...tuesday.deps, now: new Date("2026-10-13T06:30:00Z") });
+  assert.deepEqual(tuesday.telegrams, []);
+});
+
+test("Monday's word says how many tenders were read and how many fitted, so silence reads as working", async () => {
+  const w = world();
+  const tender = (title: string, cpvCodes: string): LeadCandidate => ({
+    source: "contractsFinder",
+    url: `https://example.org/${encodeURIComponent(title)}`,
+    title,
+    text: "",
+    askingByNature: true,
+    tender: factsFromContractsFinder({ id: title, title, cpvCodes, postcode: "SO23 9LJ", coordinates: "51.06,-1.31", valueHigh: 9_000, deadlineDate: "2099-01-01T00:00:00Z" }),
+  });
+  await runLeadSearch({
+    ...w.deps,
+    existing: async () => [],
+    sources: [async () => ({ source: "contractsFinder", candidates: [tender("Window cleaning", "90911300"), tender("Curtains for the library", "39515000")] })],
+  });
+  const word = w.telegrams.find((t) => t.includes("📑"))!;
+  assert.match(word, /сегодня прочитано 2, подошло 1/);
+  assert.equal(tenderTally(0, 0).includes("тишина здесь норма"), true);
 });
 
 test("Telegram refusing does not stop the email", async () => {

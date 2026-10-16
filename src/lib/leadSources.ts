@@ -1,4 +1,12 @@
 import { plainText, type LeadCandidate } from "@/lib/leadScout";
+import {
+  factsFromContractsFinder,
+  factsFromRelease,
+  whereIs,
+  type ContractsFinderItem,
+  type OcdsRelease,
+  type TenderFacts,
+} from "@/lib/tenderJudge";
 
 /**
  * Where the morning search looks, one function per place. Each returns
@@ -42,62 +50,60 @@ function unique(candidates: LeadCandidate[]): LeadCandidate[] {
   return candidates.filter((c) => (seen.has(c.url) ? false : (seen.add(c.url), true)));
 }
 
-// ─── Contracts Finder: every public contract in England over £12k, open search, no key.
-// Most are frameworks for big suppliers; the judge keeps only those whose own
-// words are her craft (a care home's curtains, a theatre's costumes).
+/** Where a tender is, in words she reads: the buyer's town and the region, or how far */
+function placeOf(facts: TenderFacts): string | undefined {
+  const where = whereIs(facts);
+  return where.place ?? where.far;
+}
 
-// Not "alterations": in tenders it means building work, every time we looked
-const CONTRACT_WORDS = ["curtains", "soft furnishings", "seamstress", "sewing", "dressmaking", "costume", "upholstery", "textiles"];
+// ─── Contracts Finder: a secondary feed since the Procurement Act 2023 — small
+// public contracts are published on Find a Tender first — but it still carries
+// some. Every notice still open and published since `since` is read, in one
+// request: about thirty in three days, and the judge (@/lib/tenderJudge)
+// decides each on its codes, money and place. Keyword searches missed what
+// was coded but not worded, and its postcode search ignores the radius (16.10.2026).
+
+const CONTRACTS_PAGE = 500;
 
 interface ContractsFinderAnswer {
-  noticeList?: {
-    item: {
-      id: string;
-      title: string;
-      description?: string;
-      organisationName?: string;
-      regionText?: string;
-      postcode?: string;
-      publishedDate?: string;
-      deadlineDate?: string;
-      valueLow?: number;
-      valueHigh?: number;
-    };
-  }[];
+  hitCount?: number;
+  noticeList?: { item: ContractsFinderItem }[];
 }
 
 export async function fromContractsFinder(fetcher: Fetch = fetch, since: Date): Promise<SourceResult> {
   try {
-    const answers = await Promise.all(
-      CONTRACT_WORDS.map((keyword) =>
-        getJson<ContractsFinderAnswer>(fetcher, "https://www.contractsfinder.service.gov.uk/api/rest/2/search_notices/json", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            searchCriteria: { keyword, statuses: ["Open"], publishedFrom: since.toISOString().slice(0, 10) },
-            size: 50,
-          }),
-        })
-      )
-    );
-    const candidates = answers.flatMap((answer) =>
-      (answer.noticeList ?? []).map(({ item }): LeadCandidate => {
-        const money = item.valueHigh ? `до £${Number(item.valueHigh).toLocaleString("en-GB")}` : undefined;
-        return {
-          source: "contractsFinder",
-          url: `https://www.contractsfinder.service.gov.uk/Notice/${item.id}`,
-          title: plainText(item.title, 200),
-          text: plainText(item.description),
-          who: item.organisationName,
-          place: [item.regionText, item.postcode].filter(Boolean).join(", ") || undefined,
-          pay: money,
-          deadline: item.deadlineDate ?? undefined,
-          postedAt: item.publishedDate ?? undefined,
-          askingByNature: true,
-        };
-      })
-    );
-    return { source: "contractsFinder", candidates: unique(candidates) };
+    const answer = await getJson<ContractsFinderAnswer>(fetcher, "https://www.contractsfinder.service.gov.uk/api/rest/2/search_notices/json", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        searchCriteria: { statuses: ["Open"], publishedFrom: since.toISOString().slice(0, 10) },
+        size: CONTRACTS_PAGE,
+      }),
+    });
+    const list = answer.noticeList ?? [];
+    const candidates = list.map(({ item }): LeadCandidate => {
+      const facts = factsFromContractsFinder(item);
+      return {
+        source: "contractsFinder",
+        url: `https://www.contractsfinder.service.gov.uk/Notice/${item.id}`,
+        title: plainText(item.title, 200),
+        text: plainText(item.description),
+        who: item.organisationName,
+        place: placeOf(facts),
+        pay: item.valueHigh ? `до £${Number(item.valueHigh).toLocaleString("en-GB")}` : undefined,
+        deadline: item.deadlineDate ?? undefined,
+        postedAt: item.publishedDate ?? undefined,
+        askingByNature: true,
+        tender: facts,
+      };
+    });
+    // More open notices than one page holds: say so rather than miss them quietly
+    const cut = typeof answer.hitCount === "number" && answer.hitCount > list.length;
+    return {
+      source: "contractsFinder",
+      candidates: unique(candidates),
+      ...(cut ? { problem: `прочитано ${list.length} из ${answer.hitCount}` } : {}),
+    };
   } catch (error) {
     return { source: "contractsFinder", candidates: [], problem: reason(error) };
   }
@@ -255,58 +261,71 @@ export async function fromReed(fetcher: Fetch = fetch, since: Date): Promise<Sou
   }
 }
 
-// ─── Find a Tender: the larger public contracts. No keyword search, so every
-// release since `since` is paged through (100 a page, a few pages a day) and
-// the judge reads the titles. Only notices still open for bids are kept.
+// ─── Find a Tender: every public contract in the UK, small ones included since
+// the Procurement Act 2023 ("Below threshold - open competition"). No keyword
+// search, so every release since `since` is paged through (100 a page) and the
+// judge reads each one's codes, lots, money and place. Calls for bids that are
+// open, and notices of one to come (market engagement), are kept.
+//
+// Not the API's `stages` filter: asked for tenders it returned only the old
+// regulations' notices and none under the 2023 Act (checked 16.10.2026).
 
 interface FindATenderAnswer {
-  releases?: {
-    id: string;
-    tag?: string[];
-    date?: string;
-    buyer?: { name?: string };
-    tender?: {
-      title?: string;
-      description?: string;
-      status?: string;
-      value?: { amount?: number };
-      tenderPeriod?: { endDate?: string };
-      deliveryAddresses?: { region?: string }[];
-    };
-  }[];
+  releases?: OcdsRelease[];
   links?: { next?: string };
 }
 
 const FIND_A_TENDER_PAGES = 10;
 
+/** Open for bids, or a market engagement ahead of them */
+export function liveRelease(release: OcdsRelease): boolean {
+  const tags = release.tag ?? [];
+  if (!release.tender?.title) return false;
+  if (tags.some((tag) => tag === "tender" || tag === "tenderUpdate")) return release.tender.status === "active";
+  return tags.some((tag) => tag === "planning" || tag === "planningUpdate");
+}
+
 export async function fromFindATender(fetcher: Fetch = fetch, since: Date): Promise<SourceResult> {
   let url: string | undefined =
     `https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages?${new URLSearchParams({ updatedFrom: since.toISOString().slice(0, 19), limit: "100" })}`;
-  const candidates: LeadCandidate[] = [];
+  // One procurement, one find: its newest release says where it stands — a
+  // change notice replaces the call it changes, a cancellation withdraws it
+  const newest = new Map<string, OcdsRelease>();
+  let problem: string | undefined;
   try {
     for (let page = 0; url && page < FIND_A_TENDER_PAGES; page++) {
       const answer: FindATenderAnswer = await getJson<FindATenderAnswer>(fetcher, url);
       for (const release of answer.releases ?? []) {
-        const tender = release.tender;
-        if (!tender?.title || tender.status !== "active" || !release.tag?.includes("tender")) continue;
-        candidates.push({
-          source: "findATender",
-          url: `https://www.find-tender.service.gov.uk/Notice/${release.id}`,
-          title: plainText(tender.title, 200),
-          text: plainText(tender.description),
-          who: release.buyer?.name,
-          place: tender.deliveryAddresses?.map((a) => a.region).filter(Boolean).join(", ") || undefined,
-          pay: tender.value?.amount ? `до £${Math.round(tender.value.amount).toLocaleString("en-GB")}` : undefined,
-          deadline: tender.tenderPeriod?.endDate,
-          postedAt: release.date,
-          askingByNature: true,
-        });
+        const id = release.ocid ?? release.id;
+        const held = newest.get(id);
+        if (!held || (release.date ?? "") > (held.date ?? "")) newest.set(id, release);
       }
       url = answer.links?.next;
     }
-    return { source: "findATender", candidates: unique(candidates) };
   } catch (error) {
     // What was read before the failure still counts
-    return { source: "findATender", candidates: unique(candidates), problem: reason(error) };
+    problem = reason(error);
   }
+  const candidates: LeadCandidate[] = [];
+  for (const [id, release] of newest) {
+    if (!liveRelease(release)) continue;
+    const tender = release.tender!;
+    const facts = factsFromRelease(release);
+    candidates.push({
+      source: "findATender",
+      // The notice and the stage it is at: a market engagement and the call for bids that follows are two finds
+      key: `${id}#${facts.kind}`,
+      url: `https://www.find-tender.service.gov.uk/Notice/${release.id}`,
+      title: plainText(tender.title, 200),
+      text: plainText(tender.description),
+      who: release.buyer?.name,
+      place: placeOf(facts),
+      pay: tender.value?.amount ? `до £${Math.round(tender.value.amount).toLocaleString("en-GB")}` : undefined,
+      deadline: facts.deadline,
+      postedAt: release.date,
+      askingByNature: true,
+      tender: facts,
+    });
+  }
+  return { source: "findATender", candidates: unique(candidates), ...(problem ? { problem } : {}) };
 }

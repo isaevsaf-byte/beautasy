@@ -1,0 +1,722 @@
+{
+ "note": "Real notices, cut down to the fields the judge reads (Find a Tender OCDS and Contracts Finder, read 16.10.2026); email addresses removed.",
+ "releases": {
+  "096543-2026": {
+   "id": "096543-2026",
+   "tag": [
+    "planningUpdate"
+   ],
+   "date": "2026-10-13T13:22:14+01:00",
+   "buyer": {
+    "id": "GB-COH-09353172",
+    "name": "LEIDOS SUPPLY, LIMITED"
+   },
+   "parties": [
+    {
+     "name": "LEIDOS SUPPLY, LIMITED",
+     "roles": [
+      "buyer"
+     ],
+     "address": {
+      "region": "UKK12",
+      "postalCode": "BS16 7FH",
+      "locality": "Bristol"
+     }
+    }
+   ],
+   "tender": {
+    "title": "LSL/DC/0233 - The Supply & Fitting of Sports Bras",
+    "status": "planning",
+    "value": {
+     "amountGross": 4440000,
+     "amount": 3700000,
+     "currency": "GBP"
+    },
+    "description": "In April 2015, the MOD signed a thirteen year contract with Leidos Europe Ltd to provide the procurement and inventory management of commodity items (as well as the storage and distribution services), that were historically provided in-house by the Logistic Commodities and Services Operating Centre. \nLeidos, working with the MOD, will transform the way these services are delivered to ensure requirements continue to be met whilst providing best value for money for the department. The organisation delivering these services is known as Team Leidos.\nTeam Leidos would like to make markets aware that we are intending to consider approaches that could fulfill our requirements for the Supply and Fitting of Sports Bras to UK Armed Forces.\nThis Requirement is for the Fitting and Supply of a range of Commercial off the shelf (COTS) Sports Bras for the UK Armed Forces Recruits; to be delivered to 9 sites throughout the UK. \nSports bras will be used for high impact activities including running, intensive cross training, sports and recreational activities.\nNo bespoke design or custom manufacturing is required.\nThe range of sports bras must cover the following three support performance types:\nCom",
+    "items": [
+     {
+      "relatedLot": "1",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "18400000",
+        "description": "Special clothing and accessories"
+       },
+       {
+        "scheme": "CPV",
+        "id": "18412000",
+        "description": "Sportswear"
+       },
+       {
+        "scheme": "CPV",
+        "id": "18420000",
+        "description": "Clothing accessories"
+       },
+       {
+        "scheme": "CPV",
+        "id": "37400000",
+        "description": "Sports goods and equipment"
+       },
+       {
+        "scheme": "CPV",
+        "id": "98393000",
+        "description": "Tailoring services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "18321000",
+        "description": "Brassieres"
+       }
+      ],
+      "deliveryAddresses": [
+       {
+        "region": "UK",
+        "country": "GB",
+        "countryName": "United Kingdom"
+       }
+      ]
+     }
+    ],
+    "lots": [
+     {
+      "id": "1",
+      "description": null,
+      "suitability": {
+       "sme": true
+      }
+     }
+    ]
+   }
+  },
+  "096500-2026": {
+   "id": "096500-2026",
+   "tag": [
+    "tender"
+   ],
+   "date": "2026-10-13T12:20:42+01:00",
+   "buyer": {
+    "id": "GB-COH-RC000657",
+    "name": "UNIVERSITY OF LANCASTER"
+   },
+   "parties": [
+    {
+     "name": "UNIVERSITY OF LANCASTER",
+     "roles": [
+      "buyer"
+     ],
+     "address": {
+      "region": "UKD44",
+      "postalCode": "LA1 4YW",
+      "locality": "Lancaster"
+     }
+    }
+   ],
+   "tender": {
+    "title": "Specialised Cleaning Services Framework",
+    "status": "active",
+    "value": {
+     "amountGross": 2970000,
+     "amount": 2475000,
+     "currency": "GBP"
+    },
+    "techniques": {
+     "hasFrameworkAgreement": true,
+     "frameworkAgreement": {
+      "method": "withAndWithoutReopeningCompetition",
+      "type": "closed",
+      "description": "On each occasion the service is required, Lancaster University will articulate the package of work and invite all suppliers appointed to the relevant Framework Lot to submit pricing for the package of work. Please be aware that in some instance small value packages of work could be awarded directly and there is no lower limit. Being appointed to this Framework does not confer an exclusive right to supply services or guarantee that a Supplier will receive any business at all under the Framework Agreement."
+     }
+    },
+    "procurementMethod": "selective",
+    "procurementMethodDetails": "Competitive flexible procedure",
+    "expressionOfInterestDeadline": "2026-11-10T23:59:59Z",
+    "description": "Lancaster University is looking to re-tender its Specialised Cleaning Services and aims to establish a framework with up to 3 - 5 suppliers on each lot. The purpose of this Framework Agreement is to ensure the University has a sustainable supply of contractors to meet workload demands and achieves best value for money.\nThe Framework Agreement is split into the following lots:\nLot 1 - Full Building Deep Cleaning\nLot 2 - Emergency and Hazardous cleaning\nLot 3 - Bulk en-suite bathroom pod deep cleaning\nLot 4 - Bulk oven deep cleaning\nLot 5 - Upholstery, curtains, mattresses and carpets\nLot 6 - External Cleaning\nLot 7 - Weekend and weekday cleaning and support\nLot 8 - Ad hoc/general cleaning support\nA selection process will take place based on the responses to the Invitation to Participate document which includes the Procurement Specific Questionnaire (PSQ). \nUp to 8 suppliers will be shortlisted for each Lot and invited to tender. The tender evaluation will comprise a quantitative and qualitative assessment as part of the ITT (Invitation to Tender).",
+    "items": [
+     {
+      "relatedLot": "1",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "90911100",
+        "description": "Accommodation cleaning services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90911200",
+        "description": "Building-cleaning services"
+       }
+      ]
+     },
+     {
+      "relatedLot": "2",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "90911000",
+        "description": "Accommodation, building and window cleaning services"
+       }
+      ]
+     },
+     {
+      "relatedLot": "3",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "90911100",
+        "description": "Accommodation cleaning services"
+       }
+      ]
+     },
+     {
+      "relatedLot": "4",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "90911100",
+        "description": "Accommodation cleaning services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90911200",
+        "description": "Building-cleaning services"
+       }
+      ]
+     },
+     {
+      "relatedLot": "5",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "90911100",
+        "description": "Accommodation cleaning services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90911200",
+        "description": "Building-cleaning services"
+       }
+      ]
+     },
+     {
+      "relatedLot": "6",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "45452000",
+        "description": "Exterior cleaning work for buildings"
+       }
+      ]
+     },
+     {
+      "relatedLot": "7",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "90911100",
+        "description": "Accommodation cleaning services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90911200",
+        "description": "Building-cleaning services"
+       }
+      ]
+     },
+     {
+      "relatedLot": "8",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "90911000",
+        "description": "Accommodation, building and window cleaning services"
+       }
+      ]
+     }
+    ],
+    "lots": [
+     {
+      "id": "1",
+      "title": "Full Building Deep Cleaning",
+      "description": "Full building deep clean to all accommodation is on an annual basis following students vacating.  This is usually end of June / early July with completion required for arrivals end September / early October. Quick turnover of designated buildings is often required in early July to meet business dema",
+      "value": {
+       "amountGross": 102000,
+       "amount": 85000,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "sme": true
+      }
+     },
+     {
+      "id": "2",
+      "title": "Emergency and Hazardous cleaning",
+      "description": "This could include but not limited to water ingress, flooding, fire or vomit removal.   \nContractor should arrive on site within 1 hour of a call out being received.  Please note that most of the work will be out of hours, but a 24-hour call out applies as we have some academic buildings on site whi",
+      "value": {
+       "amountGross": 12000,
+       "amount": 10000,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "sme": true
+      }
+     },
+     {
+      "id": "3",
+      "title": "Bulk en-suite bathroom pod deep cleaning",
+      "description": "Bulk deep cleaning of bathroom pods within residences on campus typically takes place on an annual basis.  It should be noted that these pods will not have received any routine cleaning throughout the year, but students are expected to leave their rooms in a clean and tidy condition. We have a total",
+      "value": {
+       "amountGross": 132000,
+       "amount": 110000,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "sme": true
+      }
+     },
+     {
+      "id": "4",
+      "title": "Bulk oven deep cleaning",
+      "description": "Lancaster University has just over 1370 built in ovens that includes 2 shelves and grill pan.  There are also 16 older type floor standing cookers consisting of bottom oven, separate top oven / grill and 4 ring hobs.",
+      "value": {
+       "amountGross": 72000,
+       "amount": 60000,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "sme": true
+      }
+     },
+     {
+      "id": "5",
+      "title": "Upholstery, curtains, mattresses and carpets",
+      "description": "Carpet, curtains and upholstery cleaning on campus takes place on a cyclical basis along with a reactive service as and when required. There is a cleaning program through July-September (PDA) as students depart, on average there are 350 mattress cleans, 300 carpet cleans, 200 chairs, 30 curtains thr",
+      "value": {
+       "amountGross": 42000,
+       "amount": 35000,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "sme": true
+      }
+     },
+     {
+      "id": "6",
+      "title": "External Cleaning",
+      "description": "External Cleaning is typically undertaken seasonally and primarily includes power washing, external signage cleaning, cleaning of barbeque units, glass canopy cleaning, chewing gum removal and facade cleaning.",
+      "value": {
+       "amountGross": 60000,
+       "amount": 50000,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "sme": true
+      }
+     },
+     {
+      "id": "7",
+      "title": "Weekend and weekday cleaning and support",
+      "description": "The university requires support to deliver its cleaning services in several venues around campus. This includes but is not limited to the Pre-school, Library, Sports Centre and College Bars. This work is typically in the evening or weekend, but support could be requested at all times of the day depe",
+      "value": {
+       "amountGross": 72000,
+       "amount": 60000,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "sme": true
+      }
+     },
+     {
+      "id": "8",
+      "title": "Ad hoc/general cleaning support",
+      "description": "The university has a number of ad hoc works, and these can be planned for example attendance once /twice per week to deal with multiple requests or will be reactionary involving calling contractors to see who is on site and able to deal with a job.  Examples are:\n• stain removal from carpets / chair",
+      "value": {
+       "amountGross": 102000,
+       "amount": 85000,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "sme": true
+      }
+     }
+    ]
+   }
+  },
+  "094250-2026": {
+   "id": "094250-2026",
+   "tag": [
+    "tender"
+   ],
+   "date": "2026-10-06T13:08:14+01:00",
+   "buyer": {
+    "id": "GB-PPON-PYCX-4938-CCHM",
+    "name": "Kent County Council (t/a Procurement Services)"
+   },
+   "parties": [
+    {
+     "name": "Kent County Council (t/a Procurement Services)",
+     "roles": [
+      "buyer"
+     ],
+     "address": {
+      "region": "UKJ46",
+      "postalCode": "ME19 4YT",
+      "locality": "Maidstone"
+     }
+    }
+   ],
+   "tender": {
+    "title": "Uniforms, Workwear, PPE, Clothing and Associated Services",
+    "status": "active",
+    "value": {
+     "amountGross": 120000000.0,
+     "amount": 100000000.0,
+     "currency": "GBP"
+    },
+    "techniques": {
+     "hasFrameworkAgreement": true,
+     "frameworkAgreement": {
+      "method": "withAndWithoutReopeningCompetition",
+      "type": "open",
+      "buyerCategories": "This Framework may be used by contracting authorities and other eligible customers located in the United Kingdom, British Overseas Territories and Crown Dependencies existing on 06/10/2026. Eligible customers include central government departments, executive agencies, non-departmental public bodies, assembly-sponsored public bodies, local authorities, emergency services (including police, fire, ambulance, maritime and coastguard services), NHS and healthcare organisations, educational establishments (including schools, academies, colleges and universities), housing associations and registered social landlords, national parks, hospices, charities, voluntary and community sector organisations, citizens advice bodies, and any other public sector body permitted to access the Framework in accordance with applicable procurement legislation.",
+      "description": "Call-Off Contracts may be awarded using any one of the following methods outlined below. \n1.Direct Award (Award Without Competitive Selection) \n2.Rapid Request for Quote (Rapid RFQ) \n3.Further Competition \nThe ultimate responsibility for selecting the most appropriate and compliant route for a specific requirement rests with the Customer. The onus will be on the Customer to carry out their own due diligence before selecting which method to use. The Customer will determine the requirement, specification and award, based on the Most Advantageous Tender (MAT) \nDirect Award (award without a competitive selection): \nThis Framework permits Direct Award, defined under the Procurement Act 2023 as awarding a Call-Off Contract without conducting a new competitive selection procedure. A Direct Award may only be used where the Customer can identify the Most Advantageous Tender (MAT) using only the information and scores submitted at Framework award, without requesting any new pricing, clarification, or qualitative information from Suppliers. \nPermitted Direct Award Methods \nCustomers may use any of the following objective, pre-published Direct Award methods. The Customer must choose one method before reviewing Supplier capability for their requirement. \n1. Overall Framework Ranking (Quality + Price Combined Score) \n2. Highest Total Quality Score \n3.  Lowest Overall Price/Highest Commercial Advantage \n4.  Highest Score in a Specific Evaluation Question \n5. Partial-Service Selection (Specific Services from the Pricing Schedule)\nRapid RFQ \nA Rapid RFQ is a streamlined competitive process appropriate for low-complexity or tightly defined requirements where essential criteria can be specified as Pass/Fail, and price acts as the ultimate determinant among compliant Suppliers. \nFurther Competition\nA Further Competition process is used where Customers carry out a competition for the award of a Call-Off Contract."
+     }
+    },
+    "procurementMethod": "open",
+    "procurementMethodDetails": "Open procedure",
+    "tenderPeriod": {
+     "endDate": "2026-11-05T17:00:00+00:00"
+    },
+    "description": "Procurement Services are looking to create a local and national framework for the provision of Uniforms, Workwear including accessories, footwear and bags, PPE and Associated services such as but not limited to decontamination, repairs, stock management.\nFor more information about this opportunity, please visit the eSourcing portal at: \nhttps://www.delta-esourcing.com/tenders/UK-UK-Maidstone:-Garments./775V5K2842\nTo respond to this opportunity, please click here: \nhttps://www.delta-esourcing.com/respond/775V5K2842",
+    "items": [
+     {
+      "relatedLot": "1",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "18300000",
+        "description": "Garments"
+       },
+       {
+        "scheme": "CPV",
+        "id": "18813000",
+        "description": "Footwear with uppers of leather"
+       },
+       {
+        "scheme": "CPV",
+        "id": "18814000",
+        "description": "Footwear with uppers of textile materials"
+       },
+       {
+        "scheme": "CPV",
+        "id": "18830000",
+        "description": "Protective footwear"
+       },
+       {
+        "scheme": "CPV",
+        "id": "35113400",
+        "description": "Protective and safety clothing"
+       },
+       {
+        "scheme": "CPV",
+        "id": "35113410",
+        "description": "Garments for biological or chemical protection"
+       },
+       {
+        "scheme": "CPV",
+        "id": "35811100",
+        "description": "Fire-brigade uniforms"
+       },
+       {
+        "scheme": "CPV",
+        "id": "35811200",
+        "description": "Police uniforms"
+       },
+       {
+        "scheme": "CPV",
+        "id": "35812000",
+        "description": "Combat uniforms"
+       },
+       {
+        "scheme": "CPV",
+        "id": "45112340",
+        "description": "Soil-decontamination work"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90722200",
+        "description": "Environmental decontamination services"
+       }
+      ]
+     },
+     {
+      "relatedLot": "2",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "18300000",
+        "description": "Garments"
+       },
+       {
+        "scheme": "CPV",
+        "id": "18800000",
+        "description": "Footwear"
+       },
+       {
+        "scheme": "CPV",
+        "id": "18830000",
+        "description": "Protective footwear"
+       },
+       {
+        "scheme": "CPV",
+        "id": "33141420",
+        "description": "Surgical gloves"
+       },
+       {
+        "scheme": "CPV",
+        "id": "33735100",
+        "description": "Protective goggles"
+       },
+       {
+        "scheme": "CPV",
+        "id": "35113400",
+        "description": "Protective and safety clothing"
+       },
+       {
+        "scheme": "CPV",
+        "id": "35113410",
+        "description": "Garments for biological or chemical protection"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90722200",
+        "description": "Environmental decontamination services"
+       }
+      ]
+     }
+    ],
+    "lots": [
+     {
+      "id": "1",
+      "title": "Uniform Items",
+      "description": "Sub-Lot 1A: General Uniforms & Workwear\n•Polo shirts (various colours, branded and unbranded)\n•T shirts and base layers\n•Shirts & blouses (long/short sleeve)\n•Trousers & workwear trousers\n•Shorts\n•Jumpers, fleeces, sweatshirts\n•Soft shell jackets, waterproof jackets, rainwear\n•Corporate wear (blazer",
+      "value": {
+       "amountGross": 72000000.0,
+       "amount": 60000000.0,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "sme": true,
+       "vcse": true
+      }
+     },
+     {
+      "id": "2",
+      "title": "PPE Items",
+      "description": "Respiratory Protection\n•Filtering facepiece respirators (e.g., FFP2, FFP3)\n•Disposable respirators (cup / fold flat)\n•Half mask & full face reusable respirators\n•Filters and cartridges\n•Powered and non powered air purifying respirators (PAPR / APR)\n•Escape hoods\nHead Protection\n•Safety helmets\n•Bump",
+      "value": {
+       "amountGross": 48000000.0,
+       "amount": 40000000.0,
+       "currency": "GBP"
+      },
+      "suitability": {
+       "vcse": true
+      }
+     }
+    ]
+   }
+  },
+  "093770-2026": {
+   "id": "093770-2026",
+   "tag": [
+    "tender"
+   ],
+   "date": "2026-10-05T12:29:12+01:00",
+   "buyer": {
+    "id": "GB-MPR-7544",
+    "name": "VIVID Housing Ltd"
+   },
+   "parties": [
+    {
+     "name": "VIVID Housing Ltd",
+     "roles": [
+      "buyer"
+     ],
+     "address": {
+      "region": "UKJ31",
+      "postalCode": "PO2 8HB",
+      "locality": "Portsmouth"
+     }
+    }
+   ],
+   "tender": {
+    "title": "Communal Entrance Doors Qualifying Long-Term Agreement",
+    "status": "active",
+    "value": {
+     "amountGross": 6000000,
+     "amount": 5000000,
+     "currency": "GBP"
+    },
+    "procurementMethod": "open",
+    "procurementMethodDetails": "Open procedure",
+    "tenderPeriod": {
+     "endDate": "2026-11-09T12:00:00+00:00"
+    },
+    "description": "VIVID Housing Limited is seeking to appoint a suitably qualified and experienced contractor to enter into a Qualifying Long-Term Agreement (QLTA) for the Communal Doors Installation and Replacement Works, across its housing portfolio.\nThe scope of the agreement includes the survey, design, manufacture, supply, installation, replacement of communal entrance doors.\nThe Contract will include a range of door types and associated components, including steel, aluminium, timber, composite and UPVC door sets, glazing, curtain walling and door entry access control systems.\nAll works must comply with current Building Regulations, relevant British Standards, fire safety requirements, accessibility requirements, and Secured by Design standards.\nThe appointed contractor will be responsible for carrying out property surveys, consulting with residents where required, manufacturing and installing compliant door sets, and ensuring minimal disruption to residents during delivery of the works.",
+    "items": [
+     {
+      "relatedLot": "1",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "45421100",
+        "description": "Installation of doors and windows and related components"
+       },
+       {
+        "scheme": "CPV",
+        "id": "45421130",
+        "description": "Installation of doors and windows"
+       },
+       {
+        "scheme": "CPV",
+        "id": "45421131",
+        "description": "Installation of doors"
+       }
+      ]
+     }
+    ],
+    "lots": [
+     {
+      "id": "1",
+      "description": null,
+      "value": {
+       "amountGross": 6000000,
+       "amount": 5000000,
+       "currency": "AED"
+      }
+     }
+    ]
+   }
+  },
+  "093393-2026": {
+   "id": "093393-2026",
+   "tag": [
+    "tender"
+   ],
+   "date": "2026-10-02T14:14:22+01:00",
+   "buyer": {
+    "id": "GB-COH-07353849",
+    "name": "STAR ACADEMIES"
+   },
+   "parties": [
+    {
+     "name": "STAR ACADEMIES",
+     "roles": [
+      "buyer"
+     ],
+     "address": {
+      "region": "UKD41",
+      "postalCode": "BB1 2HT",
+      "locality": "Blackburn"
+     }
+    }
+   ],
+   "tender": {
+    "title": "Star Academies - Building Cleaning Services - The Valley Leadership Academy",
+    "status": "active",
+    "value": {
+     "amountGross": 960000,
+     "amount": 800000,
+     "currency": "GBP"
+    },
+    "procurementMethod": "open",
+    "procurementMethodDetails": "Open procedure",
+    "tenderPeriod": {
+     "endDate": "2026-11-02T12:00:00+00:00"
+    },
+    "description": "The Trust (Star) is looking to appoint a single Supplier for the supply of building cleaning services at The Valley Leadership Academy.  \nStar’s objective is to create a clean and professional learning environment to support our pupils’ education provision through both day-to-day cleaning, and deep cleaning provision throughout school holidays. \nThe supplier selected will be able to provide building cleaning services (excluding external window cleaning) as detailed in Schedule 1 - Specification, for a maximum of 4 years.  Whilst the tender will be used as a basis for future works and pricing, the Trust are looking to engage a supplier who will work collaboratively and tailor their approach, so that they are able to meet the specific needs of the Trust and driving cost savings on an ongoing basis.  More detailed specification requirements are outlined in Schedule 1 - Specification.\nCurrently this provision is managed by an outsourced provider.\nThis Procurement is being conducted in accordance with the Act using the Open Procedure. This document describes how the Procurement will be conducted, including details of the associated Procurement timetable, participation and award criteria",
+    "items": [
+     {
+      "relatedLot": "1",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "90900000",
+        "description": "Cleaning and sanitation services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90910000",
+        "description": "Cleaning services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90911200",
+        "description": "Building-cleaning services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90919000",
+        "description": "Office, school and office equipment cleaning services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90919200",
+        "description": "Office cleaning services"
+       },
+       {
+        "scheme": "CPV",
+        "id": "90919300",
+        "description": "School cleaning services"
+       }
+      ]
+     }
+    ],
+    "lots": [
+     {
+      "id": "1",
+      "description": null,
+      "value": {
+       "amountGross": 960000,
+       "amount": 800000,
+       "currency": "AED"
+      }
+     }
+    ]
+   }
+  }
+ },
+ "contractsFinder": {
+  "army": {
+   "id": "0413756e-7026-40e4-9dec-ac1a9a886a1c",
+   "title": "Supply of Army Branded Clothing",
+   "description": "Unite Procurement UK Limited (part of Unite Holding SE), on behalf of the Ministry of Defence, is seeking suppliers to join the Unite Procurement Platform.\r\n\r\nThe authority requires the supply of a standardised package of Army-branded clothing. Providing practical, recognisable and consistent clothing for public-facing recruitment and engagement events, routine travel and outdoor activity. \r\n\r\nA consistent clothing package is required to improve professional presentation, support Army branding and provide practical clothing suitable for the environments in which the teams operate.\r\n\r\nProvide a consistent and professional Army identity across Arms &amp; Services Engagement Teams.\r\nProvide practical clothing suitable for travel, public events and outdoor engagement activity.\r\n\r\nDeliver a one",
+   "organisationName": "UNITE PROCUREMENT UK LIMITED",
+   "noticeType": "Contract",
+   "cpvCodes": "35811300",
+   "valueLow": 100000,
+   "valueHigh": 350000,
+   "postcode": null,
+   "coordinates": "0,0",
+   "regionText": "North East,North West,Yorkshire and The Humber,East Midlands,West Midlands,East of England,London,South East,South West,Scotland,Wales,Northern Ireland",
+   "isSuitableForSme": true,
+   "deadlineDate": "2026-11-02T16:00:00Z",
+   "publishedDate": "2026-10-16T10:26:30+01:00"
+  },
+  "mitie": {
+   "id": "ea3795aa-1370-4870-8b01-1a0ec4e4da13",
+   "title": "Mitie Limited - Tailoring Services",
+   "description": "Mitie Limited are seeking early engagement with organisations that have a specialism in military uniform tailoring and related services across the UK.\r\n\r\nWe welcome engagement from organisations operating at local, regional, and national level across the UK, including SMEs and specialist providers.\r\n\r\nEOIs (by email only) should be sent to [email] by Thursday 5th February, briefly outlining organisational coverage (local/regional/national) and relevant delivery experience.",
+   "organisationName": "MITIE FM LIMITED",
+   "noticeType": "PreProcurement",
+   "cpvCodes": "98393000",
+   "valueLow": 0,
+   "valueHigh": 0,
+   "postcode": null,
+   "coordinates": "0,0",
+   "regionText": "East Midlands,West Midlands,East of England,London,South East,Scotland,Wales,Northern Ireland",
+   "isSuitableForSme": true,
+   "deadlineDate": "2026-02-05T23:59:59Z",
+   "publishedDate": "2026-01-15T13:48:13Z"
+  }
+ }
+}

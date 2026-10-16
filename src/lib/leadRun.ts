@@ -57,15 +57,30 @@ export interface LeadRunResult {
 }
 
 /** Judge every candidate and keep the ones that fit, best first, each once. */
-export function keepers(results: SourceResult[]): StoredLead[] {
+export function keepers(results: SourceResult[], now: Date = new Date()): StoredLead[] {
   const byId = new Map<string, StoredLead>();
   for (const candidate of results.flatMap((result) => result.candidates)) {
-    const verdict = judge(candidate);
+    const verdict = judge(candidate, now);
     if (!verdict.keep) continue;
-    const _id = leadIdFor(candidate.source, candidate.url);
+    const _id = leadIdFor(candidate.source, candidate.key ?? candidate.url);
     if (!byId.has(_id)) byId.set(_id, { ...candidate, ...verdict, _id });
   }
   return [...byId.values()].sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Monday's line about tenders, so a quiet week reads as a working search:
+ * work a one-person atelier can win comes a few times a year, and the judge
+ * lets nothing else through (see @/lib/tenderJudge).
+ */
+export function tenderTally(read: number, fit: number, down: { name: string; partly: boolean }[] = []): string {
+  const head = `📑 <b>Тендеры</b>: сегодня прочитано ${read}, подошло ${fit}.`;
+  // A source that did not answer is not a quiet week, and is never called one
+  if (down.length) {
+    const who = down.map(({ name, partly }) => `${name} ${partly ? "ответил не до конца" : "не ответил"}`).join(", ");
+    return `${head} ⚠️ ${who} — это поломка, а не тишина. Поиск смотрит на три дня назад: заработает — наверстает.`;
+  }
+  return `${head} Работа для одной мастерской в тендерах бывает несколько раз в год — тишина здесь норма, а не поломка.`;
 }
 
 export function leadDocument(lead: StoredLead, now: Date): Record<string, unknown> {
@@ -172,35 +187,40 @@ export async function runLeadSearch(deps: LeadRunDeps = {}): Promise<LeadRunResu
   const problems: Record<string, string> = {};
   for (const result of results) if (result.problem) problems[result.source] = result.problem;
 
-  const kept = keepers(results);
+  const kept = keepers(results, now);
   const looked = results.reduce((sum, result) => sum + result.candidates.length, 0);
-  if (kept.length === 0) {
-    return { looked, kept: 0, fresh: 0, telegram: telegram ? 0 : "unconfigured", email: "nothing", problems };
-  }
-
-  const already = new Set(await existing(kept.map((lead) => lead._id)));
+  const tendersRead = results.reduce((sum, result) => sum + result.candidates.filter((c) => c.tender).length, 0);
+  const already = new Set(kept.length ? await existing(kept.map((lead) => lead._id)) : []);
   const fresh = kept.filter((lead) => !already.has(lead._id));
-  if (fresh.length === 0) {
-    return { looked, kept: kept.length, fresh: 0, telegram: telegram ? 0 : "unconfigured", email: "nothing", problems };
-  }
   // Saved before anyone is told: a message pointing at a Studio page that does not exist is worse than a late one
-  await save(fresh.map((lead) => leadDocument(lead, now)));
+  if (fresh.length) await save(fresh.map((lead) => leadDocument(lead, now)));
 
-  let told: LeadRunResult["telegram"] = "unconfigured";
-  if (telegram) {
+  let told: LeadRunResult["telegram"] = telegram ? 0 : "unconfigured";
+  // Monday: the Facebook searches and the week's word on tenders, found or not —
+  // once a week rather than every morning, and never only when there is news
+  const monday = now.getUTCDay() === 1;
+  if (telegram && (fresh.length || monday)) {
     try {
       const top = fresh.slice(0, TELEGRAM_MAX);
       for (const lead of top) await telegram(telegramMessage(lead, studioUrlFor(lead._id)));
       if (fresh.length > top.length) {
         await telegram(`…и ещё ${fresh.length - top.length} — в Studio → «Друзья и партнёры» → «Ищут мастера».`);
       }
-      // Monday: the Facebook searches, once a week rather than every morning
-      if (now.getUTCDay() === 1) await telegram(telegramFacebookNudge());
+      if (monday) {
+        const tenderFit = kept.filter((lead) => lead.tender).length;
+        const down = results
+          .filter((r) => (r.source === "findATender" || r.source === "contractsFinder") && r.problem)
+          .map((r) => ({ name: r.source === "findATender" ? "Find a Tender" : "Contracts Finder", partly: r.candidates.length > 0 }));
+        await telegram(`${telegramFacebookNudge()}\n\n${tenderTally(tendersRead, tenderFit, down)}`);
+      }
       told = top.length;
     } catch (error) {
       console.error("Lead search: Telegram refused:", error instanceof Error ? error.message : error);
       told = "failed";
     }
+  }
+  if (fresh.length === 0) {
+    return { looked, kept: kept.length, fresh: 0, telegram: told, email: "nothing", problems };
   }
 
   let emailed: LeadRunResult["email"] = "unconfigured";

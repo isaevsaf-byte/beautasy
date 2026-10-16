@@ -1,3 +1,5 @@
+import { judgeTender, type TenderFacts } from "@/lib/tenderJudge";
+
 /**
  * The morning search for people looking for a maker Kristina could be.
  *
@@ -40,6 +42,8 @@ export const LEAD_STATUSES = [
 /** One advert, tender or post as a source hands it over, before judgement. */
 export interface LeadCandidate {
   source: LeadSource;
+  /** What makes it one find, when the address does not: a tender's procurement and stage */
+  key?: string;
   url: string;
   title: string;
   text: string;
@@ -56,6 +60,8 @@ export interface LeadCandidate {
    * looking for a supplier. Forum posts and web pages have to say so.
    */
   askingByNature?: boolean;
+  /** A tender's own fields — what is bought, how much, where — which decide it, not its words (see @/lib/tenderJudge) */
+  tender?: TenderFacts;
 }
 
 export interface Judgement {
@@ -142,7 +148,16 @@ export function nearHer(text: string): string | null {
  * class. Near or "anywhere" adds; a full-time wage job takes away, because
  * the atelier is the work and a shift pattern is not.
  */
-export function judge(lead: LeadCandidate): Judgement {
+export function judge(lead: LeadCandidate, now: Date = new Date()): Judgement {
+  // A tender is judged on what the buyer filled in: codes, money, place, time
+  if (lead.tender) {
+    const verdict = judgeTender(lead.tender, now);
+    return { score: verdict.score, why: verdict.keep ? [...verdict.why, "тендер"] : verdict.drop, keep: verdict.keep };
+  }
+  // A tender read without its facts would be judged by words, which sent a cleaning framework
+  if (lead.source === "contractsFinder" || lead.source === "findATender") {
+    return { score: 0, why: ["тендер без данных о закупке"], keep: false };
+  }
   const all = `${lead.title}\n${lead.text}\n${lead.place ?? ""}`;
   const why: string[] = [];
 
@@ -261,7 +276,7 @@ export function telegramMessage(lead: StoredLead, studioUrl: string): string {
     `🧵 <b>${telegramEscape(lead.title)}</b>`,
     [lead.who, lead.place].filter(Boolean).map((s) => telegramEscape(s!)).join(" · "),
     lead.pay ? `💷 ${telegramEscape(lead.pay)}` : "",
-    dayMonth(lead.deadline) ? `⏳ подать до ${dayMonth(lead.deadline)}` : "",
+    dayMonth(lead.deadline) ? `⏳ ${lead.tender?.kind === "planning" ? "откликнуться до" : "подать до"} ${dayMonth(lead.deadline)}` : "",
     "",
     telegramEscape(plainText(lead.text, 500)),
     "",
