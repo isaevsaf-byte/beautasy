@@ -19,6 +19,7 @@ import { workPiece } from "./workPiece";
 import { facebookGroup } from "./facebookGroup";
 import { lead } from "./lead";
 import { leadPlace } from "./leadPlace";
+import { supplyItem } from "./supplyItem";
 
 export const schemaTypes = [
   product,
@@ -42,4 +43,5 @@ export const schemaTypes = [
   facebookGroup,
   lead,
   leadPlace,
+  supplyItem,
 ];

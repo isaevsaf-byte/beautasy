@@ -24,6 +24,10 @@ export const MARK = "<!-- outside-watch -->";
 const PULSE_STALE_HOURS = 3;
 /** The morning check runs at 09:00 UTC; a day and three hours allows for a slow morning */
 const MORNING_STALE_HOURS = 27;
+/** The supplies watch runs on Mondays at 07:15 UTC, give or take Vercel's hour; a week and a day allows for one slow Monday */
+const SUPPLIES_STALE_DAYS = 8;
+/** A shop page left unread two Mondays running: its layout changed, or it turns the watch away */
+const SUPPLIES_UNREAD_DAYS = 15;
 
 const HOUR = 60 * 60 * 1000;
 
@@ -100,6 +104,29 @@ export const CHECKS = [
       ? `has no record for ${Math.round(hours)} hours — the daily job on Vercel did not run, or ran and could not send its email`
       : null;
   }),
+  // «Где брать мини-опт» (src/lib/supplyRun.ts): its mark, and whether there is anything for it to read
+  sanity(
+    "Supplies watch",
+    `{
+      "state": *[_id == "supplyWatchState"][0]{ ranAt, readAt },
+      "since": *[_type == "supplyItem" && !(_id in path("drafts.**"))] | order(_createdAt asc)[0]._createdAt,
+      "watched": count(*[_type == "supplyItem" && !(_id in path("drafts.**")) && count(offers[string::startsWith(url, "https://www.empressmills.co.uk/")]) > 0])
+    }`,
+    (seen, now) => {
+      const days = (iso) => ageHours(iso, now) / 24;
+      // No list in the Studio yet: nothing to watch
+      if (!seen?.since) return null;
+      const ran = seen.state?.ranAt;
+      if (!ran) return days(seen.since) > SUPPLIES_STALE_DAYS ? "has never run — the Monday job on Vercel is not running" : null;
+      if (days(ran) > SUPPLIES_STALE_DAYS) return `last ran ${Math.round(days(ran))} days ago — the Monday job on Vercel did not run`;
+      if (!seen.watched) return null;
+      const read = seen.state?.readAt;
+      if (!read) return days(seen.since) > SUPPLIES_UNREAD_DAYS ? "runs, but has never read a shop's page — see the job's log on Vercel" : null;
+      return days(read) > SUPPLIES_UNREAD_DAYS
+        ? `has not read a shop's page for ${Math.round(days(read))} days — Empress Mills changed its page or turns the watch away; the job's log on Vercel says which`
+        : null;
+    }
+  ),
 ];
 
 async function fetchReply(url, fetchImpl) {

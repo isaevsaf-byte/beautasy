@@ -37,6 +37,8 @@ export const STUDIO_MOVES: Readonly<Record<string, string>> = {
   stockAlert: "shop",
   abandonedCart: "shop",
   subscriber: "shop",
+  // Born in the folder (16.10.2026)
+  supplyItem: "shop",
 
   partners: "friends",
   // Born in the folder (11.10.2026); listed so the rule "every list in a folder is here" holds

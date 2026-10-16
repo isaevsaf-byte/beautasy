@@ -71,6 +71,36 @@ test("the watchmen's own marks must be fresh", () => {
   assert.match(morning.judge({ status: 500, body: "" }, NOW)!, /dataset answered 500/);
 });
 
+test("the supplies watch must run on Mondays and read its shop page, once there is a list to watch", async () => {
+  const supplies = byName("Supplies watch");
+  const said = (result: unknown) => supplies.judge({ status: 200, body: JSON.stringify({ result }) }, NOW);
+  const daysAgo = (days: number) => hoursAgo(days * 24);
+  const list = { since: daysAgo(30), watched: 4 };
+  assert.equal(said({ since: null, state: null, watched: 0 }), null, "no list yet: nothing to watch");
+  assert.equal(said({ since: null, state: { ranAt: daysAgo(30), readAt: daysAgo(30) }, watched: 0 }), null, "the list was emptied: nothing to watch");
+  assert.equal(said({ since: daysAgo(3), state: null, watched: 4 }), null, "seeded this week: the first Monday has not come");
+  assert.match(said({ since: daysAgo(10), state: null, watched: 4 })!, /never run/);
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(7.5), readAt: daysAgo(7.5) } }), null, "last Monday, an hour late");
+  assert.match(said({ ...list, state: { ranAt: daysAgo(9), readAt: daysAgo(9) } })!, /last ran 9 days ago/);
+  // Runs, but the shop's page no longer gives its price
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(1), readAt: daysAgo(8) } }), null, "one Monday's miss is not yet a pattern");
+  assert.match(said({ ...list, state: { ranAt: daysAgo(1), readAt: daysAgo(16) } })!, /has not read a shop's page for 16 days/);
+  assert.match(said({ ...list, state: { ranAt: daysAgo(1), readAt: null } })!, /never read a shop's page/);
+  assert.equal(said({ ...list, watched: 0, state: { ranAt: daysAgo(1), readAt: null } }), null, "nothing left that it may read");
+
+  // The query itself, against a dataset as the watch would find it
+  const { evaluate, parse } = await import("groq-js");
+  const query = decodeURIComponent(new URL(supplies.url).searchParams.get("query")!);
+  const dataset = [
+    { _id: "supplyWatchState", _type: "supplyWatchState", ranAt: daysAgo(1), readAt: daysAgo(1) },
+    { _id: "supply-a", _type: "supplyItem", _createdAt: daysAgo(20), offers: [{ url: "https://www.empressmills.co.uk/x" }, { url: "https://www.jaycotts.co.uk/y" }] },
+    { _id: "supply-b", _type: "supplyItem", _createdAt: daysAgo(10), offers: [{ url: "https://www.merrick-day.com/z" }] },
+    { _id: "drafts.supply-c", _type: "supplyItem", _createdAt: daysAgo(40), offers: [{ url: "https://www.empressmills.co.uk/w" }] },
+  ];
+  const result = await (await evaluate(parse(query), { dataset })).get();
+  assert.deepEqual(result, { state: { ranAt: daysAgo(1), readAt: daysAgo(1) }, since: daysAgo(20), watched: 1 });
+});
+
 test("one slow reply is looked at again before anyone is told", async () => {
   let calls = 0;
   const flaky = [{ name: "Flaky", url: "x", judge: () => (++calls === 1 ? "answered 502" : null) }];

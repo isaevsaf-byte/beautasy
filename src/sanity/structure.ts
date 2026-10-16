@@ -277,6 +277,10 @@ export const structure: StructureResolver = (S) =>
               S.documentTypeListItem("stockAlert").title("Ждут поступления"),
               S.documentTypeListItem("abandonedCart").title("Брошенные корзины"),
               S.documentTypeListItem("subscriber").title("Подписчики"),
+              // Elastic by the roll, hooks by the box: where to buy mid-size, cheapest per
+              // unit first; the Monday run keeps what it may read current (@/lib/supplyRun)
+              S.divider().title("Закупки"),
+              S.documentTypeListItem("supplyItem").title("Где брать мини-опт"),
             ])
         ),
 
