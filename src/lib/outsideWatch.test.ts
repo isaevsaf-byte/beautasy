@@ -71,34 +71,81 @@ test("the watchmen's own marks must be fresh", () => {
   assert.match(morning.judge({ status: 500, body: "" }, NOW)!, /dataset answered 500/);
 });
 
-test("the supplies watch must run on Mondays and read its shop page, once there is a list to watch", async () => {
+test("the supplies watch must run on Mondays, and a problem its own run meets again a Monday later reaches Safar", async () => {
   const supplies = byName("Supplies watch");
-  const said = (result: unknown) => supplies.judge({ status: 200, body: JSON.stringify({ result }) }, NOW);
+  const verdict = (result: unknown) =>
+    supplies.judge({ status: 200, body: JSON.stringify({ result }) }, NOW) as unknown as { problem: string; tag: string } | string | null;
+  // Plain text is a verdict too (the dataset's answer could not be read): never hidden
+  const said = (result: unknown) => {
+    const v = verdict(result);
+    return typeof v === "string" ? v : (v?.problem ?? null);
+  };
   const daysAgo = (days: number) => hoursAgo(days * 24);
-  const list = { since: daysAgo(30), watched: 4 };
-  assert.equal(said({ since: null, state: null, watched: 0 }), null, "no list yet: nothing to watch");
-  assert.equal(said({ since: null, state: { ranAt: daysAgo(30), readAt: daysAgo(30) }, watched: 0 }), null, "the list was emptied: nothing to watch");
-  assert.equal(said({ since: daysAgo(3), state: null, watched: 4 }), null, "seeded this week: the first Monday has not come");
-  assert.match(said({ since: daysAgo(10), state: null, watched: 4 })!, /never run/);
-  assert.equal(said({ ...list, state: { ranAt: daysAgo(7.5), readAt: daysAgo(7.5) } }), null, "last Monday, an hour late");
-  assert.match(said({ ...list, state: { ranAt: daysAgo(9), readAt: daysAgo(9) } })!, /last ran 9 days ago/);
-  // Runs, but the shop's page no longer gives its price
-  assert.equal(said({ ...list, state: { ranAt: daysAgo(1), readAt: daysAgo(8) } }), null, "one Monday's miss is not yet a pattern");
-  assert.match(said({ ...list, state: { ranAt: daysAgo(1), readAt: daysAgo(16) } })!, /has not read a shop's page for 16 days/);
-  assert.match(said({ ...list, state: { ranAt: daysAgo(1), readAt: null } })!, /never read a shop's page/);
-  assert.equal(said({ ...list, watched: 0, state: { ranAt: daysAgo(1), readAt: null } }), null, "nothing left that it may read");
+  const problem = (since: number, lastMet: number, key = "https://www.empressmills.co.uk/x", urgent?: boolean) => ({
+    _key: "p1",
+    key,
+    why: "503 Service Unavailable",
+    since: daysAgo(since),
+    lastMet: daysAgo(lastMet),
+    ...(urgent ? { urgent } : {}),
+  });
+  assert.equal(said({ since: null, state: null }), null, "no list yet: nothing to watch");
+  assert.equal(said({ since: null, state: { ranAt: daysAgo(30), problems: [problem(37, 30)] } }), null, "the list was emptied: nothing to watch");
+  assert.equal(said({ since: daysAgo(3), state: null }), null, "seeded this week: the first Monday has not come");
+  assert.match(said({ since: daysAgo(10), state: null })!, /never run/);
+  const list = { since: daysAgo(30) };
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(7.5), problems: [] } }), null, "last Monday, an hour late");
+  assert.match(said({ ...list, state: { ranAt: daysAgo(9), problems: [] } })!, /last ran 9 days ago/);
+  // Met once, six and a half days ago: the Sunday before the run that would clear it — not a fault yet
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(6.5), problems: [problem(6.5, 6.5)] } }), null);
+  // Met again by the next Monday's run, an hour late or early: a fault
+  const told = said({ ...list, state: { ranAt: daysAgo(0), problems: [problem(7, 0)] } })!;
+  assert.match(told, /did not pass by itself — https:\/\/www\.empressmills\.co\.uk\/x: 503 Service Unavailable \(since 2026-09-20\)/);
+  assert.match(said({ ...list, state: { ranAt: daysAgo(0), problems: [problem(6.96, 0)] } }) ?? "", /did not pass/, "Vercel ran the second Monday an hour early");
+  // Carried, not met again (the page was not looked at): it does not age into an alarm
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(0), problems: [problem(14, 14)] } }), null);
+  // One that cannot pass by itself — a chat that blocked the bot — is told at once
+  assert.match(said({ ...list, state: { ranAt: daysAgo(0), problems: [problem(0, 0, "telegram", true)] } })!, /telegram: 503/);
+  const many = said({ ...list, state: { ranAt: daysAgo(0), problems: [1, 2, 3, 4, 5].map((k) => problem(7, 0, `key-${k}`)) } })!;
+  assert.match(many, /and 2 more$/);
+  assert.equal(many.match(/key-/g)?.length, 3, "three named, the rest counted");
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(0), problems: null } }), null);
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(0), problems: {} } }), null, "a mark it cannot read is no alarm");
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(0), problems: [{ key: "x", urgent: true }] } }), null);
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(0), problems: [{ key: "x", why: "w", urgent: true }] } }), null, "a problem without a date is not one to tell");
+
+  // Each way of being wrong is named in the title: a new one retitles an open issue and says so
+  const tagOf = (result: unknown) => (verdict(result) as { tag: string }).tag;
+  assert.equal(tagOf({ since: daysAgo(10), state: null }), "stopped");
+  assert.equal(tagOf({ ...list, state: { ranAt: daysAgo(0), problems: [problem(7, 0, "https://www.empressmills.co.uk/closed-end-zips#x")] } }), "closed-end-zips");
+  const zipsOpen = { ...list, state: { ranAt: daysAgo(0), problems: [problem(7, 0, "https://www.empressmills.co.uk/closed-end-zips")] } };
+  const zipsAndChat = { ...list, state: { ranAt: daysAgo(0), problems: [problem(7, 0, "https://www.empressmills.co.uk/closed-end-zips"), problem(0, 0, "telegram", true)] } };
+  const watchOf = (result: unknown) => ({ ...supplies, url: `https://dataset/${encodeURIComponent(JSON.stringify(result))}` });
+  const answering = (result: unknown) => (async () => ({ status: 200, text: async () => JSON.stringify({ result }) })) as unknown as typeof fetch;
+  const before = await lookAtEverything({ checks: [watchOf(zipsOpen)], fetchImpl: answering(zipsOpen), now: () => NOW, sleep: async () => {} });
+  assert.deepEqual(before.map((p) => p.name), ["Supplies watch (closed-end-zips)"]);
+  const after = await lookAtEverything({ checks: [watchOf(zipsAndChat)], fetchImpl: answering(zipsAndChat), now: () => NOW, sleep: async () => {} });
+  assert.deepEqual(after.map((p) => p.name), ["Supplies watch (closed-end-zips, telegram)"]);
+  const open = { number: 9, title: `🚨 beautasy.co.uk: ${before[0].name}` };
+  assert.deepEqual(decide({ problems: before, open, rehearsal: false, at: "x", notify: "owner" }), [], "the same faults: quiet");
+  assert.deepEqual(
+    decide({ problems: after, open, rehearsal: false, at: "x", notify: "owner" }).map((a) => Object.keys(a)[0]),
+    ["comment", "retitle"],
+    "a new fault while the issue is open: Safar hears of it"
+  );
+  assert.equal(said({ ...list, state: { ranAt: daysAgo(0), problems: [{ key: "x", since: daysAgo(1), urgent: true }] } }), null, "a problem without a reason is not one to tell");
 
   // The query itself, against a dataset as the watch would find it
   const { evaluate, parse } = await import("groq-js");
   const query = decodeURIComponent(new URL(supplies.url).searchParams.get("query")!);
   const dataset = [
-    { _id: "supplyWatchState", _type: "supplyWatchState", ranAt: daysAgo(1), readAt: daysAgo(1) },
-    { _id: "supply-a", _type: "supplyItem", _createdAt: daysAgo(20), offers: [{ url: "https://www.empressmills.co.uk/x" }, { url: "https://www.jaycotts.co.uk/y" }] },
-    { _id: "supply-b", _type: "supplyItem", _createdAt: daysAgo(10), offers: [{ url: "https://www.merrick-day.com/z" }] },
-    { _id: "drafts.supply-c", _type: "supplyItem", _createdAt: daysAgo(40), offers: [{ url: "https://www.empressmills.co.uk/w" }] },
+    { _id: "supplyWatchState", _type: "supplyWatchState", ranAt: daysAgo(1), problems: [problem(8, 1)], digestAt: daysAgo(1) },
+    { _id: "supply-a", _type: "supplyItem", _createdAt: daysAgo(20), offers: [] },
+    { _id: "supply-b", _type: "supplyItem", _createdAt: daysAgo(10), offers: [] },
+    { _id: "drafts.supply-c", _type: "supplyItem", _createdAt: daysAgo(40), offers: [] },
   ];
   const result = await (await evaluate(parse(query), { dataset })).get();
-  assert.deepEqual(result, { state: { ranAt: daysAgo(1), readAt: daysAgo(1) }, since: daysAgo(20), watched: 1 });
+  assert.deepEqual(result, { state: { ranAt: daysAgo(1), problems: [problem(8, 1)] }, since: daysAgo(20) });
 });
 
 test("one slow reply is looked at again before anyone is told", async () => {

@@ -26,8 +26,12 @@ const PULSE_STALE_HOURS = 3;
 const MORNING_STALE_HOURS = 27;
 /** The supplies watch runs on Mondays at 07:15 UTC, give or take Vercel's hour; a week and a day allows for one slow Monday */
 const SUPPLIES_STALE_DAYS = 8;
-/** A shop page left unread two Mondays running: its layout changed, or it turns the watch away */
-const SUPPLIES_UNREAD_DAYS = 15;
+/**
+ * A problem the supplies watch met is told when its own run meets it again a
+ * Monday later — measured between its runs, not by this clock, so a one-off
+ * fault is never told on the Sunday before the run that would clear it
+ */
+const SUPPLIES_PROBLEM_DAYS = 6;
 
 const HOUR = 60 * 60 * 1000;
 
@@ -57,7 +61,13 @@ const sanity = (name, query, judge) => ({
 
 const ageHours = (iso, now) => (now.getTime() - Date.parse(iso)) / HOUR;
 
-/** What is looked at, and what counts as wrong. Each judge returns null when all is well. */
+/**
+ * What is looked at, and what counts as wrong. Each judge returns null when
+ * all is well, or what is wrong — as text, or as { problem, tag } when one
+ * check can be wrong in several ways: the tag joins the check's name in the
+ * issue's title, so a new way of being wrong changes the title, and an open
+ * issue says so rather than keeping quiet.
+ */
 export const CHECKS = [
   page("Home page", "/", ["beautasy"]),
   page("Atelier page", "/atelier", ["atelier"]),
@@ -104,27 +114,35 @@ export const CHECKS = [
       ? `has no record for ${Math.round(hours)} hours — the daily job on Vercel did not run, or ran and could not send its email`
       : null;
   }),
-  // «Где брать мини-опт» (src/lib/supplyRun.ts): its mark, and whether there is anything for it to read
+  // «Где брать мини-опт» (src/lib/supplyRun.ts): its mark — when it ran, and what went wrong since when
   sanity(
     "Supplies watch",
     `{
-      "state": *[_id == "supplyWatchState"][0]{ ranAt, readAt },
-      "since": *[_type == "supplyItem" && !(_id in path("drafts.**"))] | order(_createdAt asc)[0]._createdAt,
-      "watched": count(*[_type == "supplyItem" && !(_id in path("drafts.**")) && count(offers[string::startsWith(url, "https://www.empressmills.co.uk/")]) > 0])
+      "state": *[_id == "supplyWatchState"][0]{ ranAt, problems },
+      "since": *[_type == "supplyItem" && !(_id in path("drafts.**"))] | order(_createdAt asc)[0]._createdAt
     }`,
     (seen, now) => {
       const days = (iso) => ageHours(iso, now) / 24;
-      // No list in the Studio yet: nothing to watch
+      // No list in the Studio: nothing to watch
       if (!seen?.since) return null;
       const ran = seen.state?.ranAt;
-      if (!ran) return days(seen.since) > SUPPLIES_STALE_DAYS ? "has never run — the Monday job on Vercel is not running" : null;
-      if (days(ran) > SUPPLIES_STALE_DAYS) return `last ran ${Math.round(days(ran))} days ago — the Monday job on Vercel did not run`;
-      if (!seen.watched) return null;
-      const read = seen.state?.readAt;
-      if (!read) return days(seen.since) > SUPPLIES_UNREAD_DAYS ? "runs, but has never read a shop's page — see the job's log on Vercel" : null;
-      return days(read) > SUPPLIES_UNREAD_DAYS
-        ? `has not read a shop's page for ${Math.round(days(read))} days — Empress Mills changed its page or turns the watch away; the job's log on Vercel says which`
-        : null;
+      if (!ran) return days(seen.since) > SUPPLIES_STALE_DAYS ? { problem: "has never run — the Monday job on Vercel is not running", tag: "stopped" } : null;
+      if (days(ran) > SUPPLIES_STALE_DAYS) return { problem: `last ran ${Math.round(days(ran))} days ago — the Monday job on Vercel did not run`, tag: "stopped" };
+      const metFor = (problem) => (Date.parse(problem.lastMet) - Date.parse(problem.since)) / (24 * HOUR);
+      const lasting = (Array.isArray(seen.state?.problems) ? seen.state.problems : []).filter(
+        (problem) =>
+          typeof problem?.since === "string" &&
+          typeof problem?.why === "string" &&
+          (problem.urgent === true || (typeof problem.lastMet === "string" && metFor(problem) > SUPPLIES_PROBLEM_DAYS))
+      );
+      if (!lasting.length) return null;
+      const told = lasting.slice(0, 3).map((problem) => `${problem.key}: ${problem.why} (since ${problem.since.slice(0, 10)})`);
+      // Named by what is wrong — a page by the last part of its address — so another fault retitles the issue
+      const short = (key) => String(key).replace(/^https?:\/\/[^/]+\//, "").replace(/[?#].*$/, "").split("/").filter(Boolean).pop() ?? String(key);
+      return {
+        problem: `has a problem that did not pass by itself — ${told.join("; ")}${lasting.length > 3 ? `; and ${lasting.length - 3} more` : ""}`,
+        tag: [...new Set(lasting.map((problem) => short(problem.key)))].sort().join(", "),
+      };
     }
   ),
 ];
@@ -138,15 +156,21 @@ async function fetchReply(url, fetchImpl) {
   return { status: response.status, body: await response.text() };
 }
 
+/** A check's verdict as { problem, name }: what is wrong (or null), and the name it goes under in the title */
 async function look(check, fetchImpl, now) {
+  let verdict;
   try {
     const reply = await fetchReply(check.url, fetchImpl);
     // A second address only informs the verdict; if it cannot be read, the check judges without it
     const also = check.also ? await fetchReply(check.also, fetchImpl).catch(() => null) : undefined;
-    return check.judge(reply, now, also);
+    verdict = check.judge(reply, now, also);
   } catch (error) {
-    return `did not answer (${error?.name === "TimeoutError" ? "no reply in 20 seconds" : error?.message ?? "no connection"})`;
+    verdict = `did not answer (${error?.name === "TimeoutError" ? "no reply in 20 seconds" : error?.message ?? "no connection"})`;
   }
+  if (verdict && typeof verdict === "object") {
+    return { problem: verdict.problem || null, name: verdict.tag ? `${check.name} (${verdict.tag})` : check.name };
+  }
+  return { problem: verdict || null, name: check.name };
 }
 
 /**
@@ -155,12 +179,12 @@ async function look(check, fetchImpl, now) {
  * nobody reads.
  */
 export async function lookAtEverything({ fetchImpl = fetch, now = () => new Date(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), checks = CHECKS } = {}) {
-  const first = await Promise.all(checks.map(async (check) => ({ check, problem: await look(check, fetchImpl, now()) })));
-  const doubtful = first.filter((result) => result.problem);
+  const first = await Promise.all(checks.map(async (check) => ({ check, verdict: await look(check, fetchImpl, now()) })));
+  const doubtful = first.filter((result) => result.verdict.problem);
   if (doubtful.length === 0) return [];
   await sleep(60_000);
-  const second = await Promise.all(doubtful.map(async ({ check }) => ({ name: check.name, problem: await look(check, fetchImpl, now()) })));
-  return second.filter((result) => result.problem);
+  const second = await Promise.all(doubtful.map(async ({ check }) => look(check, fetchImpl, now())));
+  return second.filter((result) => result.problem).map(({ name, problem }) => ({ name, problem }));
 }
 
 /** The title an issue gets for these problems: one line, the same for the same problems. */

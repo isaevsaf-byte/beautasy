@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { judge, leadIdFor, nearHer, plainText, telegramMessage, type LeadCandidate } from "./leadScout";
-import { keepers, leadDocument, leadEmailHtml, leadEmailSubject, runLeadSearch, tenderTally } from "./leadRun";
+import { keepers, leadDocument, leadEmailHtml, leadEmailSubject, runLeadSearch, telegramSend, telegramSendEach, telegramToAny, tenderTally } from "./leadRun";
 import { factsFromContractsFinder } from "./tenderJudge";
 import type { SourceResult } from "./leadSources";
 
@@ -236,4 +236,39 @@ test("a job advert is kept only if the work comes to her, near or not", () => {
 
 test("a sewer on a job board is drains, not sewing", () => {
   assert.equal(judge(post("Sewer Network Operative", "Wastewater sewer technician wanted in Southampton.", { source: "reed", askingByNature: true })).why.includes("шитьё"), false);
+});
+
+test("Telegram: a chat that refuses does not keep the message from the others", async () => {
+  const saved = { fetch: globalThis.fetch, token: process.env.TELEGRAM_BOT_TOKEN, chats: process.env.TELEGRAM_LEADS_CHAT_IDS };
+  const asked: string[] = [];
+  process.env.TELEGRAM_BOT_TOKEN = "test-token";
+  process.env.TELEGRAM_LEADS_CHAT_IDS = "111, 222";
+  globalThis.fetch = (async (_url: string, init: { body: string }) => {
+    const { chat_id } = JSON.parse(init.body) as { chat_id: string };
+    asked.push(chat_id);
+    return chat_id === "111" ? new Response("Forbidden: bot was blocked by the user", { status: 403 }) : new Response("{}", { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    // The morning run: a chat that blocked the bot costs the other chat nothing
+    const w = world();
+    const { telegram: _unused, ...withoutTelegram } = w.deps;
+    void _unused;
+    const result = await runLeadSearch(withoutTelegram);
+    assert.equal(result.telegram, 1, "told: the other chat got it");
+    assert.deepEqual(asked, ["111", "222", "111", "222"], "the find and the Monday word, to both chats");
+    asked.length = 0;
+    assert.deepEqual(await telegramSendEach("hi"), { reached: 1, failed: ["Telegram 403: Forbidden: bot was blocked by the user"] });
+    assert.deepEqual(asked, ["111", "222"], "the second chat still asked");
+    await assert.rejects(telegramSend("hi"), /Telegram 403/, "all-or-nothing callers still hear of it");
+    process.env.TELEGRAM_LEADS_CHAT_IDS = "111";
+    await assert.rejects(telegramToAny("hi"), /Telegram 403/, "nobody got it: not told");
+    process.env.TELEGRAM_LEADS_CHAT_IDS = "";
+    assert.deepEqual(await telegramSendEach("hi"), { reached: 0, failed: ["Telegram is not configured"] });
+  } finally {
+    globalThis.fetch = saved.fetch;
+    if (saved.token === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
+    else process.env.TELEGRAM_BOT_TOKEN = saved.token;
+    if (saved.chats === undefined) delete process.env.TELEGRAM_LEADS_CHAT_IDS;
+    else process.env.TELEGRAM_LEADS_CHAT_IDS = saved.chats;
+  }
 });

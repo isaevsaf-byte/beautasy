@@ -4,8 +4,8 @@
  * there yet, so an item Kristina has edited stays as she left it.
  *
  * Once the list is in the Studio it is hers: an item she deleted would come
- * back with a plain --write, so after the first time --write needs --only and
- * the ids to add.
+ * back with a plain --write, so after the first time — items in the Studio, or
+ * the Monday run's mark — --write needs --only and the ids to add.
  *
  *   node --env-file=.env.local --import tsx scripts/seed-supplies.ts                                   # what it would add
  *   node --env-file=.env.local --import tsx scripts/seed-supplies.ts --write                           # the first time
@@ -23,7 +23,8 @@ async function main() {
 
   const ids = SUPPLY_SEED.map((item) => item._id);
   const there = new Set(await sanityWriteClient.fetch<string[]>(`*[_id in $ids || _id in $drafts]._id`, { ids, drafts: ids.map((id) => `drafts.${id}`) }));
-  const any = await sanityWriteClient.fetch<number>(`count(*[_type == "supplyItem"])`);
+  // The list was seeded once it has items, or once the Monday run has left its mark — even if she emptied it since
+  const any = await sanityWriteClient.fetch<number>(`count(*[_type == "supplyItem"]) + count(*[_id == "supplyWatchState"])`);
   const fresh = SUPPLY_SEED.filter((item) => !there.has(item._id) && !there.has(`drafts.${item._id}`) && (!only || only.has(item._id)));
   for (const item of SUPPLY_SEED) console.log(`${there.has(item._id) ? "есть    " : fresh.includes(item) ? "добавить" : "нет     "}  ${item._id}  ${item.name}`);
   if (fresh.length === 0) {
@@ -36,7 +37,7 @@ async function main() {
   }
   // A list already in the Studio is Kristina's: what is missing from it she may have deleted
   if (any && !only) {
-    console.log(`\nВ Studio уже ${any} — список её. Чтобы добавить, назовите что: --write --only ${fresh.map((item) => item._id).join(",")}`);
+    console.log(`\nСписок уже заводили — он её, удалённое могло быть удалено нарочно. Чтобы добавить, назовите что: --write --only ${fresh.map((item) => item._id).join(",")}`);
     process.exitCode = 1;
     return;
   }

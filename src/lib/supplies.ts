@@ -59,6 +59,10 @@ export interface SupplyOffer {
   seenAt?: string | null;
   seenPack?: number | null;
   seenTiers?: string | null;
+  /** The page and, for a product sold in options, which options it listed — a different one is read afresh */
+  seenFrom?: string | null;
+  /** «Сколько плачу сейчас» at that reading — changed since, and a price well under it is news again */
+  seenYours?: number | null;
 }
 
 export interface SupplyItem {
@@ -74,9 +78,21 @@ export interface SupplyItem {
   note?: string;
 }
 
-/** £ per unit, with VAT */
+/**
+ * £ per unit, with VAT — or null when the buy has no price yet. The Studio
+ * saves as she types, so a half-filled offer reaches here with nulls; a
+ * missing price is not a free one.
+ */
 export function unitPrice(offer: Pick<SupplyOffer, "pack" | "price">): number | null {
-  return offer.pack > 0 && offer.price >= 0 ? offer.price / offer.pack : null;
+  const { pack, price } = offer as { pack: unknown; price: unknown };
+  return typeof pack === "number" && pack > 0 && typeof price === "number" && price > 0 ? price / pack : null;
+}
+
+const filled = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
+
+/** An offer whole enough to send her to: a shop, a link, a size of buy and its price */
+export function listable(offer: SupplyOffer): boolean {
+  return filled(offer.shop) && filled(offer.url) && /^https:\/\//.test(offer.url) && unitPrice(offer) !== null;
 }
 
 /** "£0.55/м", "2.2p/шт" */
@@ -125,8 +141,15 @@ export interface ShopPrices {
   tiers: { qty: number; price: number }[];
 }
 
-/** What a page said: its prices, or why they cannot be trusted — for Safar, in Russian */
-export type ShopReading = { ok: true; prices: ShopPrices } | { ok: false; why: string };
+/**
+ * What a page said: its prices and, for a product sold in options, which
+ * options it listed ("" for a plain product) — or why it cannot be trusted,
+ * for Safar, in Russian
+ */
+export type ShopReading = { ok: true; prices: ShopPrices; options: string } | { ok: false; why: string; mixed?: true };
+
+/** Said of a product whose options cost differently: which one she buys, the page cannot tell */
+export const MIXED_OPTIONS = "у товара варианты с разной ценой — смотреть вручную";
 
 const CHANGED = "на странице не нашлась цена — сменилась вёрстка?";
 
@@ -177,14 +200,16 @@ export function empressMillsPrices(html: string): ShopReading {
   const options = objectAfter(html, '"optionPrices":');
   if (options !== undefined) {
     if (!options || typeof options !== "object") return { ok: false, why: CHANGED };
-    const shapes = Object.values(options as Record<string, { finalPrice?: { amount?: unknown }; tierPrices?: unknown }>).map((option) => ({
+    const table = options as Record<string, { finalPrice?: { amount?: unknown }; tierPrices?: unknown }>;
+    const shapes = Object.values(table).map((option) => ({
       single: Number(option?.finalPrice?.amount),
       tiers: tiersOf(option?.tierPrices),
     }));
     if (!shapes.length || shapes.some((s) => !(s.single > 0) || !s.tiers)) return { ok: false, why: CHANGED };
     const first = JSON.stringify(shapes[0]);
-    if (shapes.some((s) => JSON.stringify(s) !== first)) return { ok: false, why: "у товара варианты с разной ценой — смотреть вручную" };
-    return { ok: true, prices: { single: shapes[0].single, tiers: shapes[0].tiers! } };
+    if (shapes.some((s) => JSON.stringify(s) !== first)) return { ok: false, why: MIXED_OPTIONS, mixed: true };
+    // Options sold out drop off the page: the ones listed are part of what was read
+    return { ok: true, prices: { single: shapes[0].single, tiers: shapes[0].tiers! }, options: Object.keys(table).sort().join(",") };
   }
   const single = Number(/itemprop="price" content="([\d.]+)"/.exec(html)?.[1]);
   const tiersText = /"tierPrices":(\[[^\]]*\])/.exec(html)?.[1];
@@ -196,7 +221,7 @@ export function empressMillsPrices(html: string): ShopReading {
   } catch {
     tiers = null;
   }
-  return tiers ? { ok: true, prices: { single, tiers } } : { ok: false, why: CHANGED };
+  return tiers ? { ok: true, prices: { single, tiers }, options: "" } : { ok: false, why: CHANGED };
 }
 
 /** "1 м £1.00 · от 10 м £0.85 · от 25 м £0.55" — the shop's steps, as the Studio shows them */
@@ -222,26 +247,41 @@ export type SupplyNews =
   | { kind: "cheaper"; was: number; now: number }
   | { kind: "belowYours"; now: number; yours: number };
 
+const positive = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+
 /**
  * What one reading means for her. The first reading is the baseline: a price
  * is news only when it falls by a tenth or more since the last, or when it
- * first comes in well under what she pays now. A rise is written down, not
- * announced.
+ * comes in well under what she pays now — the first time it does, or the
+ * first time since she changed what she pays (`seenYours`, hers at the last
+ * reading). A rise is written down, not announced.
  */
-export function newsOf(now: number, seen: number | null | undefined, yours: number | null | undefined): SupplyNews | null {
+export function newsOf(
+  now: number,
+  seen: number | null | undefined,
+  yours: number | null | undefined,
+  seenYours?: number | null
+): SupplyNews | null {
   // Sanity hands back null for a field never written: missing, not nought
-  const was = typeof seen === "number" && Number.isFinite(seen) && seen > 0 ? seen : undefined;
-  const mine = typeof yours === "number" && Number.isFinite(yours) && yours > 0 ? yours : undefined;
+  const was = positive(seen);
+  const mine = positive(yours);
   const below = (price: number) => mine !== undefined && price <= mine * (1 - MUCH_CHEAPER);
-  if (below(now) && (was === undefined || !below(was))) return { kind: "belowYours", now, yours: mine! };
+  const hersChanged = positive(seenYours) !== mine;
+  if (below(now) && (was === undefined || !below(was) || hersChanged)) return { kind: "belowYours", now, yours: mine! };
   if (was !== undefined && now <= was * (1 - WORTH_SAYING)) return { kind: "cheaper", was, now };
   return null;
 }
 
 // ─── What she reads in Telegram (HTML parse mode: only <b>, <i>, <a>)
 
-function telegramEscape(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+/** Safe for Telegram's HTML, inside text or a link's quotes; a missing value is an empty one */
+function telegramEscape(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export interface SupplyFind {
@@ -268,19 +308,28 @@ export function supplyNewsMessage(finds: SupplyFind[]): string {
 
 /** What Telegram counts: the text with its tags taken out and its escapes read as one character */
 function shownLength(html: string): number {
-  return html.replace(/<[^>]+>/g, "").replace(/&(amp|lt|gt);/g, "x").length;
+  return html.replace(/<[^>]+>/g, "").replace(/&(amp|lt|gt|quot);/g, "x").length;
 }
 
 /** Telegram refuses a message over 4096 characters: whole lines only, with room to spare */
 const TELEGRAM_ROOM = 3800;
+
+/** A price the weekly run is meant to keep, unconfirmed this long, is not offered as today's */
+const CONFIRMED_WITHIN_DAYS = 21;
 
 /**
  * Once a month, and on the very first run: the list itself, the cheapest buy
  * for each thing, so the place to buy is in her chat, not only in the Studio.
  * Made of whole lines — a message cut inside a link is refused whole — and
  * when the list outgrows one message, the rest are named as waiting in the Studio.
+ * Given `now`, a shop the run reads counts only with a price it confirmed lately.
  */
-export function supplyDigest(items: SupplyItem[]): string {
+export function supplyDigest(items: SupplyItem[], now?: Date): string {
+  const confirmed = (offer: SupplyOffer) => {
+    if (!now || !watched(offer.url)) return true;
+    const at = Date.parse(offer.seenAt ?? "");
+    return at > 0 && now.getTime() - at <= CONFIRMED_WITHIN_DAYS * 24 * 60 * 60 * 1000;
+  };
   const head = "🧵 <b>Где брать мини-опт</b> — дешевле всего за единицу, с VAT, без доставки:";
   const foot = [
     "",
@@ -289,10 +338,14 @@ export function supplyDigest(items: SupplyItem[]): string {
   ];
   const lines = items
     .map((item) => {
-      const best = bestOffer(item);
+      // Half-filled things wait in the Studio until they are whole
+      if (!filled(item.name)) return null;
+      const best = bestOffer({ offers: (item.offers ?? []).filter((offer) => listable(offer) && confirmed(offer)) });
       const price = best ? unitPrice(best) : null;
       if (!best || price === null) return null;
-      return `• <b>${telegramEscape(item.name)}</b>: ${perUnit(price, item.unit)} — ${telegramEscape(best.shop)}, ${unitWord(item.unit, best.pack)} · <a href="${telegramEscape(best.url)}">открыть</a> · <a href="${telegramEscape(ebaySearchUrl(item.spec))}">eBay</a>`;
+      const unit = SUPPLY_UNITS.some((u) => u.value === item.unit) ? item.unit : "piece";
+      const ebay = filled(item.spec) ? ` · <a href="${telegramEscape(ebaySearchUrl(item.spec.trim()))}">eBay</a>` : "";
+      return `• <b>${telegramEscape(item.name)}</b>: ${perUnit(price, unit)} — ${telegramEscape(best.shop)}, ${unitWord(unit, best.pack)} · <a href="${telegramEscape(best.url)}">открыть</a>${ebay}`;
     })
     .filter((line): line is string => line !== null);
   const kept: string[] = [];

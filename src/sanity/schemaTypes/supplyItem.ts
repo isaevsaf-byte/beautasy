@@ -76,13 +76,15 @@ export const supplyItem = defineType({
               description: "25 — рулон 25 м, 1000 — коробка крючков, 5 — конус 5000 м нитки.",
               validation: (Rule) => Rule.required().positive(),
             }),
-            defineField({ name: "price", title: "Цена покупки, £ с VAT", type: "number", validation: (Rule) => Rule.required().min(0) }),
+            defineField({ name: "price", title: "Цена покупки, £ с VAT", type: "number", validation: (Rule) => Rule.required().positive() }),
             defineField({ name: "note", title: "Заметка", type: "text", rows: 2, description: "Доставка, минимум, что за товар." }),
             // Written by the Monday run, for Empress Mills only
             defineField({ name: "seenTiers", title: "Цены магазина", type: "string", readOnly: true, description: "Как их показал сайт магазина при последней проверке, с VAT." }),
             defineField({ name: "seenAt", title: "Проверено", type: "datetime", readOnly: true }),
             defineField({ name: "seenUnitPrice", title: "Цена за единицу при проверке, £", type: "number", readOnly: true, hidden: ({ value }) => value === undefined }),
             defineField({ name: "seenPack", title: "Для покупки в", type: "number", readOnly: true, hidden: true }),
+            defineField({ name: "seenFrom", title: "Какая страница и варианты", type: "string", readOnly: true, hidden: true }),
+            defineField({ name: "seenYours", title: "Её цена при проверке", type: "number", readOnly: true, hidden: true }),
           ],
           preview: {
             select: { shop: "shop", pack: "pack", price: "price", note: "note" },

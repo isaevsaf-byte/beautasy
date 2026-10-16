@@ -143,20 +143,50 @@ export function leadEmailHtml(fresh: StoredLead[], problems: Record<string, stri
 </body></html>`;
 }
 
-/** Telegram's sendMessage, to every chat in TELEGRAM_LEADS_CHAT_IDS. Throws when Telegram says no. */
-export async function telegramSend(text: string): Promise<void> {
+/**
+ * Telegram's sendMessage, to every chat in TELEGRAM_LEADS_CHAT_IDS at once —
+ * each one tried, so a chat that refuses does not keep the message from the
+ * others, and a slow Telegram costs one wait, not one per chat. Says how many
+ * got it and why the rest did not.
+ */
+export async function telegramSendEach(text: string): Promise<{ reached: number; failed: string[] }> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chats = (process.env.TELEGRAM_LEADS_CHAT_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (!token || chats.length === 0) throw new Error("Telegram is not configured");
-  for (const chat_id of chats) {
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id, text, parse_mode: "HTML", disable_web_page_preview: true }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) throw new Error(`Telegram ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  }
+  if (!token || chats.length === 0) return { reached: 0, failed: ["Telegram is not configured"] };
+  const answers = await Promise.all(
+    chats.map(async (chat_id): Promise<string | null> => {
+      try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id, text, parse_mode: "HTML", disable_web_page_preview: true }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        return res.ok ? null : `Telegram ${res.status}: ${(await res.text()).slice(0, 200)}`;
+      } catch (error) {
+        return `Telegram: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    })
+  );
+  const failed = answers.filter((answer): answer is string => answer !== null);
+  return { reached: chats.length - failed.length, failed };
+}
+
+/**
+ * The same, as one message told: throws only when no chat got it. A chat that
+ * refused while another got it comes back in `failed` — told, but not to all.
+ */
+export async function telegramToAny(text: string): Promise<{ failed: string[] }> {
+  const { reached, failed } = await telegramSendEach(text);
+  if (!reached) throw new Error(failed.join("; ") || "no chat got it");
+  if (failed.length) console.error("Telegram: not every chat got it:", failed.join("; "));
+  return { failed };
+}
+
+/** The same, for callers that need all or nothing: throws when any chat did not get it */
+export async function telegramSend(text: string): Promise<void> {
+  const { failed } = await telegramSendEach(text);
+  if (failed.length) throw new Error(failed[0]);
 }
 
 function telegramConfigured(): boolean {
@@ -180,7 +210,8 @@ export async function runLeadSearch(deps: LeadRunDeps = {}): Promise<LeadRunResu
       for (const doc of docs) tx.createIfNotExists(doc as { _id: string; _type: string });
       return tx.commit();
     });
-  const telegram = deps.telegram ?? (telegramConfigured() ? telegramSend : null);
+  // A chat that refuses must not cost the others their leads: told when any chat got it
+  const telegram = deps.telegram ?? (telegramConfigured() ? (text: string) => telegramToAny(text).then(() => undefined) : null);
   const email = deps.email ?? (process.env.RESEND_API_KEY ? (message: EmailMessage) => sendEmail(message) : null);
 
   const results = await Promise.all(sources.map((source) => source(since, now)));
