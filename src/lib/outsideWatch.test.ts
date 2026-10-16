@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CHECKS, MARK, decide as decideActions, failsTheRun, lookAtEverything, rehearsalFor } from "../../scripts/outside-watch.mjs";
+import { CHECKS, MARK, decide as decideActions, failsTheRun, lookAtEverything, rehearsalFor, titleFor } from "../../scripts/outside-watch.mjs";
 
 /**
  * The outside watch (scripts/outside-watch.mjs) is the one thing that notices
@@ -117,15 +117,18 @@ test("the supplies watch must run on Mondays, and a problem its own run meets ag
   // Each way of being wrong is named in the title: a new one retitles an open issue and says so
   const tagOf = (result: unknown) => (verdict(result) as { tag: string }).tag;
   assert.equal(tagOf({ since: daysAgo(10), state: null }), "stopped");
-  assert.equal(tagOf({ ...list, state: { ranAt: daysAgo(0), problems: [problem(7, 0, "https://www.empressmills.co.uk/closed-end-zips#x")] } }), "closed-end-zips");
+  assert.equal(tagOf({ ...list, state: { ranAt: daysAgo(0), problems: [problem(7, 0, "https://www.empressmills.co.uk/closed-end-zips#x")] } }), "pages");
+  // Twenty pages failing are one kind of fault: the title stays short, whatever the list
+  const twenty = Array.from({ length: 20 }, (_, k) => problem(7, 0, `https://www.empressmills.co.uk/a-rather-long-product-name-${k}`));
+  assert.equal(tagOf({ ...list, state: { ranAt: daysAgo(0), problems: [...twenty, problem(7, 0, "save:supply-x"), problem(7, 0, "unread")] } }), "pages, save, unread");
   const zipsOpen = { ...list, state: { ranAt: daysAgo(0), problems: [problem(7, 0, "https://www.empressmills.co.uk/closed-end-zips")] } };
   const zipsAndChat = { ...list, state: { ranAt: daysAgo(0), problems: [problem(7, 0, "https://www.empressmills.co.uk/closed-end-zips"), problem(0, 0, "telegram", true)] } };
   const watchOf = (result: unknown) => ({ ...supplies, url: `https://dataset/${encodeURIComponent(JSON.stringify(result))}` });
   const answering = (result: unknown) => (async () => ({ status: 200, text: async () => JSON.stringify({ result }) })) as unknown as typeof fetch;
   const before = await lookAtEverything({ checks: [watchOf(zipsOpen)], fetchImpl: answering(zipsOpen), now: () => NOW, sleep: async () => {} });
-  assert.deepEqual(before.map((p) => p.name), ["Supplies watch (closed-end-zips)"]);
+  assert.deepEqual(before.map((p) => p.name), ["Supplies watch (pages)"]);
   const after = await lookAtEverything({ checks: [watchOf(zipsAndChat)], fetchImpl: answering(zipsAndChat), now: () => NOW, sleep: async () => {} });
-  assert.deepEqual(after.map((p) => p.name), ["Supplies watch (closed-end-zips, telegram)"]);
+  assert.deepEqual(after.map((p) => p.name), ["Supplies watch (pages, telegram)"]);
   const open = { number: 9, title: `🚨 beautasy.co.uk: ${before[0].name}` };
   assert.deepEqual(decide({ problems: before, open, rehearsal: false, at: "x", notify: "owner" }), [], "the same faults: quiet");
   assert.deepEqual(
@@ -133,6 +136,23 @@ test("the supplies watch must run on Mondays, and a problem its own run meets ag
     ["comment", "retitle"],
     "a new fault while the issue is open: Safar hears of it"
   );
+  // The dataset not answering for the one minute between looks: the name, and so the title, stays as it was
+  let calls = 0;
+  const blip = (async () => {
+    calls += 1;
+    return calls === 1 ? { status: 200, text: async () => JSON.stringify({ result: zipsOpen }) } : { status: 503, text: async () => "" };
+  }) as unknown as typeof fetch;
+  const steady = await lookAtEverything({ checks: [watchOf(zipsOpen)], fetchImpl: blip, now: () => NOW, sleep: async () => {} });
+  assert.deepEqual(steady, [{ name: "Supplies watch (pages)", problem: "the dataset answered 503" }]);
+  assert.deepEqual(decide({ problems: steady, open, rehearsal: false, at: "x", notify: "owner" }), [], "no email for a blip");
+  // A real change between the two looks is the second look's to name
+  let looks = 0;
+  const changing = (async () => {
+    looks += 1;
+    return { status: 200, text: async () => JSON.stringify({ result: looks === 1 ? zipsOpen : zipsAndChat }) };
+  }) as unknown as typeof fetch;
+  const changed = await lookAtEverything({ checks: [watchOf(zipsOpen)], fetchImpl: changing, now: () => NOW, sleep: async () => {} });
+  assert.deepEqual(changed.map((p) => p.name), ["Supplies watch (pages, telegram)"]);
   assert.equal(said({ ...list, state: { ranAt: daysAgo(0), problems: [{ key: "x", since: daysAgo(1), urgent: true }] } }), null, "a problem without a reason is not one to tell");
 
   // The query itself, against a dataset as the watch would find it
@@ -212,4 +232,11 @@ test("the watch runs on a schedule, needs no secret of anyone's, and rehearses w
   assert.doesNotMatch(workflow.replace("secrets.GITHUB_TOKEN", ""), /secrets\./, "only GitHub's own token: nothing to leak or expire");
   assert.match(workflow, /REHEARSE: \$\{\{ github\.event_name == 'push' \|\| inputs\.rehearse == true \}\}/);
   assert.match(workflow, /run: node scripts\/outside-watch\.mjs/);
+});
+
+test("a title is never longer than GitHub takes, and the same problems always give the same one", () => {
+  const many = Array.from({ length: 40 }, (_, k) => ({ name: `Some rather long check name number ${k}`, problem: "x" }));
+  const title = (titleFor as unknown as (p: typeof many) => string)(many);
+  assert.ok(title.length <= 256, `${title.length}`);
+  assert.equal(title, (titleFor as unknown as (p: typeof many) => string)(many));
 });

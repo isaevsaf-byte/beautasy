@@ -137,11 +137,11 @@ export const CHECKS = [
       );
       if (!lasting.length) return null;
       const told = lasting.slice(0, 3).map((problem) => `${problem.key}: ${problem.why} (since ${problem.since.slice(0, 10)})`);
-      // Named by what is wrong — a page by the last part of its address — so another fault retitles the issue
-      const short = (key) => String(key).replace(/^https?:\/\/[^/]+\//, "").replace(/[?#].*$/, "").split("/").filter(Boolean).pop() ?? String(key);
+      // Named by the kind of fault — a few kinds, never a list of pages — so another kind retitles the issue
+      const kind = (key) => (/^https?:/.test(key) ? "pages" : String(key).split(":")[0]);
       return {
         problem: `has a problem that did not pass by itself — ${told.join("; ")}${lasting.length > 3 ? `; and ${lasting.length - 3} more` : ""}`,
-        tag: [...new Set(lasting.map((problem) => short(problem.key)))].sort().join(", "),
+        tag: [...new Set(lasting.map((problem) => kind(problem.key)))].sort().join(", "),
       };
     }
   ),
@@ -183,13 +183,20 @@ export async function lookAtEverything({ fetchImpl = fetch, now = () => new Date
   const doubtful = first.filter((result) => result.verdict.problem);
   if (doubtful.length === 0) return [];
   await sleep(60_000);
-  const second = await Promise.all(doubtful.map(async ({ check }) => look(check, fetchImpl, now())));
+  const second = await Promise.all(
+    doubtful.map(async ({ check, verdict }) => {
+      const again = await look(check, fetchImpl, now());
+      // A reply that could not be read this once says nothing new about what is wrong: the name stays, the title too
+      return again.problem && again.name === check.name && verdict.name !== check.name ? { ...again, name: verdict.name } : again;
+    })
+  );
   return second.filter((result) => result.problem).map(({ name, problem }) => ({ name, problem }));
 }
 
 /** The title an issue gets for these problems: one line, the same for the same problems. */
 export function titleFor(problems) {
-  return `🚨 beautasy.co.uk: ${problems.map((p) => p.name).join(", ")}`;
+  // GitHub refuses a title over 256 characters; cut the same way every time, so the same problems give the same title
+  return `🚨 beautasy.co.uk: ${problems.map((p) => p.name).join(", ")}`.slice(0, 250);
 }
 
 export function bodyFor(problems, { at, notify }) {
@@ -265,6 +272,8 @@ async function main() {
   const at = new Date().toISOString().slice(0, 16).replace("T", " ");
 
   const problems = await lookAtEverything();
+  // Said before GitHub is asked anything, so the log shows what was wrong even if GitHub refuses
+  for (const p of problems) console.log(`✗ ${p.name}: ${p.problem}`);
   const issues = await github("/issues?state=open&per_page=100");
   const open = issues.find((issue) => !issue.pull_request && issue.body?.includes(MARK)) ?? null;
 
@@ -281,7 +290,6 @@ async function main() {
     }
   }
 
-  for (const p of problems) console.log(`✗ ${p.name}: ${p.problem}`);
   if (problems.length === 0) console.log(`✓ All ${CHECKS.length} checks pass${rehearsal ? " (rehearsal alert sent)" : ""}`);
   if (failsTheRun({ problems, open })) process.exitCode = 1;
 }

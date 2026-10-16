@@ -409,20 +409,26 @@ test("the news reached her but the list did not: the news is not sent again, the
   assert.equal(w.marks[0].digestAt, undefined, "the list goes next Monday");
 });
 
-test("one chat refused while the other got it: not told until both have it; a blocked bot is Safar's at once", async () => {
-  const w = world({ seen: 0.62, was: null, telegram: async () => ({ failed: ["Telegram 403: Forbidden: bot was blocked by the user"] }) });
-  const result = await runSupplyWatch(w.deps);
+test("one chat refused while the other got it: a passing hiccup is sent again, a chat gone for good is Safar's at once", async () => {
+  // A passing hiccup in one chat: not told — both get it again next Monday; told to Safar only if it happens again
+  const hiccup = world({ seen: 0.62, was: null, telegram: async () => ({ failed: ["Telegram: The operation was aborted due to timeout"] }) });
+  const result = await runSupplyWatch(hiccup.deps);
   assert.equal(result.telegram, "failed");
-  assert.equal("seenUnitPrice" in w.elastic()!, false, "the fall goes again next Monday — to her this time, if she unblocks the bot");
-  assert.equal(w.marks[0].digestAt, undefined, "the list too");
-  const refusal = w.marks[0].problems.find((p) => p.key === "telegram")!;
-  assert.match(refusal.why, /не во все чаты: Telegram 403.*заблокирован ли бот/);
-  assert.equal(refusal.urgent, true, "a blocked bot does not unblock itself: Safar hears at once");
-  // A passing hiccup in one chat: sent again, and told only if it happens again
-  const hiccup = world({ seen: 0.62, telegram: async () => ({ failed: ["Telegram: The operation was aborted due to timeout"] }) });
-  await runSupplyWatch(hiccup.deps);
-  assert.equal("seenUnitPrice" in hiccup.elastic()!, false);
+  assert.equal("seenUnitPrice" in hiccup.elastic()!, false, "the fall goes again next Monday");
+  assert.equal(hiccup.marks[0].digestAt, undefined, "the list too");
   assert.equal(hiccup.marks[0].problems[0].urgent, undefined);
+  // A chat that blocked the bot: resending would repeat it to the other chat every Monday — told, and Safar hears at once
+  const blocked = world({ seen: 0.62, was: null, telegram: async () => ({ failed: ["Telegram 403: Forbidden: bot was blocked by the user"] }) });
+  await runSupplyWatch(blocked.deps);
+  assert.equal(blocked.elastic()!.seenUnitPrice, 0.55, "not sent again next Monday");
+  assert.equal(blocked.marks[0].digestAt, "2026-10-19T07:15:00.000Z");
+  const refusal = blocked.marks[0].problems.find((p) => p.key === "telegram")!;
+  assert.match(refusal.why, /не во все чаты: Telegram 403.*заблокирован ли бот/);
+  assert.equal(refusal.urgent, true);
+  // Three chats: one gone for good, one with a hiccup — sent again, so the one with the hiccup gets it
+  const both = world({ seen: 0.62, was: null, telegram: async () => ({ failed: ["Telegram 403: Forbidden", "Telegram 502: Bad Gateway"] }) });
+  await runSupplyWatch(both.deps);
+  assert.equal("seenUnitPrice" in both.elastic()!, false);
   // A quiet Monday after: nothing sent, so nothing known — the refusal stands as it was
   const quiet = world({ seen: 0.55, was: { ...MONTH_SENT, problems: [refusal] }, now: new Date("2026-10-26T07:15:00Z") });
   await runSupplyWatch(quiet.deps);

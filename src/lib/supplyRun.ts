@@ -306,7 +306,13 @@ export async function runSupplyWatch(deps: SupplyRunDeps = {}): Promise<SupplyRu
       (urgentNow ? " — проверьте, не заблокирован ли бот в чате; отметка сойдёт со следующим сообщением сторожа, когда его получат все чаты" : "");
     if (urgentNow) urgent.add("telegram");
   };
-  /** Told only when every chat got it: a message that reached Safar's chat and not hers goes again next Monday */
+  /**
+   * Told when every chat got it. A chat that missed it for a passing reason
+   * (a timeout, Telegram busy) gets it again next Monday, and so does the
+   * other; a chat that refuses for good (the bot blocked, the chat gone) would
+   * make that every Monday — so the message counts as told, and Safar hears
+   * of the chat at once.
+   */
   const send = async (text: string): Promise<boolean> => {
     try {
       const answer = await telegram!(text);
@@ -315,7 +321,7 @@ export async function runSupplyWatch(deps: SupplyRunDeps = {}): Promise<SupplyRu
       if (!failed.length) return true;
       fault(failed, false);
       refused = true;
-      return false;
+      return failed.every((why) => WILL_NOT_PASS.test(why));
     } catch (error) {
       console.error("Supplies watch: Telegram refused:", messageOf(error));
       fault([messageOf(error)], true);
