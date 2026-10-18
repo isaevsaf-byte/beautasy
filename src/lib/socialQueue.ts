@@ -7,7 +7,7 @@ import {
   type CaptionSource,
 } from "@/lib/socialCaptions";
 import { publishToInstagram, startReel, finishReel, instagramConfigured } from "@/lib/instagram";
-import { createPin, pinTextFrom, pinterestConfigured } from "@/lib/pinterest";
+import { PINTEREST_NOT_CONNECTED, createPin, pinTextFrom, pinterestConfigured } from "@/lib/pinterest";
 import { SITE_URL } from "@/lib/site";
 import { SITE_SETTINGS } from "@/lib/siteSettingsDocument";
 import {
@@ -426,7 +426,10 @@ async function publishOne(post: DuePost) {
  * document, so a resumed Reel cannot pin twice.
  */
 async function pinIfWanted(post: DuePost): Promise<Record<string, unknown>> {
-  if (post.pinToPinterest === false || !pinterestConfigured()) return {};
+  if (post.pinToPinterest === false) return {};
+  // Until 18.10.2026 this returned nothing here too, and a month of posts
+  // with the box ticked left no trace that no Pin was ever made
+  if (!pinterestConfigured()) return { pinError: PINTEREST_NOT_CONNECTED };
 
   try {
     const { title, description } = pinTextFrom({

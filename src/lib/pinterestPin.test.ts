@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { pinTextFrom } from "./pinterest";
+import { PINTEREST_NOT_CONNECTED, pinTextFrom } from "./pinterest";
 
 /**
  * What a Pin is for, and what must not take a post down with it.
@@ -62,4 +62,10 @@ test("the Pin carries a link to the product, not just to the shop", () => {
     /\/shop\/\$\{post\.productSlug\}/,
     "A Pin without a product link is a picture on somebody else's website."
   );
+});
+
+test("a ticked box with no Pinterest key says so on the post instead of doing nothing", () => {
+  const fn = QUEUE.slice(QUEUE.indexOf("async function pinIfWanted"));
+  assert.match(fn, /if \(!pinterestConfigured\(\)\) return \{ pinError: PINTEREST_NOT_CONNECTED \};/);
+  assert.match(PINTEREST_NOT_CONNECTED, /не подключён/);
 });

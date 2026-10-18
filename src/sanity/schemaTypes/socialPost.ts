@@ -128,7 +128,7 @@ export const socialPost = defineType({
       type: "boolean",
       initialValue: true,
       description:
-        "Пост в Instagram живёт один день, а пин в Pinterest находят и через год — и в нём есть ссылка на товар. Выключите для всего, что не стоит хранить.",
+        "Пост в Instagram живёт один день, а пин в Pinterest находят и через год — и в нём есть ссылка на товар. Работает, только когда сайт подключён к Pinterest («Соцсети» → «Как подключить Pinterest»); до тех пор пин не создаётся, а в «Ответ Pinterest» появится, почему.",
     }),
     defineField({
       name: "pinUrl",

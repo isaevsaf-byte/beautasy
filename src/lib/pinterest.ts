@@ -30,6 +30,10 @@ function token(): string | null {
   return process.env.PINTEREST_ACCESS_TOKEN?.trim() || null;
 }
 
+/** What a post says in «Ответ Pinterest» while the site has no Pinterest key */
+export const PINTEREST_NOT_CONNECTED =
+  "Pinterest не подключён — пин не создан. Выложите его руками: «Соцсети» → «Пины — готовы»; как подключить — «Соцсети» → «Как подключить Pinterest».";
+
 export function pinterestConfigured(): boolean {
   return token() !== null;
 }
