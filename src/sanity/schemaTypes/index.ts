@@ -20,6 +20,7 @@ import { facebookGroup } from "./facebookGroup";
 import { lead } from "./lead";
 import { leadPlace } from "./leadPlace";
 import { supplyItem } from "./supplyItem";
+import { pinterestPin } from "./pinterestPin";
 
 export const schemaTypes = [
   product,
@@ -44,4 +45,5 @@ export const schemaTypes = [
   lead,
   leadPlace,
   supplyItem,
+  pinterestPin,
 ];

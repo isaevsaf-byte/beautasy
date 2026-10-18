@@ -27,6 +27,10 @@ export const STUDIO_MOVES: Readonly<Record<string, string>> = {
   reels: "social",
   uzheOpublikovany: "social",
   facebookGroup: "social",
+  // Born in the folder (18.10.2026)
+  pinyGotovy: "social",
+  pinyVylozheny: "social",
+  pinterestGuide: "social",
 
   product: "shop",
   order: "shop",

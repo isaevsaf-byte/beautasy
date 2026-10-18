@@ -5,6 +5,7 @@ import { ManualBookingPane } from "./ManualBookingPane";
 import { LedgerPane } from "./LedgerPane";
 import { PartnersPane } from "./PartnersPane";
 import { FacebookGroupsPane } from "./FacebookGroupsPane";
+import { PinterestGuidePane } from "./PinterestGuidePane";
 import {
   ETSY_REVIEWS_FILTER,
   ETSY_TEMPLATE_ID,
@@ -254,6 +255,35 @@ export const structure: StructureResolver = (S) =>
                 ),
               S.divider().title("Facebook"),
               S.documentTypeListItem("facebookGroup").title("Группы Facebook"),
+              // Pinterest: Pins made from the gallery, posted by hand until the
+              // site is connected — the guide says how to connect it
+              S.divider().title("Pinterest"),
+              S.listItem()
+                .id("pinyGotovy")
+                .title("Пины — готовы")
+                .child(
+                  S.documentList()
+                    .title("Готовы")
+                    .apiVersion("2024-01-29")
+                    .filter('_type == "pinterestPin" && status != "posted"')
+                    .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+              S.listItem()
+                .id("pinyVylozheny")
+                .title("Пины — выложены")
+                .child(
+                  S.documentList()
+                    .title("Выложены")
+                    .apiVersion("2024-01-29")
+                    .filter('_type == "pinterestPin" && status == "posted"')
+                    .defaultOrdering([{ field: "createdAt", direction: "desc" }])
+                    .canHandleIntent(defaultIntentChecker)
+                ),
+              S.listItem()
+                .id("pinterestGuide")
+                .title("Как подключить Pinterest")
+                .child(S.component(PinterestGuidePane).id("pinterest-guide-pane").title("Как подключить Pinterest")),
             ])
         ),
 

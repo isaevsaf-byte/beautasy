@@ -74,6 +74,15 @@ export const socialPost = defineType({
         }),
     }),
     defineField({
+      name: "music",
+      title: "Музыка — выбрать в Instagram",
+      type: "text",
+      rows: 3,
+      description:
+        "Подсказка, какой трек поставить. Музыку из библиотеки Instagram сайт добавить не может: чтобы ролик вышел с ней, скачайте видео из плеера выше, выложите его в приложении Instagram и выберите трек там — а этот пост не одобряйте, иначе выйдет второй, без звука.",
+      hidden: ({ parent }) => parent?.format !== "reel",
+    }),
+    defineField({
       name: "aiGenerated",
       title: "Сделано с ИИ — метка «AI info»",
       type: "boolean",
