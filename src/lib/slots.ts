@@ -35,10 +35,21 @@ export interface DayHours {
 export interface Closure {
   /** "2026-12-25" */
   date: string;
-  /** Both absent means the whole day is closed */
+  /**
+   * "2026-12-31" — the last day closed, for a trip away (24.10.2026): every
+   * day from `date` to this one, inclusive. Absent, or before `date`, is the
+   * one day.
+   */
+  until?: string | null;
+  /** Both absent means the whole day is closed — each day of a range */
   from?: string;
   to?: string;
   note?: string;
+}
+
+/** The last day a closure closes: its own date, or the end of its range */
+export function closureLastDay(closure: Pick<Closure, "date" | "until">): string {
+  return typeof closure.until === "string" && closure.until >= closure.date ? closure.until : closure.date;
 }
 
 export interface Schedule {
@@ -221,10 +232,22 @@ function weekdayOf(date: string): Weekday {
 /** True when this minute of this day is closed. */
 function isClosed(closures: Closure[], date: string, minute: number): boolean {
   return closures.some((closure) => {
-    if (closure.date !== date) return false;
+    // Dates as "YYYY-MM-DD" compare as text in calendar order
+    if (date < closure.date || date > closureLastDay(closure)) return false;
     if (!closure.from || !closure.to) return true; // the whole day
     return minute >= minutesOf(closure.from) && minute < minutesOf(closure.to);
   });
+}
+
+/**
+ * Whether a booked time ("2026-11-03T11:00") falls inside this closure — what
+ * the Studio warns about when Kristina closes days that already have
+ * bookings. Closing a day takes it off the site; it does not cancel anyone.
+ */
+export function closureCovers(closure: Closure, slotStart: string): boolean {
+  const [date, time] = slotStart.split("T");
+  if (!date || !time) return false;
+  return isClosed([closure], date, minutesOf(time));
 }
 
 /* ─── Bank holidays ─── */

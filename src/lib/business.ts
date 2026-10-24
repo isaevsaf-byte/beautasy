@@ -71,11 +71,22 @@ export const BUSINESS = {
 /**
  * How a visit works, in the one line every page uses for it. The atelier is in
  * Kristina's home: nobody can drop in, and the address is not published — it
- * goes to each customer once a time is agreed. Pages used to say "Drop by our
- * atelier" and "No appointment needed for a repair", which sent people to a
- * door they had no address for.
+ * goes to each customer with their booking (see @/lib/atelierVisit). Pages used
+ * to say "Drop by our atelier" and "No appointment needed for a repair", which
+ * sent people to a door they had no address for.
  */
-export const BY_APPOINTMENT = "By appointment — Kristina sends the address before your visit";
+export const BY_APPOINTMENT = "By appointment — the address comes with your booking";
+
+/**
+ * How long a booked time waits for someone running late (24.10.2026). After
+ * this the time is given up and the visit is booked again — said before they
+ * book, in the confirmation, the reminder and the calendar invite, so nobody
+ * learns it at the door.
+ */
+export const LATE_GRACE_MINUTES = 15;
+
+/** The rule in the customer's words, one sentence, for every place that says it */
+export const LATE_RULE = `We hold your time for ${LATE_GRACE_MINUTES} minutes. After that it's given up, and you'll need to book a new one.`;
 
 /** A WhatsApp link that opens with the message already typed. */
 export function whatsappLink(text: string): string {

@@ -8,7 +8,8 @@ import { friendsBlockHtml, ownLinkFor, referralSettings, rewardReferral } from "
 import type { ReferralSettings } from "@/lib/referralRules";
 import { pounds } from "@/lib/friendsLink";
 import { googleReviewUrl } from "@/lib/siteSettings";
-import { BUSINESS, whatsappLink } from "@/lib/business";
+import { BUSINESS, LATE_RULE, whatsappLink } from "@/lib/business";
+import { atelierVisit } from "@/lib/atelierVisit";
 import { DEFAULT_SCHEDULE, durationLabel, instantOf, slotLabel, spanLabel, spanMinutes, timeLabel } from "@/lib/slots";
 import { calendarUid, eveningBefore, fittingEvent, googleCalendarLink, icsInvite, type CalendarEvent } from "@/lib/bookingCalendar";
 import { whatToBring } from "@/lib/whatToBring";
@@ -93,17 +94,22 @@ export function fittingOf(booking: NotifiableBooking): CalendarEvent | null {
   // What to bring, for the job booked: in the title, which is what the
   // reminders show, and first in the notes
   const bring = whatToBring(booking.service);
+  const visit = atelierVisit();
   return fittingEvent({
     slotStart: booking.slotStart,
     // A bride's fitting holds two slots, and her calendar holds both
     minutes: spanMinutes(booking.slotStart, booking.slotEnd) ?? booking.slotMinutes ?? DEFAULT_SCHEDULE.slotMinutes,
     bring: bring.title,
     uid: calendarUid(booking.createdAt, booking.slotStart),
-    location: `${BUSINESS.atelierName}, ${BUSINESS.address.locality}`,
+    // The street address once it is set, so the calendar's own map opens on the door
+    location: visit ? visit.address : `${BUSINESS.atelierName}, ${BUSINESS.address.locality}`,
     description:
       `Bring: ${bring.sentence} ` +
       `Your ${serviceInSentence(booking.service)} with Kristina at ${BUSINESS.atelierName}. ` +
-      `She will send you the exact address before your visit. ` +
+      (visit
+        ? `Address: ${visit.address}.${visit.directions ? ` ${visit.directions}.` : ""} `
+        : `She will send you the exact address before your visit. `) +
+      `${LATE_RULE} ` +
       `To move it, reply to the confirmation email or WhatsApp ${BUSINESS.telephone}.`,
   });
 }
@@ -253,21 +259,30 @@ const LINE_STYLE = "margin:0;color:#3d3d3d;line-height:1.6;";
 
 /**
  * What a confirmed customer needs to actually arrive: where, what to bring,
- * and how to move it. The confirmation used to say the time and "we're at the
- * atelier in Southampton", and the atelier's address is not published — so a
- * customer who booked themselves online had a time and no idea where to go.
+ * what happens if they are late, and how to move it. The confirmation used to
+ * say the time and "we're at the atelier in Southampton", and the atelier's
+ * address is not published — so a customer who booked themselves online had
+ * a time and no idea where to go.
  *
- * The street address is deliberately not in here either. It is a home
- * atelier, and anything this email says goes to whoever fills in the form, so
- * Kristina sends it herself; her own email about the booking reminds her to.
+ * Since 24.10.2026 the street address is here, with the way to the door and a
+ * link to Maps, once it is set in the server's environment (see
+ * @/lib/atelierVisit) — Kristina no longer sends it by hand. 🚨 It is her
+ * home, and this goes to whoever books a time: only a confirmed time gets
+ * this block, and without the setting it says she will send it, as before.
  */
 function arrivalHtml(service: string | undefined): string {
+  const visit = atelierVisit();
+  const where = visit
+    ? `<strong>${escapeHtml(visit.address)}</strong>${visit.directions ? `<br/>${escapeHtml(visit.directions)}` : ""}<br/><a href="${escapeHtml(visit.maps)}" style="color:#5e4b9a;">Directions in Google Maps</a>`
+    : `${BUSINESS.atelierName}, ${BUSINESS.address.locality}. Kristina will send you the exact address and how to find the door before your visit.`;
   return `
       <div style="background:#f7f3ff;border-radius:12px;padding:20px 24px;margin:22px 0 0;">
         <p style="${LABEL_STYLE}">Where</p>
-        <p style="${LINE_STYLE}margin-bottom:16px;">${BUSINESS.atelierName}, ${BUSINESS.address.locality}. Kristina will send you the exact address and how to find the door before your visit.</p>
+        <p style="${LINE_STYLE}margin-bottom:16px;">${where}</p>
         <p style="${LABEL_STYLE}">Bring</p>
         <p style="${LINE_STYLE}margin-bottom:16px;">${escapeHtml(whatToBring(service).sentence)}</p>
+        <p style="${LABEL_STYLE}">Running late?</p>
+        <p style="${LINE_STYLE}margin-bottom:16px;">${escapeHtml(LATE_RULE)} If you're held up, WhatsApp Kristina on ${BUSINESS.telephone}.</p>
         <p style="${LABEL_STYLE}">Need to move it?</p>
         <p style="${LINE_STYLE}">Reply to this email, or WhatsApp Kristina on ${BUSINESS.telephone}.</p>
       </div>`;

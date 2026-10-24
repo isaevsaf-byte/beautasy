@@ -14,7 +14,7 @@ import { DEFAULT_SCHEDULE, generateSlots, startsCovered, type Schedule, type Slo
 const SCHEDULE_QUERY = `*[_type == "atelierSchedule"][0]{
   enabled, slotMinutes, leadTimeHours, horizonDays, workBankHolidays,
   "weekly": weekly[]{ day, from, to },
-  "closures": closures[]{ date, from, to, note }
+  "closures": closures[]{ date, until, from, to, note }
 }`;
 
 /**

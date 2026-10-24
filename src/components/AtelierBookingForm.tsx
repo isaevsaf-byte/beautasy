@@ -9,6 +9,7 @@ import { trackLead, trackReferralApply } from "@/lib/analytics";
 import { clearReferralCookie, pounds, readReferralCookie } from "@/lib/friendsLink";
 import { ATELIER_SERVICES, slotsFor, startForService, startsFor } from "@/lib/atelierServices";
 import { durationLabel, pinnedLabel, slotIsOffered } from "@/lib/slots";
+import { LATE_RULE } from "@/lib/business";
 import {
   FIELD_LIMITS,
   FOUND_US_OPTIONS,
@@ -174,6 +175,8 @@ export default function AtelierBookingForm({
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
+  /** Whether their confirmation carries the atelier's address */
+  const [addressSent, setAddressSent] = useState(false);
   // Book pressed with no time chosen: a stroke of chalk under "Choose a time",
   // one more for each press, brushed off when a time is picked (.chalk in globals.css)
   const [chalk, setChalk] = useState(0);
@@ -293,6 +296,7 @@ export default function AtelierBookingForm({
         error?: string;
         slotTaken?: boolean;
         confirmedFor?: string;
+        addressSent?: boolean;
         collection?: { terms: string; when: string | null };
         referral?: { applied: true; discount: number; referredBy?: string } | { applied: false; reason?: string | null };
       };
@@ -307,6 +311,7 @@ export default function AtelierBookingForm({
       }
 
       setConfirmedFor(data.confirmedFor ?? null);
+      setAddressSent(data.addressSent === true);
       setCollected(data.collection ?? null);
       setReferralResult(data.referral ?? null);
       if (data.referral?.applied) trackReferralApply("atelier");
@@ -345,8 +350,11 @@ export default function AtelierBookingForm({
               <p className="text-sm text-charcoal mb-1">Your fitting takes {durationLabel(visitMinutes)}.</p>
             )}
             <p className="text-sm text-charcoal-light max-w-sm">
-              A confirmation is on its way to your inbox. Reply to it if you need to move the time.
+              {addressSent
+                ? "A confirmation with the address and how to find the door is on its way to your inbox. Reply to it if you need to move the time."
+                : "A confirmation is on its way to your inbox. Reply to it if you need to move the time."}
             </p>
+            <p className="text-xs text-charcoal-light max-w-sm mt-3">{LATE_RULE}</p>
           </>
         ) : (
           <>
@@ -768,6 +776,12 @@ export default function AtelierBookingForm({
           )}
         </AnimatePresence>
       </div>
+
+      {/* The one rule about a booked time, said before it is booked rather
+          than learnt at the door */}
+      {bookable && !collecting && (
+        <p className="sm:col-span-2 -mt-2 text-xs text-charcoal-light">Running late? {LATE_RULE}</p>
+      )}
 
       {/* What pressing the button agrees to, said before it is pressed: a
           booking hands Kristina a name, an email, a phone number and, for a

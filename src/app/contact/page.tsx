@@ -100,7 +100,7 @@ export default function ContactPage() {
                 </li>
                 <li className="flex items-start gap-3">
                   <MapPin size={16} aria-hidden="true" className="text-lavender-ink shrink-0 mt-0.5" />
-                  <span>Southampton · by appointment — Kristina sends the address before your visit</span>
+                  <span>Southampton · by appointment — the address comes with your booking</span>
                 </li>
               </motion.ul>
             </motion.div>

@@ -145,6 +145,10 @@ test("the hours are written in one place", () => {
  * Every map link on the site opens the Beautasy Atelier listing, where the
  * reviews and hours are. The contact page's "Visit Us" used to open a map of
  * the whole of Southampton, which sent nobody to the listing at all.
+ *
+ * The one other map link is not on the site: a booked customer's emails carry
+ * the route to the street address (@/lib/atelierVisit), since the listing keeps
+ * the address hidden and could not lead them to the door.
  */
 test("a map link is the listing, never a map of the city", () => {
   const files = (dir: string): string[] =>

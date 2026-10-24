@@ -232,7 +232,7 @@ test("instead they say a visit is by appointment, with the address sent before i
     .map(([, json]) => JSON.parse(json))
     .find((ld) => ld["@type"] === "FAQPage");
   const answer = faq.mainEntity.find((q: { name: string }) => q.name === "Do I need an appointment?");
-  assert.match(answer.acceptedAnswer.text, /^Yes\. By appointment — Kristina sends the address before your visit\./);
+  assert.match(answer.acceptedAnswer.text, /^Yes\. By appointment — the address comes with your booking\./);
 });
 
 test("/alterations says so in its hero, where its buttons are", async (t) => {

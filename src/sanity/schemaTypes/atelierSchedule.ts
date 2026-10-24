@@ -1,4 +1,5 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
+import { closureCovers, closureLastDay, type Closure } from "@/lib/slots";
 
 const DAYS = [
   { title: "Понедельник", value: "mon" },
@@ -11,6 +12,32 @@ const DAYS = [
 ];
 
 const TIME_RULE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** "2026-11-03" → "3 нояб." — short, as the warning lists them */
+function dayRu(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" });
+}
+
+/** The day after "2026-11-07": where a range of whole days stops, for a query */
+function dayAfter(date: string): string {
+  const next = new Date(`${date}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+}
+
+/**
+ * Closing days that already have bookings: the site stops offering them, but
+ * the people booked are still coming. Said in the Studio as she saves — a
+ * warning, not a refusal, since moving them is hers to do — so nobody arrives
+ * at a locked door while she is away.
+ */
+const BOOKED_IN_CLOSURE = `*[
+  _type == "atelierBooking"
+  && !(_id in path("drafts.**"))
+  && status in ["new", "confirmed"]
+  && defined(slotStart)
+  && slotStart >= $from && slotStart < $until
+] | order(slotStart asc) { displayName, slotStart }`;
 
 /** "1 период", "3 периода", "5 периодов": a Russian count needs three forms, not two. */
 function openingPeriods(count: number): string {
@@ -124,7 +151,7 @@ export const atelierSchedule = defineType({
       title: "Выходные и перерывы",
       type: "array",
       description:
-        "Оставьте время пустым, чтобы закрыть весь день. Заполните его, чтобы закрыть только часть дня — например, отвезти детей в школу или принять доставку.",
+        "Уезжаете — поставьте «Дату» и «По»: сайт закроет все эти дни, и записаться на них будет нельзя. Оставьте время пустым, чтобы закрыть весь день. Заполните его, чтобы закрыть только часть дня — например, отвезти детей в школу или принять доставку. Уже сделанные записи сайт не отменяет — Studio предупредит, если они есть.",
       of: [
         defineArrayMember({
           type: "object",
@@ -135,6 +162,18 @@ export const atelierSchedule = defineType({
               type: "date",
               options: { dateFormat: "YYYY-MM-DD" },
               validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: "until",
+              title: "По (по желанию)",
+              type: "date",
+              options: { dateFormat: "YYYY-MM-DD" },
+              description: "Для отъезда: последний закрытый день. Закроет все дни с «Даты» по этот включительно — не нужно добавлять каждый день отдельно.",
+              validation: (Rule) =>
+                Rule.custom((until, context) => {
+                  const date = (context.parent as { date?: string } | undefined)?.date;
+                  return !until || !date || until >= date ? true : "Не раньше, чем «Дата»";
+                }),
             }),
             defineField({
               name: "from",
@@ -152,11 +191,31 @@ export const atelierSchedule = defineType({
             }),
             defineField({ name: "note", title: "Причина", type: "string", placeholder: "В отъезде" }),
           ],
+          validation: (Rule) =>
+            Rule.custom(async (value, context) => {
+              const closure = value as Closure | undefined;
+              if (!closure?.date) return true;
+              const last = closureLastDay(closure);
+              const booked = await context
+                .getClient({ apiVersion: "2026-02-13" })
+                .fetch<{ displayName?: string | null; slotStart: string }[]>(BOOKED_IN_CLOSURE, {
+                  from: `${closure.date}T00:00`,
+                  until: `${dayAfter(last)}T00:00`,
+                });
+              const inside = (booked ?? []).filter((booking) => closureCovers(closure, booking.slotStart));
+              if (!inside.length) return true;
+              const named = inside
+                .slice(0, 5)
+                .map((booking) => `${booking.displayName || "без имени"} — ${dayRu(booking.slotStart.slice(0, 10))} ${booking.slotStart.slice(11, 16)}`)
+                .join("; ");
+              return `На это время уже записаны: ${named}${inside.length > 5 ? ` и ещё ${inside.length - 5}` : ""}. Сайт их не отменит — перенесите или отмените эти записи в «Записях», иначе они придут.`;
+            }).warning(),
           preview: {
-            select: { date: "date", from: "from", to: "to", note: "note" },
-            prepare({ date, from, to, note }) {
-              const when = from && to ? `${from}–${to}` : "весь день";
-              return { title: `${date ?? "?"} · ${when}`, subtitle: note };
+            select: { date: "date", until: "until", from: "from", to: "to", note: "note" },
+            prepare({ date, until, from, to, note }) {
+              const days = until && date && until > date ? `${date} — ${until}` : date ?? "?";
+              const when = from && to ? `${from}–${to}` : until && date && until > date ? "все дни" : "весь день";
+              return { title: `${days} · ${when}`, subtitle: note };
             },
           },
         }),

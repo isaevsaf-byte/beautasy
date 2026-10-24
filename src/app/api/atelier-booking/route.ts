@@ -41,6 +41,7 @@ import {
 } from "@/lib/bookingEmails";
 import { sendEmail } from "@/lib/sendEmail";
 import { whatsappLink } from "@/lib/business";
+import { atelierVisit } from "@/lib/atelierVisit";
 import { judgeCollection, type CollectionRequest } from "@/lib/collection";
 import { collectionSettings } from "@/lib/siteSettings";
 
@@ -206,11 +207,12 @@ export function writeBackAfterEmails(input: {
 /**
  * The line at the foot of Kristina's email that gets the customer an answer.
  *
- * A booked time is confirmed to the customer at once, and their confirmation
- * says Kristina will send the address, because the atelier's address is not
- * published. So her email says so too, with the customer's WhatsApp one tap
- * away and the first line already written. Without a number she can read,
- * replying to the email reaches them as well.
+ * A booked time is confirmed to the customer at once. With the atelier's
+ * address set (see @/lib/atelierVisit) their confirmation carries it, and her
+ * email says there is nothing to send; without it, their confirmation says
+ * Kristina will send the address, and her email asks her to — with the
+ * customer's WhatsApp one tap away and the first line already written.
+ * Without a number she can read, replying to the email reaches them as well.
  */
 export function replyToCustomerHtml(input: {
   name: string;
@@ -219,11 +221,15 @@ export function replyToCustomerHtml(input: {
   service: string;
   /** Collect & return: the first message asks for their address, not tells them hers */
   collection?: boolean;
+  /** Whether the customer's emails carry the atelier's address (see @/lib/atelierVisit) */
+  addressSent?: boolean;
 }): string {
   const first = firstNameOf(input.name) ?? "there";
   const number = whatsappNumberOf(input.phone);
   const opening = input.slot
-    ? `Hi ${first}, it's Kristina from Beautasy. Looking forward to seeing you on ${slotLabel(input.slot)}. Here's how to find me: `
+    ? `Hi ${first}, it's Kristina from Beautasy. Looking forward to seeing you on ${slotLabel(input.slot)}. ${
+        input.addressSent ? "" : "Here's how to find me: "
+      }`
     : input.collection
     ? `Hi ${first}, it's Kristina from Beautasy, about collecting your ${pieceInSentence(input.service)}. What's the address? `
     : `Hi ${first}, it's Kristina from Beautasy, about your ${serviceInSentence(input.service)} request: `;
@@ -231,11 +237,15 @@ export function replyToCustomerHtml(input: {
     ? `<a href="${escapeHtml(`https://wa.me/${number}?text=${encodeURIComponent(opening)}`)}" style="color:#5e4b9a;font-weight:bold;">WhatsApp ${escapeHtml(first)}</a> or reply to this email.`
     : "Reply to this email to reach them.";
   if (input.slot) {
-    return `<p style="padding:12px 16px;background:#fff6e0;border-radius:10px;color:#5c4400;line-height:1.6;">📍 <strong>Send ${escapeHtml(first)} the address</strong> and how to find the door. Their confirmation says you will, before the visit.<br/>${whatsapp}</p>`;
+    return input.addressSent
+      ? `<p style="padding:12px 16px;background:#eef7ee;border-radius:10px;color:#24502a;line-height:1.6;">📍 Their confirmation already has the address, the way to the door and the 15-minute rule — nothing to send.<br/>${whatsapp}</p>`
+      : `<p style="padding:12px 16px;background:#fff6e0;border-radius:10px;color:#5c4400;line-height:1.6;">📍 <strong>Send ${escapeHtml(first)} the address</strong> and how to find the door. Their confirmation says you will, before the visit.<br/>${whatsapp}</p>`;
   }
   return input.collection
     ? `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}<br/>🚗 Give it a time in the Studio: open the request → «🚗 Назначить забор». The time is taken from your diary for the whole trip, and they are emailed it. Ask for their address — nobody comes to your door, so there is no address of yours to send.</p>`
-    : `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}<br/>📍 When you confirm a time in the Studio, their email says you'll send the address before the visit.</p>`;
+    : `<p style="color:#3d3d3d;line-height:1.7;">${whatsapp}<br/>📍 When you confirm a time in the Studio, their email ${
+        input.addressSent ? "gives them the address and the way to the door" : "says you'll send the address before the visit"
+      }.</p>`;
 }
 
 /**
@@ -640,7 +650,7 @@ export async function POST(req: NextRequest) {
               ? `<p style="padding:12px 16px;background:#fde8e4;border-radius:10px;color:#7a2a1a;line-height:1.6;">⚠️ <strong>This time is not held.</strong> The site could not write it into the diary, so somebody else could still book ${escapeHtml(askedFor ?? slotLabel(slot))}. ${saved ? "It is in the Studio as a request: open it and use <strong>Назначить время</strong> to hold the time — they get the confirmation, and everything on the request goes with it." : "It is not in the Studio either: confirm with them, then use <strong>Записать вручную</strong> in the Studio to hold the time."}</p>`
               : ""
           }
-          ${replyToCustomerHtml({ name, phone, slot: held ? slot : undefined, service, collection: !!collection })}
+          ${replyToCustomerHtml({ name, phone, slot: held ? slot : undefined, service, collection: !!collection, addressSent: atelierVisit() !== null })}
         </div>`,
         });
         emailed = true;
@@ -761,7 +771,7 @@ export async function POST(req: NextRequest) {
       {
         ok: true,
         emailed,
-        ...(held && slot ? { confirmedFor: slotLabel(slot) } : {}),
+        ...(held && slot ? { confirmedFor: slotLabel(slot), ...(confirmed && atelierVisit() ? { addressSent: true } : {}) } : {}),
         ...(collection
           ? { collection: { terms: collection.request.terms, when: collection.when ?? null } }
           : {}),
