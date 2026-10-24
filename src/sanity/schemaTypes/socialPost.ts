@@ -50,10 +50,10 @@ export const socialPost = defineType({
     }),
     defineField({
       name: "image",
-      title: "Картинка",
+      title: "Картинка · у Reels — обложка",
       type: "image",
       description:
-        "То, что увидят люди. Instagram принимает JPEG или PNG — лучше всего квадрат или 4:5. У Reels эта картинка станет обложкой.",
+        "То, что увидят люди. Instagram принимает JPEG или PNG — лучше всего квадрат или 4:5. У Reels это обложка: при «Одобрить» она уходит сама. Выкладываете ролик из приложения — скачайте её здесь (⋯ → «Скачать») и в Instagram нажмите «Edit cover» → «Add from camera roll». Надписи на обложке держите в середине: сетка профиля обрезает верх и низ.",
       options: { hotspot: true },
       validation: (Rule) => [Rule.required(), Rule.custom(ownPhotoLocationRule)],
     }),
